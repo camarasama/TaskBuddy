@@ -153,6 +153,7 @@ export const authApi = {
       method: 'PUT',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
+
 };
 
 // Family API
@@ -203,6 +204,32 @@ export const familyApi = {
 
   getChild: (childId: string) =>
     request<ApiResponse<{ child: unknown }>>(`/families/me/children/${childId}`),
+
+  getParents: () =>
+    request<ApiResponse<unknown>>('/families/me/parents'),
+
+  inviteCoParent: (email: string, relationshipType: string, relationshipOther?: string) =>
+    request<ApiResponse<{ message: string }>>('/families/me/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email, relationshipType, relationshipOther }),
+    }),
+
+  removeParent: (parentId: string) =>
+    request<ApiResponse<{ message: string }>>(`/families/me/parents/${parentId}`, {
+      method: 'DELETE',
+    }),
+
+    cancelInvite: (invitationId: string) =>
+    request<ApiResponse<{ message: string }>>(`/families/me/invitations/${invitationId}`, {
+      method: 'DELETE',
+    }),
+
+// ── PASTE INTO authApi (after changePassword) ─────────────────────────────────
+
+  regenerateFamilyCode: () =>
+    request<ApiResponse<{ familyCode: string }>>('/auth/family/regenerate-code', {
+      method: 'POST',
+    }),
 };
 
 // Tasks API
@@ -342,3 +369,4 @@ export const achievementsApi = {
   getUnlocked: () =>
     request<ApiResponse<{ achievements: unknown[] }>>('/achievements/unlocked'),
 };
+

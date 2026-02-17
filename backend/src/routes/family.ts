@@ -134,7 +134,7 @@ familyRouter.get('/me/members', async (req, res, next) => {
 // POST /families/me/invite - Send a co-parent invitation email
 familyRouter.post('/me/invite', requireParent, validateBody(inviteCoParentSchema), async (req, res, next) => {
   try {
-    await inviteService.sendInvite({
+    const { acceptUrl, emailSent } = await inviteService.sendInvite({
       familyId: req.familyId!,
       invitedByUserId: req.user!.userId,
       email: req.body.email,
@@ -142,7 +142,13 @@ familyRouter.post('/me/invite', requireParent, validateBody(inviteCoParentSchema
 
     res.json({
       success: true,
-      data: { message: `Invitation sent to ${req.body.email}` },
+      data: {
+        message: emailSent
+          ? `Invitation sent to ${req.body.email}`
+          : `Invitation created. Email delivery failed — use the link below to share manually.`,
+        acceptUrl,   // always returned so dev/prod can share link directly if needed
+        emailSent,
+      },
     });
   } catch (error) {
     next(error);
@@ -175,6 +181,24 @@ familyRouter.delete('/me/parents/:id', requireParent, async (req, res, next) => 
     res.json({
       success: true,
       data: { message: 'Co-parent removed from family' },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /families/me/invitations/:id - Cancel a pending invitation
+familyRouter.delete('/me/invitations/:id', requireParent, async (req, res, next) => {
+  try {
+    await inviteService.cancelInvite(
+      req.familyId!,
+      req.user!.userId,
+      req.params.id
+    );
+
+    res.json({
+      success: true,
+      data: { message: 'Invitation cancelled' },
     });
   } catch (error) {
     next(error);

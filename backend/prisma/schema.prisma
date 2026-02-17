@@ -46,6 +46,8 @@ model User {
   lastName     String    @map("last_name")
   avatarUrl    String?   @map("avatar_url")
   isPrimaryParent Boolean   @default(false) @map("is_primary_parent")
+  dateOfBirth     DateTime? @map("date_of_birth") @db.Date
+  phone           String?
   isActive        Boolean   @default(true) @map("is_active")
   lockedUntil     DateTime? @map("locked_until")
   lastLoginAt     DateTime? @map("last_login_at")

@@ -14,6 +14,7 @@ import {
   Crown,
   Trash2,
   Mail,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -77,6 +78,7 @@ export default function ParentSettingsPage() {
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [removingParentId, setRemovingParentId] = useState<string | null>(null);
+  const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null);
 
   const [familyCode, setFamilyCode] = useState('');
   const [familyName, setFamilyName] = useState('');
@@ -87,8 +89,9 @@ export default function ParentSettingsPage() {
     streakGracePeriodHours: 4,
   });
 
-  // Whether the logged-in user is the primary parent (controls remove button visibility)
-  const currentUserIsPrimary = parents.find((p) => p.id === user?.id)?.isPrimaryParent ?? false;
+  // Whether the logged-in user is the primary parent — only used to show/hide
+  // the Remove button on co-parent rows. Defaults true so it doesn't flicker.
+  const currentUserIsPrimary = parents.find((p) => p.id === user?.id)?.isPrimaryParent ?? true;
 
   // ── Data loading ────────────────────────────────────────────────────────
 
@@ -194,6 +197,20 @@ export default function ParentSettingsPage() {
       showError(message);
     } finally {
       setRemovingParentId(null);
+    }
+  };
+
+  const handleCancelInvite = async (invitationId: string) => {
+    setCancellingInviteId(invitationId);
+    try {
+      await familyApi.cancelInvite(invitationId);
+      showSuccess('Invitation cancelled');
+      await loadParents();
+    } catch (err: any) {
+      const message = err?.response?.data?.error?.message || err?.message || 'Failed to cancel invitation';
+      showError(message);
+    } finally {
+      setCancellingInviteId(null);
     }
   };
 
@@ -315,15 +332,13 @@ export default function ParentSettingsPage() {
                 Family Members
               </h2>
             </div>
-            {currentUserIsPrimary && (
-              <Button
-                size="sm"
-                onClick={() => setShowInviteModal(true)}
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Invite Co-Parent
-              </Button>
-            )}
+            <Button
+              size="sm"
+              onClick={() => setShowInviteModal(true)}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Invite Adult
+            </Button>
           </div>
 
           <div className="space-y-3">
@@ -386,16 +401,26 @@ export default function ParentSettingsPage() {
                     <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
                       <Mail className="w-4 h-4 text-slate-400" />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-700">{invite.email}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{invite.email}</p>
                       <p className="text-xs text-slate-400">
                         Invited by {invite.invitedBy.firstName} · expires{' '}
                         {new Date(invite.expiresAt).toLocaleDateString()}
                       </p>
                     </div>
-                    <span className="ml-auto text-xs text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full flex-shrink-0">
                       Pending
                     </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleCancelInvite(invite.id)}
+                      loading={cancellingInviteId === invite.id}
+                      title="Cancel invitation"
+                      className="text-red-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
                   </div>
                 ))}
               </>

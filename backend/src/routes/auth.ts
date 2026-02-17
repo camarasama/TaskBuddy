@@ -158,6 +158,29 @@ authRouter.post('/family/regenerate-code', authenticate, async (req, res, next) 
   }
 });
 
+// GET /auth/invite-preview?token=... - Fetch family/inviter info before showing the form
+// Public endpoint — used by the /invite/accept page to show "You've been invited to join X by Y"
+authRouter.get('/invite-preview', async (req, res, next) => {
+  try {
+    const token = req.query.token as string;
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Token is required' },
+      });
+    }
+
+    const preview = await inviteService.getInvitePreview(token);
+
+    res.json({
+      success: true,
+      data: preview,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // POST /auth/accept-invite - Co-parent accepts an invitation link (M4)
 // Public endpoint — the invitee is not yet authenticated.
 authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, res, next) => {

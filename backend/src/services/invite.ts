@@ -28,22 +28,45 @@ export interface AcceptInviteInput {
 // ─── Email transport (plain nodemailer; replaced by EmailService in M9) ─────
 
 function createTransport() {
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    secure: false,
+    port,
+    // port 465 = implicit TLS (secure:true), port 587 = STARTTLS (secure:false)
+    secure: port === 465,
     auth: {
       user: process.env.SMTP_USER || '',
       pass: process.env.SMTP_PASS || '',
     },
+    tls: {
+      // Allow self-signed certs in dev; Gmail requires this to be false in prod
+      rejectUnauthorized: process.env.NODE_ENV === 'production',
+    },
   });
+}
+
+// Gmail requires the "from" address to exactly match the authenticated SMTP_USER.
+// Using a display name like "TaskBuddy <noreply@...>" will be rejected.
+// This helper builds a safe from address.
+function buildFromAddress(): string {
+  const user = process.env.SMTP_USER || '';
+  // If SMTP_FROM is set AND its email part matches SMTP_USER, use it.
+  // Otherwise fall back to just the SMTP_USER address.
+  const smtpFrom = process.env.SMTP_FROM || '';
+  const fromEmailMatch = smtpFrom.match(/<([^>]+)>/);
+  const fromEmail = fromEmailMatch ? fromEmailMatch[1] : smtpFrom;
+  if (fromEmail && fromEmail.toLowerCase() === user.toLowerCase()) {
+    return smtpFrom; // safe to use the display-name version
+  }
+  // Gmail rejects mismatched from — use the auth user directly
+  return user;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export class InviteService {
   // POST /families/me/invite
-  async sendInvite(input: SendInviteInput): Promise<void> {
+  async sendInvite(input: SendInviteInput): Promise<{ acceptUrl: string; emailSent: boolean }> {
     const { familyId, invitedByUserId, email } = input;
 
     // 1. Verify caller is a parent in this family
@@ -99,23 +122,39 @@ export class InviteService {
     });
 
     // 6. Send the invite email (best-effort — don't throw if SMTP not configured in dev)
-    const frontendUrl = process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:3000';
+    // FRONTEND_URL takes priority — set this to your ngrok URL when testing remotely:
+    //   FRONTEND_URL=https://xxxx-xx-xx-xx-xx.ngrok-free.app
+    // Falls back to CLIENT_URL (comma-separated list), then localhost.
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.CLIENT_URL?.split(',')[0] ||
+      'http://localhost:3000'
+    ).replace(/\/$/, ''); // strip trailing slash
     const acceptUrl = `${frontendUrl}/invite/accept?token=${token}`;
     const familyName = caller.family.familyName;
     const inviterName = `${caller.firstName} ${caller.lastName}`;
 
+    let emailSent = false;
     try {
       const transporter = createTransport();
       await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'TaskBuddy <noreply@taskbuddy.app>',
+        from: buildFromAddress(),
         to: email,
         subject: `${inviterName} invited you to join ${familyName} on TaskBuddy`,
         html: buildInviteEmail({ inviterName, familyName, acceptUrl, expiresHours: INVITE_EXPIRES_HOURS }),
       });
-    } catch (err) {
-      // Log but don't block — in development SMTP is often not configured
-      console.warn('[InviteService] Failed to send invite email (SMTP not configured?):', err);
+      emailSent = true;
+    } catch (err: any) {
+      // Log the real error so it's visible in the backend console
+      console.error('[InviteService] Failed to send invite email:');
+      console.error('  Code:', err?.code);
+      console.error('  Message:', err?.message);
+      console.error('  Response:', err?.response);
+      console.warn('[InviteService] Fallback invite link (share manually):');
+      console.warn(`  ${acceptUrl}`);
     }
+
+    return { acceptUrl, emailSent };
   }
 
   // POST /auth/accept-invite
@@ -142,39 +181,59 @@ export class InviteService {
       throw new ConflictError('This invitation has already been accepted');
     }
 
-    // 4. Check the email isn't already a user in this family (edge-case: they registered independently)
+    // 4. Check the email isn't already registered anywhere in the system
     const existingUser = await prisma.user.findFirst({
-      where: { email: invitation.email, familyId: invitation.familyId, deletedAt: null },
+      where: { email: invitation.email, deletedAt: null },
     });
 
     if (existingUser) {
-      throw new ConflictError('An account with this email already exists in this family');
+      // If they're already in THIS family, it's a clean conflict
+      if (existingUser.familyId === invitation.familyId) {
+        throw new ConflictError('An account with this email already exists in this family. Try logging in instead.');
+      }
+      // Email used in another family — also a conflict (emails are globally unique)
+      throw new ConflictError('An account with this email already exists. If this is your email, please log in and contact support to be added to this family.');
     }
 
     // 5. Hash password
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     // 6. Create the co-parent user and mark invitation accepted — both in one transaction
-    const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          familyId: invitation.familyId,
-          email: invitation.email,
-          passwordHash,
-          role: 'parent',
-          isPrimaryParent: false,
-          firstName,
-          lastName,
-        },
-      });
+    let result;
+    try {
+      result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            familyId: invitation.familyId,
+            email: invitation.email,
+            passwordHash,
+            role: 'parent',
+            isPrimaryParent: false,
+            firstName,
+            lastName,
+            ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),
+            ...(phone ? { phone } : {}),
+          },
+        });
 
-      await tx.familyInvitation.update({
-        where: { id: invitation.id },
-        data: { acceptedAt: new Date() },
-      });
+        await tx.familyInvitation.update({
+          where: { id: invitation.id },
+          data: { acceptedAt: new Date() },
+        });
 
-      return user;
-    });
+        return user;
+      });
+    } catch (err: any) {
+      // P2002 = Prisma unique constraint violation
+      if (err?.code === 'P2002') {
+        throw new ConflictError(
+          'An account with this email address already exists. ' +
+          'If this is your email, try logging in instead. ' +
+          'Contact the person who invited you if you need help.'
+        );
+      }
+      throw err;
+    }
 
     // 7. Generate JWT tokens using the shared helper on authService
     const tokens = (authService as any).generateTokens({
@@ -263,6 +322,62 @@ export class InviteService {
       where: { id: targetId },
       data: { isActive: false, deletedAt: new Date() },
     });
+  }
+
+  // GET /auth/invite-preview?token=... — public, no auth required
+  // Returns just enough info to render the accept page (family name, inviter name, email)
+  async getInvitePreview(token: string) {
+    const invitation = await prisma.familyInvitation.findUnique({
+      where: { token },
+      include: {
+        family: { select: { familyName: true } },
+        invitedBy: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    if (!invitation) {
+      throw new NotFoundError('Invitation not found. The link may be invalid or already used.');
+    }
+
+    if (invitation.acceptedAt) {
+      throw new NotFoundError('This invitation has already been accepted.');
+    }
+
+    if (invitation.expiresAt < new Date()) {
+      throw new NotFoundError('This invitation link has expired. Please ask to be invited again.');
+    }
+
+    return {
+      familyName: invitation.family.familyName,
+      inviterName: `${invitation.invitedBy.firstName} ${invitation.invitedBy.lastName}`,
+      email: invitation.email,
+      expiresAt: invitation.expiresAt,
+    };
+  }
+
+  // DELETE /families/me/invitations/:id — cancel a pending invite
+  async cancelInvite(familyId: string, callerId: string, invitationId: string): Promise<void> {
+    // Verify caller is a parent in this family
+    const caller = await prisma.user.findUnique({ where: { id: callerId } });
+    if (!caller || caller.familyId !== familyId || caller.role !== 'parent') {
+      throw new UnauthorizedError('Not authorized');
+    }
+
+    // Find the invitation — must belong to same family and still be pending
+    const invitation = await prisma.familyInvitation.findFirst({
+      where: {
+        id: invitationId,
+        familyId,
+        acceptedAt: null,
+      },
+    });
+
+    if (!invitation) {
+      throw new NotFoundError('Invitation not found or already accepted');
+    }
+
+    // Hard-delete the invitation record so the token is fully revoked
+    await prisma.familyInvitation.delete({ where: { id: invitationId } });
   }
 }
 
