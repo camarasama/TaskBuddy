@@ -1,0 +1,521 @@
+// TaskBuddy Database Schema
+// Based on APP_DEVELOPMENT_INSTRUCTIONS.md v2.0
+
+generator client {
+  provider = "prisma-client-js"
+  url = env("DATABASE_URL")
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+// ============================================
+// CORE TABLES
+// ============================================
+
+model Family {
+  id         String    @id @default(uuid())
+  familyName String    @map("family_name")
+  familyCode String?   @unique @map("family_code")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  // Relations
+  users         User[]
+  taskTemplates TaskTemplate[]
+  tasks         Task[]
+  rewards       Reward[]
+  dailyChallenges DailyChallenge[]
+  settings      FamilySettings?
+  invitations   FamilyInvitation[]
+
+  @@map("families")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  familyId     String    @map("family_id")
+  email        String?   @unique
+  username     String?
+  passwordHash String?   @map("password_hash")
+  role         UserRole
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  avatarUrl    String?   @map("avatar_url")
+  isPrimaryParent Boolean   @default(false) @map("is_primary_parent")
+  isActive        Boolean   @default(true) @map("is_active")
+  lockedUntil     DateTime? @map("locked_until")
+  lastLoginAt     DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  family                Family              @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  childProfile          ChildProfile?
+  createdTasks          Task[]              @relation("CreatedTasks")
+  taskAssignments       TaskAssignment[]    @relation("AssignedTasks")
+  approvedAssignments   TaskAssignment[]    @relation("ApprovedAssignments")
+  createdRewards        Reward[]
+  rewardRedemptions     RewardRedemption[]
+  childAchievements     ChildAchievement[]
+  challengeCompletions  ChallengeCompletion[]
+  notifications         Notification[]
+  pointsLedger          PointsLedger[]      @relation("ChildPoints")
+  createdPointsEntries  PointsLedger[]      @relation("CreatedPointsEntries")
+  createdTemplates      TaskTemplate[]
+  sentInvitations       FamilyInvitation[] @relation("SentInvitations")
+
+  @@index([familyId])
+  @@index([email])
+  @@index([role])
+  @@index([username])
+  @@map("users")
+}
+
+model ChildProfile {
+  id                  String    @id @default(uuid())
+  userId              String    @unique @map("user_id")
+  dateOfBirth         DateTime  @map("date_of_birth") @db.Date
+  ageGroup            AgeGroup? @map("age_group")
+  pinHash             String?   @map("pin_hash")
+  pointsBalance       Int       @default(0) @map("points_balance")
+  totalPointsEarned   Int       @default(0) @map("total_points_earned")
+  totalTasksCompleted Int       @default(0) @map("total_tasks_completed")
+  currentStreakDays   Int       @default(0) @map("current_streak_days")
+  longestStreakDays   Int       @default(0) @map("longest_streak_days")
+  lastStreakDate      DateTime? @map("last_streak_date") @db.Date
+  level               Int       @default(1)
+  experiencePoints    Int       @default(0) @map("experience_points")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("child_profiles")
+}
+
+// ============================================
+// TASK MANAGEMENT
+// ============================================
+
+model TaskTemplate {
+  id                    String          @id @default(uuid())
+  familyId              String          @map("family_id")
+  name                  String
+  description           String?
+  category              String?
+  difficulty            TaskDifficulty?
+  suggestedPoints       Int             @default(10) @map("suggested_points")
+  estimatedMinutes      Int?            @map("estimated_minutes")
+  ageRange              String?         @map("age_range")
+  requiresPhotoEvidence Boolean         @default(false) @map("requires_photo_evidence")
+  isSystemTemplate      Boolean         @default(false) @map("is_system_template")
+  createdBy             String?         @map("created_by")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  family  Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  creator User?  @relation(fields: [createdBy], references: [id])
+  tasks   Task[]
+
+  @@index([familyId])
+  @@index([category])
+  @@map("task_templates")
+}
+
+model Task {
+  id                    String          @id @default(uuid())
+  familyId              String          @map("family_id")
+  templateId            String?         @map("template_id")
+  createdBy             String          @map("created_by")
+  title                 String
+  description           String?
+  category              String?
+  difficulty            TaskDifficulty?
+  pointsValue           Int             @default(10) @map("points_value")
+  dueDate               DateTime?       @map("due_date")
+  requiresPhotoEvidence Boolean         @default(false) @map("requires_photo_evidence")
+  isRecurring           Boolean         @default(false) @map("is_recurring")
+  recurrencePattern     String?         @map("recurrence_pattern")
+  recurrenceConfig      Json?           @map("recurrence_config")
+  autoApprove           Boolean         @default(false) @map("auto_approve")
+  status                TaskStatus      @default(active)
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+  deletedAt             DateTime?       @map("deleted_at")
+
+  // Relations
+  family      Family           @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  template    TaskTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  creator     User             @relation("CreatedTasks", fields: [createdBy], references: [id])
+  assignments TaskAssignment[]
+
+  @@index([familyId])
+  @@index([dueDate])
+  @@index([status])
+  @@index([category])
+  @@map("tasks")
+}
+
+model TaskAssignment {
+  id              String           @id @default(uuid())
+  taskId          String           @map("task_id")
+  childId         String           @map("child_id")
+  instanceDate    DateTime         @map("instance_date") @db.Date
+  status          AssignmentStatus @default(pending)
+  completedAt     DateTime?        @map("completed_at")
+  approvedAt      DateTime?        @map("approved_at")
+  approvedBy      String?          @map("approved_by")
+  rejectionReason String?          @map("rejection_reason")
+  pointsAwarded   Int?             @map("points_awarded")
+  xpAwarded       Int?             @map("xp_awarded")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  task     Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  child    User           @relation("AssignedTasks", fields: [childId], references: [id], onDelete: Cascade)
+  approver User?          @relation("ApprovedAssignments", fields: [approvedBy], references: [id])
+  evidence TaskEvidence[]
+
+  @@unique([taskId, childId, instanceDate])
+  @@index([taskId])
+  @@index([childId])
+  @@index([status])
+  @@index([instanceDate])
+  @@map("task_assignments")
+}
+
+model TaskEvidence {
+  id               String           @id @default(uuid())
+  assignmentId     String           @map("assignment_id")
+  evidenceType     EvidenceType
+  fileUrl          String?          @map("file_url")
+  fileKey          String?          @map("file_key")
+  fileSizeBytes    Int?             @map("file_size_bytes")
+  mimeType         String?          @map("mime_type")
+  thumbnailUrl     String?          @map("thumbnail_url")
+  note             String?
+  moderationStatus ModerationStatus @default(pending) @map("moderation_status")
+  uploadedAt       DateTime         @default(now()) @map("uploaded_at")
+
+  // Relations
+  assignment TaskAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+  @@map("task_evidence")
+}
+
+// ============================================
+// POINTS & REWARDS
+// ============================================
+
+model PointsLedger {
+  id              String          @id @default(uuid())
+  childId         String          @map("child_id")
+  transactionType TransactionType @map("transaction_type")
+  pointsAmount    Int             @map("points_amount")
+  balanceAfter    Int             @map("balance_after")
+  referenceType   String?         @map("reference_type")
+  referenceId     String?         @map("reference_id")
+  description     String?
+  breakdown       Json?
+  createdBy       String?         @map("created_by")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  child   User  @relation("ChildPoints", fields: [childId], references: [id], onDelete: Cascade)
+  creator User? @relation("CreatedPointsEntries", fields: [createdBy], references: [id])
+
+  @@index([childId])
+  @@index([createdAt])
+  @@index([transactionType])
+  @@map("points_ledger")
+}
+
+model Reward {
+  id                     String     @id @default(uuid())
+  familyId               String     @map("family_id")
+  createdBy              String     @map("created_by")
+  name                   String
+  description            String?
+  pointsCost             Int        @map("points_cost")
+  tier                   RewardTier?
+  iconUrl                String?    @map("icon_url")
+  isActive               Boolean    @default(true) @map("is_active")
+  maxRedemptionsPerChild Int?       @map("max_redemptions_per_child")
+  expiresAt              DateTime?  @map("expires_at")
+  isCollaborative        Boolean    @default(false) @map("is_collaborative")
+  createdAt              DateTime   @default(now()) @map("created_at")
+  updatedAt              DateTime   @updatedAt @map("updated_at")
+  deletedAt              DateTime?  @map("deleted_at")
+
+  // Relations
+  family      Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  creator     User               @relation(fields: [createdBy], references: [id])
+  redemptions RewardRedemption[]
+
+  @@index([familyId])
+  @@index([isActive])
+  @@index([tier])
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id          String           @id @default(uuid())
+  rewardId    String           @map("reward_id")
+  childId     String           @map("child_id")
+  pointsSpent Int              @map("points_spent")
+  status      RedemptionStatus @default(pending)
+  approvedBy  String?          @map("approved_by")
+  approvedAt  DateTime?        @map("approved_at")
+  fulfilledAt DateTime?        @map("fulfilled_at")
+  notes       String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  reward Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  child  User   @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([rewardId])
+  @@index([childId])
+  @@index([status])
+  @@map("reward_redemptions")
+}
+
+// ============================================
+// GAMIFICATION
+// ============================================
+
+model Achievement {
+  id                    String           @id @default(uuid())
+  name                  String
+  description           String?
+  iconUrl               String?          @map("icon_url")
+  category              String?
+  unlockCriteriaType    String?          @map("unlock_criteria_type")
+  unlockCriteriaValue   Int?             @map("unlock_criteria_value")
+  unlockCriteriaConfig  Json?            @map("unlock_criteria_config")
+  tier                  AchievementTier?
+  isSystemAchievement   Boolean          @default(true) @map("is_system_achievement")
+  pointsReward          Int              @default(0) @map("points_reward")
+  xpReward              Int              @default(0) @map("xp_reward")
+  createdAt             DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  childAchievements ChildAchievement[]
+
+  @@index([category])
+  @@index([tier])
+  @@map("achievements")
+}
+
+model ChildAchievement {
+  id            String   @id @default(uuid())
+  childId       String   @map("child_id")
+  achievementId String   @map("achievement_id")
+  unlockedAt    DateTime @default(now()) @map("unlocked_at")
+  progressValue Int?     @map("progress_value")
+
+  // Relations
+  child       User        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, achievementId])
+  @@index([childId])
+  @@index([unlockedAt])
+  @@map("child_achievements")
+}
+
+model DailyChallenge {
+  id            String   @id @default(uuid())
+  familyId      String   @map("family_id")
+  challengeDate DateTime @map("challenge_date") @db.Date
+  title         String
+  description   String?
+  challengeType String?  @map("challenge_type")
+  criteria      Json?
+  bonusPoints   Int      @map("bonus_points")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  family      Family                @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  completions ChallengeCompletion[]
+
+  @@unique([familyId, challengeDate])
+  @@index([familyId])
+  @@index([challengeDate])
+  @@map("daily_challenges")
+}
+
+model ChallengeCompletion {
+  id                 String   @id @default(uuid())
+  challengeId        String   @map("challenge_id")
+  childId            String   @map("child_id")
+  completedAt        DateTime @default(now()) @map("completed_at")
+  bonusPointsAwarded Int?     @map("bonus_points_awarded")
+
+  // Relations
+  challenge DailyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  child     User           @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, childId])
+  @@index([challengeId])
+  @@index([childId])
+  @@map("challenge_completions")
+}
+
+// ============================================
+// NOTIFICATIONS & SETTINGS
+// ============================================
+
+model Notification {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  notificationType String    @map("notification_type")
+  title            String
+  message          String
+  actionUrl        String?   @map("action_url")
+  referenceType    String?   @map("reference_type")
+  referenceId      String?   @map("reference_id")
+  isRead           Boolean   @default(false) @map("is_read")
+  readAt           DateTime? @map("read_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model FamilySettings {
+  id                        String   @id @default(uuid())
+  familyId                  String   @unique @map("family_id")
+  autoApproveRecurringTasks Boolean  @default(false) @map("auto_approve_recurring_tasks")
+  enableDailyChallenges     Boolean  @default(true) @map("enable_daily_challenges")
+  enableLeaderboard         Boolean  @default(false) @map("enable_leaderboard")
+  streakGracePeriodHours    Int      @default(4) @map("streak_grace_period_hours")
+  notificationPreferences   Json     @default("{\"task_assigned\":true,\"task_due_soon\":true,\"task_completed\":true,\"reward_unlocked\":true,\"achievement_unlocked\":true,\"streak_at_risk\":true}") @map("notification_preferences")
+  theme                     String   @default("default")
+  language                  String   @default("en")
+  timezone                  String   @default("UTC")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@map("family_settings")
+}
+
+// ============================================
+// CO-PARENT INVITATIONS (M4)
+// ============================================
+
+model FamilyInvitation {
+  id              String    @id @default(uuid())
+  familyId        String    @map("family_id")
+  invitedByUserId String    @map("invited_by_user_id")
+  email           String
+  token           String    @unique
+  expiresAt       DateTime  @map("expires_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  family      Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  invitedBy   User   @relation("SentInvitations", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([token])
+  @@index([email])
+  @@map("family_invitations")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  parent
+  child
+  admin
+}
+
+enum AgeGroup {
+  YOUNGER @map("10-12")
+  OLDER   @map("13-16")
+}
+
+enum TaskDifficulty {
+  easy
+  medium
+  hard
+}
+
+enum TaskStatus {
+  active
+  paused
+  archived
+}
+
+enum AssignmentStatus {
+  pending
+  in_progress
+  completed
+  approved
+  rejected
+}
+
+enum TransactionType {
+  earned
+  redeemed
+  bonus
+  penalty
+  adjustment
+}
+
+enum RewardTier {
+  small
+  medium
+  large
+}
+
+enum AchievementTier {
+  bronze
+  silver
+  gold
+  platinum
+}
+
+enum RedemptionStatus {
+  pending
+  approved
+  fulfilled
+  cancelled
+}
+
+enum EvidenceType {
+  photo
+  note
+  video
+}
+
+enum ModerationStatus {
+  pending
+  approved
+  flagged
+  rejected
+}

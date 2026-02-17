@@ -1,0 +1,7 @@
+{
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/parent/dashboard/page": "app/parent/dashboard/page.js",
+  "/parent/children/page": "app/parent/children/page.js",
+  "/parent/settings/page": "app/parent/settings/page.js"
+}

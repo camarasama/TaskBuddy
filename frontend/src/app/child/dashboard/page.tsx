@@ -1,0 +1,473 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  CheckCircle2,
+  Clock,
+  Trophy,
+  Star,
+  Zap,
+  ChevronRight,
+  Gift,
+} from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/contexts/AuthContext';
+import { dashboardApi } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
+import { cn, formatPoints, getDifficultyColor, levelFromXp } from '@/lib/utils';
+import Link from 'next/link';
+import { ChildLayout } from '@/components/layouts/ChildLayout';
+
+interface TaskAssignment {
+  assignment: {
+    id: string;
+    status: string;
+  };
+  task: {
+    id: string;
+    title: string;
+    description?: string;
+    difficulty: string;
+    pointsValue: number;
+  };
+}
+
+interface Achievement {
+  achievement: {
+    id: string;
+    name: string;
+    description: string;
+    iconUrl?: string;
+  };
+  unlockedAt: string;
+}
+
+interface ChildDashboardData {
+  profile: {
+    level: number;
+    experiencePoints: number;
+    pointsBalance: number;
+    totalPointsEarned: number;
+    currentStreakDays: number;
+    longestStreakDays: number;
+    totalTasksCompleted: number;
+  };
+  todaysTasks: TaskAssignment[];
+  streak: {
+    current: number;
+    atRisk: boolean;
+    completedToday: number;
+    requiredDaily: number;
+  };
+  recentAchievements: Achievement[];
+  dailyChallenge?: {
+    id: string;
+    title: string;
+    description?: string;
+    bonusPoints: number;
+    progress: number;
+    target: number;
+    completed: boolean;
+  };
+  nextReward?: {
+    reward: {
+      id: string;
+      name: string;
+      pointsCost: number;
+    };
+    pointsNeeded: number;
+  };
+}
+
+export default function ChildDashboardPage() {
+  const { user } = useAuth();
+  const { error: showError } = useToast();
+  const [data, setData] = useState<ChildDashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const response = await dashboardApi.getChildDashboard();
+        setData(response.data as ChildDashboardData);
+      } catch {
+        showError('Failed to load dashboard');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, [showError]);
+
+  if (isLoading) {
+    return (
+      <ChildLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-xp-500 border-t-transparent" />
+        </div>
+      </ChildLayout>
+    );
+  }
+
+  // Use default data if API fails
+  const dashboardData = data || {
+    profile: {
+      level: 1,
+      experiencePoints: 0,
+      pointsBalance: 0,
+      totalPointsEarned: 0,
+      currentStreakDays: 0,
+      longestStreakDays: 0,
+      totalTasksCompleted: 0,
+    },
+    todaysTasks: [],
+    streak: { current: 0, atRisk: false, completedToday: 0, requiredDaily: 1 },
+    recentAchievements: [],
+    dailyChallenge: undefined,
+    nextReward: undefined,
+  };
+
+  const totalXp = dashboardData.profile.experiencePoints ?? 0;
+  const { level, currentXp, nextLevelXp } = levelFromXp(totalXp);
+  const xpProgress = (currentXp / nextLevelXp) * 100;
+  const streakDays = dashboardData.profile.currentStreakDays ?? dashboardData.streak?.current ?? 0;
+  const completedTasks = dashboardData.todaysTasks.filter(t => {
+    const status = t.assignment?.status || '';
+    return status === 'completed' || status === 'approved';
+  }).length;
+  const totalTasks = dashboardData.todaysTasks.length;
+
+  return (
+    <ChildLayout>
+      <div className="space-y-6">
+        {/* Welcome & Streak */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          <h1 className="font-display text-2xl font-bold text-slate-900 mb-2">
+            Hey {user?.firstName}! 👋
+          </h1>
+          {streakDays > 0 && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-full font-bold">
+              <span className="text-xl">🔥</span>
+              <span>{streakDays} day streak!</span>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Level Progress Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-gradient-to-br from-xp-500 to-xp-700 rounded-2xl p-6 text-white shadow-lg shadow-xp-500/30"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
+                <span className="text-3xl font-bold">{level}</span>
+              </div>
+              <div>
+                <p className="text-xp-100">Level {level}</p>
+                <p className="font-bold text-lg">Task Champion</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xp-100">Total XP</p>
+              <p className="font-bold text-xl">{totalXp.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-sm mb-2">
+              <span>Level {level}</span>
+              <span>Level {level + 1}</span>
+            </div>
+            <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${xpProgress}%` }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
+                className="h-full bg-white rounded-full"
+              />
+            </div>
+            <p className="text-center text-sm mt-2 text-xp-100">
+              {nextLevelXp - currentXp} XP to next level
+            </p>
+          </div>
+        </motion.div>
+
+        {/* Daily Progress */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-bold text-lg text-slate-900">
+              Today&apos;s Progress
+            </h2>
+            <span className="text-sm text-slate-500">
+              {completedTasks}/{totalTasks} tasks
+            </span>
+          </div>
+
+          {/* Progress Ring */}
+          <div className="flex items-center justify-center mb-6">
+            <div className="relative w-32 h-32">
+              <svg className="w-full h-full -rotate-90">
+                <circle
+                  cx="64"
+                  cy="64"
+                  r="56"
+                  fill="none"
+                  stroke="#e2e8f0"
+                  strokeWidth="12"
+                />
+                <motion.circle
+                  cx="64"
+                  cy="64"
+                  r="56"
+                  fill="none"
+                  stroke="url(#progressGradient)"
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  initial={{ strokeDasharray: '0 352' }}
+                  animate={{
+                    strokeDasharray: `${(completedTasks / Math.max(totalTasks, 1)) * 352} 352`,
+                  }}
+                  transition={{ duration: 1, ease: 'easeOut' }}
+                />
+                <defs>
+                  <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#22c55e" />
+                    <stop offset="100%" stopColor="#16a34a" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-bold text-slate-900">{completedTasks}</span>
+                <span className="text-sm text-slate-500">done</span>
+              </div>
+            </div>
+          </div>
+
+          {totalTasks === 0 ? (
+            <p className="text-center text-slate-500">No tasks for today!</p>
+          ) : completedTasks === totalTasks ? (
+            <div className="text-center">
+              <p className="text-success-600 font-bold mb-2">All done! Great job! 🎉</p>
+            </div>
+          ) : (
+            <Link href="/child/tasks">
+              <Button fullWidth variant="primary">
+                <Zap className="w-4 h-4" />
+                Continue Tasks
+              </Button>
+            </Link>
+          )}
+        </motion.div>
+
+        {/* Daily Challenge */}
+        {dashboardData.dailyChallenge && !dashboardData.dailyChallenge.completed && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-gradient-to-br from-gold-400 to-gold-600 rounded-2xl p-6 text-white shadow-lg shadow-gold-500/30"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Star className="w-5 h-5" />
+              <span className="font-bold">Daily Challenge</span>
+              <span className="ml-auto text-sm bg-white/20 px-2 py-1 rounded-full">
+                +{dashboardData.dailyChallenge.bonusPoints} bonus points!
+              </span>
+            </div>
+            <p className="font-bold text-lg mb-3">
+              {dashboardData.dailyChallenge.title}
+            </p>
+            <div className="flex items-center justify-between">
+              <span className="text-gold-100">
+                {dashboardData.dailyChallenge.progress}/{dashboardData.dailyChallenge.target} completed
+              </span>
+              <ChevronRight className="w-5 h-5" />
+            </div>
+          </motion.div>
+        )}
+
+        {/* Today's Tasks Preview */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-bold text-lg text-slate-900">
+              Today&apos;s Tasks
+            </h2>
+            <Link href="/child/tasks" className="text-sm text-primary-600 font-medium">
+              View All
+            </Link>
+          </div>
+
+          {dashboardData.todaysTasks.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle2 className="w-12 h-12 text-success-400 mx-auto mb-3" />
+              <p className="text-slate-600">No tasks assigned for today</p>
+              <p className="text-sm text-slate-400">Enjoy your free time!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dashboardData.todaysTasks.slice(0, 3).map((item, index) => (
+                <TaskPreviewCard key={item.assignment?.id || index} item={item} />
+              ))}
+              {dashboardData.todaysTasks.length > 3 && (
+                <Link href="/child/tasks">
+                  <Button variant="ghost" fullWidth size="sm">
+                    View {dashboardData.todaysTasks.length - 3} more tasks
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Next Reward */}
+        {dashboardData.nextReward && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <Link href="/child/rewards">
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:border-xp-300 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-xl bg-xp-100 flex items-center justify-center">
+                    <Gift className="w-7 h-7 text-xp-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-500">Next reward</p>
+                    <p className="font-bold text-slate-900">{dashboardData.nextReward.reward.name}</p>
+                    <div className="flex items-center gap-1 text-sm">
+                      <Star className="w-4 h-4 text-gold-500" />
+                      <span className="text-gold-600 font-medium">
+                        {formatPoints(dashboardData.nextReward.reward.pointsCost)} points needed
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-slate-400" />
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        )}
+
+        {/* Recent Achievements */}
+        {dashboardData.recentAchievements.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display font-bold text-lg text-slate-900">
+                Recent Badges
+              </h2>
+              <Link href="/child/achievements" className="text-sm text-primary-600 font-medium">
+                View All
+              </Link>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+              {dashboardData.recentAchievements.map((item, index) => (
+                <div
+                  key={item.achievement?.id || index}
+                  className="flex-shrink-0 w-20 text-center"
+                >
+                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-2xl mb-2 shadow-lg shadow-gold-500/30">
+                    <Trophy className="w-8 h-8 text-white" />
+                  </div>
+                  <p className="text-xs font-medium text-slate-900 truncate">
+                    {item.achievement?.name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </ChildLayout>
+  );
+}
+
+// Task Preview Card
+function TaskPreviewCard({ item }: { item: TaskAssignment }) {
+  const status = item.assignment?.status || '';
+  const isCompleted = status === 'completed' || status === 'approved';
+  const isPending = status === 'completed'; // completed but not yet approved
+
+  return (
+    <Link href="/child/tasks">
+      <div
+        className={cn(
+          'flex items-center gap-4 p-4 rounded-xl transition-all shadow-sm',
+          isCompleted
+            ? 'bg-success-50 border border-success-200'
+            : isPending
+            ? 'bg-warning-50 border border-warning-200'
+            : 'bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md'
+        )}
+      >
+        <div
+          className={cn(
+            'w-10 h-10 rounded-full flex items-center justify-center',
+            isCompleted
+              ? 'bg-success-500 text-white'
+              : isPending
+              ? 'bg-warning-500 text-white'
+              : 'bg-white border-2 border-slate-300'
+          )}
+        >
+          {isCompleted ? (
+            <CheckCircle2 className="w-5 h-5" />
+          ) : isPending ? (
+            <Clock className="w-5 h-5" />
+          ) : null}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p
+            className={cn(
+              'font-medium truncate',
+              isCompleted ? 'text-success-800' : 'text-slate-900'
+            )}
+          >
+            {item.task?.title || 'Task'}
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <span
+              className={cn(
+                'text-xs px-2 py-0.5 rounded-full font-medium',
+                getDifficultyColor((item.task?.difficulty || '').toUpperCase())
+              )}
+            >
+              {item.task?.difficulty || 'medium'}
+            </span>
+            {isPending && (
+              <span className="text-xs text-warning-600">Waiting for approval</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 text-gold-600 font-bold">
+          <Star className="w-4 h-4" />
+          <span>{item.task?.pointsValue || 0}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
