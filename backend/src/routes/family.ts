@@ -6,6 +6,8 @@ import { inviteService } from '../services/invite';
 import { authenticate, requireParent, familyIsolation } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
+// M5 — import capacity utility
+import { getChildCapacity, type ChildCapacity } from '../utils/assignmentLimits';
 
 export const familyRouter = Router();
 
@@ -383,3 +385,47 @@ familyRouter.put('/me/settings', requireParent, validateBody(updateSettingsSchem
     next(error);
   }
 });
+
+// M5 — POST /families/children/capacities - Get task capacity for multiple children
+const childCapacitiesSchema = z.object({
+  childIds: z.array(z.string().uuid()).min(1).max(20),
+});
+
+familyRouter.post(
+  '/children/capacities',
+  requireParent,
+  validateBody(childCapacitiesSchema),
+  async (req, res, next) => {
+    try {
+      const { childIds } = req.body as z.infer<typeof childCapacitiesSchema>;
+
+      // Verify all children belong to the requesting parent's family
+      const children = await prisma.user.findMany({
+        where: {
+          id: { in: childIds },
+          familyId: req.familyId,
+          role: 'child',
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (children.length !== childIds.length) {
+        throw new NotFoundError('One or more children not found in your family');
+      }
+
+      // Fetch capacity for each child
+      const capacities: Record<string, ChildCapacity> = {};
+      for (const childId of childIds) {
+        capacities[childId] = await getChildCapacity(childId);
+      }
+
+      res.json({
+        success: true,
+        data: { capacities },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);

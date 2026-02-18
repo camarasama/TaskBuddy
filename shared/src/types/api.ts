@@ -56,7 +56,7 @@ export interface LoginRequest {
 }
 
 export interface ChildLoginRequest {
-  familyId: string;
+  familyCode: string;
   childIdentifier: string; // firstName or username
   pin: string;
   deviceId?: string;

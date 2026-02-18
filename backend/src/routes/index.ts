@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { authRouter } from './auth';
 import { familyRouter } from './family';
 import { taskRouter } from './tasks';
+// M5 — import the self-assign router
+import { taskSelfAssignRouter } from './taskSelfAssign';
 import { rewardRouter } from './rewards';
 import { dashboardRouter } from './dashboard';
 import { achievementRouter } from './achievements';
@@ -11,6 +13,8 @@ export const apiRouter = Router();
 // Mount route modules
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/families', familyRouter);
+// M5 — Mount self-assign BEFORE the main taskRouter so the more specific path matches first
+apiRouter.use('/tasks/assignments/self-assign', taskSelfAssignRouter);
 apiRouter.use('/tasks', taskRouter);
 apiRouter.use('/rewards', rewardRouter);
 apiRouter.use('/dashboard', dashboardRouter);

@@ -90,6 +90,7 @@ model ChildProfile {
   currentStreakDays   Int       @default(0) @map("current_streak_days")
   longestStreakDays   Int       @default(0) @map("longest_streak_days")
   lastStreakDate      DateTime? @map("last_streak_date") @db.Date
+  lastActivityDate    DateTime? @map("last_activity_date")
   level               Int       @default(1)
   experiencePoints    Int       @default(0) @map("experience_points")
   createdAt           DateTime  @default(now()) @map("created_at")
@@ -141,8 +142,13 @@ model Task {
   description           String?
   category              String?
   difficulty            TaskDifficulty?
+  // M5 — CR-01: primary = must-do, secondary = bonus/self-assignable
+  taskTag               TaskTag         @default(primary) @map("task_tag")
   pointsValue           Int             @default(10) @map("points_value")
   dueDate               DateTime?       @map("due_date")
+  // M5 — CR-09: optional scheduling fields for overlap detection
+  startTime             DateTime?       @map("start_time")
+  estimatedMinutes      Int?            @map("estimated_minutes")
   requiresPhotoEvidence Boolean         @default(false) @map("requires_photo_evidence")
   isRecurring           Boolean         @default(false) @map("is_recurring")
   recurrencePattern     String?         @map("recurrence_pattern")
@@ -465,6 +471,12 @@ enum TaskDifficulty {
   easy
   medium
   hard
+}
+
+// M5 — CR-01: task classification
+enum TaskTag {
+  primary   // Must-do task assigned by parent
+  secondary // Bonus/optional task; child can self-assign if no primary is pending
 }
 
 enum TaskStatus {

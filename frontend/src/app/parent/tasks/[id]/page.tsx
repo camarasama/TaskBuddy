@@ -1,102 +1,205 @@
+// frontend/src/app/parent/tasks/[id]/edit/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  User,
-  Star,
-  Camera,
-  Repeat,
-  Edit2,
-  Trash2,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-} from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Clock, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { tasksApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { formatDate, formatDateTime, getDifficultyColor } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+// M5 — overlap modal
+import {
+  OverlapWarningModal,
+  type OverlapWarning,
+} from '@/components/tasks/OverlapWarningModal';
 
+// ── Types ────────────────────────────────────────────────────────────────────
 interface Task {
   id: string;
   title: string;
   description?: string;
+  category?: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  // M5 — CR-01
+  taskTag: 'primary' | 'secondary';
   pointsValue: number;
   xpValue: number;
   requiresPhotoEvidence: boolean;
-  recurrencePattern?: string;
   dueDate?: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  assignments?: TaskAssignment[];
+  // M5 — CR-09
+  startTime?: string;
+  estimatedMinutes?: number;
+  status: 'active' | 'paused' | 'archived';
+  assignments?: {
+    child: { id: string; firstName: string; lastName: string };
+  }[];
 }
 
-interface TaskAssignment {
-  id: string;
-  status: string;
-  instanceDate: string;
-  completedAt?: string;
-  approvedAt?: string;
-  child: {
-    id: string;
-    firstName: string;
-    lastName: string;
-  };
+interface FormState {
+  title: string;
+  description: string;
+  category: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  // M5 — CR-01
+  taskTag: 'primary' | 'secondary';
+  pointsValue: string;
+  dueDate: string;
+  // M5 — CR-09
+  startTime: string;
+  estimatedMinutes: string;
+  requiresPhotoEvidence: boolean;
+  status: 'active' | 'paused' | 'archived';
 }
 
-export default function TaskDetailsPage() {
+// ── Option arrays ────────────────────────────────────────────────────────────
+const DIFFICULTY_OPTIONS: { value: FormState['difficulty']; label: string; color: string }[] = [
+  { value: 'easy',   label: 'Easy',   color: 'border-green-400 bg-green-50 text-green-700' },
+  { value: 'medium', label: 'Medium', color: 'border-yellow-400 bg-yellow-50 text-yellow-700' },
+  { value: 'hard',   label: 'Hard',   color: 'border-red-400 bg-red-50 text-red-700' },
+];
+
+const STATUS_OPTIONS: { value: FormState['status']; label: string }[] = [
+  { value: 'active',   label: 'Active' },
+  { value: 'paused',   label: 'Paused' },
+  { value: 'archived', label: 'Archived' },
+];
+
+// ── Page ────────────────────────────────────────────────────────────────────
+export default function EditTaskPage() {
   const params = useParams();
   const router = useRouter();
   const { error: showError, success: showSuccess } = useToast();
-  const [task, setTask] = useState<Task | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const taskId = params.id as string;
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [task, setTask] = useState<Task | null>(null);
+  const [form, setForm] = useState<FormState>({
+    title: '',
+    description: '',
+    category: '',
+    difficulty: 'medium',
+    taskTag: 'primary',
+    pointsValue: '',
+    dueDate: '',
+    startTime: '',
+    estimatedMinutes: '',
+    requiresPhotoEvidence: false,
+    status: 'active',
+  });
+
+  // M5 — overlap warning state
+  const [pendingWarnings, setPendingWarnings] = useState<OverlapWarning[]>([]);
+
+  // ── Load task ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const loadTask = async () => {
       try {
         const response = await tasksApi.getById(taskId);
         const data = response.data as { task: Task };
-        setTask(data.task);
+        const t = data.task;
+
+        setTask(t);
+        setForm({
+          title: t.title,
+          description: t.description ?? '',
+          category: t.category ?? '',
+          difficulty: t.difficulty,
+          taskTag: t.taskTag ?? 'primary',
+          pointsValue: String(t.pointsValue),
+          dueDate: t.dueDate ? t.dueDate.slice(0, 16) : '',
+          startTime: t.startTime ? t.startTime.slice(0, 16) : '',
+          estimatedMinutes: t.estimatedMinutes != null ? String(t.estimatedMinutes) : '',
+          requiresPhotoEvidence: t.requiresPhotoEvidence,
+          status: t.status,
+        });
       } catch {
-        showError('Failed to load task details');
+        showError('Failed to load task');
         router.push('/parent/tasks');
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (taskId) {
-      loadTask();
-    }
+    if (taskId) loadTask();
   }, [taskId, showError, router]);
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this task?')) return;
+  // ── Handlers ────────────────────────────────────────────────────────────────
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+    }));
+  };
 
-    setIsDeleting(true);
+  const handleDifficultySelect = (value: FormState['difficulty']) =>
+    setForm((prev) => ({ ...prev, difficulty: value }));
+
+  const handleTagSelect = (value: FormState['taskTag']) =>
+    setForm((prev) => ({ ...prev, taskTag: value }));
+
+  const performSave = async (skipWarnings = false) => {
+    if (!form.title.trim()) { showError('Task title is required'); return; }
+
+    const pointsNum = parseInt(form.pointsValue, 10);
+    if (isNaN(pointsNum) || pointsNum < 1 || pointsNum > 1000) {
+      showError('Points must be between 1 and 1000');
+      return;
+    }
+
+    const estimatedNum = form.estimatedMinutes ? parseInt(form.estimatedMinutes, 10) : undefined;
+    if (form.estimatedMinutes && (isNaN(estimatedNum!) || estimatedNum! < 1 || estimatedNum! > 480)) {
+      showError('Duration must be between 1 and 480 minutes');
+      return;
+    }
+
+    setIsSaving(true);
     try {
-      await tasksApi.delete(taskId);
-      showSuccess('Task deleted');
-      router.push('/parent/tasks');
+      const response = await tasksApi.update(taskId, {
+        title: form.title.trim(),
+        description: form.description.trim() || undefined,
+        category: form.category.trim() || undefined,
+        difficulty: form.difficulty,
+        taskTag: form.taskTag,
+        pointsValue: pointsNum,
+        dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+        startTime: form.startTime ? new Date(form.startTime).toISOString() : null,
+        estimatedMinutes: estimatedNum ?? null,
+        requiresPhotoEvidence: form.requiresPhotoEvidence,
+        status: form.status,
+      });
+
+      const result = response.data as { warnings?: OverlapWarning[] };
+
+      // M5 — show overlap modal if warnings come back and not yet acknowledged
+      if (!skipWarnings && result.warnings && result.warnings.length > 0) {
+        setPendingWarnings(result.warnings);
+        setIsSaving(false);
+        return;
+      }
+
+      showSuccess('Task updated');
+      router.push(`/parent/tasks/${taskId}`);
     } catch {
-      showError('Failed to delete task');
+      showError('Failed to save changes');
     } finally {
-      setIsDeleting(false);
+      setIsSaving(false);
     }
   };
 
+  const handleSubmit = () => performSave();
+  const handleAssignAnyway = async () => { setPendingWarnings([]); await performSave(true); };
+  const handleGoBack = () => setPendingWarnings([]);
+
+  // ── Loading / not-found states ──────────────────────────────────────────────
   if (isLoading) {
     return (
       <ParentLayout>
@@ -113,197 +216,274 @@ export default function TaskDetailsPage() {
         <div className="text-center py-12">
           <p className="text-slate-600">Task not found</p>
           <Link href="/parent/tasks">
-            <Button variant="secondary" className="mt-4">
-              Back to Tasks
-            </Button>
+            <Button variant="secondary" className="mt-4">Back to Tasks</Button>
           </Link>
         </div>
       </ParentLayout>
     );
   }
 
-  const difficultyLabels = {
-    easy: 'Easy',
-    medium: 'Medium',
-    hard: 'Hard',
-  };
-
-  const statusConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-    active: { icon: Clock, color: 'text-blue-600 bg-blue-50', label: 'Active' },
-    completed: { icon: CheckCircle2, color: 'text-yellow-600 bg-yellow-50', label: 'Pending Approval' },
-    approved: { icon: CheckCircle2, color: 'text-green-600 bg-green-50', label: 'Approved' },
-    rejected: { icon: XCircle, color: 'text-red-600 bg-red-50', label: 'Rejected' },
-    paused: { icon: AlertCircle, color: 'text-slate-600 bg-slate-50', label: 'Paused' },
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <ParentLayout>
-      <div className="space-y-6">
-        {/* Back Button */}
+      {/* M5 — Overlap Warning Modal */}
+      {pendingWarnings.length > 0 && (
+        <OverlapWarningModal
+          warnings={pendingWarnings}
+          onAssignAnyway={handleAssignAnyway}
+          onGoBack={handleGoBack}
+        />
+      )}
+
+      <div className="space-y-6 max-w-2xl mx-auto">
         <Link
-          href="/parent/tasks"
+          href={`/parent/tasks/${taskId}`}
           className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Tasks</span>
+          <span>Back to Task</span>
         </Link>
 
-        {/* Header Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
+          className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6"
         >
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(task.difficulty.toUpperCase())}`}
+          <h1 className="font-display text-2xl font-bold text-slate-900">Edit Task</h1>
+
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              maxLength={200}
+              placeholder="e.g. Clean your room"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Description <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <textarea
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              maxLength={1000}
+              rows={3}
+              placeholder="Add more detail about what needs to be done…"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+            />
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Category <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <input
+              name="category"
+              value={form.category}
+              onChange={handleChange}
+              maxLength={50}
+              placeholder="e.g. Chores, Homework, Exercise"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* M5 — CR-01: Task Tag */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-1.5">
+              <Tag className="w-4 h-4" />
+              Task Type
+            </label>
+            <div className="flex gap-3">
+              {(
+                [
+                  { value: 'primary',   label: '⭐ Primary',   active: 'border-primary-500 bg-primary-50 text-primary-700' },
+                  { value: 'secondary', label: '🎁 Secondary', active: 'border-success-500 bg-success-50 text-success-700' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => handleTagSelect(opt.value)}
+                  className={cn(
+                    'flex-1 py-2 rounded-lg border-2 text-sm font-medium transition-all',
+                    form.taskTag === opt.value
+                      ? opt.active
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                  )}
                 >
-                  {difficultyLabels[task.difficulty]}
-                </span>
-                {task.recurrencePattern && (
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-600 flex items-center gap-1">
-                    <Repeat className="w-3 h-3" />
-                    Recurring
-                  </span>
-                )}
-              </div>
-              <h1 className="font-display text-2xl font-bold text-slate-900 mb-2">
-                {task.title}
-              </h1>
-              {task.description && (
-                <p className="text-slate-600">{task.description}</p>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              <Link href={`/parent/tasks/${taskId}/edit`}>
-                <Button variant="secondary" size="sm">
-                  <Edit2 className="w-4 h-4" />
-                  Edit
-                </Button>
-              </Link>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleDelete}
-                loading={isDeleting}
-                className="text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </Button>
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Task Details */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gold-50 flex items-center justify-center">
-                <Star className="w-4 h-4 text-gold-600" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Points</p>
-                <p className="font-bold text-slate-900">{task.pointsValue}</p>
-              </div>
+          {/* Difficulty */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Difficulty</label>
+            <div className="flex gap-3">
+              {DIFFICULTY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => handleDifficultySelect(opt.value)}
+                  className={cn(
+                    'flex-1 py-2 rounded-lg border-2 text-sm font-medium transition-all',
+                    form.difficulty === opt.value
+                      ? opt.color + ' border-current'
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-
-            {task.dueDate && (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">Due Date</p>
-                  <p className="font-bold text-slate-900">{formatDate(task.dueDate)}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-xp-50 flex items-center justify-center">
-                <Clock className="w-4 h-4 text-xp-600" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">XP Reward</p>
-                <p className="font-bold text-slate-900">{task.xpValue} XP</p>
-              </div>
-            </div>
-
-            {task.requiresPhotoEvidence && (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-                  <Camera className="w-4 h-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">Photo</p>
-                  <p className="font-bold text-slate-900">Required</p>
-                </div>
-              </div>
-            )}
           </div>
-        </motion.div>
 
-        {/* Assignments */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white rounded-xl p-6 border border-slate-200"
-        >
-          <h2 className="font-display text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-            <User className="w-5 h-5 text-primary-500" />
-            Assignments
-          </h2>
+          {/* Points */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Points <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="pointsValue"
+              type="number"
+              value={form.pointsValue}
+              onChange={handleChange}
+              min={1}
+              max={1000}
+              placeholder="e.g. 50"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
 
-          {task.assignments && task.assignments.length > 0 ? (
-            <div className="space-y-3">
-              {task.assignments.map((assignment) => {
-                const config = statusConfig[assignment.status] || statusConfig.active;
-                const StatusIcon = config.icon;
+          {/* Due Date */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Due Date <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <input
+              name="dueDate"
+              type="datetime-local"
+              value={form.dueDate}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
 
-                return (
-                  <div
-                    key={assignment.id}
-                    className="flex items-center justify-between p-4 bg-slate-50 rounded-lg"
+          {/* M5 — CR-09: Start Time */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1.5">
+              <Clock className="w-4 h-4" />
+              Start Time <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <input
+              name="startTime"
+              type="datetime-local"
+              value={form.startTime}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              Used to detect schedule conflicts with other tasks.
+            </p>
+          </div>
+
+          {/* M5 — CR-09: Estimated Duration */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Estimated Duration <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                name="estimatedMinutes"
+                type="number"
+                value={form.estimatedMinutes}
+                onChange={handleChange}
+                min={1}
+                max={480}
+                placeholder="e.g. 30"
+                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <span className="text-sm text-slate-500 whitespace-nowrap">minutes</span>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <select
+              name="status"
+              value={form.status}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Photo Evidence */}
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              name="requiresPhotoEvidence"
+              type="checkbox"
+              checked={form.requiresPhotoEvidence}
+              onChange={handleChange}
+              className="w-4 h-4 text-primary-500 border-slate-300 rounded focus:ring-primary-500"
+            />
+            <span className="text-sm font-medium text-slate-700">Require photo evidence</span>
+          </label>
+
+          {/* Assigned children — read-only */}
+          {task.assignments && task.assignments.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-2">Assigned to</p>
+              <div className="flex flex-wrap gap-2">
+                {task.assignments.map((a) => (
+                  <span
+                    key={a.child.id}
+                    className="px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm font-medium"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold">
-                        {assignment.child.firstName.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900">
-                          {assignment.child.firstName} {assignment.child.lastName}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          {formatDate(assignment.instanceDate)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className={`flex items-center gap-1 px-3 py-1 rounded-full ${config.color}`}>
-                      <StatusIcon className="w-4 h-4" />
-                      <span className="text-sm font-medium">{config.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-slate-500">
-              <User className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-              <p>No assignments yet</p>
-              <p className="text-sm">Assign this task to a child to get started</p>
+                    {a.child.firstName} {a.child.lastName}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                To change assignments, delete and recreate the task.
+              </p>
             </div>
           )}
-        </motion.div>
 
-        {/* Metadata */}
-        <div className="text-sm text-slate-500 flex gap-4">
-          <span>Created {formatDateTime(task.createdAt)}</span>
-          <span>Last updated {formatDateTime(task.updatedAt)}</span>
-        </div>
+          {/* Actions */}
+          <div className="flex gap-3 pt-2 border-t border-slate-100">
+            <Link href={`/parent/tasks/${taskId}`} className="flex-1">
+              <Button variant="secondary" className="w-full">Cancel</Button>
+            </Link>
+            <Button
+              onClick={handleSubmit}
+              loading={isSaving}
+              className="flex-1 flex items-center justify-center gap-2"
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              Save Changes
+            </Button>
+          </div>
+        </motion.div>
       </div>
     </ParentLayout>
   );

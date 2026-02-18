@@ -1,20 +1,20 @@
+// frontend/src/contexts/AuthContext.tsx
 'use client';
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  ReactNode,
-} from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, setAccessToken, getAccessToken } from '@/lib/api';
-import type { User, ChildProfile, Family } from '@taskbuddy/shared';
 
-interface AuthUser extends Omit<User, 'passwordHash'> {
-  childProfile?: Omit<ChildProfile, 'pinHash'> | null;
-  family?: Family | null;
+interface AuthUser {
+  id: string;
+  email?: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  familyId: string;
+  avatarUrl?: string;
+  profile?: any;
+  family?: any;
 }
 
 interface AuthContextType {
@@ -24,7 +24,7 @@ interface AuthContextType {
   isParent: boolean;
   isChild: boolean;
   login: (email: string, password: string) => Promise<void>;
-  childLogin: (familyId: string, identifier: string, pin: string) => Promise<void>;
+  childLogin: (familyCode: string, childIdentifier: string, pin: string) => Promise<void>;
   register: (familyName: string, parent: {
     firstName: string;
     lastName: string;
@@ -53,7 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await authApi.me();
-        setUser(response.data.user as AuthUser);
+        if (response.data) {
+          setUser(response.data.user as AuthUser);
+        }
       } catch {
         setAccessToken(null);
       } finally {
@@ -66,6 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await authApi.login({ email, password });
+    if (!response.data) {
+      throw new Error('Invalid response from server');
+    }
     setAccessToken(response.data.tokens.accessToken);
     setUser(response.data.user as AuthUser);
 
@@ -77,12 +82,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router]);
 
+  // FIXED: Use familyCode (not familyId) to match backend schema
   const childLogin = useCallback(async (
-    familyId: string,
+    familyCode: string,
     childIdentifier: string,
     pin: string
   ) => {
-    const response = await authApi.childLogin({ familyId, childIdentifier, pin });
+    const response = await authApi.childLogin({ familyCode, childIdentifier, pin });
+    if (!response.data) {
+      throw new Error('Invalid response from server');
+    }
     setAccessToken(response.data.tokens.accessToken);
     setUser(response.data.user as AuthUser);
     router.push('/child/dashboard');
@@ -98,6 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   ) => {
     const response = await authApi.register({ familyName, parent });
+    if (!response.data) {
+      throw new Error('Invalid response from server');
+    }
     setAccessToken(response.data.tokens.accessToken);
     setUser(response.data.user as AuthUser);
     router.push('/parent/dashboard');
@@ -116,7 +128,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const response = await authApi.me();
-      setUser(response.data.user as AuthUser);
+      if (response.data) {
+        setUser(response.data.user as AuthUser);
+      }
     } catch {
       // Failed to refresh, logout
       setAccessToken(null);

@@ -170,6 +170,13 @@ export const familyApi = {
       body: JSON.stringify(data),
     }),
 
+  // M5 — CR-10: Get task capacity for children (used by parent create/edit forms)
+  getChildCapacities: (childIds: string[]) =>
+    request<ApiResponse<{ capacities: Record<string, unknown> }>>('/families/children/capacities', {
+      method: 'POST',
+      body: JSON.stringify({ childIds }),
+    }),
+
   getSettings: () =>
     request<ApiResponse<unknown>>('/families/me/settings'),
 
@@ -223,13 +230,6 @@ export const familyApi = {
     request<ApiResponse<{ message: string }>>(`/families/me/invitations/${invitationId}`, {
       method: 'DELETE',
     }),
-
-// ── PASTE INTO authApi (after changePassword) ─────────────────────────────────
-
-  regenerateFamilyCode: () =>
-    request<ApiResponse<{ familyCode: string }>>('/auth/family/regenerate-code', {
-      method: 'POST',
-    }),
 };
 
 // Tasks API
@@ -252,6 +252,13 @@ export const tasksApi = {
     request<ApiResponse<{ task: unknown }>>(`/tasks/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    }),
+  
+  // M5 — CR-10: Child self-assigns a secondary task
+  selfAssign: (taskId: string) =>
+    request<ApiResponse<{ assignment: unknown }>>('/tasks/assignments/self-assign', {
+      method: 'POST',
+      body: JSON.stringify({ taskId }),
     }),
 
   delete: (id: string) =>
@@ -369,4 +376,3 @@ export const achievementsApi = {
   getUnlocked: () =>
     request<ApiResponse<{ achievements: unknown[] }>>('/achievements/unlocked'),
 };
-

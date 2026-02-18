@@ -1,4 +1,7 @@
 {
-  "/parent/dashboard/page": "app/parent/dashboard/page.js",
-  "/parent/settings/page": "app/parent/settings/page.js"
+  "/not-found": "app/not-found.js",
+  "/child/login/page": "app/child/login/page.js",
+  "/child/tasks/page": "app/child/tasks/page.js",
+  "/child/dashboard/page": "app/child/dashboard/page.js",
+  "/parent/tasks/page": "app/parent/tasks/page.js"
 }
