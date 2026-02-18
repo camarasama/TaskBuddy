@@ -11,6 +11,11 @@ import { evaluateStreak } from '../services/streakService';
 // M5 — CR-09 / CR-10 utilities
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
 import { getTaskOverlaps } from '../utils/overlapCheck';
+// M7 — CR-06: level-up detection and milestone bonus Points
+import { checkAndApplyLevelUp } from '../services/levelService';
+import { GAMIFICATION_M7 } from '../utils/gamification';
+// BUG FIX: Use StorageService (memoryStorage buffer) instead of old disk-path approach
+import { uploadFile } from '../services/storage';
 
 export const taskRouter = Router();
 
@@ -527,12 +532,18 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
       });
 
       if (childWithProfile?.childProfile) {
-        const basePoints = assignment.task.pointsValue;
-        const difficulty = assignment.task.difficulty || 'medium';
-        const baseXp = GAMIFICATION.TASK_XP[difficulty as keyof typeof GAMIFICATION.TASK_XP] || 15;
         const profile = childWithProfile.childProfile;
-        const newBalance = profile.pointsBalance + basePoints;
+
+        // M7 — CR-06: Map difficulty to XP using gamification constants
+        const difficulty = (assignment.task.difficulty ?? 'medium') as keyof typeof GAMIFICATION_M7.TASK_XP;
+        const baseXp = GAMIFICATION_M7.TASK_XP[difficulty] ?? GAMIFICATION_M7.TASK_XP.medium;
+
+        // M7 — CR-06: Points and XP are awarded separately
+        const basePoints = assignment.task.pointsValue; // spendable currency
+        const newPointsBalance = profile.pointsBalance + basePoints;
         const newXp = profile.experiencePoints + baseXp;
+        const newTotalXpEarned = profile.totalXpEarned + baseXp;
+        const oldLevel = profile.level;
 
         const autoApproveResult = await prisma.$transaction(async (tx) => {
           const approvedAssignment = await tx.taskAssignment.update({
@@ -546,30 +557,44 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
             },
           });
 
+          // M7 — CR-06: Update both XP fields AND Points separately
           await tx.childProfile.update({
             where: { userId: assignment.childId },
             data: {
-              pointsBalance: newBalance,
+              pointsBalance: newPointsBalance,
               totalPointsEarned: { increment: basePoints },
               totalTasksCompleted: { increment: 1 },
+              // experiencePoints = XP within current level bar (resets each level)
               experiencePoints: newXp,
+              // totalXpEarned = lifetime XP, never decremented (drives level calc)
+              totalXpEarned: newTotalXpEarned,
             },
           });
 
+          // M7 — CR-06: Points ledger entry for spendable Points earned
           await tx.pointsLedger.create({
             data: {
               childId: assignment.childId,
               transactionType: 'earned',
               pointsAmount: basePoints,
-              balanceAfter: newBalance,
+              balanceAfter: newPointsBalance,
               referenceType: 'task_completion',
               referenceId: assignment.id,
               description: `Auto-approved: ${assignment.task.title}`,
+              breakdown: { points: basePoints, xp: baseXp },
             },
           });
 
-          return { assignment: approvedAssignment, pointsAwarded: basePoints, xpAwarded: baseXp, newBalance };
+          return {
+            assignment: approvedAssignment,
+            pointsAwarded: basePoints,
+            xpAwarded: baseXp,
+            newBalance: newPointsBalance,
+          };
         });
+
+        // M7 — CR-06: Check for level-up AFTER the transaction updates totalXpEarned
+        const levelUpResult = await checkAndApplyLevelUp(assignment.childId, oldLevel);
 
         const unlockedAchievements = await checkAndUnlockAchievements(assignment.childId);
 
@@ -578,7 +603,12 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
 
         res.json({
           success: true,
-          data: { ...autoApproveResult, autoApproved: true, unlockedAchievements },
+          data: {
+            ...autoApproveResult,
+            autoApproved: true,
+            levelUp: levelUpResult,
+            unlockedAchievements,
+          },
         });
         return;
       }
@@ -594,6 +624,12 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
 });
 
 // POST /tasks/assignments/:id/upload - Upload photo evidence for a task
+//
+// BUG FIX: The original route used req.file.path (disk storage), but multer
+// was switched to memoryStorage in M2. With memoryStorage, req.file.path is
+// undefined — crashing the route with a 500. The fix is to use StorageService
+// (uploadFile) which reads from req.file.buffer and handles both local disk
+// and Cloudflare R2 based on the STORAGE_PROVIDER env var.
 taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (req, res, next) => {
   try {
     const assignment = await prisma.taskAssignment.findFirst({
@@ -618,19 +654,30 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
       throw new ConflictError('No photo file provided');
     }
 
-    // Build URL path relative to server
-    const relativePath = req.file.path.split('/uploads/').pop();
-    const fileUrl = `/uploads/${relativePath}`;
+    // With memoryStorage, the file is in req.file.buffer — NOT req.file.path.
+    // Build the absolute API base URL so StorageService can construct full
+    // accessible URLs (required for ngrok / production deployments).
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.headers['x-forwarded-host'] || req.get('host');
+    const apiBaseUrl = `${protocol}://${host}`;
 
-    // Create evidence record
+    const uploadResult = await uploadFile(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+      apiBaseUrl,
+    );
+
+    // Create evidence record with full URLs and thumbnail from StorageService
     const evidence = await prisma.taskEvidence.create({
       data: {
         assignmentId: assignment.id,
         evidenceType: 'photo',
-        fileUrl,
-        fileKey: req.file.filename,
-        fileSizeBytes: req.file.size,
-        mimeType: req.file.mimetype,
+        fileUrl: uploadResult.fileUrl,
+        fileKey: uploadResult.fileKey,
+        thumbnailUrl: uploadResult.thumbnailUrl,
+        fileSizeBytes: uploadResult.fileSizeBytes,
+        mimeType: uploadResult.mimeType,
       },
     });
 
@@ -639,7 +686,8 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
       data: {
         evidence: {
           id: evidence.id,
-          fileUrl,
+          fileUrl: evidence.fileUrl,
+          thumbnailUrl: evidence.thumbnailUrl,
           mimeType: evidence.mimeType,
         },
       },
@@ -650,6 +698,9 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
 });
 
 // PUT /tasks/assignments/:id/approve - Approve or reject assignment (parents only)
+// M7 — CR-06: Awards XP and Points as two independent operations.
+// XP drives level progression and is never spent.
+// Points are spendable currency used to redeem rewards.
 taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTaskSchema), async (req, res, next) => {
   try {
     const assignment = await prisma.taskAssignment.findFirst({
@@ -676,16 +727,22 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
     const { approved, rejectionReason } = req.body;
 
     if (approved) {
-      // Calculate points and XP
-      const basePoints = assignment.task.pointsValue;
-      const difficulty = assignment.task.difficulty || 'medium';
-      const baseXp = GAMIFICATION.TASK_XP[difficulty as keyof typeof GAMIFICATION.TASK_XP] || 15;
+      const profile = assignment.child.childProfile!;
 
-      // TODO: Calculate streak bonus, early completion bonus
+      // M7 — CR-06: Map difficulty to XP using shared gamification constants
+      const difficulty = (assignment.task.difficulty ?? 'medium') as keyof typeof GAMIFICATION_M7.TASK_XP;
+      const baseXp = GAMIFICATION_M7.TASK_XP[difficulty] ?? GAMIFICATION_M7.TASK_XP.medium;
 
-      // Update assignment and award points in transaction
+      // M7 — CR-06: Points and XP are completely independent
+      const basePoints = assignment.task.pointsValue; // spendable — goes to pointsBalance
+      const newPointsBalance = profile.pointsBalance + basePoints;
+      const newXp = profile.experiencePoints + baseXp;
+      const newTotalXpEarned = profile.totalXpEarned + baseXp;
+      const oldLevel = profile.level; // snapshot BEFORE update for level-up detection
+
+      // Award Points and XP in a single atomic transaction
       const result = await prisma.$transaction(async (tx) => {
-        // Update assignment
+        // Mark assignment as approved with both awarded values
         const updatedAssignment = await tx.taskAssignment.update({
           where: { id: req.params.id },
           data: {
@@ -697,33 +754,35 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
           },
         });
 
-        // Get current balance
-        const profile = assignment.child.childProfile!;
-        const newBalance = profile.pointsBalance + basePoints;
-        const newXp = profile.experiencePoints + baseXp;
-
-        // Update child profile
+        // M7 — CR-06: Update child profile with both XP fields and Points
         await tx.childProfile.update({
           where: { userId: assignment.childId },
           data: {
-            pointsBalance: newBalance,
+            // Spendable currency
+            pointsBalance: newPointsBalance,
             totalPointsEarned: { increment: basePoints },
             totalTasksCompleted: { increment: 1 },
+            // XP — level bar progress (visual progress within current level)
             experiencePoints: newXp,
+            // M7: Lifetime XP accumulator — drives level calculation, never reset
+            totalXpEarned: newTotalXpEarned,
           },
         });
 
-        // Create points ledger entry
+        // M7 — CR-06: Ledger entry for the Points awarded (spendable currency)
+        // XP is NOT recorded in the ledger — it's tracked on the profile directly.
         await tx.pointsLedger.create({
           data: {
             childId: assignment.childId,
             transactionType: 'earned',
             pointsAmount: basePoints,
-            balanceAfter: newBalance,
+            balanceAfter: newPointsBalance,
             referenceType: 'task_completion',
             referenceId: assignment.id,
             description: `Completed: ${assignment.task.title}`,
             createdBy: req.user!.userId,
+            // Breakdown lets the frontend show the XP earned alongside Points
+            breakdown: { points: basePoints, xp: baseXp },
           },
         });
 
@@ -731,9 +790,13 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
           assignment: updatedAssignment,
           pointsAwarded: basePoints,
           xpAwarded: baseXp,
-          newBalance,
+          newBalance: newPointsBalance,
         };
       });
+
+      // M7 — CR-06: Check for level-up AFTER the transaction so totalXpEarned is committed
+      // checkAndApplyLevelUp creates a milestone_bonus ledger entry if the child levelled up
+      const levelUpResult = await checkAndApplyLevelUp(assignment.childId, oldLevel);
 
       // Check and unlock any achievements earned
       const unlockedAchievements = await checkAndUnlockAchievements(assignment.childId);
@@ -745,6 +808,8 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
         success: true,
         data: {
           ...result,
+          // M7: levelUp is included so the frontend can show a celebration modal
+          levelUp: levelUpResult,
           unlockedAchievements,
         },
       });
@@ -793,6 +858,72 @@ taskRouter.get('/assignments/pending', requireParent, async (req, res, next) => 
     res.json({
       success: true,
       data: { assignments },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /tasks/assignments/self-assign - Child self-assigns a secondary task (M5 — CR-10)
+taskRouter.post('/assignments/self-assign', requireAuth, async (req, res, next) => {
+  try {
+    if (req.user!.role !== 'child') {
+      throw new ForbiddenError('Only children can self-assign tasks');
+    }
+
+    const { taskId } = req.body;
+    const childId = req.user!.userId;
+
+    const task = await prisma.task.findFirst({
+      where: {
+        id: taskId,
+        familyId: req.familyId,
+        taskTag: 'secondary',
+        status: 'active',
+        deletedAt: null,
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundError('Secondary task not found');
+    }
+
+    // Check child has no pending primaries
+    const pendingPrimaries = await prisma.taskAssignment.count({
+      where: {
+        childId,
+        status: { in: ['pending', 'in_progress'] },
+        task: { taskTag: 'primary' },
+      },
+    });
+
+    if (pendingPrimaries > 0) {
+      throw new ConflictError('Complete your primary tasks before self-assigning bonus tasks');
+    }
+
+    // Check assignment limits
+    const limitCheck = await checkAssignmentLimits(childId, 'secondary');
+    if (!limitCheck.allowed) {
+      throw new ConflictError(limitCheck.reason ?? 'Assignment limit reached');
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const assignment = await prisma.taskAssignment.create({
+      data: {
+        taskId,
+        childId,
+        instanceDate: today,
+      },
+      include: {
+        task: true,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: { assignment },
     });
   } catch (error) {
     next(error);

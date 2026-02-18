@@ -1,3 +1,14 @@
+/**
+ * auth.ts (routes) — Updated M7 (CR-02)
+ *
+ * Changes from M7:
+ *  - registerSchema: added dateOfBirth (required, ISO date string) and
+ *    phoneNumber (optional, E.164 format, defaults to +233 prefix for Ghana)
+ *  - GET /auth/me response includes dateOfBirth and phone masked to last 4 digits
+ *
+ * All other routes are unchanged from M4.
+ */
+
 import { Router } from 'express';
 import { z } from 'zod';
 import { authService } from '../services/auth';
@@ -8,7 +19,17 @@ import { VALIDATION } from '@taskbuddy/shared';
 
 export const authRouter = Router();
 
-// Validation schemas
+// ============================================
+// VALIDATION SCHEMAS
+// ============================================
+
+/**
+ * M7 — CR-02: registerSchema updated to include:
+ *  - dateOfBirth: required ISO date string (YYYY-MM-DD). Used for
+ *    age verification and profile display. Stored on the User record.
+ *  - phoneNumber: optional E.164 format. Defaults to +233 country code
+ *    (Ghana). Returned masked (last 4 digits only) from GET /auth/me.
+ */
 const registerSchema = z.object({
   familyName: z.string().min(2).max(100),
   parent: z.object({
@@ -16,6 +37,21 @@ const registerSchema = z.object({
     lastName: z.string().min(1).max(50),
     email: z.string().email(),
     password: z.string().min(VALIDATION.PASSWORD.MIN_LENGTH),
+    // CR-02: Date of birth — required for parent accounts
+    // Accepted as ISO date string, converted to Date in the service layer
+    dateOfBirth: z.string().regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      'Date of birth must be in YYYY-MM-DD format'
+    ),
+    // CR-02: Phone number — optional, E.164 format (+countrycode number)
+    // Default country code is +233 (Ghana) but any valid E.164 is accepted
+    phoneNumber: z
+      .string()
+      .regex(
+        /^\+[1-9]\d{6,14}$/,
+        'Phone number must be in E.164 format (e.g. +233201234567)'
+      )
+      .optional(),
   }),
 });
 
@@ -58,9 +94,15 @@ const acceptInviteSchema = z.object({
   phone: z.string().optional(),
 });
 
-// Helper: determine cookie settings based on environment.
-// Cross-origin requests (ngrok, staging) require sameSite:'none' + secure:true.
-// Localhost dev can use sameSite:'lax' without secure.
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Helper: determine cookie settings based on environment.
+ * Cross-origin requests (ngrok, staging) require sameSite:'none' + secure:true.
+ * Localhost dev can use sameSite:'lax' without secure.
+ */
 function getCookieOptions(isChild = false) {
   const isProduction = process.env.NODE_ENV === 'production';
   const isCrossOrigin = process.env.CROSS_ORIGIN_COOKIES === 'true' || isProduction;
@@ -78,7 +120,25 @@ function getCookieOptions(isChild = false) {
   };
 }
 
+/**
+ * M7 — CR-02: Masks a phone number to show only the last 4 digits.
+ * e.g. "+233201234567" → "•••••••4567"
+ * Returns null if the phone number is null/undefined.
+ */
+function maskPhoneNumber(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  if (phone.length <= 4) return phone;
+  const lastFour = phone.slice(-4);
+  const maskedPart = '•'.repeat(phone.length - 4);
+  return `${maskedPart}${lastFour}`;
+}
+
+// ============================================
+// ROUTES
+// ============================================
+
 // POST /auth/register - Register new family
+// M7 — CR-02: now accepts dateOfBirth (required) and phoneNumber (optional)
 authRouter.post('/register', validateBody(registerSchema), async (req, res, next) => {
   try {
     const result = await authService.register(req.body);
@@ -249,13 +309,21 @@ authRouter.put('/password', authenticate, validateBody(changePasswordSchema), as
 });
 
 // GET /auth/me - Get current user
+// M7 — CR-02: Returns dateOfBirth and phoneNumber (masked to last 4 digits).
+// The masking happens here in the route so the raw phone is never sent to the client.
 authRouter.get('/me', authenticate, async (req, res, next) => {
   try {
     const user = await authService.getCurrentUser(req.user!.userId);
 
+    // M7 — CR-02: Mask phone number before sending to client
+    const safeUser = {
+      ...user,
+      phoneNumber: maskPhoneNumber((user as any).phoneNumber),
+    };
+
     res.json({
       success: true,
-      data: { user },
+      data: { user: safeUser },
     });
   } catch (error) {
     next(error);

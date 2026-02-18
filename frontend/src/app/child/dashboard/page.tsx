@@ -1,5 +1,21 @@
 'use client';
 
+/**
+ * child/dashboard/page.tsx — Updated M7 (CR-06)
+ *
+ * Changes from M7 (everything else is unchanged from the original):
+ *  - ChildDashboardData.profile: added optional totalXpEarned field
+ *  - XP bar now uses totalXpEarned (not experiencePoints alone) for level calc
+ *  - Added a gold "Points" balance card displayed alongside the existing XP card
+ *  - Added LevelUpCelebration modal — fires when API returns a pending levelUp
+ *  - Imported XpProgressBar and LevelUpCelebration components
+ *
+ * M7 display rules (CR-06):
+ *  - Points (gold)  = spendable currency for rewards — shown as a separate balance card
+ *  - XP    (purple) = level progression, NEVER spent — existing XP bar preserved
+ *  - Redeeming a reward only decrements Points, never XP
+ */
+
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -18,6 +34,9 @@ import { useToast } from '@/components/ui/Toast';
 import { cn, formatPoints, getDifficultyColor, levelFromXp } from '@/lib/utils';
 import Link from 'next/link';
 import { ChildLayout } from '@/components/layouts/ChildLayout';
+// M7 — CR-06: New components for dual currency display and level-up celebration
+import { XpProgressBar } from '@/components/ui/XpProgressBar';
+import { LevelUpCelebration } from '@/components/LevelUpCelebration';
 
 interface TaskAssignment {
   assignment: {
@@ -47,6 +66,10 @@ interface ChildDashboardData {
   profile: {
     level: number;
     experiencePoints: number;
+    // M7 — CR-06: totalXpEarned is the lifetime XP accumulator that drives
+    // level calculation. NEVER decremented. experiencePoints is the within-level
+    // bar value. Falls back to experiencePoints if API not yet updated.
+    totalXpEarned?: number;
     pointsBalance: number;
     totalPointsEarned: number;
     currentStreakDays: number;
@@ -86,11 +109,38 @@ export default function ChildDashboardPage() {
   const [data, setData] = useState<ChildDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // M7 — CR-06: Level-up celebration state.
+  // Set when the API response includes a pending levelUp event
+  // (e.g. from a recent auto-approved task). Cleared when modal is dismissed.
+  const [levelUpState, setLevelUpState] = useState<{
+    show: boolean;
+    newLevel: number;
+    bonusPoints: number;
+  }>({ show: false, newLevel: 1, bonusPoints: 0 });
+
   useEffect(() => {
     const loadDashboard = async () => {
       try {
         const response = await dashboardApi.getChildDashboard();
-        setData(response.data as ChildDashboardData);
+        const apiData = response.data as unknown as ChildDashboardData & {
+          // M7: approval endpoint returns levelUp; dashboard may relay it
+          levelUp?: {
+            leveledUp: boolean;
+            newLevel: number;
+            bonusPointsAwarded: number;
+          };
+        };
+
+        setData(apiData);
+
+        // M7 — CR-06: Show celebration if a level-up happened since last load
+        if (apiData.levelUp?.leveledUp) {
+          setLevelUpState({
+            show: true,
+            newLevel: apiData.levelUp.newLevel,
+            bonusPoints: apiData.levelUp.bonusPointsAwarded,
+          });
+        }
       } catch {
         showError('Failed to load dashboard');
       } finally {
@@ -116,6 +166,7 @@ export default function ChildDashboardPage() {
     profile: {
       level: 1,
       experiencePoints: 0,
+      totalXpEarned: 0,
       pointsBalance: 0,
       totalPointsEarned: 0,
       currentStreakDays: 0,
@@ -129,9 +180,12 @@ export default function ChildDashboardPage() {
     nextReward: undefined,
   };
 
-  const totalXp = dashboardData.profile.experiencePoints ?? 0;
+  // M7 — CR-06: Use totalXpEarned for level calculation if available.
+  // Fall back to experiencePoints for backwards compatibility during migration.
+  const totalXp = dashboardData.profile.totalXpEarned ?? dashboardData.profile.experiencePoints ?? 0;
   const { level, currentXp, nextLevelXp } = levelFromXp(totalXp);
   const xpProgress = (currentXp / nextLevelXp) * 100;
+
   const streakDays = dashboardData.profile.currentStreakDays ?? dashboardData.streak?.current ?? 0;
   const completedTasks = dashboardData.todaysTasks.filter(t => {
     const status = t.assignment?.status || '';
@@ -141,6 +195,14 @@ export default function ChildDashboardPage() {
 
   return (
     <ChildLayout>
+      {/* M7 — CR-06: Level-up celebration modal */}
+      <LevelUpCelebration
+        isOpen={levelUpState.show}
+        onClose={() => setLevelUpState((s) => ({ ...s, show: false }))}
+        newLevel={levelUpState.newLevel}
+        bonusPoints={levelUpState.bonusPoints}
+      />
+
       <div className="space-y-6">
         {/* Welcome & Streak */}
         <motion.div
@@ -159,7 +221,62 @@ export default function ChildDashboardPage() {
           )}
         </motion.div>
 
-        {/* Level Progress Card */}
+        {/* ── M7: Dual Currency Row ──────────────────────────────────────────
+          Two side-by-side cards replace the old single-currency display:
+            Left  — Gold Points card  (spendable, used for rewards)
+            Right — Purple XP card   (level progression, never spent)
+          The larger level card below is kept and now clearly labels
+          its value as "Total XP" to distinguish it from Points.
+        */}
+        <div className="grid grid-cols-2 gap-3">
+
+          {/* Gold Points card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="bg-gradient-to-br from-gold-400 to-gold-600 rounded-2xl p-5 text-white shadow-lg shadow-gold-500/30"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Trophy className="w-5 h-5 opacity-90" />
+              <span className="text-sm font-semibold uppercase tracking-wide opacity-90">
+                Points
+              </span>
+            </div>
+            <p className="text-3xl font-bold leading-none mb-1">
+              {(dashboardData.profile.pointsBalance ?? 0).toLocaleString()}
+            </p>
+            <p className="text-xs opacity-75">Spend on rewards</p>
+          </motion.div>
+
+          {/* Purple XP card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-gradient-to-br from-xp-500 to-xp-700 rounded-2xl p-5 text-white shadow-lg shadow-xp-500/30"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="w-5 h-5 opacity-90" />
+              <span className="text-sm font-semibold uppercase tracking-wide opacity-90">
+                Level {level}
+              </span>
+            </div>
+            <XpProgressBar
+              level={level}
+              currentLevelXp={currentXp}
+              xpToNextLevel={nextLevelXp}
+              totalXpEarned={totalXp}
+              size="sm"
+              showLabel={false}
+            />
+            <p className="text-xs opacity-75 mt-2">
+              {currentXp}/{nextLevelXp} XP
+            </p>
+          </motion.div>
+        </div>
+
+        {/* Level Progress Card (original — preserved, now labelled "Total XP") */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -177,6 +294,7 @@ export default function ChildDashboardPage() {
               </div>
             </div>
             <div className="text-right">
+              {/* M7 — CR-06: "Total XP" label makes clear this is NOT spendable Points */}
               <p className="text-xp-100">Total XP</p>
               <p className="font-bold text-xl">{totalXp.toLocaleString()}</p>
             </div>
@@ -406,7 +524,8 @@ export default function ChildDashboardPage() {
   );
 }
 
-// Task Preview Card
+// ─── Task Preview Card ────────────────────────────────────────────────────────
+
 function TaskPreviewCard({ item }: { item: TaskAssignment }) {
   const status = item.assignment?.status || '';
   const isCompleted = status === 'completed' || status === 'approved';

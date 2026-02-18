@@ -93,6 +93,8 @@ model ChildProfile {
   lastActivityDate    DateTime? @map("last_activity_date")
   level               Int       @default(1)
   experiencePoints    Int       @default(0) @map("experience_points")
+  // M7 — CR-06: lifetime XP earned (never decremented — separate from spendable Points)
+  totalXpEarned       Int       @default(0) @map("total_xp_earned")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
@@ -501,6 +503,8 @@ enum TransactionType {
   bonus
   penalty
   adjustment
+  // M7 — CR-06: awarded when child levels up or hits a streak milestone
+  milestone_bonus
 }
 
 enum RewardTier {

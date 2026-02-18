@@ -837,6 +837,15 @@ video {
   white-space: nowrap;
   border-width: 0;
 }
+.pointer-events-none {
+  pointer-events: none;
+}
+.pointer-events-auto {
+  pointer-events: auto;
+}
+.visible {
+  visibility: visible;
+}
 .fixed {
   position: fixed;
 }
@@ -912,6 +921,9 @@ video {
 }
 .top-2 {
   top: 0.5rem;
+}
+.top-4 {
+  top: 1rem;
 }
 .z-10 {
   z-index: 10;
@@ -1034,6 +1046,9 @@ video {
 .h-1 {
   height: 0.25rem;
 }
+.h-1\.5 {
+  height: 0.375rem;
+}
 .h-10 {
   height: 2.5rem;
 }
@@ -1048,6 +1063,9 @@ video {
 }
 .h-2 {
   height: 0.5rem;
+}
+.h-2\.5 {
+  height: 0.625rem;
 }
 .h-20 {
   height: 5rem;
@@ -1358,6 +1376,9 @@ video {
 .border {
   border-width: 1px;
 }
+.border-0 {
+  border-width: 0px;
+}
 .border-2 {
   border-width: 2px;
 }
@@ -1393,6 +1414,10 @@ video {
 .border-emerald-500 {
   --tw-border-opacity: 1;
   border-color: rgb(16 185 129 / var(--tw-border-opacity, 1));
+}
+.border-gold-200 {
+  --tw-border-opacity: 1;
+  border-color: rgb(254 240 138 / var(--tw-border-opacity, 1));
 }
 .border-gold-300 {
   --tw-border-opacity: 1;
@@ -1810,6 +1835,9 @@ video {
 }
 .to-xp-700 {
   --tw-gradient-to: #7e22ce var(--tw-gradient-to-position);
+}
+.fill-white {
+  fill: #fff;
 }
 .object-contain {
   -o-object-fit: contain;
@@ -2369,6 +2397,10 @@ video {
   --tw-shadow-color: rgb(148 163 184 / 0.3);
   --tw-shadow: var(--tw-shadow-colored);
 }
+.shadow-xp-200 {
+  --tw-shadow-color: #e9d5ff;
+  --tw-shadow: var(--tw-shadow-colored);
+}
 .shadow-xp-500\/30 {
   --tw-shadow-color: rgb(168 85 247 / 0.3);
   --tw-shadow: var(--tw-shadow-colored);
@@ -2418,6 +2450,12 @@ video {
 }
 .duration-200 {
   transition-duration: 200ms;
+}
+.duration-700 {
+  transition-duration: 700ms;
+}
+.ease-out {
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
 }
 /* Gradient text */
 .text-gradient-primary {
@@ -2561,6 +2599,16 @@ video {
 .hover\:bg-xp-600:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(147 51 234 / var(--tw-bg-opacity, 1));
+}
+
+.hover\:from-xp-600:hover {
+  --tw-gradient-from: #9333ea var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(147 51 234 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.hover\:to-xp-700:hover {
+  --tw-gradient-to: #7e22ce var(--tw-gradient-to-position);
 }
 
 .hover\:text-primary-700:hover {

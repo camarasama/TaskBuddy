@@ -1,9 +1,10 @@
 /**
- * models.ts — Shared types (updated M6)
+ * models.ts — Shared types (updated M7)
  *
- * Changes from M6 (CR-11):
- *  - Reward interface: added maxRedemptionsTotal field
- *  - Added RewardWithCapData interface (Reward + computed cap fields returned by the API)
+ * Changes from M7 (CR-06):
+ *  - TransactionType: added 'milestone_bonus' value
+ *  - ChildProfile: added totalXpEarned field
+ *  - User: added dateOfBirth and phoneNumber fields (CR-02)
  */
 
 // Core model types shared between frontend and backend
@@ -13,7 +14,21 @@ export type AgeGroup = '10-12' | '13-16';
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';
 export type TaskStatus = 'active' | 'paused' | 'archived';
 export type AssignmentStatus = 'pending' | 'in_progress' | 'completed' | 'approved' | 'rejected';
-export type TransactionType = 'earned' | 'redeemed' | 'bonus' | 'penalty' | 'adjustment';
+
+/**
+ * TransactionType — M7 update
+ * 'milestone_bonus' is awarded as Points-only (never XP) when:
+ *  - A child levels up: bonus = newLevel × 5 Points
+ *  - A child hits a streak milestone: 7/14/30/60/100 days
+ */
+export type TransactionType =
+  | 'earned'
+  | 'redeemed'
+  | 'bonus'
+  | 'penalty'
+  | 'adjustment'
+  | 'milestone_bonus';
+
 export type RewardTier = 'small' | 'medium' | 'large';
 export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 export type RedemptionStatus = 'pending' | 'approved' | 'fulfilled' | 'cancelled';
@@ -32,6 +47,7 @@ export interface Family extends BaseModel {
 }
 
 // User (parent or child)
+// M7 — CR-02: dateOfBirth and phoneNumber added for parent registration
 export interface User extends BaseModel {
   familyId: string;
   email?: string | null;
@@ -44,9 +60,15 @@ export interface User extends BaseModel {
   lockedUntil?: Date | null;
   lastLoginAt?: Date | null;
   deletedAt?: Date | null;
+  // CR-02: parent registration fields
+  dateOfBirth?: Date | null;
+  // phoneNumber is returned masked to last 4 digits from GET /auth/me
+  phoneNumber?: string | null;
 }
 
 // Child profile with gamification data
+// M7 — CR-06: totalXpEarned added — lifetime XP accumulator that drives level calculation.
+// It is NEVER decremented. experiencePoints is the within-level bar (resets each level-up).
 export interface ChildProfile extends BaseModel {
   userId: string;
   dateOfBirth: Date;
@@ -58,7 +80,10 @@ export interface ChildProfile extends BaseModel {
   longestStreakDays: number;
   lastStreakDate?: Date | null;
   level: number;
+  // XP within current level (resets on level-up, used for the level bar display)
   experiencePoints: number;
+  // M7: Lifetime XP earned — drives level calculation, never spent, never reset
+  totalXpEarned: number;
 }
 
 // Task template (reusable task definitions)
@@ -119,6 +144,8 @@ export interface PointsLedgerEntry extends BaseModel {
   referenceType?: string | null;
   referenceId?: string | null;
   description?: string | null;
+  // M7: breakdown stores { points, xp } for task approvals so the UI
+  // can display both values in a single ledger row
   breakdown?: Record<string, number> | null;
   createdBy?: string | null;
 }
@@ -210,4 +237,15 @@ export interface FamilySettings extends BaseModel {
   theme: string;
   language: string;
   timezone: string;
+}
+
+/**
+ * LevelUpResult — returned by the approval endpoint when a child levels up.
+ * Used by the frontend to trigger a celebration modal/animation.
+ */
+export interface LevelUpResult {
+  leveledUp: boolean;
+  oldLevel: number;
+  newLevel: number;
+  bonusPointsAwarded: number;
 }

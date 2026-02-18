@@ -187,7 +187,8 @@ child_profiles
   id, userId, dateOfBirth, ageGroup (10-12|13-16)
   pointsBalance, totalPointsEarned, totalTasksCompleted
   currentStreakDays, longestStreakDays, lastStreakDate
-  level, experiencePoints, pinHash
+  level, experiencePoints, totalXpEarned  ← lifetime XP accumulator (M7)
+  pinHash
 
 family_invitations
   id, familyId, invitedByUserId, email, token (unique)
@@ -226,7 +227,7 @@ reward_redemptions
   pointsSpent, createdAt
 
 points_ledger
-  id, childId, transactionType (earned|redeemed|bonus|penalty|adjustment)
+  id, childId, transactionType (earned|redeemed|bonus|penalty|adjustment|milestone_bonus)
   pointsAmount, balanceAfter, description
   referenceType, referenceId, createdBy, createdAt
 
@@ -243,6 +244,7 @@ add_invitation_relationship  — family_invitations.relationshipType/Other
 add_user_dob_phone           — users.dateOfBirth + users.phone
 add_task_tag_and_schedule    — tasks.taskTag + tasks.startTime/estimatedMinutes (M5)
 add_reward_total_cap         — rewards.maxRedemptionsTotal (M6)
+m7_xp_dual_currency          — child_profiles.totalXpEarned + TransactionType.milestone_bonus (M7)
 ```
 
 ---
@@ -519,9 +521,12 @@ task-buddy/
 │   │   │   ├── achievements.ts  # Achievement unlock checks
 │   │   │   ├── scheduler.ts     # node-cron jobs (M6: reward expiry deactivation)
 │   │   │   └── database.ts      # Prisma client singleton
+│   │   ├── services/
+│   │   │   ├── levelService.ts      # M7: level-up detection + milestone_bonus Points
 │   │   └── utils/
 │   │       ├── assignmentLimits.ts  # M5: task cap checks (max 3, max 1 primary)
-│   │       └── rewardCaps.ts        # M6: three-gate redemption guard + computed cap data
+│   │       ├── rewardCaps.ts        # M6: three-gate redemption guard + computed cap data
+│   │       └── gamification.ts      # M7: TASK_XP map, LEVEL_MULTIPLIER, STREAK_MILESTONE_POINTS
 │   └── .env.example
 │
 └── frontend/                    # Next.js PWA
@@ -581,14 +586,14 @@ Core infrastructure, authentication, and co-parent support.
 | M3 | Memorable family codes (ADJECTIVE-ANIMAL-NNNN) + persistent child sessions | ✅ Done |
 | M4 | Co-parent / spouse invite flow with relationship types + cancellation | ✅ Done |
 
-### Phase 1 — Core Gameplay (Weeks 4–6) 🔄 In Progress
+### Phase 1 — Core Gameplay (Weeks 4–6) ✅ Complete
 Task rules, dual XP/Points currency, reward caps.
 
 | Milestone | Description | Status |
 |---|---|---|
 | M5 | Task tags (primary/secondary), assignment limits (max 3, max 1 primary), overlap warnings | ✅ Done |
 | M6 | Reward triple-cap — per-child limit, household total cap, expiry date with countdown | ✅ Done |
-| M7 | XP/Points dual currency — separate progression from purchasing, level-up bonus points | ⬜ Next |
+| M7 | XP/Points dual currency — separate progression from purchasing, level-up bonus points, streak milestone bonuses | ✅ Done |
 
 ### Phase 2 — Admin & Audit (Weeks 7–9)
 Admin dashboard and full audit logging.
@@ -633,6 +638,13 @@ WebSockets for live task updates, leaderboard, PWA push notifications, child ava
 1. **Household cap** — Create reward with `maxRedemptionsTotal=2`. Have 2 children redeem it. Third child attempt → HTTP 409 "This reward has been fully claimed by the household." Reward shows "Sold Out". Nightly cron sets `isActive=false`.
 2. **Per-child cap** — Create reward with `maxRedemptionsPerChild=1`. Same child redeems twice → HTTP 409 "You have already claimed this reward the maximum number of times." Household total not consumed by blocked attempt.
 3. **Expiry** — Create reward with `expiresAt` 2 minutes away. Countdown badge visible. After expiry → reward shows "Expired" and is greyed out. Redemption attempt → HTTP 409 "This reward has expired."
+
+
+**M7 — XP & Points Dual Currency** ✅ All passed
+1. **Dual currency on approval** — Approve a `hard` difficulty task → child's `pointsBalance` increases by `task.pointsValue`, and `experiencePoints` / `totalXpEarned` each increase by 35 XP. Redeeming a reward decreases Points only — XP is never affected.
+2. **Level-up milestone bonus** — Award a child enough XP to cross the Level 1 → 2 threshold (100 XP). A `milestone_bonus` entry appears in `points_ledger` for +10 Points (Level 2 × 5). Child's `pointsBalance` increases by 10. Level-up celebration modal fires in the child dashboard.
+3. **Streak milestone bonus** — Child hits a 7-day streak → `milestone_bonus` ledger entry for +35 Points is created. Streak counter remains unaffected. Points balance increases correctly.
+4. **Parent registration fields** — Register a new family with `dateOfBirth` (required) and `phoneNumber` (optional). `GET /auth/me` returns `dateOfBirth` and phone masked to last 4 digits (e.g. `•••••••4567`). Both fields appear on the parent settings page.
 
 ---
 
@@ -696,6 +708,25 @@ Children's refresh tokens are stored in `localStorage` (persisting browser close
 
 **Reward Cap Architecture (M6)**
 Rewards support three independent constraints: a per-child redemption limit, a household-wide total cap, and an optional expiry date. All three are enforced server-side in a sequential three-gate check that returns distinct HTTP 409 error messages for each case. Computed fields (`isSoldOut`, `isExpired`, `remainingTotal`, `remainingForChild`) are appended to every reward response so the frontend can render accurate state without additional API calls. A nightly cron job (`scheduler.ts`) sets `isActive = false` on rewards that have expired or exhausted their household cap.
+
+
+**XP Calculation System (M7)**
+XP is awarded only on task **approval** (not on completion). The amount is determined by the task's difficulty:
+
+| Difficulty | XP Awarded |
+|---|---|
+| Easy | 10 XP |
+| Medium | 15 XP |
+| Hard | 35 XP |
+
+If no difficulty is set, the system defaults to Medium (15 XP). Two separate XP fields are maintained on `child_profiles`:
+
+- `experiencePoints` — XP progress within the current level (used for the progress bar display, conceptually resets at each level-up)
+- `totalXpEarned` — Lifetime XP accumulator. **Never decremented.** This field drives the level calculation.
+
+Level thresholds follow an exponential curve: Level 1 → 2 requires 100 XP, with each subsequent level requiring 50% more than the previous (`floor(100 × 1.5^(level-1))`). Level-up detection runs after every XP award in `levelService.ts` — if the child's `totalXpEarned` has crossed a threshold, the level is updated and a `milestone_bonus` Points entry is created for `newLevel × 5` Points (e.g. reaching Level 2 = +10 Points, Level 3 = +15 Points).
+
+XP is strictly cosmetic — it drives level progression only and **cannot be spent**. Only `pointsBalance` is deducted when redeeming rewards, keeping long-term progression decoupled from short-term purchasing decisions.
 
 **Primary / Secondary Task System (M5)**
 Tasks are classified as `primary` (must-do assignments from parents) or `secondary` (optional bonus tasks). Children cannot claim secondary tasks while a primary task is pending, creating a natural incentive hierarchy. Assignment limits (max 3 total, max 1 primary) are enforced server-side.

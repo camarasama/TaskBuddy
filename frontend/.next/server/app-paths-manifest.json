@@ -1,8 +1,6 @@
 {
   "/child/tasks/page": "app/child/tasks/page.js",
-  "/parent/rewards/new/page": "app/parent/rewards/new/page.js",
   "/parent/dashboard/page": "app/parent/dashboard/page.js",
-  "/login/page": "app/login/page.js",
-  "/parent/rewards/page": "app/parent/rewards/page.js",
-  "/parent/rewards/[id]/edit/page": "app/parent/rewards/[id]/edit/page.js"
+  "/parent/tasks/page": "app/parent/tasks/page.js",
+  "/child/dashboard/page": "app/child/dashboard/page.js"
 }

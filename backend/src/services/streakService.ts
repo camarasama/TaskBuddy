@@ -1,4 +1,21 @@
+/**
+ * streakService.ts — Updated M7 (CR-06)
+ *
+ * Changes from M7:
+ *  - evaluateStreak now checks if the new streak count hits a milestone
+ *    (7, 14, 30, 60, 100 days). If so, it awards bonus Points via a
+ *    milestone_bonus PointsLedger entry. No XP is awarded for streaks —
+ *    only spendable Points.
+ *
+ * Original BUG-06 logic (grace period from FamilySettings) is unchanged.
+ */
+
 import { prisma } from './database';
+import {
+  GAMIFICATION_M7,
+  STREAK_MILESTONE_DAYS,
+  type StreakMilestoneDay,
+} from '../utils/gamification';
 
 /**
  * Evaluates and updates a child's streak after a task is completed or approved.
@@ -6,6 +23,10 @@ import { prisma } from './database';
  * BUG-06 FIX: Reads `streakGracePeriodHours` from FamilySettings instead of
  * using hardcoded values. The grace period allows a streak to survive if the
  * child completes a task within N hours after midnight of the missed day.
+ *
+ * M7 — CR-06: After updating the streak, checks if the new streak count
+ * matches a milestone (7/14/30/60/100 days). If it does, creates a
+ * milestone_bonus PointsLedger entry and increments pointsBalance.
  *
  * Grace period logic:
  *  - A streak day is "covered" if at least one task was approved/completed
@@ -29,6 +50,7 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
       currentStreakDays: true,
       longestStreakDays: true,
       lastActivityDate: true,
+      pointsBalance: true, // M7: needed to calculate balance after bonus
     },
   });
 
@@ -87,6 +109,47 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
       lastActivityDate: now,
     },
   });
+
+  // M7 — CR-06: Check if newStreak hits a milestone.
+  // Only award the bonus once — if daysSinceLast === 0 (already active today)
+  // then newStreak did not change so we will not double-award.
+  // The milestone check is against the NEW streak value after the update above.
+  const isMilestone = (STREAK_MILESTONE_DAYS as readonly number[]).includes(newStreak);
+
+  if (isMilestone && newStreak !== childProfile.currentStreakDays) {
+    // newStreak is a milestone day AND it just changed (we're the increment that hit it)
+    const bonusPoints =
+      GAMIFICATION_M7.STREAK_MILESTONE_POINTS[newStreak as StreakMilestoneDay];
+
+    if (bonusPoints) {
+      const currentProfile = await prisma.childProfile.findUnique({
+        where: { userId: childId },
+        select: { pointsBalance: true },
+      });
+
+      if (currentProfile) {
+        const newBalance = currentProfile.pointsBalance + bonusPoints;
+
+        await prisma.childProfile.update({
+          where: { userId: childId },
+          data: { pointsBalance: newBalance },
+        });
+
+        // Create milestone_bonus ledger entry — Points only, no XP
+        await prisma.pointsLedger.create({
+          data: {
+            childId,
+            transactionType: 'milestone_bonus',
+            pointsAmount: bonusPoints,
+            balanceAfter: newBalance,
+            referenceType: 'streak_milestone',
+            referenceId: childId, // self-reference, no external record
+            description: `🔥 ${newStreak}-day streak milestone! Bonus ${bonusPoints} Points`,
+          },
+        });
+      }
+    }
+  }
 }
 
 /**
