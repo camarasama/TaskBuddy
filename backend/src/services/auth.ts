@@ -511,6 +511,57 @@ export class AuthService {
 
     return { accessToken, refreshToken, expiresIn };
   }
+  // M8 — Create an admin account. Called from POST /auth/admin/register after
+  // the ADMIN_INVITE_CODE gate has been validated in the route handler.
+  // Admin users have no familyId — they operate across all families and are
+  // skipped by the familyIsolation middleware.
+  async registerAdmin(data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }): Promise<{ user: { id: string; email: string; firstName: string; lastName: string; role: string; familyId: null } }> {
+    const { email, password, firstName, lastName } = data;
+
+    // Reject if the email is already registered (any role)
+    const existing = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
+
+    if (existing) {
+      throw new ConflictError('An account with this email already exists.');
+    }
+
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+    // familyId is nullable after the M8 migration — admin users have no family.
+    // The familyIsolation middleware skips users whose role is 'admin'.
+    const user = await prisma.user.create({
+      data: {
+        email:           email.toLowerCase().trim(),
+        passwordHash,
+        firstName:       firstName.trim(),
+        lastName:        lastName.trim(),
+        role:            'admin',
+        isActive:        true,
+        isPrimaryParent: false,
+        // familyId intentionally omitted — nullable in schema after M8 migration
+      },
+      select: {
+        id:        true,
+        email:     true,
+        firstName: true,
+        lastName:  true,
+        role:      true,
+      },
+    });
+
+    // Return with explicit familyId: null so callers (audit log, etc.)
+    // have a typed value — admin users genuinely have no family.
+    return { user: { ...user, familyId: null } };
+  }
+
 }
+
 
 export const authService = new AuthService();

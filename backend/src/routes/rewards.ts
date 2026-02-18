@@ -17,6 +17,8 @@ import { validateBody } from '../middleware/validate';
 import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../middleware/errorHandler';
 import { checkAndUnlockAchievements } from '../services/achievements';
 import { checkRedemptionCaps, getRewardCapData } from '../utils/rewardCaps';
+// M8 — Audit logging for all mutating reward routes
+import { AuditService } from '../services/AuditService';
 
 export const rewardRouter = Router();
 
@@ -117,6 +119,17 @@ rewardRouter.post('/', requireParent, validateBody(createRewardSchema), async (r
       },
     });
 
+    // M8 — Audit: reward created
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'CREATE',
+      resourceType: 'reward',
+      resourceId: reward.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { name: reward.name, pointsCost: reward.pointsCost, tier: reward.tier },
+    });
+
     res.status(201).json({
       success: true,
       data: { reward },
@@ -200,6 +213,17 @@ rewardRouter.put('/:id', requireParent, validateBody(updateRewardSchema), async 
       },
     });
 
+    // M8 — Audit: reward updated
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'UPDATE',
+      resourceType: 'reward',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { changes: req.body },
+    });
+
     res.json({
       success: true,
       data: { reward: updated },
@@ -228,6 +252,17 @@ rewardRouter.delete('/:id', requireParent, async (req, res, next) => {
     await prisma.reward.update({
       where: { id: req.params.id },
       data: { deletedAt: new Date() },
+    });
+
+    // M8 — Audit: reward soft-deleted
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'DELETE',
+      resourceType: 'reward',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { name: reward.name, pointsCost: reward.pointsCost },
     });
 
     res.json({
@@ -335,6 +370,22 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
     // Check whether this redemption unlocked any achievements (e.g., "First Reward")
     const unlockedAchievements = await checkAndUnlockAchievements(req.user!.userId);
 
+    // M8 — Audit: reward redeemed by child
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'REDEEM',
+      resourceType: 'reward_redemption',
+      resourceId: result.redemption.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: {
+        rewardId: reward.id,
+        rewardName: reward.name,
+        pointsSpent: reward.pointsCost,
+        newBalance: result.newBalance,
+      },
+    });
+
     res.status(201).json({
       success: true,
       data: {
@@ -408,6 +459,17 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
       },
     });
 
+    // M8 — Audit: redemption fulfilled by parent
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'FULFILL',
+      resourceType: 'reward_redemption',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { childId: redemption.childId, rewardId: redemption.rewardId },
+    });
+
     res.json({
       success: true,
       data: { redemption: updated },
@@ -468,6 +530,22 @@ rewardRouter.put('/redemptions/:id/cancel', async (req, res, next) => {
           description: `Refund: ${redemption.reward.name} (cancelled)`,
         },
       });
+    });
+
+    // M8 — Audit: redemption cancelled (by child or parent)
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'CANCEL',
+      resourceType: 'reward_redemption',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: {
+        childId: redemption.childId,
+        rewardId: redemption.rewardId,
+        pointsRefunded: redemption.pointsSpent,
+        cancelledBy: req.user!.role,
+      },
     });
 
     res.json({

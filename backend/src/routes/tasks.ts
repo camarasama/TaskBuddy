@@ -16,6 +16,8 @@ import { checkAndApplyLevelUp } from '../services/levelService';
 import { GAMIFICATION_M7 } from '../utils/gamification';
 // BUG FIX: Use StorageService (memoryStorage buffer) instead of old disk-path approach
 import { uploadFile } from '../services/storage';
+// M8 — Audit logging for all mutating task routes
+import { AuditService } from '../services/AuditService';
 
 export const taskRouter = Router();
 
@@ -271,6 +273,22 @@ taskRouter.post('/', requireParent, validateBody(createTaskSchema), async (req, 
     });
 
     // HTTP 201 — include warnings[] so the frontend can show the overlap modal
+    // M8 — Audit: task created
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'CREATE',
+      resourceType: 'task',
+      resourceId: result.task.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: {
+        title: result.task.title,
+        taskTag: result.task.taskTag,
+        assignedTo,
+        isRecurring: result.task.isRecurring,
+      },
+    });
+
     res.status(201).json({
       success: true,
       data: { ...result, warnings: allWarnings },
@@ -384,6 +402,17 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
       },
     });
 
+    // M8 — Audit: task updated
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'UPDATE',
+      resourceType: 'task',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { changes: req.body },
+    });
+
     res.json({
       success: true,
       data: { task: updatedTask, warnings },
@@ -411,6 +440,17 @@ taskRouter.delete('/:id', requireParent, async (req, res, next) => {
     await prisma.task.update({
       where: { id: req.params.id },
       data: { deletedAt: new Date() },
+    });
+
+    // M8 — Audit: task soft-deleted
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'DELETE',
+      resourceType: 'task',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { title: task.title, taskTag: task.taskTag },
     });
 
     res.json({
@@ -614,6 +654,17 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
       }
     }
 
+    // M8 — Audit: assignment marked complete by child
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'COMPLETE',
+      resourceType: 'task_assignment',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { taskId: assignment.taskId, taskTitle: assignment.task.title },
+    });
+
     res.json({
       success: true,
       data: { assignment: updated },
@@ -804,6 +855,23 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
       // BUG-06: Update streak using grace period from FamilySettings
       await evaluateStreak(assignment.childId, req.familyId!);
 
+      // M8 — Audit: assignment approved by parent
+      await AuditService.logAction({
+        actorId: req.user!.userId,
+        action: 'APPROVE',
+        resourceType: 'task_assignment',
+        resourceId: req.params.id,
+        familyId: req.familyId,
+        ipAddress: req.ip,
+        metadata: {
+          childId: assignment.childId,
+          taskId: assignment.taskId,
+          pointsAwarded: result.pointsAwarded,
+          xpAwarded: result.xpAwarded,
+          levelUp: !!levelUpResult?.leveledUp,
+        },
+      });
+
       res.json({
         success: true,
         data: {
@@ -822,6 +890,17 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
           rejectionReason,
           approvedBy: req.user!.userId,
         },
+      });
+
+      // M8 — Audit: assignment rejected by parent
+      await AuditService.logAction({
+        actorId: req.user!.userId,
+        action: 'REJECT',
+        resourceType: 'task_assignment',
+        resourceId: req.params.id,
+        familyId: req.familyId,
+        ipAddress: req.ip,
+        metadata: { childId: assignment.childId, rejectionReason },
       });
 
       res.json({
@@ -919,6 +998,17 @@ taskRouter.post('/assignments/self-assign', requireAuth, async (req, res, next) 
       include: {
         task: true,
       },
+    });
+
+    // M8 — Audit: child self-assigned a secondary task
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'SELF_ASSIGN',
+      resourceType: 'task_assignment',
+      resourceId: assignment.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { taskId, taskTitle: assignment.task.title },
     });
 
     res.status(201).json({

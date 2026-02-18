@@ -21,7 +21,11 @@ model Family {
   familyCode String?   @unique @map("family_code")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
+  deletedAt    DateTime? @map("deleted_at")
+  // M8 — Admin: allows admin to suspend a family (blocks all logins for that family)
+  isSuspended  Boolean   @default(false) @map("is_suspended")
+  suspendedAt  DateTime? @map("suspended_at")
+  suspendedBy  String?   @map("suspended_by")
 
   // Relations
   users         User[]
@@ -37,7 +41,7 @@ model Family {
 
 model User {
   id           String    @id @default(uuid())
-  familyId     String    @map("family_id")
+  familyId     String?    @map("family_id")
   email        String?   @unique
   username     String?
   passwordHash String?   @map("password_hash")
@@ -56,7 +60,7 @@ model User {
   deletedAt    DateTime? @map("deleted_at")
 
   // Relations
-  family                Family              @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family                Family?              @relation(fields: [familyId], references: [id], onDelete: Cascade)
   childProfile          ChildProfile?
   createdTasks          Task[]              @relation("CreatedTasks")
   taskAssignments       TaskAssignment[]    @relation("AssignedTasks")
@@ -454,6 +458,49 @@ model FamilyInvitation {
   @@index([token])
   @@index([email])
   @@map("family_invitations")
+}
+
+// ============================================
+// M8 — ADMIN & AUDIT
+// ============================================
+
+/**
+ * AuditLog — immutable record of every mutating action in the system.
+ * Written by AuditService.logAction() from all mutating routes.
+ * Never updated or deleted — admin can only read and export.
+ *
+ * action examples    : CREATE | UPDATE | DELETE | APPROVE | REJECT |
+ *                      REDEEM | FULFILL | SUSPEND | REACTIVATE | LOGIN |
+ *                      REGISTER | INVITE_SENT | INVITE_ACCEPTED | FORCE_RESET
+ * resourceType examples: task | task_assignment | reward | reward_redemption |
+ *                        family | user | child | invitation | achievement
+ * metadata           : arbitrary JSON snapshot — e.g. { before, after } for
+ *                      updates, or { reason } for suspensions.
+ */
+model AuditLog {
+  id           String   @id @default(uuid())
+  // The user who performed the action (null for system/cron actions)
+  actorId      String?  @map("actor_id")
+  // Human-readable action verb (see examples above)
+  action       String
+  // The type of resource affected
+  resourceType String   @map("resource_type")
+  // The ID of the affected resource
+  resourceId   String   @map("resource_id")
+  // Optional family scope — null for cross-family admin actions
+  familyId     String?  @map("family_id")
+  // Optional JSON payload: before/after state, extra context
+  metadata     Json?
+  // IP address of the actor (for security audit purposes)
+  ipAddress    String?  @map("ip_address")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@index([resourceType])
+  @@index([resourceId])
+  @@index([familyId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // ============================================

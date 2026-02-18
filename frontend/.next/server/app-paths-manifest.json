@@ -1,6 +1,6 @@
 {
-  "/child/tasks/page": "app/child/tasks/page.js",
-  "/parent/dashboard/page": "app/parent/dashboard/page.js",
-  "/parent/tasks/page": "app/parent/tasks/page.js",
-  "/child/dashboard/page": "app/child/dashboard/page.js"
+  "/login/page": "app/login/page.js",
+  "/admin/dashboard/page": "app/admin/dashboard/page.js",
+  "/admin/users/page": "app/admin/users/page.js",
+  "/admin/audit-log/page": "app/admin/audit-log/page.js"
 }

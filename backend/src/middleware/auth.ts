@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { UnauthorizedError, ForbiddenError } from './errorHandler';
 import type { UserRole } from '@taskbuddy/shared';
+// M8 — needed to check if a family is suspended before allowing access
+import { prisma } from '../services/database';
 
 // Extend Express Request type
 declare global {
@@ -104,6 +106,10 @@ export const requireChild = requireRole('child');
 // Require any authenticated user
 export const requireAuth = requireRole('parent', 'child', 'admin');
 
+// M8 — Require admin role exclusively (no parent fallback)
+// Used to protect all /admin/* routes.
+export const requireAdmin = requireRole('admin');
+
 // Family isolation middleware - ensures users can only access their family's data
 export function familyIsolation(req: Request, _res: Response, next: NextFunction): void {
   if (!req.user) {
@@ -121,6 +127,22 @@ export function familyIsolation(req: Request, _res: Response, next: NextFunction
 
   // Ensure familyId is always available
   req.familyId = req.user.familyId;
+
+  // M8 — Check if the family has been suspended by an admin.
+  // Admins (no familyId) bypass this check.
+  if (req.user.role !== 'admin' && req.familyId) {
+    prisma.family
+      .findUnique({ where: { id: req.familyId }, select: { isSuspended: true } })
+      .then((family) => {
+        if (family?.isSuspended) {
+          next(new ForbiddenError('This family account has been suspended. Please contact support.'));
+        } else {
+          next();
+        }
+      })
+      .catch(next);
+    return;
+  }
 
   next();
 }

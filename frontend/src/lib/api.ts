@@ -376,3 +376,127 @@ export const achievementsApi = {
   getUnlocked: () =>
     request<ApiResponse<{ achievements: unknown[] }>>('/achievements/unlocked'),
 };
+
+// ============================================
+// M8 — Admin API
+// ============================================
+// Append this entire block to the bottom of frontend/src/lib/api.ts
+
+export const adminApi = {
+  // ── Registration ─────────────────────────────────────────────────────────
+  register: (data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    inviteCode: string;
+  }) =>
+    request<ApiResponse<{ message: string; user: unknown }>>('/auth/admin/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // ── Overview stats ────────────────────────────────────────────────────────
+  getOverview: () =>
+    request<ApiResponse<{
+      totalFamilies: number;
+      totalUsers: number;
+      dau: number;
+      pendingApprovals: number;
+      newRegistrationsThisWeek: number;
+    }>>('/admin/overview'),
+
+  // ── Families ──────────────────────────────────────────────────────────────
+  getFamilies: (params?: { search?: string; page?: number; limit?: number }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return request<ApiResponse<{ families: unknown[]; total: number; page: number }>>
+      (`/admin/families${query ? `?${query}` : ''}`);
+  },
+
+  getFamily: (familyId: string) =>
+    request<ApiResponse<{ family: unknown; activity: unknown }>>(`/admin/families/${familyId}`),
+
+  suspendFamily: (familyId: string, reason?: string) =>
+    request<ApiResponse<{ message: string }>>(`/admin/families/${familyId}/suspend`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    }),
+
+  reactivateFamily: (familyId: string) =>
+    request<ApiResponse<{ message: string }>>(`/admin/families/${familyId}/reactivate`, {
+      method: 'PATCH',
+    }),
+
+  // ── Users ─────────────────────────────────────────────────────────────────
+  getUsers: (params?: { search?: string; page?: number; limit?: number }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return request<ApiResponse<{ users: unknown[]; total: number; page: number }>>
+      (`/admin/users${query ? `?${query}` : ''}`);
+  },
+
+  getUser: (userId: string) =>
+    request<ApiResponse<{ user: unknown }>>(`/admin/users/${userId}`),
+
+  forcePasswordReset: (userId: string) =>
+    request<ApiResponse<{ message: string }>>(`/admin/users/${userId}/force-reset`, {
+      method: 'POST',
+    }),
+
+  // ── Achievements ──────────────────────────────────────────────────────────
+  getAchievements: () =>
+    request<ApiResponse<{ achievements: unknown[] }>>('/admin/achievements'),
+
+  createAchievement: (data: {
+    name: string;
+    description?: string;
+    iconUrl?: string;
+    category?: string;
+    unlockCriteriaType?: string;
+    unlockCriteriaValue?: number;
+    tier?: string;
+    pointsReward?: number;
+    xpReward?: number;
+  }) =>
+    request<ApiResponse<{ achievement: unknown }>>('/admin/achievements', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateAchievement: (id: string, data: unknown) =>
+    request<ApiResponse<{ achievement: unknown }>>(`/admin/achievements/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteAchievement: (id: string) =>
+    request<ApiResponse<{ message: string }>>(`/admin/achievements/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // ── Audit log ─────────────────────────────────────────────────────────────
+  getAuditLogs: (params?: {
+    actorId?: string;
+    action?: string;
+    resourceType?: string;
+    familyId?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return request<ApiResponse<{ logs: unknown[]; total: number; page: number }>>
+      (`/admin/audit-logs${query ? `?${query}` : ''}`);
+  },
+
+  exportAuditLogs: (params?: {
+    actorId?: string;
+    action?: string;
+    resourceType?: string;
+    from?: string;
+    to?: string;
+  }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return `${API_BASE}/admin/audit-logs/export${query ? `?${query}` : ''}`;
+  },
+};

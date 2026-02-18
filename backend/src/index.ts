@@ -10,6 +10,9 @@ import { config, validateConfig } from './config';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { apiRouter } from './routes';
 import { initScheduler } from './services/scheduler';
+// M8 — Admin router mounted at /api/v1/admin
+import { adminRouter } from './routes/admin';
+import { initRecurringScheduler } from './services/RecurringScheduler';
 
 // Validate environment configuration
 validateConfig();
@@ -70,6 +73,8 @@ app.get('/health', (_req, res) => {
 
 // API routes
 app.use('/api/v1', apiRouter);
+// M8 — Admin API routes (role-protected inside the router itself)
+app.use('/api/v1/admin', adminRouter);
 
 // Error handling
 app.use(notFoundHandler);
@@ -79,6 +84,7 @@ app.use(errorHandler);
 const PORT = config.port;
 
 initScheduler(); 
+initRecurringScheduler(); // M8 — midnight recurring task generation
 
 httpServer.listen(PORT, () => {
   console.log(`

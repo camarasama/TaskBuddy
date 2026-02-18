@@ -8,6 +8,8 @@ import { validateBody } from '../middleware/validate';
 import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
 // M5 — import capacity utility
 import { getChildCapacity, type ChildCapacity } from '../utils/assignmentLimits';
+// M8 — Audit logging for all mutating family routes
+import { AuditService } from '../services/AuditService';
 
 export const familyRouter = Router();
 
@@ -87,6 +89,17 @@ familyRouter.put('/me', requireParent, validateBody(updateFamilySchema), async (
       },
     });
 
+    // M8 — Audit: family name updated
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'UPDATE',
+      resourceType: 'family',
+      resourceId: req.familyId!,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { familyName: req.body.familyName },
+    });
+
     res.json({
       success: true,
       data: { family },
@@ -142,13 +155,24 @@ familyRouter.post('/me/invite', requireParent, validateBody(inviteCoParentSchema
       email: req.body.email,
     });
 
+    // M8 — Audit: co-parent invitation sent
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'INVITE_SENT',
+      resourceType: 'invitation',
+      resourceId: req.familyId!,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { invitedEmail: req.body.email, emailSent },
+    });
+
     res.json({
       success: true,
       data: {
         message: emailSent
           ? `Invitation sent to ${req.body.email}`
           : `Invitation created. Email delivery failed — use the link below to share manually.`,
-        acceptUrl,   // always returned so dev/prod can share link directly if needed
+        acceptUrl,
         emailSent,
       },
     });
@@ -180,6 +204,17 @@ familyRouter.delete('/me/parents/:id', requireParent, async (req, res, next) => 
       req.params.id
     );
 
+    // M8 — Audit: co-parent removed
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'DELETE',
+      resourceType: 'user',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { event: 'co_parent_removed' },
+    });
+
     res.json({
       success: true,
       data: { message: 'Co-parent removed from family' },
@@ -197,6 +232,17 @@ familyRouter.delete('/me/invitations/:id', requireParent, async (req, res, next)
       req.user!.userId,
       req.params.id
     );
+
+    // M8 — Audit: pending invitation cancelled
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'DELETE',
+      resourceType: 'invitation',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { event: 'invitation_cancelled' },
+    });
 
     res.json({
       success: true,
@@ -220,6 +266,17 @@ familyRouter.post('/me/children', requireParent, validateBody(addChildSchema), a
       username: req.body.username,
       pin: req.body.pin,
       createdBy: req.user!.userId,
+    });
+
+    // M8 — Audit: child added to family
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'CREATE',
+      resourceType: 'child',
+      resourceId: (result as any).user?.id || (result as any).id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { firstName: req.body.firstName, lastName: req.body.lastName },
     });
 
     res.status(201).json({
@@ -300,6 +357,17 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
       ? { ...updatedChild.childProfile, pinHash: undefined }
       : undefined;
 
+    // M8 — Audit: child profile updated by parent
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'UPDATE',
+      resourceType: 'child',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { changes: req.body },
+    });
+
     res.json({
       success: true,
       data: { child: { ...user, childProfile: profile } },
@@ -331,6 +399,17 @@ familyRouter.delete('/me/children/:id', requireParent, async (req, res, next) =>
         isActive: false,
         deletedAt: new Date(),
       },
+    });
+
+    // M8 — Audit: child account deactivated by parent
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'DELETE',
+      resourceType: 'child',
+      resourceId: req.params.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { childName: `${child.firstName} ${child.lastName}` },
     });
 
     res.json({
