@@ -249,21 +249,23 @@ model PointsLedger {
 }
 
 model Reward {
-  id                     String     @id @default(uuid())
-  familyId               String     @map("family_id")
-  createdBy              String     @map("created_by")
+  id                     String      @id @default(uuid())
+  familyId               String      @map("family_id")
+  createdBy              String      @map("created_by")
   name                   String
   description            String?
-  pointsCost             Int        @map("points_cost")
+  pointsCost             Int         @map("points_cost")
   tier                   RewardTier?
-  iconUrl                String?    @map("icon_url")
-  isActive               Boolean    @default(true) @map("is_active")
-  maxRedemptionsPerChild Int?       @map("max_redemptions_per_child")
-  expiresAt              DateTime?  @map("expires_at")
-  isCollaborative        Boolean    @default(false) @map("is_collaborative")
-  createdAt              DateTime   @default(now()) @map("created_at")
-  updatedAt              DateTime   @updatedAt @map("updated_at")
-  deletedAt              DateTime?  @map("deleted_at")
+  iconUrl                String?     @map("icon_url")
+  isActive               Boolean     @default(true) @map("is_active")
+  maxRedemptionsPerChild Int?        @map("max_redemptions_per_child")
+  // M6 — CR-11: household-level redemption cap (total across all children)
+  maxRedemptionsTotal    Int?        @map("max_redemptions_total")
+  expiresAt              DateTime?   @map("expires_at")
+  isCollaborative        Boolean     @default(false) @map("is_collaborative")
+  createdAt              DateTime    @default(now()) @map("created_at")
+  updatedAt              DateTime    @updatedAt @map("updated_at")
+  deletedAt              DateTime?   @map("deleted_at")
 
   // Relations
   family      Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)

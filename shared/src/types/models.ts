@@ -1,3 +1,11 @@
+/**
+ * models.ts — Shared types (updated M6)
+ *
+ * Changes from M6 (CR-11):
+ *  - Reward interface: added maxRedemptionsTotal field
+ *  - Added RewardWithCapData interface (Reward + computed cap fields returned by the API)
+ */
+
 // Core model types shared between frontend and backend
 
 export type UserRole = 'parent' | 'child' | 'admin';
@@ -115,7 +123,7 @@ export interface PointsLedgerEntry extends BaseModel {
   createdBy?: string | null;
 }
 
-// Reward
+// Reward (base DB fields)
 export interface Reward extends BaseModel {
   familyId: string;
   createdBy: string;
@@ -126,9 +134,32 @@ export interface Reward extends BaseModel {
   iconUrl?: string | null;
   isActive: boolean;
   maxRedemptionsPerChild?: number | null;
+  // M6 — CR-11: household-level redemption cap
+  maxRedemptionsTotal?: number | null;
   expiresAt?: Date | null;
   isCollaborative: boolean;
   deletedAt?: Date | null;
+}
+
+/**
+ * RewardWithCapData
+ *
+ * What the API actually returns — Reward fields plus the computed cap fields
+ * appended by getRewardCapData(). Use this type in frontend components.
+ *
+ * Fields explained:
+ *  totalRedemptionsUsed  — total non-cancelled redemptions across the household
+ *  remainingTotal        — how many household claims are left (null = no cap)
+ *  remainingForChild     — how many claims this child has left (null = no cap)
+ *  isExpired             — true when expiresAt is set and in the past
+ *  isSoldOut             — true when totalRedemptionsUsed >= maxRedemptionsTotal
+ */
+export interface RewardWithCapData extends Reward {
+  totalRedemptionsUsed: number;
+  remainingTotal: number | null;
+  remainingForChild: number | null;
+  isExpired: boolean;
+  isSoldOut: boolean;
 }
 
 // Achievement

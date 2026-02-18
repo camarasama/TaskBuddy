@@ -41,6 +41,7 @@ TaskBuddy provides:
 - **Multi-parent support** so spouses, co-parents, and guardians share full management access
 - **Photo evidence submission** so children prove task completion before points are awarded
 - **Memorable family codes** (e.g. `MEGA-VIPER-8481`) for children to log in without email addresses
+- **Reward caps** — per-child and household-wide redemption limits with optional expiry dates
 
 ---
 
@@ -51,9 +52,9 @@ TaskBuddy provides:
 |---|---|
 | Family registration | Create a family account with a unique memorable code |
 | Co-parent invite | Invite a spouse, partner, guardian, or other adult via email link |
-| Task management | Create, assign, edit, and archive tasks with difficulty ratings |
+| Task management | Create, assign, edit, and archive tasks with difficulty ratings and primary/secondary tags |
 | Approval workflow | Review photo evidence and approve or reject completions |
-| Reward catalogue | Create redeemable rewards with point costs and redemption caps |
+| Reward catalogue | Create redeemable rewards with point costs, per-child limits, household caps, and expiry dates |
 | Family code management | Regenerate the family login code at any time |
 | Settings | Configure grace periods, leaderboard visibility, auto-approve rules |
 
@@ -62,12 +63,13 @@ TaskBuddy provides:
 |---|---|
 | PIN + family code login | Log in with a memorable code and a 4-digit PIN — no email needed |
 | Persistent sessions | Stay logged in across browser closes (via localStorage) |
-| Task dashboard | See pending, in-progress, and completed tasks for today |
+| Task dashboard | See primary and secondary tasks separately — secondary tasks unlock when primary is done |
 | Photo evidence | Upload proof of completion directly from the task card |
-| XP & levelling | Earn XP to unlock new levels (cosmetic progression) |
+| XP & levelling | Earn XP to unlock new levels (cosmetic progression, cannot be spent) |
 | Points & rewards | Earn points to redeem against parent-created rewards |
 | Streak tracking | Daily streak counter with configurable grace periods |
 | Achievements | Unlock badges for milestones |
+| Reward shop | See live cap status — "Sold Out" and "Expired" rewards are clearly labelled |
 
 ### Platform
 - **PWA** — installable on Android, iOS, and desktop
@@ -99,6 +101,7 @@ TaskBuddy provides:
 | bcrypt | — | Password hashing |
 | Nodemailer | — | Transactional email (invites) |
 | Multer + Sharp | — | File upload handling and thumbnail generation |
+| node-cron | — | Scheduled jobs (reward expiry, streak checks) |
 | Zod | — | Request validation schemas |
 
 ### Infrastructure & Storage
@@ -137,6 +140,7 @@ TaskBuddy provides:
 │                                                             │
 │  Middleware: authenticate → requireParent / requireChild    │
 │  Validation: Zod schemas on all request bodies              │
+│  Scheduler:  node-cron jobs (reward expiry, streaks)        │
 └─────────────┬────────────────────────────┬──────────────────┘
               │ Prisma ORM                  │ Multer → StorageService
               │                             │
@@ -193,6 +197,8 @@ family_invitations
 tasks
   id, familyId, createdBy, title, description, category
   difficulty (easy|medium|hard), pointsValue
+  taskTag (primary|secondary)              ← M5
+  startTime, estimatedMinutes              ← M5 overlap detection
   dueDate, requiresPhotoEvidence, isRecurring, recurrencePattern
   autoApprove, status (active|paused|archived)
 
@@ -207,20 +213,22 @@ task_evidence
   fileType, fileSizeBytes, createdAt
 
 rewards
-  id, familyId, createdBy, title, description
+  id, familyId, createdBy, name, description
   pointsCost, tier (small|medium|large)
-  maxRedemptionsPerChild, maxRedemptionsTotal
-  isActive, imageUrl
+  maxRedemptionsPerChild                   ← per-child claim cap
+  maxRedemptionsTotal                      ← household-wide claim cap (M6)
+  expiresAt                                ← auto-locks after this datetime (M6)
+  isActive, isCollaborative, deletedAt
 
 reward_redemptions
   id, rewardId, childId, approvedBy
   status (pending|approved|fulfilled|cancelled)
-  pointsDeducted, createdAt
+  pointsSpent, createdAt
 
 points_ledger
   id, childId, transactionType (earned|redeemed|bonus|penalty|adjustment)
-  amount, balanceAfter, description, taskAssignmentId, rewardRedemptionId
-  createdBy, createdAt
+  pointsAmount, balanceAfter, description
+  referenceType, referenceId, createdBy, createdAt
 
 achievements / child_achievements
   Definitions + unlock records per child
@@ -233,6 +241,8 @@ add_memorable_family_code    — families.familyCode
 add_co_parent_support        — users.isPrimaryParent + family_invitations
 add_invitation_relationship  — family_invitations.relationshipType/Other
 add_user_dob_phone           — users.dateOfBirth + users.phone
+add_task_tag_and_schedule    — tasks.taskTag + tasks.startTime/estimatedMinutes (M5)
+add_reward_total_cap         — rewards.maxRedemptionsTotal (M6)
 ```
 
 ---
@@ -265,13 +275,13 @@ PUT    /api/v1/families/me/children/:id
 DELETE /api/v1/families/me/children/:id
 GET    /api/v1/families/me/parents     List parent accounts + pending invites
 POST   /api/v1/families/me/invite      Send co-parent invite email
-DELETE /api/v1/families/me/parents/:id   Remove co-parent
-DELETE /api/v1/families/me/invitations/:id  Cancel pending invite
+DELETE /api/v1/families/me/parents/:id          Remove co-parent
+DELETE /api/v1/families/me/invitations/:id      Cancel pending invite
 ```
 
 ### Tasks
 ```
-GET    /api/v1/tasks                   List tasks (filterable)
+GET    /api/v1/tasks                   List tasks (filterable by tag, status, child)
 POST   /api/v1/tasks                   Create task + assignments
 GET    /api/v1/tasks/:id
 PUT    /api/v1/tasks/:id
@@ -283,12 +293,24 @@ PUT    /api/v1/tasks/:id/approve       Parent approves/rejects completion
 
 ### Rewards
 ```
-GET    /api/v1/rewards                 List rewards
-POST   /api/v1/rewards                 Create reward
-PUT    /api/v1/rewards/:id
-DELETE /api/v1/rewards/:id
-POST   /api/v1/rewards/:id/redeem      Child requests redemption
-PUT    /api/v1/rewards/:id/redemptions/:rid  Parent approves/fulfils/cancels
+GET    /api/v1/rewards                 List rewards (includes computed cap fields)
+POST   /api/v1/rewards                 Create reward (supports maxRedemptionsTotal, expiresAt)
+GET    /api/v1/rewards/:id             Get reward + computed cap status
+PUT    /api/v1/rewards/:id             Update reward
+DELETE /api/v1/rewards/:id             Soft delete reward
+POST   /api/v1/rewards/:id/redeem      Child redeems reward (three-gate cap check)
+GET    /api/v1/rewards/redemptions/history
+PUT    /api/v1/rewards/redemptions/:id/fulfill   Parent fulfils redemption
+PUT    /api/v1/rewards/redemptions/:id/cancel    Cancel + refund points
+```
+
+**Computed fields on reward responses (M6):**
+```
+totalRedemptionsUsed   — non-cancelled claims across the household
+remainingTotal         — household claims left (null = no cap)
+remainingForChild      — claims left for requesting child (null = no cap)
+isExpired              — true when expiresAt is set and in the past
+isSoldOut              — true when totalRedemptionsUsed >= maxRedemptionsTotal
 ```
 
 ### Dashboard & Uploads
@@ -388,7 +410,7 @@ ngrok http 3001
 
 Then set in `backend/.env`:
 ```dotenv
-FRONTEND_URL=https://xxxx.ngrok-free.app
+CLIENT_URL=https://xxxx.ngrok-free.app
 ```
 
 And in `frontend/.env.local`:
@@ -467,7 +489,7 @@ task-buddy/
 ├── shared/                      # @taskbuddy/shared — types & constants
 │   └── src/
 │       ├── types/
-│       │   └── models.ts        # User, Task, Reward, etc. interfaces
+│       │   └── models.ts        # User, Task, Reward, RewardWithCapData interfaces
 │       └── constants/
 │           └── validation.ts    # PASSWORD, PIN, FAMILY_CODE rules
 │
@@ -478,7 +500,7 @@ task-buddy/
 │   │   └── seed.ts              # Database seeder
 │   ├── src/
 │   │   ├── config.ts            # Environment variable access
-│   │   ├── server.ts            # Express app bootstrap
+│   │   ├── index.ts             # Express app bootstrap + scheduler init
 │   │   ├── middleware/
 │   │   │   ├── auth.ts          # JWT authentication middleware
 │   │   │   ├── errorHandler.ts  # Global error handler + custom error classes
@@ -487,14 +509,19 @@ task-buddy/
 │   │   │   ├── auth.ts          # /auth/* endpoints
 │   │   │   ├── family.ts        # /families/* endpoints
 │   │   │   ├── tasks.ts         # /tasks/* endpoints
-│   │   │   ├── rewards.ts       # /rewards/* endpoints
+│   │   │   ├── rewards.ts       # /rewards/* endpoints (M6: three-gate cap guard)
 │   │   │   ├── dashboard.ts     # /dashboard/* endpoints
 │   │   │   └── uploads.ts       # /uploads/* endpoints
-│   │   └── services/
-│   │       ├── auth.ts          # Registration, login, token management
-│   │       ├── invite.ts        # Co-parent invite flow
-│   │       ├── storage.ts       # File upload (local + R2)
-│   │       └── database.ts      # Prisma client singleton
+│   │   ├── services/
+│   │   │   ├── auth.ts          # Registration, login, token management
+│   │   │   ├── invite.ts        # Co-parent invite flow
+│   │   │   ├── storage.ts       # File upload (local + R2)
+│   │   │   ├── achievements.ts  # Achievement unlock checks
+│   │   │   ├── scheduler.ts     # node-cron jobs (M6: reward expiry deactivation)
+│   │   │   └── database.ts      # Prisma client singleton
+│   │   └── utils/
+│   │       ├── assignmentLimits.ts  # M5: task cap checks (max 3, max 1 primary)
+│   │       └── rewardCaps.ts        # M6: three-gate redemption guard + computed cap data
 │   └── .env.example
 │
 └── frontend/                    # Next.js PWA
@@ -503,21 +530,24 @@ task-buddy/
     └── src/
         ├── app/
         │   ├── layout.tsx
-        │   ├── page.tsx                      # Landing / login redirect
+        │   ├── page.tsx                          # Landing / login redirect
         │   ├── login/page.tsx
         │   ├── register/page.tsx
-        │   ├── invite/accept/page.tsx        # Co-parent invite acceptance
+        │   ├── invite/accept/page.tsx            # Co-parent invite acceptance
         │   ├── parent/
         │   │   ├── dashboard/page.tsx
         │   │   ├── tasks/page.tsx
         │   │   ├── tasks/new/page.tsx
-        │   │   ├── rewards/page.tsx
+        │   │   ├── tasks/[id]/edit/page.tsx
+        │   │   ├── rewards/page.tsx              # M6: Sold Out / Expired badges
+        │   │   ├── rewards/new/page.tsx          # M6: cap fields added
+        │   │   ├── rewards/[id]/edit/page.tsx    # M6: cap fields + usage status
         │   │   ├── children/page.tsx
         │   │   └── settings/page.tsx
         │   └── child/
         │       ├── dashboard/page.tsx
         │       ├── tasks/page.tsx
-        │       └── rewards/page.tsx
+        │       └── rewards/page.tsx              # M6: greyed-out expired/sold-out rewards
         ├── components/
         │   ├── layouts/
         │   │   ├── ParentLayout.tsx
@@ -529,10 +559,10 @@ task-buddy/
         │   ├── InviteCoParentModal.tsx
         │   └── ResetPinModal.tsx
         ├── contexts/
-        │   └── AuthContext.tsx              # Global auth state
+        │   └── AuthContext.tsx                  # Global auth state
         └── lib/
-            ├── api.ts                       # All API call functions
-            └── utils.ts                     # Helpers (formatPoints, getInitials, etc.)
+            ├── api.ts                           # All API call functions
+            └── utils.ts                         # Helpers (formatPoints, getInitials, etc.)
 ```
 
 ---
@@ -551,14 +581,14 @@ Core infrastructure, authentication, and co-parent support.
 | M3 | Memorable family codes (ADJECTIVE-ANIMAL-NNNN) + persistent child sessions | ✅ Done |
 | M4 | Co-parent / spouse invite flow with relationship types + cancellation | ✅ Done |
 
-### Phase 1 — Core Gameplay (Weeks 4–6)
+### Phase 1 — Core Gameplay (Weeks 4–6) 🔄 In Progress
 Task rules, dual XP/Points currency, reward caps.
 
-| Milestone | Description |
-|---|---|
-| M5 | Task tags (primary/secondary), assignment limits (max 3, max 1 primary), overlap warnings |
-| M6 | XP/Points dual currency — separate progression from purchasing |
-| M7 | Reward triple-cap (per-child + total redemptions), parent registration fields |
+| Milestone | Description | Status |
+|---|---|---|
+| M5 | Task tags (primary/secondary), assignment limits (max 3, max 1 primary), overlap warnings | ✅ Done |
+| M6 | Reward triple-cap — per-child limit, household total cap, expiry date with countdown | ✅ Done |
+| M7 | XP/Points dual currency — separate progression from purchasing, level-up bonus points | ⬜ Next |
 
 ### Phase 2 — Admin & Audit (Weeks 7–9)
 Admin dashboard and full audit logging.
@@ -591,6 +621,18 @@ WebSockets for live task updates, leaderboard, PWA push notifications, child ava
 5. Log in as co-parent → full parent access (create tasks, rewards, approve completions)
 6. Log in as primary parent → **Settings → Family Members** → trash icon visible on co-parent row → remove works
 7. Primary parent can cancel pending invite (✕ button on pending invite row)
+
+### Acceptance Tests (Phase 1)
+
+**M5 — Task Rules**
+1. Assign a 4th task to a child → HTTP 409 "Maximum 3 active assignments"
+2. Complete primary task, then try to claim a secondary task while primary is still pending → blocked
+3. Create two tasks with overlapping times for the same child → overlap warning shown on parent dashboard
+
+**M6 — Reward Triple Cap** ✅ All passed
+1. **Household cap** — Create reward with `maxRedemptionsTotal=2`. Have 2 children redeem it. Third child attempt → HTTP 409 "This reward has been fully claimed by the household." Reward shows "Sold Out". Nightly cron sets `isActive=false`.
+2. **Per-child cap** — Create reward with `maxRedemptionsPerChild=1`. Same child redeems twice → HTTP 409 "You have already claimed this reward the maximum number of times." Household total not consumed by blocked attempt.
+3. **Expiry** — Create reward with `expiresAt` 2 minutes away. Countdown badge visible. After expiry → reward shows "Expired" and is greyed out. Redemption attempt → HTTP 409 "This reward has expired."
 
 ---
 
@@ -651,6 +693,12 @@ Rather than introducing a hierarchical co-parent role, the system reuses the exi
 
 **Persistent Child Sessions**
 Children's refresh tokens are stored in `localStorage` (persisting browser closes) while parents use `sessionStorage` (cleared on browser close). This reduces login friction for children — who frequently close tabs accidentally — while maintaining stricter session control for parents who have account governance authority.
+
+**Reward Cap Architecture (M6)**
+Rewards support three independent constraints: a per-child redemption limit, a household-wide total cap, and an optional expiry date. All three are enforced server-side in a sequential three-gate check that returns distinct HTTP 409 error messages for each case. Computed fields (`isSoldOut`, `isExpired`, `remainingTotal`, `remainingForChild`) are appended to every reward response so the frontend can render accurate state without additional API calls. A nightly cron job (`scheduler.ts`) sets `isActive = false` on rewards that have expired or exhausted their household cap.
+
+**Primary / Secondary Task System (M5)**
+Tasks are classified as `primary` (must-do assignments from parents) or `secondary` (optional bonus tasks). Children cannot claim secondary tasks while a primary task is pending, creating a natural incentive hierarchy. Assignment limits (max 3 total, max 1 primary) are enforced server-side.
 
 ---
 

@@ -9,6 +9,7 @@ import { createServer } from 'http';
 import { config, validateConfig } from './config';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { apiRouter } from './routes';
+import { initScheduler } from './services/scheduler';
 
 // Validate environment configuration
 validateConfig();
@@ -76,6 +77,8 @@ app.use(errorHandler);
 
 // Start server
 const PORT = config.port;
+
+initScheduler(); 
 
 httpServer.listen(PORT, () => {
   console.log(`
