@@ -1,9 +1,26 @@
+/**
+ * services/invite.ts — Updated M9 (Email Notifications)
+ *
+ * Changes from M8:
+ *  - The inline nodemailer createTransport(), buildFromAddress(), and
+ *    buildInviteEmail() helpers have been removed. The co-parent invite
+ *    email is now sent via EmailService.send() with
+ *    triggerType='co_parent_invite', which handles SMTP transport, retry
+ *    logic, preference checks, and email_logs in one consistent place.
+ *    The HTML template moves to backend/src/emails/coParentInvite.ts.
+ *  - sendInvite() still returns { acceptUrl, emailSent } so the API
+ *    contract is unchanged and callers need no updates.
+ *
+ * Everything else is identical to M8.
+ */
+
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 import bcrypt from 'bcrypt';
 import { prisma } from './database';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../middleware/errorHandler';
 import { authService } from './auth';
+// M9 — Replaces the inline nodemailer call that was here in M4-M8
+import { EmailService } from './email';
 
 const SALT_ROUNDS = 12;
 const INVITE_EXPIRES_HOURS = parseInt(process.env.INVITE_TOKEN_EXPIRES_HOURS || '168', 10); // 7 days
@@ -23,43 +40,6 @@ export interface AcceptInviteInput {
   password: string;
   dateOfBirth?: string;
   phone?: string;
-}
-
-// ─── Email transport (plain nodemailer; replaced by EmailService in M9) ─────
-
-function createTransport() {
-  const port = parseInt(process.env.SMTP_PORT || '587', 10);
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
-    port,
-    // port 465 = implicit TLS (secure:true), port 587 = STARTTLS (secure:false)
-    secure: port === 465,
-    auth: {
-      user: process.env.SMTP_USER || '',
-      pass: process.env.SMTP_PASS || '',
-    },
-    tls: {
-      // Allow self-signed certs in dev; Gmail requires this to be false in prod
-      rejectUnauthorized: process.env.NODE_ENV === 'production',
-    },
-  });
-}
-
-// Gmail requires the "from" address to exactly match the authenticated SMTP_USER.
-// Using a display name like "TaskBuddy <noreply@...>" will be rejected.
-// This helper builds a safe from address.
-function buildFromAddress(): string {
-  const user = process.env.SMTP_USER || '';
-  // If SMTP_FROM is set AND its email part matches SMTP_USER, use it.
-  // Otherwise fall back to just the SMTP_USER address.
-  const smtpFrom = process.env.SMTP_FROM || '';
-  const fromEmailMatch = smtpFrom.match(/<([^>]+)>/);
-  const fromEmail = fromEmailMatch ? fromEmailMatch[1] : smtpFrom;
-  if (fromEmail && fromEmail.toLowerCase() === user.toLowerCase()) {
-    return smtpFrom; // safe to use the display-name version
-  }
-  // Gmail rejects mismatched from — use the auth user directly
-  return user;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -131,21 +111,38 @@ export class InviteService {
       'http://localhost:3000'
     ).replace(/\/$/, ''); // strip trailing slash
     const acceptUrl = `${frontendUrl}/invite/accept?token=${token}`;
-    const familyName = caller.family.familyName;
+    const familyName = caller.family!.familyName;
     const inviterName = `${caller.firstName} ${caller.lastName}`;
+    const expiresDays = Math.round(INVITE_EXPIRES_HOURS / 24);
 
+    // M9 — Send via EmailService (replaces inline nodemailer from M4-M8).
+    // Fire-and-forget so SMTP issues never block the API response.
+    // EmailService logs the attempt to email_logs regardless of outcome.
+    // skipPreferenceCheck=true because the invitee has no family prefs record yet.
     let emailSent = false;
     try {
-      const transporter = createTransport();
-      await transporter.sendMail({
-        from: buildFromAddress(),
-        to: email,
+      await EmailService.send({
+        triggerType: 'co_parent_invite',
+        toEmail: email,
+        toUserId: null,          // invitee has no user record yet
+        familyId,
         subject: `${inviterName} invited you to join ${familyName} on TaskBuddy`,
-        html: buildInviteEmail({ inviterName, familyName, acceptUrl, expiresHours: INVITE_EXPIRES_HOURS }),
+        templateData: {
+          inviterName,
+          familyName,
+          acceptUrl,
+          expiresDays,
+        },
+        referenceType: 'family_invitation',
+        referenceId: token,
+        // Skip the notificationPreferences check for invite emails —
+        // the invitee is not yet a family member so they have no prefs record.
+        skipPreferenceCheck: true,
       });
       emailSent = true;
     } catch (err: any) {
       // Log the real error so it's visible in the backend console
+      // (EmailService already wrote the failure to email_logs)
       console.error('[InviteService] Failed to send invite email:');
       console.error('  Code:', err?.code);
       console.error('  Message:', err?.message);
@@ -224,7 +221,6 @@ export class InviteService {
         return user;
       });
     } catch (err: any) {
-      // P2002 = Prisma unique constraint violation
       if (err?.code === 'P2002') {
         throw new ConflictError(
           'An account with this email address already exists. ' +
@@ -382,71 +378,3 @@ export class InviteService {
 }
 
 export const inviteService = new InviteService();
-
-// ─── Email template ──────────────────────────────────────────────────────────
-
-function buildInviteEmail(opts: {
-  inviterName: string;
-  familyName: string;
-  acceptUrl: string;
-  expiresHours: number;
-}): string {
-  const expiresDays = Math.round(opts.expiresHours / 24);
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 0;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <!-- Header -->
-        <tr>
-          <td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px;text-align:center;">
-            <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;">TaskBuddy</h1>
-            <p style="margin:8px 0 0;color:#e0e7ff;font-size:14px;">Family Task Management</p>
-          </td>
-        </tr>
-        <!-- Body -->
-        <tr>
-          <td style="padding:40px 40px 24px;">
-            <h2 style="margin:0 0 16px;color:#1e293b;font-size:22px;">You've been invited!</h2>
-            <p style="margin:0 0 16px;color:#475569;font-size:16px;line-height:1.6;">
-              <strong>${opts.inviterName}</strong> has invited you to join the
-              <strong>${opts.familyName}</strong> family on TaskBuddy as a co-parent.
-            </p>
-            <p style="margin:0 0 32px;color:#475569;font-size:16px;line-height:1.6;">
-              As a co-parent you'll have full access to manage tasks, approve completions,
-              and create rewards for your family.
-            </p>
-            <!-- CTA button -->
-            <table cellpadding="0" cellspacing="0" width="100%">
-              <tr>
-                <td align="center">
-                  <a href="${opts.acceptUrl}"
-                     style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:14px 40px;border-radius:8px;">
-                    Accept Invitation
-                  </a>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <!-- Footer note -->
-        <tr>
-          <td style="padding:24px 40px 40px;">
-            <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
-              This invitation expires in <strong>${expiresDays} days</strong>.
-              If you didn't expect this email you can safely ignore it.
-            </p>
-            <p style="margin:12px 0 0;color:#94a3b8;font-size:12px;">
-              Or copy this link: <a href="${opts.acceptUrl}" style="color:#6366f1;">${opts.acceptUrl}</a>
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}

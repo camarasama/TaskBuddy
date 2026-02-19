@@ -27,6 +27,27 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
       throw new NotFoundError('Family not found');
     }
 
+    // Get all active parents in the family (primary + co-parents)
+    const parents = await prisma.user.findMany({
+      where: {
+        familyId: req.familyId,
+        role: 'parent',
+        deletedAt: null,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        isPrimaryParent: true,
+        avatarUrl: true,
+        lastLoginAt: true,
+        createdAt: true,
+      },
+      orderBy: [{ isPrimaryParent: 'desc' }, { createdAt: 'asc' }],
+    });
+
     // Get children with their stats
     const children = await prisma.user.findMany({
       where: {
@@ -146,6 +167,9 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
       success: true,
       data: {
         family,
+        // All active parent accounts (primary + co-parents).
+        // totalMembers = parents.length + children.length
+        parents,
         children: childrenWithStats,
         pendingApprovals,
         weeklyStats,

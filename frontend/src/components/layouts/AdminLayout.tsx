@@ -16,7 +16,7 @@
  *   Users        /admin/users
  *   Achievements /admin/achievements
  *   Audit Log    /admin/audit-log
- *   Emails       /admin/emails  (placeholder — wired in M9)
+ *  Emails       /admin/emails
  */
 
 'use client';
@@ -41,8 +41,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Users',        href: '/admin/users',        icon: '👥' },
   { label: 'Achievements', href: '/admin/achievements', icon: '🏆' },
   { label: 'Audit Log',    href: '/admin/audit-log',    icon: '📋' },
-  // M9 placeholder — becomes live when EmailService is wired
-  { label: 'Emails',       href: '/admin/emails',       icon: '✉️',  disabled: true },
+  // M9 — Email log viewer + resend (live)
+  { label: 'Emails',       href: '/admin/emails',       icon: '✉️' },
 ];
 
 interface AdminLayoutProps {

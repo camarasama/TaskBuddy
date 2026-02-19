@@ -226,7 +226,7 @@ export const familyApi = {
       method: 'DELETE',
     }),
 
-    cancelInvite: (invitationId: string) =>
+  cancelInvite: (invitationId: string) =>
     request<ApiResponse<{ message: string }>>(`/families/me/invitations/${invitationId}`, {
       method: 'DELETE',
     }),
@@ -253,7 +253,7 @@ export const tasksApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  
+
   // M5 — CR-10: Child self-assigns a secondary task
   selfAssign: (taskId: string) =>
     request<ApiResponse<{ assignment: unknown }>>('/tasks/assignments/self-assign', {
@@ -380,7 +380,6 @@ export const achievementsApi = {
 // ============================================
 // M8 — Admin API
 // ============================================
-// Append this entire block to the bottom of frontend/src/lib/api.ts
 
 export const adminApi = {
   // ── Registration ─────────────────────────────────────────────────────────
@@ -499,4 +498,56 @@ export const adminApi = {
     const query = new URLSearchParams(params as Record<string, string>).toString();
     return `${API_BASE}/admin/audit-logs/export${query ? `?${query}` : ''}`;
   },
+};
+
+// ============================================
+// M9 — Email Log API (admin only)
+// ============================================
+
+export const emailsApi = {
+  /**
+   * GET /admin/emails
+   * Returns a paginated list of email_logs entries for the admin email viewer.
+   * Supports filtering by status, triggerType, familyId, and date range.
+   */
+  getLogs: (params?: {
+    status?: 'sent' | 'failed' | 'bounced';
+    triggerType?: string;
+    familyId?: string;
+    from?: string;   // ISO datetime
+    to?: string;     // ISO datetime
+    page?: number;
+    limit?: number;
+  }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return request<ApiResponse<{
+      logs: {
+        id: string;
+        toEmail: string;
+        toUserId: string | null;
+        familyId: string | null;
+        triggerType: string;
+        subject: string;
+        status: 'sent' | 'failed' | 'bounced';
+        errorMessage: string | null;
+        referenceType: string | null;
+        referenceId: string | null;
+        resendCount: number;
+        lastResentAt: string | null;
+        createdAt: string;
+      }[];
+      total: number;
+      page: number;
+    }>>(`/admin/emails${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * POST /admin/emails/:id/resend
+   * Re-sends a specific email log entry. Only valid for status='failed'.
+   * Returns the updated log entry with incremented resendCount.
+   */
+  resend: (logId: string) =>
+    request<ApiResponse<{ log: unknown; message: string }>>(`/admin/emails/${logId}/resend`, {
+      method: 'POST',
+    }),
 };

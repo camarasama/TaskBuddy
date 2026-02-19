@@ -1,6 +1,8 @@
 {
+  "/parent/dashboard/page": "app/parent/dashboard/page.js",
   "/login/page": "app/login/page.js",
   "/admin/dashboard/page": "app/admin/dashboard/page.js",
-  "/admin/users/page": "app/admin/users/page.js",
+  "/admin/families/[id]/page": "app/admin/families/[id]/page.js",
+  "/admin/emails/page": "app/admin/emails/page.js",
   "/admin/audit-log/page": "app/admin/audit-log/page.js"
 }

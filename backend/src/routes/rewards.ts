@@ -1,12 +1,13 @@
 /**
- * rewards.ts — Backend route (updated M6)
+ * rewards.ts — Backend route (updated M9 — Email Notifications)
  *
- * Changes from M6 (CR-11 — Reward Triple Cap):
- *  - createRewardSchema and updateRewardSchema now include maxRedemptionsTotal
- *  - GET / and GET /:id append computed cap fields (isSoldOut, isExpired, remainingTotal, remainingForChild)
- *  - POST /:id/redeem now delegates all cap logic to checkRedemptionCaps() utility
- *    (three distinct 409 messages instead of a silent 404 for expired/sold-out rewards)
- *  - Nightly deactivation of exhausted/expired rewards is handled by scheduler.ts (new file)
+ * Changes from M8:
+ *  - POST /:id/redeem: after the transaction completes, calls
+ *    EmailService.sendToFamilyParents() with triggerType='reward_redeemed'.
+ *    The email notifies ALL parent-role users in the family (CR-08) so both
+ *    parents can arrange fulfilment. Fire-and-forget.
+ *
+ * All other routes are unchanged from M8.
  */
 
 import { Router } from 'express';
@@ -19,6 +20,8 @@ import { checkAndUnlockAchievements } from '../services/achievements';
 import { checkRedemptionCaps, getRewardCapData } from '../utils/rewardCaps';
 // M8 — Audit logging for all mutating reward routes
 import { AuditService } from '../services/AuditService';
+// M9 — Email notifications
+import { EmailService } from '../services/email';
 
 export const rewardRouter = Router();
 
@@ -33,9 +36,9 @@ const createRewardSchema = z.object({
   pointsCost: z.number().int().min(1).max(100000),
   tier: z.enum(['small', 'medium', 'large']).optional(),
   iconUrl: z.string().url().optional(),
-  // M6 — CR-11: per-child cap (how many times one child can claim this reward)
+  // M6 — CR-11: per-child cap
   maxRedemptionsPerChild: z.number().int().min(1).optional(),
-  // M6 — CR-11: household cap (total claims across all children combined)
+  // M6 — CR-11: household cap
   maxRedemptionsTotal: z.number().int().min(1).optional(),
   expiresAt: z.string().datetime().optional(),
   isCollaborative: z.boolean().optional(),
@@ -56,9 +59,6 @@ rewardRouter.get('/', async (req, res, next) => {
       deletedAt: null,
     };
 
-    // When active=true, filter out inactive rewards.
-    // Note: We no longer filter by expiresAt here — we let the reward through and
-    // mark it as isExpired in the computed fields so the frontend can show a badge.
     if (active === 'true') {
       where.isActive = true;
     }
@@ -79,10 +79,8 @@ rewardRouter.get('/', async (req, res, next) => {
       ],
     });
 
-    // Determine the requesting child's id (null for parent callers)
     const childId = req.user!.role === 'child' ? req.user!.userId : null;
 
-    // Append computed cap data to every reward in the list
     const rewardsWithCapData = await Promise.all(
       rewards.map(async (reward) => {
         const capData = await getRewardCapData(reward.id, childId, {
@@ -169,7 +167,6 @@ rewardRouter.get('/:id', async (req, res, next) => {
       throw new NotFoundError('Reward not found');
     }
 
-    // Append computed cap fields for the detail view
     const childId = req.user!.role === 'child' ? req.user!.userId : null;
     const capData = await getRewardCapData(reward.id, childId, {
       maxRedemptionsTotal: reward.maxRedemptionsTotal,
@@ -278,14 +275,10 @@ rewardRouter.delete('/:id', requireParent, async (req, res, next) => {
 
 rewardRouter.post('/:id/redeem', async (req, res, next) => {
   try {
-    // Only children can redeem rewards
     if (req.user!.role !== 'child') {
       throw new ForbiddenError('Only children can redeem rewards');
     }
 
-    // Fetch the reward WITHOUT filtering by expiresAt or isActive — we run explicit
-    // cap checks via checkRedemptionCaps() so we can return specific error messages
-    // instead of a generic 404.
     const reward = await prisma.reward.findFirst({
       where: {
         id: req.params.id,
@@ -298,13 +291,11 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
       throw new NotFoundError('Reward not found');
     }
 
-    // Guard: reward must still be active (parent manually deactivated it)
     if (!reward.isActive) {
       throw new ConflictError('This reward is no longer available.');
     }
 
     // ── M6: Three-gate cap check ────────────────────────────────────────────
-    // Gate 1: expiry  |  Gate 2: household total cap  |  Gate 3: per-child cap
     const capCheck = await checkRedemptionCaps(reward.id, req.user!.userId, {
       expiresAt: reward.expiresAt,
       maxRedemptionsTotal: reward.maxRedemptionsTotal,
@@ -315,7 +306,6 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
       throw new ConflictError(capCheck.reason!);
     }
 
-    // Get child's profile to check points balance
     const profile = await prisma.childProfile.findUnique({
       where: { userId: req.user!.userId },
     });
@@ -324,18 +314,22 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
       throw new NotFoundError('Child profile not found');
     }
 
-    // Check if child has enough points
     if (profile.pointsBalance < reward.pointsCost) {
       throw new ValidationError(
         `Not enough points. You have ${profile.pointsBalance} but need ${reward.pointsCost}`
       );
     }
 
+    // Fetch the child's name for the email (profile doesn't include it)
+    const child = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { firstName: true, lastName: true },
+    });
+
     // Create redemption and deduct points in a single transaction
     const result = await prisma.$transaction(async (tx) => {
       const newBalance = profile.pointsBalance - reward.pointsCost;
 
-      // Create redemption record
       const redemption = await tx.rewardRedemption.create({
         data: {
           rewardId: reward.id,
@@ -345,13 +339,11 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
         },
       });
 
-      // Deduct points from child's balance
       await tx.childProfile.update({
         where: { userId: req.user!.userId },
         data: { pointsBalance: newBalance },
       });
 
-      // Record the deduction in the points ledger
       await tx.pointsLedger.create({
         data: {
           childId: req.user!.userId,
@@ -367,7 +359,6 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
       return { redemption, newBalance };
     });
 
-    // Check whether this redemption unlocked any achievements (e.g., "First Reward")
     const unlockedAchievements = await checkAndUnlockAchievements(req.user!.userId);
 
     // M8 — Audit: reward redeemed by child
@@ -385,6 +376,26 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
         newBalance: result.newBalance,
       },
     });
+
+    // M9 — Reward redeemed email: notify all parents so they can arrange fulfilment.
+    // Respects the 'reward_redeemed' notification preference (CR-08).
+    EmailService.sendToFamilyParents({
+      familyId: req.familyId!,
+      triggerType: 'reward_redeemed',
+      subjectBuilder: () =>
+        `${child?.firstName ?? 'A child'} redeemed "${reward.name}"`,
+      templateData: {
+        childName: child?.firstName ?? 'A child',
+        rewardName: reward.name,
+        pointsSpent: reward.pointsCost,
+        newBalance: result.newBalance,
+        redemptionId: result.redemption.id,
+      },
+      referenceType: 'reward_redemption',
+      referenceId: result.redemption.id,
+    }).catch((err) =>
+      console.error('[rewards/redeem] reward_redeemed email failed (non-fatal):', err?.message)
+    );
 
     res.status(201).json({
       success: true,
@@ -409,7 +420,6 @@ rewardRouter.get('/redemptions/history', async (req, res, next) => {
     if (req.user!.role === 'child') {
       where.childId = req.user!.userId;
     } else {
-      // Parents see all redemptions across the family
       where.reward = { familyId: req.familyId };
     }
 
@@ -496,12 +506,10 @@ rewardRouter.put('/redemptions/:id/cancel', async (req, res, next) => {
       throw new NotFoundError('Pending redemption not found');
     }
 
-    // Children can only cancel their own redemptions
     if (req.user!.role === 'child' && redemption.childId !== req.user!.userId) {
       throw new ForbiddenError("Cannot cancel another child's redemption");
     }
 
-    // Refund points and cancel in a single transaction
     await prisma.$transaction(async (tx) => {
       const profile = await tx.childProfile.findUnique({
         where: { userId: redemption.childId },
@@ -532,7 +540,7 @@ rewardRouter.put('/redemptions/:id/cancel', async (req, res, next) => {
       });
     });
 
-    // M8 — Audit: redemption cancelled (by child or parent)
+    // M8 — Audit: redemption cancelled
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'CANCEL',

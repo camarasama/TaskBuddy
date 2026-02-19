@@ -42,6 +42,7 @@ TaskBuddy provides:
 - **Photo evidence submission** so children prove task completion before points are awarded
 - **Memorable family codes** (e.g. `MEGA-VIPER-8481`) for children to log in without email addresses
 - **Reward caps** — per-child and household-wide redemption limits with optional expiry dates
+- **Email notifications** — automated emails for task events, reward redemptions, level-ups, and streak reminders
 
 ---
 
@@ -56,6 +57,8 @@ TaskBuddy provides:
 | Approval workflow | Review photo evidence and approve or reject completions |
 | Reward catalogue | Create redeemable rewards with point costs, per-child limits, household caps, and expiry dates |
 | Family code management | Regenerate the family login code at any time |
+| Email notifications | Receive emails for task submissions, approvals, reward redemptions, level-ups, and streak alerts |
+| Notification preferences | Toggle each email type on/off per family from the Settings page |
 | Settings | Configure grace periods, leaderboard visibility, auto-approve rules |
 
 ### For Children
@@ -99,9 +102,9 @@ TaskBuddy provides:
 | PostgreSQL | 15 | Primary relational database |
 | JSON Web Tokens | — | Access + refresh token authentication |
 | bcrypt | — | Password hashing |
-| Nodemailer | — | Transactional email (invites) |
+| Nodemailer | — | Transactional email (all notification triggers) |
 | Multer + Sharp | — | File upload handling and thumbnail generation |
-| node-cron | — | Scheduled jobs (reward expiry, streak checks) |
+| node-cron | — | Scheduled jobs (expiry warnings, streak-at-risk alerts) |
 | Zod | — | Request validation schemas |
 
 ### Infrastructure & Storage
@@ -127,6 +130,7 @@ TaskBuddy provides:
 │                                                             │
 │   Parent Dashboard  │  Child Dashboard  │  Auth Pages       │
 │   Settings / Invite │  Task Cards       │  /invite/accept   │
+│   Admin Dashboard   │  Email Log Viewer │                   │
 └──────────────────────────────┬──────────────────────────────┘
                                │ HTTPS / REST
                                │ JWT Bearer Token (Authorization header)
@@ -136,11 +140,12 @@ TaskBuddy provides:
 │              Express + TypeScript (localhost:3001)          │
 │                                                             │
 │  /auth/*     /families/*     /tasks/*     /rewards/*        │
-│  /children/* /dashboard/*    /uploads/*                     │
+│  /children/* /dashboard/*    /uploads/*   /admin/*          │
 │                                                             │
 │  Middleware: authenticate → requireParent / requireChild    │
 │  Validation: Zod schemas on all request bodies              │
-│  Scheduler:  node-cron jobs (reward expiry, streaks)        │
+│  Scheduler:  node-cron jobs (expiry, streak-at-risk)        │
+│  EmailService: Nodemailer + SMTP retry + email_logs         │
 └─────────────┬────────────────────────────┬──────────────────┘
               │ Prisma ORM                  │ Multer → StorageService
               │                             │
@@ -177,6 +182,7 @@ Co-parent invite:
 ```
 families
   id, familyName, familyCode (ADJECTIVE-ANIMAL-NNNN), createdAt
+  isSuspended, suspendedAt, suspendedBy                ← M8 admin controls
 
 users
   id, familyId, email, username, passwordHash, role (parent|child|admin)
@@ -192,7 +198,6 @@ child_profiles
 
 family_invitations
   id, familyId, invitedByUserId, email, token (unique)
-  relationshipType (spouse|partner|guardian|other), relationshipOther
   expiresAt, acceptedAt, createdAt
 
 tasks
@@ -208,6 +213,7 @@ task_assignments
   (pending|in_progress|completed|approved|rejected)
   completedAt, approvedAt, approvedBy, rejectionReason
   pointsAwarded, xpAwarded
+  emailSentAt                              ← M9: expiry cron deduplication guard
 
 task_evidence
   id, assignmentId, uploadedBy, fileUrl, thumbnailUrl
@@ -233,6 +239,21 @@ points_ledger
 
 achievements / child_achievements
   Definitions + unlock records per child
+
+audit_logs                                 ← M8: immutable mutation log
+  id, actorId, action, resourceType, resourceId
+  familyId, metadata (JSON), ipAddress, createdAt
+
+email_logs                                 ← M9: email delivery audit trail
+  id, toEmail, toUserId, familyId
+  triggerType, subject, status (sent|failed|bounced)
+  errorMessage, referenceType, referenceId
+  resendCount, lastResentAt, createdAt
+
+family_settings
+  notificationPreferences (JSON)           ← M9: per-family email opt-in/out
+  autoApproveRecurringTasks, enableDailyChallenges
+  enableLeaderboard, streakGracePeriodHours
 ```
 
 ### Key Migrations (in order)
@@ -240,11 +261,13 @@ achievements / child_achievements
 init_schema                  — all base tables
 add_memorable_family_code    — families.familyCode
 add_co_parent_support        — users.isPrimaryParent + family_invitations
-add_invitation_relationship  — family_invitations.relationshipType/Other
 add_user_dob_phone           — users.dateOfBirth + users.phone
 add_task_tag_and_schedule    — tasks.taskTag + tasks.startTime/estimatedMinutes (M5)
 add_reward_total_cap         — rewards.maxRedemptionsTotal (M6)
 m7_xp_dual_currency          — child_profiles.totalXpEarned + TransactionType.milestone_bonus (M7)
+m8_admin_audit               — audit_logs + families.isSuspended (M8)
+add_email_logs               — email_logs + task_assignments.emailSentAt + EmailLogStatus enum (M9)
+add_email_log_relations      — EmailLog relations to User and Family (M9)
 ```
 
 ---
@@ -262,14 +285,15 @@ GET    /api/v1/auth/me                 Get current user
 PUT    /api/v1/auth/password           Change password
 GET    /api/v1/auth/invite-preview     Preview invite (public, token query param)
 POST   /api/v1/auth/accept-invite      Accept invite and create co-parent account
+POST   /api/v1/auth/admin/register     Register admin account (requires ADMIN_INVITE_CODE)
 ```
 
 ### Families
 ```
 GET    /api/v1/families/me             Get family info
 PUT    /api/v1/families/me             Update family name
-GET    /api/v1/families/me/settings    Get gamification settings
-PUT    /api/v1/families/me/settings    Update settings
+GET    /api/v1/families/me/settings    Get gamification + notification settings
+PUT    /api/v1/families/me/settings    Update settings (incl. notificationPreferences)
 GET    /api/v1/families/me/members     All family members (parents + children)
 POST   /api/v1/families/me/children    Add a child
 GET    /api/v1/families/me/children/:id
@@ -317,10 +341,34 @@ isSoldOut              — true when totalRedemptionsUsed >= maxRedemptionsTotal
 
 ### Dashboard & Uploads
 ```
-GET    /api/v1/dashboard/parent        Parent summary data
+GET    /api/v1/dashboard/parent        Parent summary (family, parents, children, weeklyStats)
 GET    /api/v1/dashboard/child         Child summary + today's tasks
+GET    /api/v1/dashboard/points/:id    Points history for a child
+GET    /api/v1/dashboard/leaderboard   Family leaderboard (if enabled)
 POST   /api/v1/uploads/evidence        Upload task evidence photo (multipart)
 GET    /api/v1/uploads/:filename       Serve uploaded file
+```
+
+### Admin (M8)
+```
+POST   /api/v1/admin/register          Register admin account
+GET    /api/v1/admin/overview          Platform health stats
+GET    /api/v1/admin/families          Paginated family list with search
+GET    /api/v1/admin/families/:id      Family detail view
+PUT    /api/v1/admin/families/:id/suspend     Suspend a family
+PUT    /api/v1/admin/families/:id/reactivate  Reactivate a family
+GET    /api/v1/admin/users             Cross-family user search
+GET    /api/v1/admin/audit-log         Paginated audit log with filters
+GET    /api/v1/admin/achievements      List all achievements
+POST   /api/v1/admin/achievements      Create achievement
+PUT    /api/v1/admin/achievements/:id  Update achievement
+DELETE /api/v1/admin/achievements/:id  Delete achievement
+```
+
+### Email Logs (M9)
+```
+GET    /api/v1/admin/emails            Paginated email_logs (filter by status, type, family)
+POST   /api/v1/admin/emails/:id/resend Re-send a failed email
 ```
 
 ---
@@ -363,7 +411,7 @@ cd backend
 cp .env.example .env
 ```
 
-Edit `backend/.env` — at minimum set `DATABASE_URL`. See [Environment Variables](#8-environment-variables) for the full reference.
+Edit `backend/.env` — at minimum set `DATABASE_URL` and `SMTP_*` variables. See [Environment Variables](#8-environment-variables) for the full reference.
 
 ### 5. Run database migrations
 
@@ -413,6 +461,7 @@ ngrok http 3001
 Then set in `backend/.env`:
 ```dotenv
 CLIENT_URL=https://xxxx.ngrok-free.app
+FRONTEND_URL=https://xxxx.ngrok-free.app
 ```
 
 And in `frontend/.env.local`:
@@ -420,7 +469,7 @@ And in `frontend/.env.local`:
 NEXT_PUBLIC_API_URL=https://xxxx.ngrok-free.app/api/v1
 ```
 
-Restart both services. Invite links in emails will now point to the ngrok URL and work for external testers.
+Restart both services. Invite links and all notification emails will now point to the ngrok URL and work for external testers.
 
 ---
 
@@ -457,7 +506,7 @@ R2_SECRET_ACCESS_KEY=
 R2_BUCKET_NAME=
 R2_PUBLIC_URL=
 
-# ── Email (SMTP) ──────────────────────────────────────────────────────────────
+# ── Email (SMTP) — M9 ─────────────────────────────────────────────────────────
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-gmail@gmail.com
@@ -467,8 +516,11 @@ SMTP_FROM=your-gmail@gmail.com                # Must match SMTP_USER for Gmail
 # ── Invitations ───────────────────────────────────────────────────────────────
 INVITE_TOKEN_EXPIRES_HOURS=168                # 7 days
 
+# ── Admin ─────────────────────────────────────────────────────────────────────
+ADMIN_INVITE_CODE=your-admin-invite-code      # Required to register an admin account
+
 # ── ngrok / Remote Testing ────────────────────────────────────────────────────
-# Set this when sharing via ngrok so invite email links point to the right URL
+# Set this when sharing via ngrok so invite + notification email links work externally
 # FRONTEND_URL=https://xxxx.ngrok-free.app
 ```
 
@@ -502,27 +554,46 @@ task-buddy/
 │   │   └── seed.ts              # Database seeder
 │   ├── src/
 │   │   ├── config.ts            # Environment variable access
-│   │   ├── index.ts             # Express app bootstrap + scheduler init
+│   │   ├── index.ts             # Express app bootstrap + scheduler + cron init
 │   │   ├── middleware/
 │   │   │   ├── auth.ts          # JWT authentication middleware
 │   │   │   ├── errorHandler.ts  # Global error handler + custom error classes
 │   │   │   └── validate.ts      # Zod request body validation middleware
 │   │   ├── routes/
+│   │   │   ├── index.ts         # API router — mounts all sub-routers
 │   │   │   ├── auth.ts          # /auth/* endpoints
 │   │   │   ├── family.ts        # /families/* endpoints
-│   │   │   ├── tasks.ts         # /tasks/* endpoints
-│   │   │   ├── rewards.ts       # /rewards/* endpoints (M6: three-gate cap guard)
+│   │   │   ├── tasks.ts         # /tasks/* endpoints (M9: email triggers)
+│   │   │   ├── rewards.ts       # /rewards/* endpoints (M6: cap guard, M9: email triggers)
 │   │   │   ├── dashboard.ts     # /dashboard/* endpoints
-│   │   │   └── uploads.ts       # /uploads/* endpoints
+│   │   │   ├── uploads.ts       # /uploads/* endpoints
+│   │   │   ├── admin.ts         # /admin/* endpoints (M8)
+│   │   │   └── emails.ts        # /admin/emails/* endpoints (M9)
 │   │   ├── services/
 │   │   │   ├── auth.ts          # Registration, login, token management
-│   │   │   ├── invite.ts        # Co-parent invite flow
+│   │   │   ├── invite.ts        # Co-parent invite flow (M9: uses EmailService)
+│   │   │   ├── email.ts         # M9: EmailService — SMTP + retry + logging
 │   │   │   ├── storage.ts       # File upload (local + R2)
 │   │   │   ├── achievements.ts  # Achievement unlock checks
-│   │   │   ├── scheduler.ts     # node-cron jobs (M6: reward expiry deactivation)
+│   │   │   ├── levelService.ts  # M7: level-up detection + milestone_bonus Points
+│   │   │   ├── streakService.ts # Streak calculation + grace period
+│   │   │   ├── scheduler.ts     # node-cron: reward expiry deactivation (M6)
 │   │   │   └── database.ts      # Prisma client singleton
-│   │   ├── services/
-│   │   │   ├── levelService.ts      # M7: level-up detection + milestone_bonus Points
+│   │   ├── emails/              # M9: HTML email templates
+│   │   │   ├── base.ts          # Branded layout + renderTemplate() dispatcher
+│   │   │   ├── welcome.ts
+│   │   │   ├── taskSubmitted.ts
+│   │   │   ├── taskApproved.ts
+│   │   │   ├── taskRejected.ts
+│   │   │   ├── taskExpiring.ts
+│   │   │   ├── taskExpired.ts
+│   │   │   ├── rewardRedeemed.ts
+│   │   │   ├── levelUp.ts
+│   │   │   ├── streakAtRisk.ts
+│   │   │   └── coParentInvite.ts
+│   │   ├── jobs/                # M9: scheduled email jobs
+│   │   │   ├── expiryEmailCron.ts    # 00:05 daily — expiring + expired task emails
+│   │   │   └── streakAtRiskCron.ts   # 18:00 daily — streak-at-risk parent alerts
 │   │   └── utils/
 │   │       ├── assignmentLimits.ts  # M5: task cap checks (max 3, max 1 primary)
 │   │       ├── rewardCaps.ts        # M6: three-gate redemption guard + computed cap data
@@ -540,7 +611,7 @@ task-buddy/
         │   ├── register/page.tsx
         │   ├── invite/accept/page.tsx            # Co-parent invite acceptance
         │   ├── parent/
-        │   │   ├── dashboard/page.tsx
+        │   │   ├── dashboard/page.tsx            # M9: memberCount = parents + children
         │   │   ├── tasks/page.tsx
         │   │   ├── tasks/new/page.tsx
         │   │   ├── tasks/[id]/edit/page.tsx
@@ -548,7 +619,15 @@ task-buddy/
         │   │   ├── rewards/new/page.tsx          # M6: cap fields added
         │   │   ├── rewards/[id]/edit/page.tsx    # M6: cap fields + usage status
         │   │   ├── children/page.tsx
-        │   │   └── settings/page.tsx
+        │   │   └── settings/page.tsx             # M9: notification preferences toggles
+        │   ├── admin/
+        │   │   ├── dashboard/page.tsx            # M8: platform overview
+        │   │   ├── families/page.tsx             # M8: family list + suspend/reactivate
+        │   │   ├── families/[id]/page.tsx        # M8: family detail view
+        │   │   ├── users/page.tsx                # M8: cross-family user search
+        │   │   ├── achievements/page.tsx         # M8: global achievement CRUD
+        │   │   ├── audit-log/page.tsx            # M8: audit log viewer
+        │   │   └── emails/page.tsx               # M9: email log viewer + resend
         │   └── child/
         │       ├── dashboard/page.tsx
         │       ├── tasks/page.tsx
@@ -556,7 +635,8 @@ task-buddy/
         ├── components/
         │   ├── layouts/
         │   │   ├── ParentLayout.tsx
-        │   │   └── ChildLayout.tsx
+        │   │   ├── ChildLayout.tsx
+        │   │   └── AdminLayout.tsx               # M8
         │   ├── ui/
         │   │   ├── Button.tsx
         │   │   ├── Input.tsx
@@ -566,7 +646,7 @@ task-buddy/
         ├── contexts/
         │   └── AuthContext.tsx                  # Global auth state
         └── lib/
-            ├── api.ts                           # All API call functions
+            ├── api.ts                           # All API call functions (incl. emailsApi M9)
             └── utils.ts                         # Helpers (formatPoints, getInitials, etc.)
 ```
 
@@ -584,7 +664,7 @@ Core infrastructure, authentication, and co-parent support.
 | M1 | Task edit bug fix, streak grace period, approval workflow | ✅ Done |
 | M2 | File storage with Cloudflare R2 + Sharp thumbnail generation | ✅ Done |
 | M3 | Memorable family codes (ADJECTIVE-ANIMAL-NNNN) + persistent child sessions | ✅ Done |
-| M4 | Co-parent / spouse invite flow with relationship types + cancellation | ✅ Done |
+| M4 | Co-parent / spouse invite flow + cancellation | ✅ Done |
 
 ### Phase 1 — Core Gameplay (Weeks 4–6) ✅ Complete
 Task rules, dual XP/Points currency, reward caps.
@@ -595,11 +675,19 @@ Task rules, dual XP/Points currency, reward caps.
 | M6 | Reward triple-cap — per-child limit, household total cap, expiry date with countdown | ✅ Done |
 | M7 | XP/Points dual currency — separate progression from purchasing, level-up bonus points, streak milestone bonuses | ✅ Done |
 
-### Phase 2 — Admin & Audit (Weeks 7–9)
+### Phase 2 — Admin & Audit (Weeks 7–9) ✅ Complete
 Admin dashboard and full audit logging.
 
-### Phase 3 — Email Notifications (Weeks 10–12)
-Task approval emails, reward fulfilment emails, weekly summary digests.
+| Milestone | Description | Status |
+|---|---|---|
+| M8 | Admin dashboard, platform overview, family suspension, cross-family user management, achievement CRUD, immutable audit log | ✅ Done |
+
+### Phase 3 — Email Notifications (Weeks 10–12) ✅ Complete
+Full email notification system with preferences and admin log viewer.
+
+| Milestone | Description | Status |
+|---|---|---|
+| M9 | EmailService with SMTP retry + email_logs, 10 HTML templates, task/reward/auth triggers, expiry cron (00:05), streak-at-risk cron (18:00), notification preference toggles, admin email log viewer + resend | ✅ Done |
 
 ### Phase 4 — Reports Module (Weeks 13–15)
 10 exportable reports (CSV/PDF) covering tasks, points, rewards, streaks, and audit trails.
@@ -619,7 +707,7 @@ WebSockets for live task updates, leaderboard, PWA push notifications, child ava
 3. Parent session → close browser, reopen → redirected to login (session cleared)
 
 **M4 — Co-Parent Invite**
-1. Go to **Settings → Family Members** → click **Invite Adult** → enter email + select relationship → Send
+1. Go to **Settings → Family Members** → click **Invite Adult** → enter email → Send
 2. Check inbox — receive invite email with link
 3. Click link → see "You've been invited to join [Family Name] by [Parent Name]"
 4. Fill in name, date of birth, phone (optional), password → Create Account
@@ -635,16 +723,29 @@ WebSockets for live task updates, leaderboard, PWA push notifications, child ava
 3. Create two tasks with overlapping times for the same child → overlap warning shown on parent dashboard
 
 **M6 — Reward Triple Cap** ✅ All passed
-1. **Household cap** — Create reward with `maxRedemptionsTotal=2`. Have 2 children redeem it. Third child attempt → HTTP 409 "This reward has been fully claimed by the household." Reward shows "Sold Out". Nightly cron sets `isActive=false`.
-2. **Per-child cap** — Create reward with `maxRedemptionsPerChild=1`. Same child redeems twice → HTTP 409 "You have already claimed this reward the maximum number of times." Household total not consumed by blocked attempt.
+1. **Household cap** — Create reward with `maxRedemptionsTotal=2`. Have 2 children redeem it. Third child attempt → HTTP 409 "This reward has been fully claimed by the household." Reward shows "Sold Out".
+2. **Per-child cap** — Create reward with `maxRedemptionsPerChild=1`. Same child redeems twice → HTTP 409 "You have already claimed this reward the maximum number of times."
 3. **Expiry** — Create reward with `expiresAt` 2 minutes away. Countdown badge visible. After expiry → reward shows "Expired" and is greyed out. Redemption attempt → HTTP 409 "This reward has expired."
-
 
 **M7 — XP & Points Dual Currency** ✅ All passed
 1. **Dual currency on approval** — Approve a `hard` difficulty task → child's `pointsBalance` increases by `task.pointsValue`, and `experiencePoints` / `totalXpEarned` each increase by 35 XP. Redeeming a reward decreases Points only — XP is never affected.
-2. **Level-up milestone bonus** — Award a child enough XP to cross the Level 1 → 2 threshold (100 XP). A `milestone_bonus` entry appears in `points_ledger` for +10 Points (Level 2 × 5). Child's `pointsBalance` increases by 10. Level-up celebration modal fires in the child dashboard.
-3. **Streak milestone bonus** — Child hits a 7-day streak → `milestone_bonus` ledger entry for +35 Points is created. Streak counter remains unaffected. Points balance increases correctly.
-4. **Parent registration fields** — Register a new family with `dateOfBirth` (required) and `phoneNumber` (optional). `GET /auth/me` returns `dateOfBirth` and phone masked to last 4 digits (e.g. `•••••••4567`). Both fields appear on the parent settings page.
+2. **Level-up milestone bonus** — Award enough XP to cross Level 1 → 2 threshold (100 XP). A `milestone_bonus` entry appears in `points_ledger` for +10 Points. Level-up celebration modal fires in the child dashboard.
+3. **Streak milestone bonus** — Child hits a 7-day streak → `milestone_bonus` ledger entry for +35 Points is created. Streak counter remains unaffected.
+4. **Parent registration fields** — Register a new family with `dateOfBirth` (required) and `phoneNumber` (optional). `GET /auth/me` returns both fields correctly.
+
+### Acceptance Tests (Phase 2)
+
+**M8 — Admin & Audit** ✅ All passed
+1. **Recurring task generation** — Create a recurring task with weekly recurrence. Trigger the midnight cron. New assignment appears for the next day with status `pending`.
+2. **Admin login & platform view** — Register admin with `ADMIN_INVITE_CODE`. Admin lands on `/admin/dashboard`. Overview shows correct counts of total families and users. Admin can navigate to Families, Users, Audit Log, and Achievements pages.
+3. **Audit log captures mutations** — As a parent, create a task, approve a submission, and redeem a reward. Filter audit log by parent's user ID → three entries appear with correct action, resourceType, and timestamp.
+
+### Acceptance Tests (Phase 3)
+
+**M9 — Email Notifications** ✅ All passed
+1. **Task submission email** — Child marks task complete → parent receives email within 60 seconds. Subject: "[Child Name] completed [Task Name]". Email shows task title, child name, completion time, and "Review Submission" link. Co-parent also receives the email.
+2. **Expiry warning cron** — Create a task with `dueDate` 20 hours from now. Wait for (or manually trigger) the 00:05 cron. Parent receives "Task Expiring Soon" email. `emailSentAt` is set on the assignment — email is NOT sent again on the next cron run.
+3. **Opt-out respected** — In Parent Settings, disable "Task Submitted" notification. Child completes a task → no email is queued. The admin email log confirms no entry was created (not queued and dropped — not queued at all). All other notification types remain active.
 
 ---
 
@@ -658,6 +759,10 @@ NODE_ENV=production
 STORAGE_PROVIDER=r2           # Switch to Cloudflare R2
 JWT_SECRET=<strong random>    # openssl rand -base64 48
 DATABASE_URL=<prod postgres>
+SMTP_HOST=smtp.gmail.com
+SMTP_USER=<gmail>
+SMTP_PASS=<app password>
+FRONTEND_URL=https://your-frontend-domain.com
 
 # Frontend
 NEXT_PUBLIC_API_URL=https://your-api-domain.com/api/v1
@@ -707,8 +812,7 @@ Rather than introducing a hierarchical co-parent role, the system reuses the exi
 Children's refresh tokens are stored in `localStorage` (persisting browser closes) while parents use `sessionStorage` (cleared on browser close). This reduces login friction for children — who frequently close tabs accidentally — while maintaining stricter session control for parents who have account governance authority.
 
 **Reward Cap Architecture (M6)**
-Rewards support three independent constraints: a per-child redemption limit, a household-wide total cap, and an optional expiry date. All three are enforced server-side in a sequential three-gate check that returns distinct HTTP 409 error messages for each case. Computed fields (`isSoldOut`, `isExpired`, `remainingTotal`, `remainingForChild`) are appended to every reward response so the frontend can render accurate state without additional API calls. A nightly cron job (`scheduler.ts`) sets `isActive = false` on rewards that have expired or exhausted their household cap.
-
+Rewards support three independent constraints: a per-child redemption limit, a household-wide total cap, and an optional expiry date. All three are enforced server-side in a sequential three-gate check that returns distinct HTTP 409 error messages for each case. Computed fields (`isSoldOut`, `isExpired`, `remainingTotal`, `remainingForChild`) are appended to every reward response so the frontend can render accurate state without additional API calls.
 
 **XP Calculation System (M7)**
 XP is awarded only on task **approval** (not on completion). The amount is determined by the task's difficulty:
@@ -719,17 +823,17 @@ XP is awarded only on task **approval** (not on completion). The amount is deter
 | Medium | 15 XP |
 | Hard | 35 XP |
 
-If no difficulty is set, the system defaults to Medium (15 XP). Two separate XP fields are maintained on `child_profiles`:
+Two separate XP fields are maintained on `child_profiles`:
+- `experiencePoints` — XP progress within the current level (used for the progress bar)
+- `totalXpEarned` — Lifetime XP accumulator, never decremented, drives level calculation
 
-- `experiencePoints` — XP progress within the current level (used for the progress bar display, conceptually resets at each level-up)
-- `totalXpEarned` — Lifetime XP accumulator. **Never decremented.** This field drives the level calculation.
-
-Level thresholds follow an exponential curve: Level 1 → 2 requires 100 XP, with each subsequent level requiring 50% more than the previous (`floor(100 × 1.5^(level-1))`). Level-up detection runs after every XP award in `levelService.ts` — if the child's `totalXpEarned` has crossed a threshold, the level is updated and a `milestone_bonus` Points entry is created for `newLevel × 5` Points (e.g. reaching Level 2 = +10 Points, Level 3 = +15 Points).
-
-XP is strictly cosmetic — it drives level progression only and **cannot be spent**. Only `pointsBalance` is deducted when redeeming rewards, keeping long-term progression decoupled from short-term purchasing decisions.
+Level thresholds follow an exponential curve: Level 1 → 2 requires 100 XP, with each subsequent level requiring 50% more (`floor(100 × 1.5^(level-1))`). Level-up detection runs after every XP award — if a threshold is crossed, the level is updated and a `milestone_bonus` Points entry is created for `newLevel × 5` Points.
 
 **Primary / Secondary Task System (M5)**
-Tasks are classified as `primary` (must-do assignments from parents) or `secondary` (optional bonus tasks). Children cannot claim secondary tasks while a primary task is pending, creating a natural incentive hierarchy. Assignment limits (max 3 total, max 1 primary) are enforced server-side.
+Tasks are classified as `primary` (must-do assignments) or `secondary` (optional bonus tasks). Children cannot claim secondary tasks while a primary task is pending. Assignment limits (max 3 total, max 1 primary) are enforced server-side.
+
+**Email Notification Architecture (M9)**
+All email delivery is centralised through `EmailService` — a single class that handles SMTP transport, retry logic (up to 2 retries on transient failures), notification preference checks, and audit logging to `email_logs`. All calls are fire-and-forget so SMTP issues never block API responses. Parent-targeted emails (task submitted, reward redeemed, etc.) are sent to all active parent-role users in the family via `sendToFamilyParents()`. Two cron jobs run daily: an expiry scan at 00:05 and a streak-at-risk alert at 18:00. The `emailSentAt` field on `task_assignments` prevents duplicate cron emails.
 
 ---
 
@@ -740,3 +844,4 @@ This project was developed as an academic submission for Regional Maritime Unive
 ---
 
 *TaskBuddy Development Roadmap v3.0 · 11 Change Requests · ~18 weeks · February 2026*
+*Phases 0–3 complete (M1–M9) · Phases 4–5 in progress*

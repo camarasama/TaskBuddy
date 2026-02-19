@@ -1,5 +1,22 @@
 'use client';
 
+/**
+ * parent/settings/page.tsx — Updated M9 (Email Notifications)
+ *
+ * Changes from M8:
+ *  - NotificationPreferences interface and state added to track the 10 email
+ *    toggle keys stored in FamilySettings.notificationPreferences JSON column.
+ *  - loadData() now reads notificationPreferences from the settings API response
+ *    and populates the new state.
+ *  - handleSave() passes notificationPreferences as part of the familyApi.updateSettings()
+ *    call so changes persist to the database.
+ *  - A new "Email Notifications" section renders between Task Settings and
+ *    Gamification, with one ToggleSetting per notification type.
+ *
+ * All other sections (Family Info, Family Members, Task Settings, Gamification,
+ * Account) are unchanged from M8.
+ */
+
 import { useEffect, useState, useCallback } from 'react';
 import {
   Settings,
@@ -45,6 +62,38 @@ interface FamilySettingsData {
   streakGracePeriodHours: number;
 }
 
+/**
+ * M9 — Mirrors the notificationPreferences JSON keys in FamilySettings.
+ * All default to true (all emails on). The parent can toggle each off
+ * individually via the new "Email Notifications" section below.
+ */
+interface NotificationPreferences {
+  task_submitted: boolean;
+  task_approved: boolean;
+  task_rejected: boolean;
+  task_expiring: boolean;
+  task_expired: boolean;
+  reward_redeemed: boolean;
+  level_up: boolean;
+  streak_at_risk: boolean;
+  welcome: boolean;
+  co_parent_invite: boolean;
+}
+
+// Default: all notifications on — matches the schema default JSON
+const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
+  task_submitted: true,
+  task_approved: true,
+  task_rejected: true,
+  task_expiring: true,
+  task_expired: true,
+  reward_redeemed: true,
+  level_up: true,
+  streak_at_risk: true,
+  welcome: true,
+  co_parent_invite: true,
+};
+
 interface ParentUser {
   id: string;
   firstName: string;
@@ -89,8 +138,12 @@ export default function ParentSettingsPage() {
     streakGracePeriodHours: 4,
   });
 
-  // Whether the logged-in user is the primary parent — only used to show/hide
-  // the Remove button on co-parent rows. Defaults true so it doesn't flicker.
+  // M9 — Notification preference toggles
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(
+    DEFAULT_NOTIFICATION_PREFS
+  );
+
+  // Whether the logged-in user is the primary parent
   const currentUserIsPrimary = parents.find((p) => p.id === user?.id)?.isPrimaryParent ?? true;
 
   // ── Data loading ────────────────────────────────────────────────────────
@@ -122,7 +175,10 @@ export default function ParentSettingsPage() {
         setFamilyCode(familyData.familyCode || familyData.id);
       }
 
-      const settingsData = (settingsRes.data as { settings: FamilySettingsData }).settings;
+      const settingsData = (settingsRes.data as {
+        settings: FamilySettingsData & { notificationPreferences?: Partial<NotificationPreferences> };
+      }).settings;
+
       if (settingsData) {
         setFamilySettings({
           autoApproveRecurringTasks: settingsData.autoApproveRecurringTasks ?? false,
@@ -130,6 +186,15 @@ export default function ParentSettingsPage() {
           enableLeaderboard: settingsData.enableLeaderboard ?? false,
           streakGracePeriodHours: settingsData.streakGracePeriodHours ?? 4,
         });
+
+        // M9 — Merge persisted prefs over the default so any new keys added in
+        // future schema updates still default to true for existing families.
+        if (settingsData.notificationPreferences) {
+          setNotificationPrefs({
+            ...DEFAULT_NOTIFICATION_PREFS,
+            ...settingsData.notificationPreferences,
+          });
+        }
       }
     } catch {
       showError('Failed to load settings');
@@ -150,7 +215,11 @@ export default function ParentSettingsPage() {
     try {
       await Promise.all([
         familyApi.updateFamily({ familyName }),
-        familyApi.updateSettings(familySettings),
+        // M9 — Include notificationPreferences in the settings payload
+        familyApi.updateSettings({
+          ...familySettings,
+          notificationPreferences: notificationPrefs,
+        }),
       ]);
       showSuccess('Settings saved');
     } catch (err) {
@@ -349,7 +418,6 @@ export default function ParentSettingsPage() {
                 className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50"
               >
                 <div className="flex items-center gap-3">
-                  {/* Avatar initials */}
                   <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-sm font-semibold text-primary-700 flex-shrink-0">
                     {parent.firstName[0]}{parent.lastName[0]}
                   </div>
@@ -372,7 +440,6 @@ export default function ParentSettingsPage() {
                   </div>
                 </div>
 
-                {/* Remove button — only primary parent can remove; cannot remove self */}
                 {currentUserIsPrimary && !parent.isPrimaryParent && parent.id !== user?.id && (
                   <Button
                     size="sm"
@@ -463,6 +530,96 @@ export default function ParentSettingsPage() {
               description="Show a leaderboard ranking among siblings"
               checked={familySettings.enableLeaderboard}
               onChange={(checked) => setFamilySettings({ ...familySettings, enableLeaderboard: checked })}
+            />
+          </div>
+        </section>
+
+        {/* ── M9: Email Notifications ── */}
+        <section className="bg-white rounded-xl p-6 border border-slate-200">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Bell className="w-5 h-5 text-blue-600" />
+            </div>
+            <h2 className="font-display font-bold text-lg text-slate-900">
+              Email Notifications
+            </h2>
+          </div>
+          <p className="text-sm text-slate-500 mb-5 ml-[52px]">
+            Choose which emails are sent to all parents in your family. Turning off a
+            notification here stops it for everyone — co-parents included.
+          </p>
+
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              Tasks
+            </p>
+            <ToggleSetting
+              label="Task Submitted"
+              description="When a child marks a task as complete and it's waiting for your review"
+              checked={notificationPrefs.task_submitted}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, task_submitted: v })}
+            />
+            <ToggleSetting
+              label="Task Approved / Rejected"
+              description="Confirmation emails after you approve or reject a submission"
+              checked={notificationPrefs.task_approved && notificationPrefs.task_rejected}
+              onChange={(v) =>
+                setNotificationPrefs({
+                  ...notificationPrefs,
+                  task_approved: v,
+                  task_rejected: v,
+                })
+              }
+            />
+            <ToggleSetting
+              label="Task Expiring Soon"
+              description="Daily reminder when a task's due date is within 24 hours"
+              checked={notificationPrefs.task_expiring}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, task_expiring: v })}
+            />
+            <ToggleSetting
+              label="Task Expired / Overdue"
+              description="Notification when a task passes its due date without being completed"
+              checked={notificationPrefs.task_expired}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, task_expired: v })}
+            />
+
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide pt-2">
+              Rewards & Progress
+            </p>
+            <ToggleSetting
+              label="Reward Redeemed"
+              description="When a child redeems a reward and it's waiting for fulfilment"
+              checked={notificationPrefs.reward_redeemed}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, reward_redeemed: v })}
+            />
+            <ToggleSetting
+              label="Level-Up Bonus"
+              description="When a child levels up and earns bonus Points"
+              checked={notificationPrefs.level_up}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, level_up: v })}
+            />
+            <ToggleSetting
+              label="Streak at Risk"
+              description="6 PM daily reminder if a child hasn't completed any task that day"
+              checked={notificationPrefs.streak_at_risk}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, streak_at_risk: v })}
+            />
+
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide pt-2">
+              Account
+            </p>
+            <ToggleSetting
+              label="Welcome Email"
+              description="One-time welcome message sent when a new parent joins the family"
+              checked={notificationPrefs.welcome}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, welcome: v })}
+            />
+            <ToggleSetting
+              label="Co-Parent Invite"
+              description="Invitation emails sent to adults you add to the family"
+              checked={notificationPrefs.co_parent_invite}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, co_parent_invite: v })}
             />
           </div>
         </section>

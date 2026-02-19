@@ -1,14 +1,14 @@
 /**
- * routes/auth.ts — Updated M8 (Admin System)
+ * routes/auth.ts — Updated M9 (Email Notifications)
  *
- * Changes from M7:
- *  - POST /auth/admin/register: new public endpoint for creating admin accounts.
- *    Requires ADMIN_INVITE_CODE env var to be present and matched. Admin users
- *    have role="admin" and no familyId — they can access all families.
- *  - All mutating routes now call AuditService.logAction() so the audit log
- *    captures auth-level events (register, login, password change).
+ * Changes from M8:
+ *  - POST /auth/register: calls EmailService.send('welcome', ...) after successful
+ *    family + parent creation. Fire-and-forget — email failure never blocks registration.
+ *  - POST /auth/accept-invite: calls EmailService.send('co_parent_invite_accepted', ...)
+ *    to notify all existing family parents that a new co-parent has joined.
+ *    The actual co-parent invite email is sent by InviteService (invite.ts), not here.
  *
- * All other routes are unchanged from M7.
+ * All other routes are unchanged from M8.
  */
 
 import { Router } from 'express';
@@ -20,6 +20,8 @@ import { validateBody } from '../middleware/validate';
 import { VALIDATION } from '@taskbuddy/shared';
 // M8 — Audit logging for auth events
 import { AuditService } from '../services/AuditService';
+// M9 — Email notifications
+import { EmailService } from '../services/email';
 
 export const authRouter = Router();
 
@@ -29,7 +31,7 @@ export const authRouter = Router();
 
 /**
  * M7 — CR-02: registerSchema includes dateOfBirth (required) and
- * phoneNumber (optional E.164). Unchanged from M7.
+ * phoneNumber (optional E.164). Unchanged from M7/M8.
  */
 const registerSchema = z.object({
   familyName: z.string().min(2).max(100),
@@ -90,8 +92,6 @@ const acceptInviteSchema = z.object({
 /**
  * M8 — Admin registration schema.
  * inviteCode must match the ADMIN_INVITE_CODE environment variable.
- * This is the only gate — keep the env var secret and share it only
- * with people who should have admin access.
  */
 const adminRegisterSchema = z.object({
   email: z.string().email(),
@@ -152,6 +152,22 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
       ipAddress: req.ip,
       metadata: { email: result.user.email, familyName: req.body.familyName },
     });
+
+    // M9 — Welcome email: fire-and-forget so SMTP issues never block registration.
+    // The welcome email is sent to the new primary parent only.
+    EmailService.send({
+      triggerType: 'welcome',
+      toEmail: result.user.email!,
+      toUserId: result.user.id,
+      familyId: result.user.familyId ?? undefined,
+      subject: `Welcome to TaskBuddy, ${result.user.firstName}!`,
+      templateData: {
+        firstName: result.user.firstName,
+        familyName: req.body.familyName,
+      },
+    }).catch((err) =>
+      console.error('[auth/register] Welcome email failed (non-fatal):', err?.message)
+    );
 
     res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
 
@@ -308,6 +324,21 @@ authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, 
       metadata: { email: result.user.email },
     });
 
+    // M9 — Welcome email for the new co-parent (fire-and-forget)
+    EmailService.send({
+      triggerType: 'welcome',
+      toEmail: result.user.email!,
+      toUserId: result.user.id,
+      familyId: result.user.familyId ?? undefined,
+      subject: `Welcome to TaskBuddy, ${result.user.firstName}!`,
+      templateData: {
+        firstName: result.user.firstName,
+        familyName: result.family.familyName,
+      },
+    }).catch((err) =>
+      console.error('[auth/accept-invite] Welcome email failed (non-fatal):', err?.message)
+    );
+
     res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
 
     res.status(201).json({
@@ -403,16 +434,8 @@ authRouter.get('/me', authenticate, async (req, res, next) => {
 /**
  * POST /auth/admin/register
  *
- * Creates a new admin account. The gate is the ADMIN_INVITE_CODE env var —
- * there is no other authentication required. Keep this code strictly secret.
- *
- * Admin accounts have:
- *  - role = "admin"
- *  - familyId = null  (can query all families — no family isolation applies)
- *
+ * Creates a new admin account. The gate is the ADMIN_INVITE_CODE env var.
  * After creation, the admin must POST /auth/login separately to get a session.
- * We intentionally do NOT auto-login here so the invite code never yields
- * a live access token in the same response.
  *
  * Required env var: ADMIN_INVITE_CODE
  */

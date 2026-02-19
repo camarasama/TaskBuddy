@@ -28,13 +28,14 @@ model Family {
   suspendedBy  String?   @map("suspended_by")
 
   // Relations
-  users         User[]
-  taskTemplates TaskTemplate[]
-  tasks         Task[]
-  rewards       Reward[]
+  users           User[]
+  taskTemplates   TaskTemplate[]
+  tasks           Task[]
+  rewards         Reward[]
   dailyChallenges DailyChallenge[]
-  settings      FamilySettings?
-  invitations   FamilyInvitation[]
+  settings        FamilySettings?
+  invitations     FamilyInvitation[]
+  emailLogs       EmailLog[]
 
   @@map("families")
 }
@@ -60,7 +61,7 @@ model User {
   deletedAt    DateTime? @map("deleted_at")
 
   // Relations
-  family                Family?              @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family                Family?             @relation(fields: [familyId], references: [id], onDelete: Cascade)
   childProfile          ChildProfile?
   createdTasks          Task[]              @relation("CreatedTasks")
   taskAssignments       TaskAssignment[]    @relation("AssignedTasks")
@@ -73,7 +74,8 @@ model User {
   pointsLedger          PointsLedger[]      @relation("ChildPoints")
   createdPointsEntries  PointsLedger[]      @relation("CreatedPointsEntries")
   createdTemplates      TaskTemplate[]
-  sentInvitations       FamilyInvitation[] @relation("SentInvitations")
+  sentInvitations       FamilyInvitation[]  @relation("SentInvitations")
+  emailLogs             EmailLog[]          @relation("ReceivedEmails")
 
   @@index([familyId])
   @@index([email])
@@ -190,6 +192,8 @@ model TaskAssignment {
   rejectionReason String?          @map("rejection_reason")
   pointsAwarded   Int?             @map("points_awarded")
   xpAwarded       Int?             @map("xp_awarded")
+  // M9 — tracks when the expiry-warning email was sent to prevent duplicate cron emails
+  emailSentAt     DateTime?        @map("email_sent_at")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
@@ -204,6 +208,8 @@ model TaskAssignment {
   @@index([childId])
   @@index([status])
   @@index([instanceDate])
+  // M9 — index for the expiry cron so it can efficiently find un-emailed assignments
+  @@index([emailSentAt])
   @@map("task_assignments")
 }
 
@@ -422,7 +428,11 @@ model FamilySettings {
   enableDailyChallenges     Boolean  @default(true) @map("enable_daily_challenges")
   enableLeaderboard         Boolean  @default(false) @map("enable_leaderboard")
   streakGracePeriodHours    Int      @default(4) @map("streak_grace_period_hours")
-  notificationPreferences   Json     @default("{\"task_assigned\":true,\"task_due_soon\":true,\"task_completed\":true,\"reward_unlocked\":true,\"achievement_unlocked\":true,\"streak_at_risk\":true}") @map("notification_preferences")
+  // M9 — CR-08: per-family email notification preferences.
+  // Keys: task_submitted | task_approved | task_rejected | task_expiring | task_expired |
+  //       reward_redeemed | level_up | streak_at_risk | welcome | co_parent_invite
+  // Default: all enabled. Individual parents can override per-key via PUT /families/me/settings.
+  notificationPreferences   Json     @default("{\"task_submitted\":true,\"task_approved\":true,\"task_rejected\":true,\"task_expiring\":true,\"task_expired\":true,\"reward_redeemed\":true,\"level_up\":true,\"streak_at_risk\":true,\"welcome\":true,\"co_parent_invite\":true}") @map("notification_preferences")
   theme                     String   @default("default")
   language                  String   @default("en")
   timezone                  String   @default("UTC")
@@ -501,6 +511,61 @@ model AuditLog {
   @@index([familyId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================
+// M9 — EMAIL LOGS
+// ============================================
+
+/**
+ * EmailLog — immutable record of every email attempt made by EmailService.
+ *
+ * EmailService writes a row here for every send attempt whether it succeeds
+ * or fails. The admin email log viewer reads this table.
+ *
+ * triggerType mirrors the notificationPreferences keys so the opt-out check
+ * can reference the same string:
+ *   task_submitted | task_approved | task_rejected | task_expiring |
+ *   task_expired   | reward_redeemed | level_up | streak_at_risk |
+ *   welcome        | co_parent_invite
+ *
+ * status:
+ *   sent    — SMTP accepted the message (no bounce detected yet)
+ *   failed  — SMTP threw an error; errorMessage has details
+ *   bounced — future use via webhook (not implemented in M9)
+ */
+model EmailLog {
+  id           String          @id @default(uuid())
+  // Recipient email address (denormalised — user may be deleted later)
+  toEmail      String          @map("to_email")
+  // The user this email was sent to (null if family-level send or user deleted)
+  toUserId     String?         @map("to_user_id")
+  toUser       User?           @relation("ReceivedEmails", fields: [toUserId], references: [id], onDelete: SetNull)
+  family       Family?         @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  // Family scope — null for admin-triggered emails
+  familyId     String?         @map("family_id")
+  // Which template / notification type triggered this email
+  triggerType  String          @map("trigger_type")
+  // Email subject line (stored for the admin resend UI)
+  subject      String
+  // Delivery outcome
+  status       EmailLogStatus  @default(sent)
+  // Populated when status = failed
+  errorMessage String?         @map("error_message")
+  // The resource that triggered this email (e.g. assignment id, redemption id)
+  referenceType String?        @map("reference_type")
+  referenceId   String?        @map("reference_id")
+  // M9 — admin resend: tracks how many times this specific log entry was re-sent
+  resendCount  Int             @default(0) @map("resend_count")
+  lastResentAt DateTime?       @map("last_resent_at")
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  @@index([toUserId])
+  @@index([familyId])
+  @@index([triggerType])
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_logs")
 }
 
 // ============================================
@@ -585,4 +650,11 @@ enum ModerationStatus {
   approved
   flagged
   rejected
+}
+
+// M9 — email delivery status
+enum EmailLogStatus {
+  sent
+  failed
+  bounced
 }

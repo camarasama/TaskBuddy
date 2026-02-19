@@ -5,7 +5,6 @@ import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import { createServer } from 'http';
-
 import { config, validateConfig } from './config';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { apiRouter } from './routes';
@@ -13,6 +12,8 @@ import { initScheduler } from './services/scheduler';
 // M8 — Admin router mounted at /api/v1/admin
 import { adminRouter } from './routes/admin';
 import { initRecurringScheduler } from './services/RecurringScheduler';
+import { startExpiryEmailCron } from './jobs/expiryEmailCron';
+import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
 
 // Validate environment configuration
 validateConfig();
@@ -85,6 +86,8 @@ const PORT = config.port;
 
 initScheduler(); 
 initRecurringScheduler(); // M8 — midnight recurring task generation
+startExpiryEmailCron();
+startStreakAtRiskCron();
 
 httpServer.listen(PORT, () => {
   console.log(`

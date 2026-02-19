@@ -31,12 +31,22 @@ interface ChildSummary {
   tasksPendingApproval?: number;
 }
 
+interface ParentSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  isPrimaryParent: boolean;
+}
+
 interface DashboardData {
   family: {
     id: string;
     familyName: string;
-    childCount: number;
+    // Total active members = parents + children
+    memberCount: number;
   };
+  parents: ParentSummary[];
   children: ChildSummary[];
   pendingApprovals: number;
   weeklyStats: {
@@ -48,7 +58,8 @@ interface DashboardData {
 }
 
 const defaultData: DashboardData = {
-  family: { id: '', familyName: 'Your Family', childCount: 0 },
+  family: { id: '', familyName: 'Your Family', memberCount: 0 },
+  parents: [],
   children: [],
   pendingApprovals: 0,
   weeklyStats: { tasksCompleted: 0, tasksCreated: 0, pointsAwarded: 0, rewardsRedeemed: 0 },
@@ -66,6 +77,7 @@ export default function ParentDashboardPage() {
         const response = await dashboardApi.getParentDashboard();
         const apiData = response.data as {
           family?: { id: string; familyName: string };
+          parents?: ParentSummary[];
           children?: Array<{
             user: { id: string; firstName?: string; lastName?: string };
             profile?: { level?: number; totalXp?: number; pointsBalance?: number; currentStreakDays?: number };
@@ -88,13 +100,19 @@ export default function ParentDashboardPage() {
           tasksPendingApproval: child.pendingApproval ?? 0,
         }));
 
+        const mappedParents: ParentSummary[] = apiData.parents || [];
+
+        // Total members = all active parents + all children
+        const memberCount = mappedParents.length + mappedChildren.length;
+
         setData({
           ...defaultData,
           family: {
             id: apiData.family?.id || '',
             familyName: apiData.family?.familyName || 'Your Family',
-            childCount: mappedChildren.length,
+            memberCount,
           },
+          parents: mappedParents,
           children: mappedChildren,
           pendingApprovals: apiData.pendingApprovals?.length ?? 0,
           weeklyStats: {
@@ -143,7 +161,7 @@ export default function ParentDashboardPage() {
           <StatCard
             icon={Users}
             label="Family Members"
-            value={data.family.childCount}
+            value={data.family.memberCount}
             color="primary"
           />
           <StatCard

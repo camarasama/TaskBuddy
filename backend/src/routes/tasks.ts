@@ -1,3 +1,23 @@
+/**
+ * routes/tasks.ts — Updated M9 (Email Notifications)
+ *
+ * Changes from M8:
+ *  - PUT /assignments/:id/complete: after marking status='completed', calls
+ *    EmailService.sendToFamilyParents() with triggerType='task_submitted'.
+ *    The email goes to ALL parent-role users in the family (CR-08).
+ *    Fire-and-forget — email failure never blocks the completion response.
+ *
+ *  - PUT /assignments/:id/approve (approve branch): after awarding points/XP,
+ *    calls EmailService.send() with triggerType='task_approved' to the child's
+ *    parent(s). Also sends 'level_up' email if checkAndApplyLevelUp fires.
+ *
+ *  - PUT /assignments/:id/approve (reject branch): calls EmailService.send()
+ *    with triggerType='task_rejected'. The child is NOT emailed (children
+ *    have no email address) — parents receive all notifications.
+ *
+ * All other routes are unchanged from M8.
+ */
+
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../services/database';
@@ -18,6 +38,8 @@ import { GAMIFICATION_M7 } from '../utils/gamification';
 import { uploadFile } from '../services/storage';
 // M8 — Audit logging for all mutating task routes
 import { AuditService } from '../services/AuditService';
+// M9 — Email notifications
+import { EmailService } from '../services/email';
 
 export const taskRouter = Router();
 
@@ -97,26 +119,20 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
     if (req.user!.role === 'child') {
       const targetChildId = req.user!.userId;
       
-      // Show tasks that are either:
-      // - Assigned to this child, OR
-      // - Secondary tasks with NO assignments (available pool)
       where.OR = [
-        // Tasks assigned to me
         {
           assignments: {
             some: { childId: targetChildId },
           },
         },
-        // Unassigned secondary tasks (available bonus pool)
         {
           taskTag: 'secondary',
           assignments: {
-            none: {}, // No assignments at all = available
+            none: {},
           },
         },
       ];
     } else if (childId) {
-      // Parent filtering by specific child
       where.assignments = {
         some: { childId },
       };
@@ -155,10 +171,6 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
       }) > 0;
 
       const tasksWithFlags = tasks.map((task) => {
-        // Task is self-assignable if:
-        // 1. It's secondary
-        // 2. Child has no pending primaries
-        // 3. Task is not already assigned to this child
         const alreadyAssigned = task.assignments.some(a => a.childId === childId);
         const canSelfAssign = 
           task.taskTag === 'secondary' && 
@@ -249,7 +261,6 @@ taskRouter.post('/', requireParent, validateBody(createTaskSchema), async (req, 
         },
       });
 
-      // Create assignments for each child (only if children are assigned)
       const assignments = assignedTo.length > 0
         ? await Promise.all(
             assignedTo.map((childId: string) =>
@@ -272,7 +283,6 @@ taskRouter.post('/', requireParent, validateBody(createTaskSchema), async (req, 
       return { task, assignments };
     });
 
-    // HTTP 201 — include warnings[] so the frontend can show the overlap modal
     // M8 — Audit: task created
     await AuditService.logAction({
       actorId: req.user!.userId,
@@ -363,7 +373,6 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
     if (timingChanged) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      // Use the incoming value if provided, otherwise fall back to what's stored
       const effectiveStartTime =
         startTime !== undefined
           ? startTime !== null ? new Date(startTime) : null
@@ -377,7 +386,7 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
           effectiveStartTime,
           effectiveMinutes,
           today,
-          task.id   // exclude this task from its own overlap check
+          task.id
         );
         warnings.push(...overlaps);
       }
@@ -466,22 +475,19 @@ taskRouter.delete('/:id', requireParent, async (req, res, next) => {
 // ASSIGNMENT ROUTES
 // ============================================
 
-// GET /tasks/assignments - Get assignments for current user
+// GET /tasks/assignments/me - Get assignments for current user
 taskRouter.get('/assignments/me', async (req, res, next) => {
   try {
     const where: any = {};
 
-    // Children can only see their own assignments
     if (req.user!.role === 'child') {
       where.childId = req.user!.userId;
     } else {
-      // Parents can filter by child
       const { childId, status } = req.query;
       if (childId) where.childId = childId;
       if (status) where.status = status;
     }
 
-    // Filter by family through task relation
     where.task = {
       familyId: req.familyId,
       deletedAt: null,
@@ -522,14 +528,18 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
           deletedAt: null,
         },
       },
-      include: { task: true },
+      include: {
+        task: true,
+        child: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
     });
 
     if (!assignment) {
       throw new NotFoundError('Assignment not found');
     }
 
-    // Check if user can complete this assignment
     if (req.user!.role === 'child' && assignment.childId !== req.user!.userId) {
       throw new ForbiddenError('Cannot complete another child\'s task');
     }
@@ -574,12 +584,10 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
       if (childWithProfile?.childProfile) {
         const profile = childWithProfile.childProfile;
 
-        // M7 — CR-06: Map difficulty to XP using gamification constants
         const difficulty = (assignment.task.difficulty ?? 'medium') as keyof typeof GAMIFICATION_M7.TASK_XP;
         const baseXp = GAMIFICATION_M7.TASK_XP[difficulty] ?? GAMIFICATION_M7.TASK_XP.medium;
 
-        // M7 — CR-06: Points and XP are awarded separately
-        const basePoints = assignment.task.pointsValue; // spendable currency
+        const basePoints = assignment.task.pointsValue;
         const newPointsBalance = profile.pointsBalance + basePoints;
         const newXp = profile.experiencePoints + baseXp;
         const newTotalXpEarned = profile.totalXpEarned + baseXp;
@@ -591,27 +599,22 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
             data: {
               status: 'approved',
               approvedAt: new Date(),
-              // No approvedBy — system-triggered, not a parent action
               pointsAwarded: basePoints,
               xpAwarded: baseXp,
             },
           });
 
-          // M7 — CR-06: Update both XP fields AND Points separately
           await tx.childProfile.update({
             where: { userId: assignment.childId },
             data: {
               pointsBalance: newPointsBalance,
               totalPointsEarned: { increment: basePoints },
               totalTasksCompleted: { increment: 1 },
-              // experiencePoints = XP within current level bar (resets each level)
               experiencePoints: newXp,
-              // totalXpEarned = lifetime XP, never decremented (drives level calc)
               totalXpEarned: newTotalXpEarned,
             },
           });
 
-          // M7 — CR-06: Points ledger entry for spendable Points earned
           await tx.pointsLedger.create({
             data: {
               childId: assignment.childId,
@@ -633,12 +636,8 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
           };
         });
 
-        // M7 — CR-06: Check for level-up AFTER the transaction updates totalXpEarned
         const levelUpResult = await checkAndApplyLevelUp(assignment.childId, oldLevel);
-
         const unlockedAchievements = await checkAndUnlockAchievements(assignment.childId);
-
-        // BUG-06: Update streak using grace period from FamilySettings
         await evaluateStreak(assignment.childId, req.familyId!);
 
         res.json({
@@ -665,6 +664,26 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
       metadata: { taskId: assignment.taskId, taskTitle: assignment.task.title },
     });
 
+    // M9 — Task submitted email: notify ALL parent-role users in the family (CR-08).
+    // Uses sendToFamilyParents() which respects the 'task_submitted' preference toggle.
+    // Fire-and-forget — never blocks the response.
+    EmailService.sendToFamilyParents({
+      familyId: req.familyId!,
+      triggerType: 'task_submitted',
+      subjectBuilder: (parent) =>
+        `${assignment.child.firstName} completed "${assignment.task.title}"`,
+      templateData: {
+        childName: assignment.child.firstName,
+        taskTitle: assignment.task.title,
+        completedAt: new Date().toISOString(),
+        assignmentId: assignment.id,
+      },
+      referenceType: 'task_assignment',
+      referenceId: assignment.id,
+    }).catch((err) =>
+      console.error('[tasks/complete] task_submitted email failed (non-fatal):', err?.message)
+    );
+
     res.json({
       success: true,
       data: { assignment: updated },
@@ -675,12 +694,6 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
 });
 
 // POST /tasks/assignments/:id/upload - Upload photo evidence for a task
-//
-// BUG FIX: The original route used req.file.path (disk storage), but multer
-// was switched to memoryStorage in M2. With memoryStorage, req.file.path is
-// undefined — crashing the route with a 500. The fix is to use StorageService
-// (uploadFile) which reads from req.file.buffer and handles both local disk
-// and Cloudflare R2 based on the STORAGE_PROVIDER env var.
 taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (req, res, next) => {
   try {
     const assignment = await prisma.taskAssignment.findFirst({
@@ -705,9 +718,6 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
       throw new ConflictError('No photo file provided');
     }
 
-    // With memoryStorage, the file is in req.file.buffer — NOT req.file.path.
-    // Build the absolute API base URL so StorageService can construct full
-    // accessible URLs (required for ngrok / production deployments).
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.headers['x-forwarded-host'] || req.get('host');
     const apiBaseUrl = `${protocol}://${host}`;
@@ -719,7 +729,6 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
       apiBaseUrl,
     );
 
-    // Create evidence record with full URLs and thumbnail from StorageService
     const evidence = await prisma.taskEvidence.create({
       data: {
         assignmentId: assignment.id,
@@ -750,8 +759,6 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
 
 // PUT /tasks/assignments/:id/approve - Approve or reject assignment (parents only)
 // M7 — CR-06: Awards XP and Points as two independent operations.
-// XP drives level progression and is never spent.
-// Points are spendable currency used to redeem rewards.
 taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTaskSchema), async (req, res, next) => {
   try {
     const assignment = await prisma.taskAssignment.findFirst({
@@ -784,16 +791,13 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
       const difficulty = (assignment.task.difficulty ?? 'medium') as keyof typeof GAMIFICATION_M7.TASK_XP;
       const baseXp = GAMIFICATION_M7.TASK_XP[difficulty] ?? GAMIFICATION_M7.TASK_XP.medium;
 
-      // M7 — CR-06: Points and XP are completely independent
-      const basePoints = assignment.task.pointsValue; // spendable — goes to pointsBalance
+      const basePoints = assignment.task.pointsValue;
       const newPointsBalance = profile.pointsBalance + basePoints;
       const newXp = profile.experiencePoints + baseXp;
       const newTotalXpEarned = profile.totalXpEarned + baseXp;
-      const oldLevel = profile.level; // snapshot BEFORE update for level-up detection
+      const oldLevel = profile.level;
 
-      // Award Points and XP in a single atomic transaction
       const result = await prisma.$transaction(async (tx) => {
-        // Mark assignment as approved with both awarded values
         const updatedAssignment = await tx.taskAssignment.update({
           where: { id: req.params.id },
           data: {
@@ -805,23 +809,17 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
           },
         });
 
-        // M7 — CR-06: Update child profile with both XP fields and Points
         await tx.childProfile.update({
           where: { userId: assignment.childId },
           data: {
-            // Spendable currency
             pointsBalance: newPointsBalance,
             totalPointsEarned: { increment: basePoints },
             totalTasksCompleted: { increment: 1 },
-            // XP — level bar progress (visual progress within current level)
             experiencePoints: newXp,
-            // M7: Lifetime XP accumulator — drives level calculation, never reset
             totalXpEarned: newTotalXpEarned,
           },
         });
 
-        // M7 — CR-06: Ledger entry for the Points awarded (spendable currency)
-        // XP is NOT recorded in the ledger — it's tracked on the profile directly.
         await tx.pointsLedger.create({
           data: {
             childId: assignment.childId,
@@ -832,7 +830,6 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
             referenceId: assignment.id,
             description: `Completed: ${assignment.task.title}`,
             createdBy: req.user!.userId,
-            // Breakdown lets the frontend show the XP earned alongside Points
             breakdown: { points: basePoints, xp: baseXp },
           },
         });
@@ -845,14 +842,8 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
         };
       });
 
-      // M7 — CR-06: Check for level-up AFTER the transaction so totalXpEarned is committed
-      // checkAndApplyLevelUp creates a milestone_bonus ledger entry if the child levelled up
       const levelUpResult = await checkAndApplyLevelUp(assignment.childId, oldLevel);
-
-      // Check and unlock any achievements earned
       const unlockedAchievements = await checkAndUnlockAchievements(assignment.childId);
-
-      // BUG-06: Update streak using grace period from FamilySettings
       await evaluateStreak(assignment.childId, req.familyId!);
 
       // M8 — Audit: assignment approved by parent
@@ -872,11 +863,49 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
         },
       });
 
+      // M9 — Task approved email: notify all parents.
+      // Parents are the audience because children have no email address.
+      EmailService.sendToFamilyParents({
+        familyId: req.familyId!,
+        triggerType: 'task_approved',
+        subjectBuilder: () =>
+          `"${assignment.task.title}" approved for ${assignment.child.firstName}`,
+        templateData: {
+          childName: assignment.child.firstName,
+          taskTitle: assignment.task.title,
+          pointsAwarded: result.pointsAwarded,
+          xpAwarded: result.xpAwarded,
+          newBalance: result.newBalance,
+        },
+        referenceType: 'task_assignment',
+        referenceId: assignment.id,
+      }).catch((err) =>
+        console.error('[tasks/approve] task_approved email failed (non-fatal):', err?.message)
+      );
+
+      // M9 — Level-up email if the approval triggered a level-up
+      if (levelUpResult?.leveledUp) {
+        EmailService.sendToFamilyParents({
+          familyId: req.familyId!,
+          triggerType: 'level_up',
+          subjectBuilder: () =>
+            `${assignment.child.firstName} reached Level ${levelUpResult.newLevel}! 🎉`,
+          templateData: {
+            childName: assignment.child.firstName,
+            newLevel: levelUpResult.newLevel,
+            bonusPoints: levelUpResult.bonusPoints,
+          },
+          referenceType: 'task_assignment',
+          referenceId: assignment.id,
+        }).catch((err) =>
+          console.error('[tasks/approve] level_up email failed (non-fatal):', err?.message)
+        );
+      }
+
       res.json({
         success: true,
         data: {
           ...result,
-          // M7: levelUp is included so the frontend can show a celebration modal
           levelUp: levelUpResult,
           unlockedAchievements,
         },
@@ -902,6 +931,23 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
         ipAddress: req.ip,
         metadata: { childId: assignment.childId, rejectionReason },
       });
+
+      // M9 — Task rejected email: notify all parents
+      EmailService.sendToFamilyParents({
+        familyId: req.familyId!,
+        triggerType: 'task_rejected',
+        subjectBuilder: () =>
+          `"${assignment.task.title}" submission rejected`,
+        templateData: {
+          childName: assignment.child.firstName,
+          taskTitle: assignment.task.title,
+          rejectionReason: rejectionReason ?? null,
+        },
+        referenceType: 'task_assignment',
+        referenceId: assignment.id,
+      }).catch((err) =>
+        console.error('[tasks/approve] task_rejected email failed (non-fatal):', err?.message)
+      );
 
       res.json({
         success: true,
@@ -967,7 +1013,6 @@ taskRouter.post('/assignments/self-assign', requireAuth, async (req, res, next) 
       throw new NotFoundError('Secondary task not found');
     }
 
-    // Check child has no pending primaries
     const pendingPrimaries = await prisma.taskAssignment.count({
       where: {
         childId,
@@ -980,7 +1025,6 @@ taskRouter.post('/assignments/self-assign', requireAuth, async (req, res, next) 
       throw new ConflictError('Complete your primary tasks before self-assigning bonus tasks');
     }
 
-    // Check assignment limits
     const limitCheck = await checkAssignmentLimits(childId, 'secondary');
     if (!limitCheck.allowed) {
       throw new ConflictError(limitCheck.reason ?? 'Assignment limit reached');
