@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * child/dashboard/page.tsx — Updated M7 (CR-06)
+ * child/dashboard/page.tsx — Updated M10 Phase 6 (Real-time Socket Engagement)
  *
  * Changes from M7 (everything else is unchanged from the original):
  *  - ChildDashboardData.profile: added optional totalXpEarned field
@@ -16,7 +16,7 @@
  *  - Redeeming a reward only decrements Points, never XP
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   CheckCircle2,
@@ -34,9 +34,13 @@ import { useToast } from '@/components/ui/Toast';
 import { cn, formatPoints, getDifficultyColor, levelFromXp } from '@/lib/utils';
 import Link from 'next/link';
 import { ChildLayout } from '@/components/layouts/ChildLayout';
+import { useSocket } from '@/contexts/SocketContext';
 // M7 — CR-06: New components for dual currency display and level-up celebration
 import { XpProgressBar } from '@/components/ui/XpProgressBar';
 import { LevelUpCelebration } from '@/components/LevelUpCelebration';
+// M10 — Phase 6: Real-time engagement toasts
+import { AchievementToast } from '@/components/AchievementToast';
+import { StreakMilestoneToast, isStreakMilestone } from '@/components/StreakMilestoneToast';
 
 interface TaskAssignment {
   assignment: {
@@ -109,14 +113,30 @@ export default function ChildDashboardPage() {
   const [data, setData] = useState<ChildDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // M7 — CR-06: Level-up celebration state.
-  // Set when the API response includes a pending levelUp event
-  // (e.g. from a recent auto-approved task). Cleared when modal is dismissed.
+  // M7 — CR-06: Level-up celebration state (also updated via socket in M10)
   const [levelUpState, setLevelUpState] = useState<{
     show: boolean;
     newLevel: number;
     bonusPoints: number;
   }>({ show: false, newLevel: 1, bonusPoints: 0 });
+
+  // M10 — Phase 6: Real-time socket state
+  const { socket } = useSocket();
+
+  // Live points balance — socket pushes updates when tasks are approved or rewards redeemed
+  const [livePoints, setLivePoints] = useState<number | null>(null);
+
+  // Achievement toast — fires when server emits achievement:unlocked
+  const [achievementToast, setAchievementToast] = useState<{
+    show: boolean;
+    achievementName: string;
+  }>({ show: false, achievementName: '' });
+
+  // Streak milestone toast — fires when streak reaches a milestone (7, 14, 30, 60, 100…)
+  const [streakToast, setStreakToast] = useState<{
+    show: boolean;
+    streakDays: number;
+  }>({ show: false, streakDays: 0 });
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -141,6 +161,12 @@ export default function ChildDashboardPage() {
             bonusPoints: apiData.levelUp.bonusPointsAwarded,
           });
         }
+
+        // M10 — Phase 6: Show streak milestone toast on first load if applicable
+        const streak = apiData.streak?.current ?? apiData.profile?.currentStreakDays ?? 0;
+        if (streak > 0 && isStreakMilestone(streak)) {
+          setStreakToast({ show: true, streakDays: streak });
+        }
       } catch {
         showError('Failed to load dashboard');
       } finally {
@@ -150,6 +176,69 @@ export default function ChildDashboardPage() {
 
     loadDashboard();
   }, [showError]);
+
+  // M10 — Phase 6: Real-time socket event handlers
+  useEffect(() => {
+    if (!socket) return;
+
+    // points:updated — live balance when parent approves task or child redeems reward
+    const handlePoints = (payload: { childId: string; newBalance: number }) => {
+      const myId = (user as any)?.id;
+      if (myId && payload.childId !== myId) return; // guard: only my events
+      setLivePoints(payload.newBalance);
+      // Also patch dashboard data so the Points card re-renders correctly
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          profile: { ...prev.profile, pointsBalance: payload.newBalance },
+        };
+      });
+    };
+
+    // level:up — show the celebration modal in real-time (without page refresh)
+    const handleLevelUp = (payload: { childId: string; newLevel: number; bonusPoints: number }) => {
+      const myId = (user as any)?.id;
+      if (myId && payload.childId !== myId) return;
+      setLevelUpState({ show: true, newLevel: payload.newLevel, bonusPoints: payload.bonusPoints });
+    };
+
+    // achievement:unlocked — show achievement toast
+    const handleAchievement = (payload: { childId: string; achievementName: string }) => {
+      const myId = (user as any)?.id;
+      if (myId && payload.childId !== myId) return;
+      setAchievementToast({ show: true, achievementName: payload.achievementName });
+    };
+
+    // task:approved — refresh task statuses so the progress ring updates
+    const handleTaskApproved = (payload: { childId: string; pointsAwarded: number }) => {
+      const myId = (user as any)?.id;
+      if (myId && payload.childId !== myId) return;
+      // Re-fetch dashboard to get updated task statuses (lightweight)
+      dashboardApi.getChildDashboard()
+        .then((res) => {
+          const d = res.data as unknown as ChildDashboardData;
+          setData((prev) => ({
+            ...prev!,
+            todaysTasks: d.todaysTasks ?? prev?.todaysTasks ?? [],
+            streak: d.streak ?? prev?.streak ?? { current: 0, atRisk: false, completedToday: 0, requiredDaily: 1 },
+          }));
+        })
+        .catch(() => {}); // non-fatal
+    };
+
+    socket.on('points:updated', handlePoints);
+    socket.on('level:up', handleLevelUp);
+    socket.on('achievement:unlocked', handleAchievement);
+    socket.on('task:approved', handleTaskApproved);
+
+    return () => {
+      socket.off('points:updated', handlePoints);
+      socket.off('level:up', handleLevelUp);
+      socket.off('achievement:unlocked', handleAchievement);
+      socket.off('task:approved', handleTaskApproved);
+    };
+  }, [socket, user]);
 
   if (isLoading) {
     return (
@@ -181,10 +270,12 @@ export default function ChildDashboardPage() {
   };
 
   // M7 — CR-06: Use totalXpEarned for level calculation if available.
-  // Fall back to experiencePoints for backwards compatibility during migration.
   const totalXp = dashboardData.profile.totalXpEarned ?? dashboardData.profile.experiencePoints ?? 0;
   const { level, currentXp, nextLevelXp } = levelFromXp(totalXp);
   const xpProgress = (currentXp / nextLevelXp) * 100;
+
+  // M10 — Phase 6: Use live socket balance if available, fall back to API data
+  const displayPoints = livePoints !== null ? livePoints : (dashboardData.profile.pointsBalance ?? 0);
 
   const streakDays = dashboardData.profile.currentStreakDays ?? dashboardData.streak?.current ?? 0;
   const completedTasks = dashboardData.todaysTasks.filter(t => {
@@ -201,6 +292,20 @@ export default function ChildDashboardPage() {
         onClose={() => setLevelUpState((s) => ({ ...s, show: false }))}
         newLevel={levelUpState.newLevel}
         bonusPoints={levelUpState.bonusPoints}
+      />
+
+      {/* M10 — Phase 6: Achievement unlocked toast */}
+      <AchievementToast
+        show={achievementToast.show}
+        achievementName={achievementToast.achievementName}
+        onDismiss={() => setAchievementToast((s) => ({ ...s, show: false }))}
+      />
+
+      {/* M10 — Phase 6: Streak milestone toast */}
+      <StreakMilestoneToast
+        show={streakToast.show}
+        streakDays={streakToast.streakDays}
+        onDismiss={() => setStreakToast((s) => ({ ...s, show: false }))}
       />
 
       <div className="space-y-6">
@@ -244,7 +349,7 @@ export default function ChildDashboardPage() {
               </span>
             </div>
             <p className="text-3xl font-bold leading-none mb-1">
-              {(dashboardData.profile.pointsBalance ?? 0).toLocaleString()}
+              {displayPoints.toLocaleString()}
             </p>
             <p className="text-xs opacity-75">Spend on rewards</p>
           </motion.div>

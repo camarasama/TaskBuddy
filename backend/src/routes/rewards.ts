@@ -1,13 +1,15 @@
 /**
- * rewards.ts — Backend route (updated M9 — Email Notifications)
+ * rewards.ts — Backend route (updated M10 Phase 5 — Socket.io + In-app Notifications)
  *
- * Changes from M8:
- *  - POST /:id/redeem: after the transaction completes, calls
- *    EmailService.sendToFamilyParents() with triggerType='reward_redeemed'.
- *    The email notifies ALL parent-role users in the family (CR-08) so both
- *    parents can arrange fulfilment. Fire-and-forget.
+ * Changes from M10 Phase 5 (this file):
+ *  - POST /:id/redeem: createNotification() confirms redemption in child's bell.
+ *    SocketService.emitPointsUpdated() pushes new balance live.
+ *  - PUT /redemptions/:id/fulfill: createNotification() + SocketService tell
+ *    the child instantly their reward has been fulfilled.
  *
- * All other routes are unchanged from M8.
+ * Previous M9 (from M8):
+ *  - POST /:id/redeem: EmailService.sendToFamilyParents() for reward_redeemed.
+ *  All other routes unchanged from M8.
  */
 
 import { Router } from 'express';
@@ -22,6 +24,10 @@ import { checkRedemptionCaps, getRewardCapData } from '../utils/rewardCaps';
 import { AuditService } from '../services/AuditService';
 // M9 — Email notifications
 import { EmailService } from '../services/email';
+// M10 — Phase 4: In-app notification bell
+import { createNotification } from './notifications';
+// M10 — Phase 5: Real-time socket events
+import { SocketService } from '../services/SocketService';
 
 export const rewardRouter = Router();
 
@@ -397,6 +403,25 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
       console.error('[rewards/redeem] reward_redeemed email failed (non-fatal):', err?.message)
     );
 
+    // M10 — Phase 4: Confirm redemption in the child's notification bell
+    createNotification({
+      userId: req.user!.userId,
+      notificationType: 'reward_redeemed',
+      title: '🎁 Reward Redeemed!',
+      message: `You redeemed "${reward.name}" for ${reward.pointsCost} pts. A parent will arrange fulfilment soon!`,
+      actionUrl: `/child/rewards`,
+      referenceType: 'reward_redemption',
+      referenceId: result.redemption.id,
+    }).catch(() => {}); // non-fatal
+
+    // M10 — Phase 5: Push updated points balance live so the child's header refreshes instantly
+    SocketService.emitPointsUpdated(req.familyId!, {
+      childId: req.user!.userId,
+      newBalance: result.newBalance,
+      delta: -reward.pointsCost,
+      reason: 'reward_redeemed',
+    });
+
     res.status(201).json({
       success: true,
       data: {
@@ -478,6 +503,26 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { childId: redemption.childId, rewardId: redemption.rewardId },
+    });
+
+    // M10 — Phase 4: Notify the child their reward was fulfilled
+    createNotification({
+      userId: redemption.childId,
+      notificationType: 'reward_fulfilled',
+      title: '✅ Reward Delivered!',
+      message: `Your reward has been fulfilled by your parent. Enjoy! 🎉`,
+      actionUrl: `/child/rewards`,
+      referenceType: 'reward_redemption',
+      referenceId: req.params.id,
+    }).catch(() => {}); // non-fatal
+
+    // M10 — Phase 5: Socket event → child's bell updates instantly without polling
+    SocketService.emitNotificationNew(redemption.childId, {
+      notificationType: 'reward_fulfilled',
+      title: '✅ Reward Delivered!',
+      message: `Your reward has been fulfilled by your parent. Enjoy! 🎉`,
+      referenceType: 'reward_redemption',
+      referenceId: req.params.id,
     });
 
     res.json({

@@ -101,6 +101,8 @@ model ChildProfile {
   experiencePoints    Int       @default(0) @map("experience_points")
   // M7 — CR-06: lifetime XP earned (never decremented — separate from spendable Points)
   totalXpEarned       Int       @default(0) @map("total_xp_earned")
+  // M10 — Phase 5: selected emoji avatar from the avatar picker grid
+  avatarEmoji         String?   @map("avatar_emoji")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
@@ -329,6 +331,8 @@ model Achievement {
   isSystemAchievement   Boolean          @default(true) @map("is_system_achievement")
   pointsReward          Int              @default(0) @map("points_reward")
   xpReward              Int              @default(0) @map("xp_reward")
+  // M10 — Phase 4: minimum XP level required to unlock (used in R-05 level distribution)
+  xpThreshold           Int              @default(0) @map("xp_threshold")
   createdAt             DateTime         @default(now()) @map("created_at")
 
   // Relations
@@ -415,9 +419,9 @@ model Notification {
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([isRead])
-  @@index([createdAt])
+  // Composite index: covers WHERE userId=X (AND isRead=Y) ORDER BY createdAt DESC
+  // Replaces 3 separate single-column indexes which forced the DB to pick just one.
+  @@index([userId, isRead, createdAt(sort: Desc)])
   @@map("notifications")
 }
 
@@ -458,6 +462,9 @@ model FamilyInvitation {
   token           String    @unique
   expiresAt       DateTime  @map("expires_at")
   acceptedAt      DateTime? @map("accepted_at")
+  // M10 — Phase 4: R-08 tracks co-parent invite acceptance rate
+  cancelledAt     DateTime? @map("cancelled_at")
+  relationship    String?   // e.g. "spouse", "partner", "guardian"
   createdAt       DateTime  @default(now()) @map("created_at")
 
   // Relations

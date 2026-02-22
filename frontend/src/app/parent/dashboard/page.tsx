@@ -1,5 +1,16 @@
 'use client';
 
+/**
+ * app/parent/dashboard/page.tsx — Updated M10 Phase 6 (Real-time Socket)
+ *
+ * Changes from M10 Phase 5:
+ *  - socket.on('task:approved') → live decrement of pendingApprovals badge +
+ *    update matching child card's pending/completed counts without refresh
+ *  - socket.on('points:updated') → keep child point totals live in child cards
+ *
+ * All other behaviour and UI unchanged from the original parent dashboard.
+ */
+
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -19,6 +30,8 @@ import { useToast } from '@/components/ui/Toast';
 import { cn, getInitials, formatPoints } from '@/lib/utils';
 import Link from 'next/link';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
+// M10 — Phase 6: Real-time socket updates
+import { useSocket } from '@/contexts/SocketContext';
 
 interface ChildSummary {
   id: string;
@@ -43,7 +56,6 @@ interface DashboardData {
   family: {
     id: string;
     familyName: string;
-    // Total active members = parents + children
     memberCount: number;
   };
   parents: ParentSummary[];
@@ -88,7 +100,6 @@ export default function ParentDashboardPage() {
           pendingApprovals?: unknown[];
         };
 
-        // Map children from API format to frontend format
         const mappedChildren: ChildSummary[] = (apiData.children || []).map((child) => ({
           id: child.user?.id || '',
           firstName: child.user?.firstName,
@@ -101,8 +112,6 @@ export default function ParentDashboardPage() {
         }));
 
         const mappedParents: ParentSummary[] = apiData.parents || [];
-
-        // Total members = all active parents + all children
         const memberCount = mappedParents.length + mappedChildren.length;
 
         setData({
@@ -132,6 +141,50 @@ export default function ParentDashboardPage() {
 
     loadDashboard();
   }, [showError]);
+
+  // M10 — Phase 6: Real-time socket updates — parent receives family-room events
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    // task:approved → live decrement of pending count + update child card stats
+    const handleTaskApproved = (payload: { childId: string; pointsAwarded: number }) => {
+      setData((prev) => ({
+        ...prev,
+        pendingApprovals: Math.max(0, prev.pendingApprovals - 1),
+        children: prev.children.map((child) =>
+          child.id !== payload.childId
+            ? child
+            : {
+                ...child,
+                tasksPendingApproval: Math.max(0, (child.tasksPendingApproval ?? 0) - 1),
+                tasksCompletedToday: (child.tasksCompletedToday ?? 0) + 1,
+              }
+        ),
+      }));
+    };
+
+    // points:updated → keep child point balances live in child cards
+    const handlePointsUpdated = (payload: { childId: string; newBalance: number }) => {
+      setData((prev) => ({
+        ...prev,
+        children: prev.children.map((child) =>
+          child.id === payload.childId
+            ? { ...child, totalPoints: payload.newBalance }
+            : child
+        ),
+      }));
+    };
+
+    socket.on('task:approved', handleTaskApproved);
+    socket.on('points:updated', handlePointsUpdated);
+
+    return () => {
+      socket.off('task:approved', handleTaskApproved);
+      socket.off('points:updated', handlePointsUpdated);
+    };
+  }, [socket]);
 
   if (isLoading) {
     return (
@@ -164,6 +217,7 @@ export default function ParentDashboardPage() {
             value={data.family.memberCount}
             color="primary"
           />
+          {/* M10 — Phase 6: pendingApprovals now updates live via socket */}
           <StatCard
             icon={Clock}
             label="Pending Approvals"
@@ -287,7 +341,8 @@ export default function ParentDashboardPage() {
   );
 }
 
-// Stat Card Component
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
 function StatCard({
   icon: Icon,
   label,
@@ -326,7 +381,8 @@ function StatCard({
   return content;
 }
 
-// Child Card Component
+// ─── Child Card ───────────────────────────────────────────────────────────────
+
 function ChildCard({ child }: { child: ChildSummary }) {
   const displayName = child.firstName || child.lastName || 'Child';
   const level = child.level ?? 1;
@@ -363,10 +419,12 @@ function ChildCard({ child }: { child: ChildSummary }) {
             <p className="text-lg font-bold text-slate-900">{tasksCompletedToday}</p>
             <p className="text-xs text-slate-500">Today</p>
           </div>
+          {/* M10 — Phase 6: totalPoints updates live via points:updated socket event */}
           <div className="bg-gold-50 rounded-lg p-2">
             <p className="text-lg font-bold text-gold-600">{formatPoints(child.totalPoints)}</p>
             <p className="text-xs text-slate-500">Points</p>
           </div>
+          {/* M10 — Phase 6: tasksPendingApproval decrements live via task:approved event */}
           <div className="bg-warning-50 rounded-lg p-2">
             <p className="text-lg font-bold text-warning-600">{tasksPendingApproval}</p>
             <p className="text-xs text-slate-500">Pending</p>
@@ -382,7 +440,8 @@ function ChildCard({ child }: { child: ChildSummary }) {
   );
 }
 
-// Empty Children Card
+// ─── Empty Children Card ──────────────────────────────────────────────────────
+
 function EmptyChildrenCard() {
   return (
     <div className="bg-white rounded-xl p-8 border-2 border-dashed border-slate-200 text-center">
@@ -403,7 +462,8 @@ function EmptyChildrenCard() {
   );
 }
 
-// Quick Action Card
+// ─── Quick Action Card ────────────────────────────────────────────────────────
+
 function QuickActionCard({
   href,
   icon: Icon,

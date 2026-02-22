@@ -1,22 +1,17 @@
 /**
- * components/layouts/AdminLayout.tsx — M8
+ * components/layouts/AdminLayout.tsx — M8 (updated M10)
  *
- * Shared layout component used by app/admin/layout.tsx to wrap all admin pages.
- * Provides a sidebar with navigation links and a top bar showing the logged-in
- * admin's name.
- *
- * Route guard: if the user is authenticated but NOT an admin, they are
- * redirected to /parent/dashboard. If not authenticated, they go to /login.
- * This guard is also enforced server-side by the backend requireAdmin middleware,
- * but the frontend guard gives instant feedback without a round-trip.
+ * Shared layout for all admin pages.
+ * Reports nav item added (M10 — admin/reports page).
  *
  * Sidebar links:
  *   Overview     /admin/dashboard
  *   Families     /admin/families
  *   Users        /admin/users
  *   Achievements /admin/achievements
+ *   Reports      /admin/reports      ← M10 addition
  *   Audit Log    /admin/audit-log
- *  Emails       /admin/emails
+ *   Emails       /admin/emails
  */
 
 'use client';
@@ -26,7 +21,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Nav item shape
 interface NavItem {
   label: string;
   href: string;
@@ -40,14 +34,13 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Families',     href: '/admin/families',     icon: '🏠' },
   { label: 'Users',        href: '/admin/users',        icon: '👥' },
   { label: 'Achievements', href: '/admin/achievements', icon: '🏆' },
+  { label: 'Reports',      href: '/admin/reports',      icon: '📈' },
   { label: 'Audit Log',    href: '/admin/audit-log',    icon: '📋' },
-  // M9 — Email log viewer + resend (live)
   { label: 'Emails',       href: '/admin/emails',       icon: '✉️' },
 ];
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  /** Optional title shown in the top bar next to the logo */
   pageTitle?: string;
 }
 
@@ -56,16 +49,12 @@ export default function AdminLayout({ children, pageTitle }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // ── Route guard ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isLoading) return;
-
     if (!isAuthenticated) {
       router.replace('/login');
       return;
     }
-
-    // Non-admin users who land on /admin/* get bounced to their own dashboard
     if (!isAdmin) {
       router.replace(user?.role === 'child' ? '/child/dashboard' : '/parent/dashboard');
     }
@@ -79,13 +68,13 @@ export default function AdminLayout({ children, pageTitle }: AdminLayoutProps) {
     );
   }
 
-  if (!isAdmin) return null; // Prevent flash while redirecting
+  if (!isAdmin) return null;
 
   return (
     <div className="flex min-h-screen bg-slate-100">
-      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
+      {/* Sidebar */}
       <aside className="w-60 shrink-0 bg-slate-900 text-white flex flex-col">
-        {/* Logo / brand */}
+        {/* Brand */}
         <div className="px-5 py-6 border-b border-slate-700">
           <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
             TaskBuddy
@@ -98,16 +87,14 @@ export default function AdminLayout({ children, pageTitle }: AdminLayoutProps) {
           <ul className="space-y-1 px-3">
             {NAV_ITEMS.map((item) => {
               const isActive = pathname.startsWith(item.href);
-
               return (
                 <li key={item.href}>
                   {item.disabled ? (
-                    // Disabled items shown greyed out with a "Soon" badge
                     <span className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-500 cursor-not-allowed text-sm">
                       <span>{item.icon}</span>
                       <span>{item.label}</span>
                       <span className="ml-auto text-xs bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">
-                        M9
+                        Soon
                       </span>
                     </span>
                   ) : (
@@ -149,9 +136,8 @@ export default function AdminLayout({ children, pageTitle }: AdminLayoutProps) {
         </div>
       </aside>
 
-      {/* ── Main content ──────────────────────────────────────────────────── */}
+      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
         <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-800">
             {pageTitle || 'Admin'}
@@ -160,8 +146,6 @@ export default function AdminLayout({ children, pageTitle }: AdminLayoutProps) {
             Admin
           </div>
         </header>
-
-        {/* Page content */}
         <main className="flex-1 p-6 overflow-y-auto">
           {children}
         </main>

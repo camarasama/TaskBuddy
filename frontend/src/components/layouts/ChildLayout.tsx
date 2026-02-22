@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,6 +13,9 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { SocketProvider, useSocket } from '@/contexts/SocketContext';
+import NotificationBell from '@/components/NotificationBell';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { cn, getInitials, formatPoints, levelFromXp } from '@/lib/utils';
 
 interface ChildLayoutProps {
@@ -27,11 +30,10 @@ const navItems = [
 ];
 
 export function ChildLayout({ children }: ChildLayoutProps) {
-  const { user, isChild, isLoading, logout } = useAuth();
+  const { user, isChild, isLoading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
-  // Redirect non-children
+  // Redirect non-children (guard must stay outside SocketProvider)
   useEffect(() => {
     if (!isLoading && !isChild) {
       router.push('/child/login');
@@ -46,8 +48,46 @@ export function ChildLayout({ children }: ChildLayoutProps) {
     );
   }
 
-  const profile = user?.childProfile;
-  const points = profile?.pointsBalance ?? 0;
+  // SocketProvider must wrap ChildLayoutInner so useSocket() works inside it
+  return (
+    <SocketProvider>
+      <NotificationProvider>
+        <ChildLayoutInner>{children}</ChildLayoutInner>
+      </NotificationProvider>
+    </SocketProvider>
+  );
+}
+
+// ── Inner layout — lives inside SocketProvider so can call useSocket() ────────
+
+function ChildLayoutInner({ children }: { children: ReactNode }) {
+  const { user, logout } = useAuth();
+  const { socket } = useSocket();
+  const pathname = usePathname();
+
+  // M10 — Phase 6: Live points balance — updated via socket 'points:updated'
+  // Initialised from user profile; refreshed without a page reload.
+  const initialPoints = (user as any)?.childProfile?.pointsBalance ?? (user as any)?.profile?.pointsBalance ?? 0;
+  const [livePoints, setLivePoints] = useState<number>(initialPoints);
+
+  // Sync when the user object changes (e.g. after re-auth or refreshUser)
+  useEffect(() => {
+    const p = (user as any)?.childProfile?.pointsBalance ?? (user as any)?.profile?.pointsBalance ?? 0;
+    setLivePoints(p);
+  }, [user]);
+
+  // Real-time points update from socket
+  useEffect(() => {
+    if (!socket) return;
+    const handlePointsUpdated = (payload: { newBalance: number }) => {
+      setLivePoints(payload.newBalance);
+    };
+    socket.on('points:updated', handlePointsUpdated);
+    return () => { socket.off('points:updated', handlePointsUpdated); };
+  }, [socket]);
+
+  const profile = (user as any)?.childProfile ?? (user as any)?.profile;
+  const points = livePoints;
   const xp = profile?.experiencePoints ?? 0;
   const streak = profile?.currentStreakDays ?? 0;
 
@@ -102,6 +142,8 @@ export function ChildLayout({ children }: ChildLayoutProps) {
                 <span>⭐</span>
                 <span>{formatPoints(points)}</span>
               </div>
+              {/* Notification Bell — M10 Phase 5 */}
+              <NotificationBell />
             </div>
           </div>
         </div>

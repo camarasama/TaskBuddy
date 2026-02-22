@@ -34,6 +34,36 @@ export function getAccessToken(): string | null {
 }
 
 // Request helper
+
+// ─── Simple GET cache (stale-while-revalidate) ───────────────────────────────
+// Caches GET responses in memory for 30 s. Navigating back to a page within
+// that window returns instantly from cache while a background revalidation runs.
+// Mutations (POST/PUT/DELETE) bypass the cache entirely.
+
+const GET_CACHE = new Map<string, { data: unknown; ts: number }>();
+const CACHE_TTL_MS = 30_000; // 30 seconds
+
+function getCached<T>(key: string): T | null {
+  const entry = GET_CACHE.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    GET_CACHE.delete(key);
+    return null;
+  }
+  return entry.data as T;
+}
+
+function setCached(key: string, data: unknown): void {
+  GET_CACHE.set(key, { data, ts: Date.now() });
+}
+
+/** Call this after a mutation to invalidate related cache entries by prefix. */
+export function invalidateCache(prefix: string): void {
+  Array.from(GET_CACHE.keys()).forEach((key) => {
+    if (key.startsWith(prefix)) GET_CACHE.delete(key);
+  });
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -48,6 +78,24 @@ async function request<T>(
 
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+  }
+
+  // Serve GET requests from cache if fresh
+  const isGet = !options.method || options.method.toUpperCase() === 'GET';
+  if (isGet) {
+    const cached = getCached<T>(url);
+    if (cached !== null) {
+      // Return cached immediately, revalidate in background
+      fetch(url, { ...options, headers, credentials: 'include' })
+        .then(async (r) => {
+          if (r.ok) {
+            const fresh = await r.json();
+            setCached(url, fresh);
+          }
+        })
+        .catch(() => {});
+      return cached;
+    }
   }
 
   const response = await fetch(url, {
@@ -72,6 +120,7 @@ async function request<T>(
     throw new ApiError(data.message || 'Request failed', response.status, data);
   }
 
+  if (isGet && response.ok) setCached(url, data);
   return data;
 }
 
@@ -549,5 +598,124 @@ export const emailsApi = {
   resend: (logId: string) =>
     request<ApiResponse<{ log: unknown; message: string }>>(`/admin/emails/${logId}/resend`, {
       method: 'POST',
+    }),
+};
+// ============================================
+// M10 — Reports API (Phase 4)
+// ============================================
+
+type ReportParams = {
+  childId?: string;
+  startDate?: string;
+  endDate?: string;
+  familyId?: string;
+};
+
+function buildReportQuery(params?: ReportParams & { period?: string; page?: number; pageSize?: number }): string {
+  if (!params) return '';
+  const q = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null)
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return q ? `?${q}` : '';
+}
+
+export const reportsApi = {
+  getTaskCompletion: (params?: ReportParams) =>
+    request<unknown>(`/reports/task-completion${buildReportQuery(params)}`),
+
+  getPointsLedger: (params?: ReportParams) =>
+    request<unknown>(`/reports/points-ledger${buildReportQuery(params)}`),
+
+  getRewardRedemption: (params?: ReportParams) =>
+    request<unknown>(`/reports/reward-redemption${buildReportQuery(params)}`),
+
+  getEngagementStreak: (params?: ReportParams) =>
+    request<unknown>(`/reports/engagement-streak${buildReportQuery(params)}`),
+
+  getAchievement: (params?: ReportParams) =>
+    request<unknown>(`/reports/achievement${buildReportQuery(params)}`),
+
+  getLeaderboard: (period: 'weekly' | 'monthly' | 'all-time' = 'weekly', familyId?: string) => {
+    const p: Record<string, string> = { period };
+    if (familyId) p.familyId = familyId;
+    return request<unknown>(`/reports/leaderboard?${new URLSearchParams(p).toString()}`);
+  },
+
+  getExpiryOverdue: (params?: ReportParams) =>
+    request<unknown>(`/reports/expiry-overdue${buildReportQuery(params)}`),
+
+  getPlatformHealth: () =>
+    request<unknown>('/reports/platform-health'),
+
+  getAuditTrail: (params?: ReportParams & { page?: number; pageSize?: number }) =>
+    request<unknown>(`/reports/audit-trail${buildReportQuery(params)}`),
+
+  getEmailDelivery: (params?: ReportParams) =>
+    request<unknown>(`/reports/email-delivery${buildReportQuery(params)}`),
+
+  exportCsvUrl: (reportName: string, params?: ReportParams & { period?: string }): string => {
+    const p: Record<string, string> = { format: 'csv' };
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v) p[k] = String(v); });
+    return `${API_BASE}/reports/${reportName}/export?${new URLSearchParams(p).toString()}`;
+  },
+
+  exportPdfUrl: (reportName: 'task-completion' | 'leaderboard' | 'platform-health', params?: ReportParams & { period?: string }): string => {
+    const p: Record<string, string> = { format: 'pdf' };
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v) p[k] = String(v); });
+    return `${API_BASE}/reports/${reportName}/export?${new URLSearchParams(p).toString()}`;
+  },
+};
+
+// ============================================
+// M10 — Notifications API (Phase 5)
+// ============================================
+
+export type NotificationItem = {
+  id: string;
+  notificationType: string;
+  title: string;
+  message: string;
+  actionUrl: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export const notificationsApi = {
+  getAll: (params?: { limit?: number; unreadOnly?: boolean }) => {
+    const q = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params ?? {})
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      )
+    ).toString();
+    return request<{ notifications: NotificationItem[]; unreadCount: number; total: number }>(
+      `/notifications${q ? `?${q}` : ''}`
+    );
+  },
+
+  getUnreadCount: () =>
+    request<{ count: number }>('/notifications/unread-count'),
+
+  markRead: (id: string) =>
+    request<{ notification: NotificationItem; unreadCount: number }>(`/notifications/${id}/read`, {
+      method: 'PUT',
+    }),
+
+  markAllRead: () =>
+    request<{ updated: number; unreadCount: number }>('/notifications/read-all', {
+      method: 'PUT',
+    }),
+
+  delete: (id: string) =>
+    request<{ deleted: boolean; unreadCount: number }>(`/notifications/${id}`, {
+      method: 'DELETE',
     }),
 };

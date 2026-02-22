@@ -1,8 +1,11 @@
 {
-  "/parent/dashboard/page": "app/parent/dashboard/page.js",
+  "/not-found": "app/not-found.js",
+  "/page": "app/page.js",
   "/login/page": "app/login/page.js",
-  "/admin/dashboard/page": "app/admin/dashboard/page.js",
-  "/admin/families/[id]/page": "app/admin/families/[id]/page.js",
-  "/admin/emails/page": "app/admin/emails/page.js",
-  "/admin/audit-log/page": "app/admin/audit-log/page.js"
+  "/parent/dashboard/page": "app/parent/dashboard/page.js",
+  "/parent/settings/page": "app/parent/settings/page.js",
+  "/parent/tasks/page": "app/parent/tasks/page.js",
+  "/parent/rewards/page": "app/parent/rewards/page.js",
+  "/parent/children/page": "app/parent/children/page.js",
+  "/parent/reports/page": "app/parent/reports/page.js"
 }

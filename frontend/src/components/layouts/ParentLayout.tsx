@@ -1,6 +1,20 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+/**
+ * components/layouts/ParentLayout.tsx — Updated M10 Phase 5/6
+ *
+ * Changes from original:
+ *  - Split into outer ParentLayout (auth guard) + inner ParentLayoutInner (UI)
+ *    so that useSocket() can safely be called inside the SocketProvider tree.
+ *  - SocketProvider wraps ParentLayoutInner.
+ *  - NotificationBell added to desktop sidebar (top-right of logo row) and
+ *    mobile header (between logo and hamburger menu).
+ *  - Reports nav item added for M10 reports dashboard.
+ *
+ * All other nav items and UI unchanged from original.
+ */
+
+import { ReactNode, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,10 +27,13 @@ import {
   CheckCircle2,
   Menu,
   X,
+  BarChart2,
 } from 'lucide-react';
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { SocketProvider } from '@/contexts/SocketContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import NotificationBell from '@/components/NotificationBell';
 import { cn, getInitials } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 
@@ -25,20 +42,20 @@ interface ParentLayoutProps {
 }
 
 const navItems = [
-  { href: '/parent/dashboard', icon: Home, label: 'Dashboard' },
-  { href: '/parent/tasks', icon: ListTodo, label: 'Tasks' },
-  { href: '/parent/rewards', icon: Gift, label: 'Rewards' },
-  { href: '/parent/children', icon: Users, label: 'Children' },
-  { href: '/parent/settings', icon: Settings, label: 'Settings' },
+  { href: '/parent/dashboard',  icon: Home,       label: 'Dashboard'  },
+  { href: '/parent/tasks',      icon: ListTodo,   label: 'Tasks'      },
+  { href: '/parent/rewards',    icon: Gift,       label: 'Rewards'    },
+  { href: '/parent/children',   icon: Users,      label: 'Children'   },
+  { href: '/parent/reports',    icon: BarChart2,  label: 'Reports'    },
+  { href: '/parent/settings',   icon: Settings,   label: 'Settings'   },
 ];
 
-export function ParentLayout({ children }: ParentLayoutProps) {
-  const { user, isParent, isLoading, logout } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+// ─── Outer shell — auth guard only, no UI ─────────────────────────────────────
 
-  // Redirect non-parents
+export function ParentLayout({ children }: ParentLayoutProps) {
+  const { isParent, isLoading } = useAuth();
+  const router = useRouter();
+
   useEffect(() => {
     if (!isLoading && !isParent) {
       router.push('/login');
@@ -54,18 +71,40 @@ export function ParentLayout({ children }: ParentLayoutProps) {
   }
 
   return (
+    <SocketProvider>
+      <NotificationProvider>
+        <ParentLayoutInner>{children}</ParentLayoutInner>
+      </NotificationProvider>
+    </SocketProvider>
+  );
+}
+
+// ─── Inner layout — lives inside SocketProvider ───────────────────────────────
+
+function ParentLayoutInner({ children }: { children: ReactNode }) {
+  const { user, logout } = useAuth();
+  const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  return (
     <div className="min-h-screen bg-slate-50">
-      {/* Desktop Sidebar */}
+
+      {/* ── Desktop Sidebar ─────────────────────────────────────────────────── */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-1 bg-white border-r border-slate-200">
-          {/* Logo */}
-          <div className="flex items-center gap-2 px-6 py-5 border-b border-slate-200">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center">
-              <CheckCircle2 className="w-6 h-6 text-white" />
+
+          {/* Logo + Notification Bell */}
+          <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-white" />
+              </div>
+              <span className="font-display font-bold text-xl text-slate-900">
+                TaskBuddy
+              </span>
             </div>
-            <span className="font-display font-bold text-xl text-slate-900">
-              TaskBuddy
-            </span>
+            {/* Bell — visible on desktop sidebar */}
+            <NotificationBell />
           </div>
 
           {/* Nav */}
@@ -81,7 +120,7 @@ export function ParentLayout({ children }: ParentLayoutProps) {
             ))}
           </nav>
 
-          {/* User */}
+          {/* User + Logout */}
           <div className="p-4 border-t border-slate-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold">
@@ -107,9 +146,10 @@ export function ParentLayout({ children }: ParentLayoutProps) {
         </div>
       </aside>
 
-      {/* Mobile Header */}
+      {/* ── Mobile Header ───────────────────────────────────────────────────── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40">
         <div className="flex items-center justify-between px-4 py-3">
+          {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5 text-white" />
@@ -118,20 +158,26 @@ export function ParentLayout({ children }: ParentLayoutProps) {
               TaskBuddy
             </span>
           </div>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 rounded-lg hover:bg-slate-100"
-          >
-            {isMobileMenuOpen ? (
-              <X className="w-6 h-6 text-slate-600" />
-            ) : (
-              <Menu className="w-6 h-6 text-slate-600" />
-            )}
-          </button>
+
+          {/* Bell + Hamburger */}
+          <div className="flex items-center gap-1">
+            {/* Bell — visible on mobile header */}
+            <NotificationBell />
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 rounded-lg hover:bg-slate-100"
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen
+                ? <X className="w-6 h-6 text-slate-600" />
+                : <Menu className="w-6 h-6 text-slate-600" />
+              }
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Mobile Menu */}
+      {/* ── Mobile Slide-out Menu ───────────────────────────────────────────── */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
@@ -198,7 +244,7 @@ export function ParentLayout({ children }: ParentLayoutProps) {
         )}
       </AnimatePresence>
 
-      {/* Main Content */}
+      {/* ── Main Content ────────────────────────────────────────────────────── */}
       <main className="lg:pl-64 pt-16 lg:pt-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {children}
@@ -208,7 +254,8 @@ export function ParentLayout({ children }: ParentLayoutProps) {
   );
 }
 
-// Nav Item Component
+// ─── Nav Item ─────────────────────────────────────────────────────────────────
+
 function NavItem({
   href,
   icon: Icon,

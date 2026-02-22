@@ -1,5 +1,14 @@
 /**
- * routes/tasks.ts — Updated M9 (Email Notifications)
+ * routes/tasks.ts — Updated M10 Phase 5 (Socket.io Real-time Events)
+ *
+ * Changes from M9:
+ *  - PUT /assignments/:id/complete: createNotification() for the child (task_submitted).
+ *  - PUT /assignments/:id/approve (approve): createNotification() for the child (task_approved)
+ *    and optionally (level_up) if a level-up fired.
+ *  - PUT /assignments/:id/approve (reject): createNotification() for the child (task_rejected).
+ *  All notifications are fire-and-forget — they never block the HTTP response.
+ *
+ * Previous M9 history:
  *
  * Changes from M8:
  *  - PUT /assignments/:id/complete: after marking status='completed', calls
@@ -40,6 +49,10 @@ import { uploadFile } from '../services/storage';
 import { AuditService } from '../services/AuditService';
 // M9 — Email notifications
 import { EmailService } from '../services/email';
+// M10 — Phase 4: In-app notification bell
+import { createNotification } from './notifications';
+// M10 — Phase 5: Real-time socket events (fire-and-forget, same pattern)
+import { SocketService } from '../services/SocketService';
 
 export const taskRouter = Router();
 
@@ -299,6 +312,20 @@ taskRouter.post('/', requireParent, validateBody(createTaskSchema), async (req, 
       },
     });
 
+    // M10 — In-app notification: notify each assigned child that a new task awaits them.
+    // Fire-and-forget — never blocks the HTTP response.
+    for (const assignment of result.assignments) {
+      createNotification({
+        userId: assignment.childId,
+        notificationType: 'task_assigned',
+        title: '📋 New Task Assigned',
+        message: `You have a new task: "${result.task.title}". Earn ${result.task.pointsValue} pts when approved!`,
+        actionUrl: '/child/tasks',
+        referenceType: 'task_assignment',
+        referenceId: assignment.id,
+      }).catch(() => {}); // non-fatal
+    }
+
     res.status(201).json({
       success: true,
       data: { ...result, warnings: allWarnings },
@@ -544,8 +571,9 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
       throw new ForbiddenError('Cannot complete another child\'s task');
     }
 
-    if (assignment.status !== 'pending' && assignment.status !== 'in_progress') {
-      throw new ConflictError('Task is already completed or processed');
+    // Allow resubmission from 'rejected' status (child can fix and resubmit)
+    if (!['pending', 'in_progress', 'rejected'].includes(assignment.status)) {
+      throw new ConflictError('Task is already completed or approved');
     }
 
     // Update assignment
@@ -554,6 +582,8 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
       data: {
         status: 'completed',
         completedAt: new Date(),
+        // Clear rejection reason when child resubmits
+        rejectionReason: null,
       },
       include: {
         task: true,
@@ -683,6 +713,18 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
     }).catch((err) =>
       console.error('[tasks/complete] task_submitted email failed (non-fatal):', err?.message)
     );
+
+    // M10 — In-app notification: child sees "submitted" confirmation in their bell;
+    // parents will see the pending-approval badge on the tasks page.
+    createNotification({
+      userId: req.user!.userId,
+      notificationType: 'task_submitted',
+      title: 'Task Submitted ✓',
+      message: `"${assignment.task.title}" is awaiting parent approval.`,
+      actionUrl: `/child/tasks`,
+      referenceType: 'task_assignment',
+      referenceId: assignment.id,
+    }).catch(() => {}); // non-fatal
 
     res.json({
       success: true,
@@ -883,6 +925,30 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
         console.error('[tasks/approve] task_approved email failed (non-fatal):', err?.message)
       );
 
+      // M10 — In-app notification: tell the child their task was approved
+      createNotification({
+        userId: assignment.childId,
+        notificationType: 'task_approved',
+        title: '🎉 Task Approved!',
+        message: `"${assignment.task.title}" approved! You earned +${result.pointsAwarded} pts and +${result.xpAwarded} XP.`,
+        actionUrl: `/child/tasks`,
+        referenceType: 'task_assignment',
+        referenceId: assignment.id,
+      }).catch(() => {}); // non-fatal
+
+      // M10 — Level-up in-app notification (only fires when levelUpResult exists)
+      if (levelUpResult?.leveledUp) {
+        createNotification({
+          userId: assignment.childId,
+          notificationType: 'level_up',
+          title: `⬆️ Level Up! You're now Level ${levelUpResult.newLevel}!`,
+          message: `You levelled up and earned a bonus of ${levelUpResult.bonusPointsAwarded} points. Keep it up!`,
+          actionUrl: `/child/dashboard`,
+          referenceType: 'child_profile',
+          referenceId: assignment.childId,
+        }).catch(() => {}); // non-fatal
+      }
+
       // M9 — Level-up email if the approval triggered a level-up
       if (levelUpResult?.leveledUp) {
         EmailService.sendToFamilyParents({
@@ -893,13 +959,45 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
           templateData: {
             childName: assignment.child.firstName,
             newLevel: levelUpResult.newLevel,
-            bonusPoints: levelUpResult.bonusPoints,
+            bonusPoints: levelUpResult.bonusPointsAwarded,
           },
           referenceType: 'task_assignment',
           referenceId: assignment.id,
         }).catch((err) =>
           console.error('[tasks/approve] level_up email failed (non-fatal):', err?.message)
         );
+      }
+
+      // M10 — Phase 5: Real-time socket events pushed to family room + child user room
+      SocketService.emitTaskApproved(req.familyId!, {
+        assignmentId: req.params.id,
+        taskTitle: assignment.task.title,
+        childId: assignment.childId,
+        pointsAwarded: result.pointsAwarded,
+        xpAwarded: result.xpAwarded,
+        newBalance: result.newBalance,
+      });
+      SocketService.emitPointsUpdated(req.familyId!, {
+        childId: assignment.childId,
+        newBalance: result.newBalance,
+        delta: result.pointsAwarded,
+        reason: 'task_approved',
+      });
+      if (levelUpResult?.leveledUp) {
+        SocketService.emitLevelUp(req.familyId!, {
+          childId: assignment.childId,
+          newLevel: levelUpResult.newLevel,
+          bonusPoints: levelUpResult.bonusPointsAwarded,
+        });
+      }
+      if (unlockedAchievements.length > 0) {
+        for (const ach of unlockedAchievements) {
+          SocketService.emitAchievementUnlocked(req.familyId!, {
+            childId: assignment.childId,
+            achievementId: (ach as any).id ?? '',
+            achievementName: (ach as any).name ?? 'Achievement',
+          });
+        }
       }
 
       res.json({
@@ -932,6 +1030,19 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
         metadata: { childId: assignment.childId, rejectionReason },
       });
 
+      // M10 — In-app notification: tell the child their submission was returned
+      createNotification({
+        userId: assignment.childId,
+        notificationType: 'task_rejected',
+        title: '❌ Task Returned',
+        message: rejectionReason
+          ? `"${assignment.task.title}" was returned: ${rejectionReason}`
+          : `"${assignment.task.title}" was returned by your parent. Check the task for details.`,
+        actionUrl: `/child/tasks`,
+        referenceType: 'task_assignment',
+        referenceId: req.params.id,
+      }).catch(() => {}); // non-fatal
+
       // M9 — Task rejected email: notify all parents
       EmailService.sendToFamilyParents({
         familyId: req.familyId!,
@@ -948,6 +1059,14 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
       }).catch((err) =>
         console.error('[tasks/approve] task_rejected email failed (non-fatal):', err?.message)
       );
+
+      // M10 — Phase 5: Push rejection to child in real-time
+      SocketService.emitTaskRejected(req.familyId!, {
+        assignmentId: req.params.id,
+        taskTitle: assignment.task.title,
+        childId: assignment.childId,
+        rejectionReason: rejectionReason ?? null,
+      });
 
       res.json({
         success: true,
