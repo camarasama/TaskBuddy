@@ -26,25 +26,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/parent/settings/page.js"
     ],
-    "/parent/tasks/page": [
+    "/invite/accept/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/parent/tasks/page.js"
+      "static/chunks/app/invite/accept/page.js"
     ],
-    "/parent/rewards/page": [
+    "/register/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/parent/rewards/page.js"
-    ],
-    "/parent/children/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/parent/children/page.js"
-    ],
-    "/parent/reports/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/parent/reports/page.js"
+      "static/chunks/app/register/page.js"
     ],
     "/not-found": [
       "static/chunks/webpack.js",

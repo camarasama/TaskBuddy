@@ -4,8 +4,6 @@
   "/login/page": "app/login/page.js",
   "/parent/dashboard/page": "app/parent/dashboard/page.js",
   "/parent/settings/page": "app/parent/settings/page.js",
-  "/parent/tasks/page": "app/parent/tasks/page.js",
-  "/parent/rewards/page": "app/parent/rewards/page.js",
-  "/parent/children/page": "app/parent/children/page.js",
-  "/parent/reports/page": "app/parent/reports/page.js"
+  "/invite/accept/page": "app/invite/accept/page.js",
+  "/register/page": "app/register/page.js"
 }

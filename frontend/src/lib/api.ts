@@ -663,7 +663,7 @@ export const reportsApi = {
     return `${API_BASE}/reports/${reportName}/export?${new URLSearchParams(p).toString()}`;
   },
 
-  exportPdfUrl: (reportName: 'task-completion' | 'leaderboard' | 'platform-health', params?: ReportParams & { period?: string }): string => {
+  exportPdfUrl: (reportName: string, params?: ReportParams & { period?: string }): string => {
     const p: Record<string, string> = { format: 'pdf' };
     if (params) Object.entries(params).forEach(([k, v]) => { if (v) p[k] = String(v); });
     return `${API_BASE}/reports/${reportName}/export?${new URLSearchParams(p).toString()}`;
