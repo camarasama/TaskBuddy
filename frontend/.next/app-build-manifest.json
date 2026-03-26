@@ -26,16 +26,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/parent/settings/page.js"
     ],
-    "/invite/accept/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/invite/accept/page.js"
-    ],
-    "/register/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/register/page.js"
-    ],
     "/not-found": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
