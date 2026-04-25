@@ -32,6 +32,8 @@ interface AuthContextType {
     lastName: string;
     email: string;
     password: string;
+    dateOfBirth?: string;
+    phoneNumber?: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;

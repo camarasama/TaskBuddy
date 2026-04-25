@@ -139,7 +139,7 @@ export default function EditTaskPage() {
         category: form.category.trim() || undefined,
         difficulty: form.difficulty,
         pointsValue: pointsNum,
-        dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+        dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : undefined,
         requiresPhotoEvidence: form.requiresPhotoEvidence,
         status: form.status,
       });

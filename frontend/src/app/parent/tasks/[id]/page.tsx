@@ -170,9 +170,9 @@ export default function EditTaskPage() {
         difficulty: form.difficulty,
         taskTag: form.taskTag,
         pointsValue: pointsNum,
-        dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
-        startTime: form.startTime ? new Date(form.startTime).toISOString() : null,
-        estimatedMinutes: estimatedNum ?? null,
+        dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : undefined,
+        startTime: form.startTime ? new Date(form.startTime).toISOString() : undefined,
+        estimatedMinutes: estimatedNum ?? undefined,
         requiresPhotoEvidence: form.requiresPhotoEvidence,
         status: form.status,
       });

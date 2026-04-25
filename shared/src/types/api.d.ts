@@ -103,8 +103,11 @@ export interface UpdateTaskRequest {
     description?: string;
     category?: string;
     difficulty?: 'easy' | 'medium' | 'hard';
+    taskTag?: 'primary' | 'secondary';
     pointsValue?: number;
     dueDate?: string;
+    startTime?: string;
+    estimatedMinutes?: number;
     requiresPhotoEvidence?: boolean;
     status?: 'active' | 'paused' | 'archived';
 }

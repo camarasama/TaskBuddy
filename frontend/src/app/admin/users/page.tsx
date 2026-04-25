@@ -56,7 +56,7 @@ export default function AdminUsersPage() {
     setError(null);
     try {
       const res = await adminApi.getUsers({ page: p, limit: PAGE_SIZE, search: q || undefined });
-      setData(res.data as PageData);
+      setData(res.data as unknown as PageData);
     } catch {
       setError('Failed to load users.');
     } finally {

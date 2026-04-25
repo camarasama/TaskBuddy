@@ -49,7 +49,7 @@ interface ActivityData {
   recentCompletionsThisWeek: number;
 }
 
-export default function AdminFamilyDetailPage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
+export default function AdminFamilyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [family, setFamily] = useState<FamilyDetail | null>(null);

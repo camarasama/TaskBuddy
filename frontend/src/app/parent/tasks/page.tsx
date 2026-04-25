@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -68,6 +68,14 @@ interface TaskAssignment {
 type TabType = 'all' | 'pending' | 'completed';
 
 export default function ParentTasksPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-500 border-t-transparent" /></div>}>
+      <ParentTasksInner />
+    </Suspense>
+  );
+}
+
+function ParentTasksInner() {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as TabType) || 'all';
 

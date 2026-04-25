@@ -89,7 +89,7 @@ export default function AdminAuditLogPage() {
       if (f.to)           params.to           = new Date(f.to + 'T23:59:59').toISOString();
 
       const res = await adminApi.getAuditLogs(params);
-      setData(res.data as PageData);
+      setData(res.data as unknown as PageData);
     } catch {
       setError('Failed to load audit logs.');
     } finally {

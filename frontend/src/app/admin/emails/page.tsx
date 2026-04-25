@@ -105,7 +105,7 @@ export default function AdminEmailsPage() {
       if (statusFilter) params.status = statusFilter;
       if (triggerFilter) params.triggerType = triggerFilter;
       const result = await emailsApi.getLogs(params);
-      setData(result);
+      setData(result as unknown as LogsResponse);
     } catch (err: any) {
       setError(err?.message || 'Failed to load email logs');
     } finally {

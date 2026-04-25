@@ -1,17 +1,14 @@
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
-});
-
 /** @type {import('next').NextConfig} */
+const isProd = process.env.NODE_ENV === 'production';
+
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['localhost'],
+    remotePatterns: [{ protocol: 'http', hostname: 'localhost' }],
   },
   transpilePackages: ['@taskbuddy/shared'],
+  // Turbopack for dev; production build uses --webpack flag for next-pwa compatibility
+  turbopack: {},
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
     return [
@@ -27,4 +24,16 @@ const nextConfig = {
   },
 };
 
-module.exports = withPWA(nextConfig);
+// PWA only applies in production builds (webpack mode)
+// next-pwa v5 API: withPWA(config)(nextConfig)
+if (isProd) {
+  const withPWA = require('next-pwa')({
+    dest: 'public',
+    register: true,
+    skipWaiting: true,
+    disable: false,
+  });
+  module.exports = withPWA(nextConfig);
+} else {
+  module.exports = nextConfig;
+}

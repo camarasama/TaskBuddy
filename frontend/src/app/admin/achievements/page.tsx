@@ -100,7 +100,7 @@ export default function AdminAchievementsPage() {
     setSaving(true);
     setFormError(null);
 
-    const payload: Record<string, any> = {
+    const payload = {
       name: form.name.trim(),
       description: form.description || undefined,
       iconUrl: form.iconUrl || undefined,

@@ -9,3 +9,5 @@ package-lock.json
 uploads/
 *.log
 do_not_upload/
+frontend/public/sw.js
+frontend/public/workbox-*.js
