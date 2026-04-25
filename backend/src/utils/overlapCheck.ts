@@ -110,3 +110,5 @@ export async function getTaskOverlaps(
 
   return overlaps;
 }
+
+export const OverlapChecker = { getTaskOverlaps };

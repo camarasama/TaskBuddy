@@ -17,17 +17,16 @@ import { z } from 'zod';
 import { prisma } from '../services/database';
 import { authenticate, requireParent, familyIsolation } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
-import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../middleware/errorHandler';
-import { checkAndUnlockAchievements } from '../services/achievements';
-import { checkRedemptionCaps, getRewardCapData } from '../utils/rewardCaps';
+import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
+import { getRewardCapData } from '../utils/rewardCaps';
 // M8 — Audit logging for all mutating reward routes
 import { AuditService } from '../services/AuditService';
-// M9 — Email notifications
-import { EmailService } from '../services/email';
 // M10 — Phase 4: In-app notification bell
 import { createNotification } from './notifications';
 // M10 — Phase 5: Real-time socket events
 import { SocketService } from '../services/SocketService';
+// P4 — Business logic delegated to RewardService
+import { RewardService } from '../services/RewardService';
 
 export const rewardRouter = Router();
 
@@ -284,153 +283,13 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
     if (req.user!.role !== 'child') {
       throw new ForbiddenError('Only children can redeem rewards');
     }
-
-    const reward = await prisma.reward.findFirst({
-      where: {
-        id: req.params.id,
-        familyId: req.familyId,
-        deletedAt: null,
-      },
-    });
-
-    if (!reward) {
-      throw new NotFoundError('Reward not found');
-    }
-
-    if (!reward.isActive) {
-      throw new ConflictError('This reward is no longer available.');
-    }
-
-    // ── M6: Three-gate cap check ────────────────────────────────────────────
-    const capCheck = await checkRedemptionCaps(reward.id, req.user!.userId, {
-      expiresAt: reward.expiresAt,
-      maxRedemptionsTotal: reward.maxRedemptionsTotal,
-      maxRedemptionsPerChild: reward.maxRedemptionsPerChild,
-    });
-
-    if (!capCheck.allowed) {
-      throw new ConflictError(capCheck.reason!);
-    }
-
-    const profile = await prisma.childProfile.findUnique({
-      where: { userId: req.user!.userId },
-    });
-
-    if (!profile) {
-      throw new NotFoundError('Child profile not found');
-    }
-
-    if (profile.pointsBalance < reward.pointsCost) {
-      throw new ValidationError(
-        `Not enough points. You have ${profile.pointsBalance} but need ${reward.pointsCost}`
-      );
-    }
-
-    // Fetch the child's name for the email (profile doesn't include it)
-    const child = await prisma.user.findUnique({
-      where: { id: req.user!.userId },
-      select: { firstName: true, lastName: true },
-    });
-
-    // Create redemption and deduct points in a single transaction
-    const result = await prisma.$transaction(async (tx) => {
-      const newBalance = profile.pointsBalance - reward.pointsCost;
-
-      const redemption = await tx.rewardRedemption.create({
-        data: {
-          rewardId: reward.id,
-          childId: req.user!.userId,
-          pointsSpent: reward.pointsCost,
-          status: 'pending',
-        },
-      });
-
-      await tx.childProfile.update({
-        where: { userId: req.user!.userId },
-        data: { pointsBalance: newBalance },
-      });
-
-      await tx.pointsLedger.create({
-        data: {
-          childId: req.user!.userId,
-          transactionType: 'redeemed',
-          pointsAmount: -reward.pointsCost,
-          balanceAfter: newBalance,
-          referenceType: 'reward_redemption',
-          referenceId: redemption.id,
-          description: `Redeemed: ${reward.name}`,
-        },
-      });
-
-      return { redemption, newBalance };
-    });
-
-    const unlockedAchievements = await checkAndUnlockAchievements(req.user!.userId);
-
-    // M8 — Audit: reward redeemed by child
-    await AuditService.logAction({
-      actorId: req.user!.userId,
-      action: 'REDEEM',
-      resourceType: 'reward_redemption',
-      resourceId: result.redemption.id,
-      familyId: req.familyId,
-      ipAddress: req.ip,
-      metadata: {
-        rewardId: reward.id,
-        rewardName: reward.name,
-        pointsSpent: reward.pointsCost,
-        newBalance: result.newBalance,
-      },
-    });
-
-    // M9 — Reward redeemed email: notify all parents so they can arrange fulfilment.
-    // Respects the 'reward_redeemed' notification preference (CR-08).
-    EmailService.sendToFamilyParents({
+    const result = await RewardService.redeem({
+      rewardId: req.params.id,
       familyId: req.familyId!,
-      triggerType: 'reward_redeemed',
-      subjectBuilder: () =>
-        `${child?.firstName ?? 'A child'} redeemed "${reward.name}"`,
-      templateData: {
-        childName: child?.firstName ?? 'A child',
-        rewardName: reward.name,
-        pointsSpent: reward.pointsCost,
-        newBalance: result.newBalance,
-        redemptionId: result.redemption.id,
-      },
-      referenceType: 'reward_redemption',
-      referenceId: result.redemption.id,
-    }).catch((err) =>
-      console.error('[rewards/redeem] reward_redeemed email failed (non-fatal):', err?.message)
-    );
-
-    // M10 — Phase 4: Confirm redemption in the child's notification bell
-    createNotification({
-      userId: req.user!.userId,
-      notificationType: 'reward_redeemed',
-      title: '🎁 Reward Redeemed!',
-      message: `You redeemed "${reward.name}" for ${reward.pointsCost} pts. A parent will arrange fulfilment soon!`,
-      actionUrl: `/child/rewards`,
-      referenceType: 'reward_redemption',
-      referenceId: result.redemption.id,
-    }).catch(() => {}); // non-fatal
-
-    // M10 — Phase 5: Push updated points balance live so the child's header refreshes instantly
-    SocketService.emitPointsUpdated(req.familyId!, {
       childId: req.user!.userId,
-      newBalance: result.newBalance,
-      delta: -reward.pointsCost,
-      reason: 'reward_redeemed',
+      ipAddress: req.ip,
     });
-
-    res.status(201).json({
-      success: true,
-      data: {
-        redemptionId: result.redemption.id,
-        pointsSpent: reward.pointsCost,
-        newBalance: result.newBalance,
-        unlockedAchievements,
-      },
-    });
+    res.status(201).json({ success: true, data: result });
   } catch (error) {
     next(error);
   }

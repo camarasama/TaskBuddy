@@ -14,7 +14,7 @@
  */
 
 import cron from 'node-cron';
-import { prisma } from './database';
+import { RewardService } from './RewardService';
 
 // ─── Nightly reward cleanup ───────────────────────────────────────────────────
 
@@ -31,77 +31,16 @@ import { prisma } from './database';
  * Acceptance test T1 verifies that after the 3rd redemption on a total-capped reward,
  * the nightly cron sets isActive = false.
  */
-async function deactivateExpiredAndExhaustedRewards(): Promise<void> {
-  const now = new Date();
-
-  try {
-    // ── Part 1: Expire by date ────────────────────────────────────────────────
-    const expiredResult = await prisma.reward.updateMany({
-      where: {
-        isActive: true,
-        deletedAt: null,
-        expiresAt: { lte: now },
-      },
-      data: { isActive: false },
-    });
-
-    if (expiredResult.count > 0) {
-      console.log(`[Scheduler] Deactivated ${expiredResult.count} expired reward(s)`);
-    }
-
-    // ── Part 2: Sold-out by total cap ─────────────────────────────────────────
-    // Prisma doesn't support WHERE COUNT(relation) >= column in updateMany,
-    // so we fetch candidates first, check the count, then update individually.
-    const cappedCandidates = await prisma.reward.findMany({
-      where: {
-        isActive: true,
-        deletedAt: null,
-        maxRedemptionsTotal: { not: null },
-      },
-      select: {
-        id: true,
-        maxRedemptionsTotal: true,
-        _count: {
-          select: {
-            redemptions: {
-              where: { status: { not: 'cancelled' } },
-            },
-          },
-        },
-      },
-    });
-
-    const soldOutIds = cappedCandidates
-      .filter((r) => r._count.redemptions >= r.maxRedemptionsTotal!)
-      .map((r) => r.id);
-
-    if (soldOutIds.length > 0) {
-      await prisma.reward.updateMany({
-        where: { id: { in: soldOutIds } },
-        data: { isActive: false },
-      });
-      console.log(`[Scheduler] Deactivated ${soldOutIds.length} sold-out reward(s)`);
-    }
-  } catch (error) {
-    console.error('[Scheduler] Error in deactivateExpiredAndExhaustedRewards:', error);
-  }
-}
-
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-/**
- * initScheduler
- *
- * Register all cron jobs. Call once from index.ts:
- *
- *   import { initScheduler } from './services/scheduler';
- *   initScheduler();
- */
 export function initScheduler(): void {
-  // Run at 00:05 every night (gives midnight DB writes a 5-minute buffer)
-  cron.schedule('5 0 * * *', deactivateExpiredAndExhaustedRewards, {
-    timezone: 'UTC',
-  });
+  cron.schedule('5 0 * * *', async () => {
+    try {
+      await RewardService.runNightlyExpiry();
+    } catch (error) {
+      console.error('[Scheduler] Error in nightly reward cleanup:', error);
+    }
+  }, { timezone: 'UTC' });
 
   console.log('[Scheduler] Cron jobs registered:');
   console.log('  00:05 UTC — Reward expiry & sold-out deactivation (M6)');
