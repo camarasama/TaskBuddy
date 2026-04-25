@@ -8,6 +8,7 @@ import {
   ListTodo,
   Gift,
   Trophy,
+  Medal,
   LogOut,
   CheckCircle2,
 } from 'lucide-react';
@@ -27,6 +28,7 @@ const navItems = [
   { href: '/child/tasks', icon: ListTodo, label: 'Tasks' },
   { href: '/child/rewards', icon: Gift, label: 'Rewards' },
   { href: '/child/achievements', icon: Trophy, label: 'Badges' },
+  { href: '/child/leaderboard', icon: Medal, label: 'Rank' },
 ];
 
 export function ChildLayout({ children }: ChildLayoutProps) {

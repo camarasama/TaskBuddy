@@ -434,8 +434,22 @@ export const dashboardApi = {
   getPointsHistory: (childId: string) =>
     request<ApiResponse<{ history: unknown[] }>>(`/dashboard/points/${childId}`),
 
-  getLeaderboard: () =>
-    request<ApiResponse<{ leaderboard: unknown[] }>>('/dashboard/leaderboard'),
+  getLeaderboard: (period: 'weekly' | 'monthly' | 'all-time' = 'weekly') =>
+    request<ApiResponse<{
+      enabled: boolean;
+      period: string;
+      entries: {
+        childId: string;
+        childName: string;
+        avatarUrl: string | null;
+        weeklyPoints: number;
+        weeklyTasks: number;
+        currentStreak: number;
+        score: number;
+        rank: number;
+      }[];
+      updatedAt: string;
+    }>>(`/dashboard/leaderboard?period=${period}`),
 };
 
 // Achievements API
