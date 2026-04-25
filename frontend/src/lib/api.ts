@@ -17,20 +17,41 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 // Token management
 let accessToken: string | null = null;
 
-export function setAccessToken(token: string | null) {
+// Role-aware storage: parent/admin → sessionStorage (cleared on tab close)
+//                     child        → localStorage  (persists across tabs)
+export function setToken(token: string | null, role?: string): void {
   accessToken = token;
+  if (typeof window === 'undefined') return;
   if (token) {
-    localStorage.setItem('accessToken', token);
+    if (role === 'parent' || role === 'admin') {
+      sessionStorage.setItem('accessToken', token);
+      localStorage.removeItem('accessToken');
+    } else {
+      localStorage.setItem('accessToken', token);
+      sessionStorage.removeItem('accessToken');
+    }
   } else {
+    sessionStorage.removeItem('accessToken');
     localStorage.removeItem('accessToken');
   }
 }
 
-export function getAccessToken(): string | null {
+export function getToken(): string | null {
   if (!accessToken && typeof window !== 'undefined') {
-    accessToken = localStorage.getItem('accessToken');
+    accessToken =
+      sessionStorage.getItem('accessToken') ??
+      localStorage.getItem('accessToken');
   }
   return accessToken;
+}
+
+// Backward-compat aliases — clears both stores when token is null
+export function setAccessToken(token: string | null): void {
+  setToken(token);
+}
+
+export function getAccessToken(): string | null {
+  return getToken();
 }
 
 // Request helper

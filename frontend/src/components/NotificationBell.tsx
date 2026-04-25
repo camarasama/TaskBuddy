@@ -152,10 +152,13 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map((n) => (
-                <button
+                <div
                   key={n.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleClick(n)}
-                  className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 ${!n.isRead ? 'bg-indigo-50/40' : ''}`}
+                  onKeyDown={(e) => e.key === 'Enter' && handleClick(n)}
+                  className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 cursor-pointer ${!n.isRead ? 'bg-indigo-50/40' : ''}`}
                 >
                   <span className="text-xl shrink-0 mt-0.5" aria-hidden>
                     {TYPE_ICON[n.notificationType] ?? TYPE_ICON.default}
@@ -175,7 +178,7 @@ export default function NotificationBell() {
                       className="text-gray-300 hover:text-gray-500 transition-colors text-xs leading-none"
                     >✕</button>
                   </div>
-                </button>
+                </div>
               ))
             )}
           </div>

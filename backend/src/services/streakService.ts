@@ -16,6 +16,7 @@ import {
   STREAK_MILESTONE_DAYS,
   type StreakMilestoneDay,
 } from '../utils/gamification';
+import { emitStreakMilestone } from './SocketService';
 
 /**
  * Evaluates and updates a child's streak after a task is completed or approved.
@@ -147,6 +148,9 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
             description: `🔥 ${newStreak}-day streak milestone! Bonus ${bonusPoints} Points`,
           },
         });
+
+        // P1 — Real-time: push streak:milestone to child's user room
+        emitStreakMilestone(childId, { childId, streakCount: newStreak, bonusPoints });
       }
     }
   }

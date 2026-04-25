@@ -726,6 +726,13 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
       referenceId: assignment.id,
     }).catch(() => {}); // non-fatal
 
+    // P1 — Real-time: push task:submitted to family room so parent badge updates instantly
+    SocketService.emitTaskSubmitted(req.familyId!, {
+      assignmentId: req.params.id,
+      taskTitle: assignment.task.title,
+      childId: assignment.childId,
+    });
+
     res.json({
       success: true,
       data: { assignment: updated },

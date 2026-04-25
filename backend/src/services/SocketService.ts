@@ -73,6 +73,18 @@ export interface NotificationNewPayload {
   referenceId?: string;
 }
 
+export interface TaskSubmittedPayload {
+  assignmentId: string;
+  taskTitle: string;
+  childId: string;
+}
+
+export interface StreakMilestonePayload {
+  childId: string;
+  streakCount: number;
+  bonusPoints: number;
+}
+
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
 let io: SocketIOServer | null = null;
@@ -194,14 +206,36 @@ export function emitNotificationNew(userId: string, payload: NotificationNewPayl
   io!.to(`user:${userId}`).emit('notification:new', payload);
 }
 
+/**
+ * emitTaskSubmitted
+ * Emitted to the family room when a child submits a task for approval.
+ * Parents' dashboards use this to increment the pending-approval badge in real-time.
+ */
+export function emitTaskSubmitted(familyId: string, payload: TaskSubmittedPayload): void {
+  if (!ready('emitTaskSubmitted')) return;
+  io!.to(`family:${familyId}`).emit('task:submitted', payload);
+}
+
+/**
+ * emitStreakMilestone
+ * Emitted to the child's user room when their streak hits a milestone (7/14/30/60/100 days).
+ * Triggers the StreakMilestoneToast on the child dashboard.
+ */
+export function emitStreakMilestone(childId: string, payload: StreakMilestonePayload): void {
+  if (!ready('emitStreakMilestone')) return;
+  io!.to(`user:${childId}`).emit('streak:milestone', payload);
+}
+
 // ─── Re-export as namespace for convenient import ─────────────────────────────
 
 export const SocketService = {
   emitTaskApproved,
   emitTaskRejected,
+  emitTaskSubmitted,
   emitPointsUpdated,
   emitLevelUp,
   emitAchievementUnlocked,
   emitOverlapWarning,
   emitNotificationNew,
+  emitStreakMilestone,
 };

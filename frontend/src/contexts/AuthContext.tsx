@@ -3,7 +3,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi, setAccessToken, getAccessToken } from '@/lib/api';
+import { authApi, setToken, setAccessToken, getAccessToken } from '@/lib/api';
 
 interface AuthUser {
   id: string;
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!response.data) {
       throw new Error('Invalid response from server');
     }
-    setAccessToken(response.data.tokens.accessToken);
+    setToken(response.data.tokens.accessToken, response.data.user.role);
     setUser(response.data.user as AuthUser);
 
     // M8 — Redirect admin to admin dashboard, parents to parent dashboard
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!response.data) {
       throw new Error('Invalid response from server');
     }
-    setAccessToken(response.data.tokens.accessToken);
+    setToken(response.data.tokens.accessToken, response.data.user.role);
     setUser(response.data.user as AuthUser);
     router.push('/child/dashboard');
   }, [router]);
@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!response.data) {
       throw new Error('Invalid response from server');
     }
-    setAccessToken(response.data.tokens.accessToken);
+    setToken(response.data.tokens.accessToken, response.data.user.role);
     setUser(response.data.user as AuthUser);
     router.push('/parent/dashboard');
   }, [router]);
