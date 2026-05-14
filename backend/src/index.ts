@@ -6,8 +6,10 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import rateLimit from 'express-rate-limit';
 import { config, validateConfig } from './config';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { authenticate } from './middleware/auth';
 import { apiRouter } from './routes';
 import { initScheduler } from './services/scheduler';
 // M8 — Admin router mounted at /api/v1/admin
@@ -27,15 +29,16 @@ validateConfig();
 const app = express();
 const httpServer = createServer(app);
 
+// Explicitly allowlisted ngrok URLs (comma-separated ALLOWED_NGROK_URL env var)
+const allowedNgrokUrls = (process.env.ALLOWED_NGROK_URL || '')
+  .split(',').map((o) => o.trim()).filter(Boolean);
+
 // M10 — Phase 5: Socket.io server — attached to same HTTP server so it shares the port
 const io = new SocketIOServer(httpServer, {
   cors: {
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      const isNgrok =
-        /^https:\/\/[a-z0-9-]+\.ngrok(-free)?\.app$/.test(origin) ||
-        /^https:\/\/[a-z0-9-]+\.ngrok\.io$/.test(origin);
-      if (config.env !== 'production' && isNgrok) return callback(null, true);
+      if (config.env !== 'production' && allowedNgrokUrls.includes(origin)) return callback(null, true);
       if ((process.env.CLIENT_URL || 'http://localhost:3000')
           .split(',').map((o) => o.trim()).includes(origin || '')) {
         return callback(null, true);
@@ -52,8 +55,35 @@ const allowedOrigins: string[] = (process.env.CLIENT_URL || 'http://localhost:30
   .map((o) => o.trim())
   .filter(Boolean);
 
+// Rate limiters
+const globalLimiter = rateLimit({
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.maxRequests,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many requests' } },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many login attempts' } },
+});
+
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      scriptSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -61,10 +91,7 @@ app.use(
       if (!origin) return callback(null, true);
 
       // Allow any ngrok tunnel URL automatically in non-production environments
-      const isNgrok = /^https:\/\/[a-z0-9-]+\.ngrok(-free)?\.app$/.test(origin) ||
-                      /^https:\/\/[a-z0-9-]+\.ngrok\.io$/.test(origin);
-
-      if (config.env !== 'production' && isNgrok) {
+      if (config.env !== 'production' && allowedNgrokUrls.includes(origin)) {
         return callback(null, true);
       }
 
@@ -79,8 +106,8 @@ app.use(
 );
 
 // Request parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50kb' }));
+app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 app.use(cookieParser());
 
 // Logging
@@ -88,13 +115,27 @@ if (config.env !== 'test') {
   app.use(morgan(config.env === 'production' ? 'combined' : 'dev'));
 }
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+// Serve uploaded files — no auth required (paths use random UUIDs, not guessable)
+app.get('/uploads/*', (req: express.Request, res: express.Response) => {
+  const uploadBase = path.resolve(__dirname, '../uploads');
+  const filePath = path.resolve(uploadBase, (req.params as any)[0]);
+  // Path traversal guard
+  if (!filePath.startsWith(uploadBase + path.sep) && filePath !== uploadBase) {
+    return res.status(400).end();
+  }
+  res.sendFile(filePath);
+});
 
 // Health check
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok' });
 });
+
+// Global and auth-specific rate limiters
+app.use('/api/v1', globalLimiter);
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/child/login', authLimiter);
+app.use('/api/v1/auth/admin/register', authLimiter);
 
 // API routes
 app.use('/api/v1', apiRouter);
