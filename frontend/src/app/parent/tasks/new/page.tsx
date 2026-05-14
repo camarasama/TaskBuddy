@@ -55,7 +55,10 @@ const taskSchema = z.object({
   recurrencePattern: z.string().optional(),
   // Make assignedTo optional - allow creating unassigned tasks
   assignedTo: z.array(z.string()).optional().default([]),
-  dueDate: z.string().min(1, 'Due date is required'),
+  dueDate: z.string().min(1, 'Due date is required').refine(
+    (v) => new Date(v) > new Date(),
+    { message: 'Due date must be in the future' }
+  ),
 });
 
 type TaskForm = z.infer<typeof taskSchema>;
@@ -439,7 +442,7 @@ export default function CreateTaskPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   <Calendar className="w-4 h-4 inline-block mr-1" />
-                  Due Date
+                  Due Date <span className="text-red-500">*</span>
                 </label>
                 <Input type="datetime-local" required {...register('dueDate')} />
                 {errors.dueDate && (
