@@ -194,8 +194,9 @@ export default function CreateTaskPage() {
 
       showSuccess('Task created successfully!');
       router.push('/parent/tasks');
-    } catch {
-      showError('Failed to create task');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create task';
+      showError(message);
     } finally {
       setIsLoading(false);
     }
