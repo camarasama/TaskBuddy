@@ -70,9 +70,17 @@ export function initScheduler(): void {
           task: { dueDate: { lt: now } },
         },
         include: {
-          task: { select: { id: true, title: true, familyId: true, dueDate: true } },
+          task: {
+            select: {
+              id: true, title: true, familyId: true, dueDate: true,
+              isRecurring: true, status: true,
+            },
+          },
         },
       });
+
+      // Track which tasks lost their last active assignment (for archiving)
+      const taskIdsToRecheck = new Set<string>();
 
       for (const a of overdueAssignments) {
         await prisma.taskAssignment.update({
@@ -95,6 +103,23 @@ export function initScheduler(): void {
             notificationType: 'task_expired',
             title: 'Task Expired',
             message: `"${a.task.title}" expired without completion.`,
+          });
+        }
+        if (!a.task.isRecurring) {
+          taskIdsToRecheck.add(a.task.id);
+        }
+        // Recurring tasks: stay active — they return to the pool automatically
+      }
+
+      // Archive non-recurring tasks that have no remaining active assignments
+      for (const taskId of taskIdsToRecheck) {
+        const remainingActive = await prisma.taskAssignment.count({
+          where: { taskId, status: { in: ['pending', 'in_progress'] } },
+        });
+        if (remainingActive === 0) {
+          await prisma.task.update({
+            where: { id: taskId },
+            data: { status: 'archived' },
           });
         }
       }
