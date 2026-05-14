@@ -138,7 +138,13 @@ async function request<T>(
       // Redirect to login
       window.location.href = '/login';
     }
-    throw new ApiError(data.message || 'Request failed', response.status, data);
+    const errBody = data?.error ?? {};
+    const details: Array<{ field: string; message: string }> = errBody.details ?? [];
+    const baseMsg: string = errBody.message || data?.message || 'Request failed';
+    const fullMsg = details.length
+      ? details.map((d: { field: string; message: string }) => `${d.field}: ${d.message}`).join('; ')
+      : baseMsg;
+    throw new ApiError(fullMsg, response.status, data);
   }
 
   if (isGet && response.ok) setCached(url, data);
