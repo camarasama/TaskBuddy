@@ -373,6 +373,17 @@ export const tasksApi = {
   getPendingApprovals: () =>
     request<ApiResponse<{ assignments: unknown[] }>>('/tasks/assignments/pending'),
 
+  unassignChild: (taskId: string, childId: string) =>
+    request<ApiResponse<{ message: string }>>(`/tasks/${taskId}/assignments/${childId}`, {
+      method: 'DELETE',
+    }),
+
+  assignChild: (taskId: string, childId: string) =>
+    request<ApiResponse<{ assignment: unknown }>>(`/tasks/${taskId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ childId }),
+    }),
+
   startAssignment: (assignmentId: string) =>
     request<ApiResponse<{ assignment: unknown }>>(`/tasks/assignments/${assignmentId}/start`, {
       method: 'PUT',

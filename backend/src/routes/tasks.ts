@@ -262,6 +262,7 @@ taskRouter.get('/:id', async (req, res, next) => {
           select: { id: true, firstName: true, lastName: true },
         },
         assignments: {
+          where: { status: { in: ['pending', 'in_progress', 'completed', 'approved', 'rejected'] } },
           include: {
             child: {
               select: { id: true, firstName: true, lastName: true, avatarUrl: true },
@@ -280,6 +281,66 @@ taskRouter.get('/:id', async (req, res, next) => {
       success: true,
       data: { task },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /tasks/:id/assignments/:childId — Parent removes a child's assignment
+taskRouter.delete('/:id/assignments/:childId', requireParent, async (req, res, next) => {
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id: req.params.id, familyId: req.familyId, deletedAt: null },
+    });
+    if (!task) throw new NotFoundError('Task not found');
+
+    const assignment = await prisma.taskAssignment.findFirst({
+      where: { taskId: req.params.id, childId: req.params.childId },
+    });
+    if (!assignment) throw new NotFoundError('Assignment not found');
+
+    await prisma.taskAssignment.delete({ where: { id: assignment.id } });
+
+    res.json({ success: true, data: { message: 'Assignment removed' } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /tasks/:id/assign — Parent assigns task to a new child
+taskRouter.post('/:id/assign', requireParent, async (req, res, next) => {
+  try {
+    const { childId } = req.body as { childId: string };
+    const task = await prisma.task.findFirst({
+      where: { id: req.params.id, familyId: req.familyId, deletedAt: null },
+    });
+    if (!task) throw new NotFoundError('Task not found');
+
+    const child = await prisma.user.findFirst({
+      where: { id: childId, familyId: req.familyId, role: 'child', deletedAt: null },
+    });
+    if (!child) throw new NotFoundError('Child not found in this family');
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const existing = await prisma.taskAssignment.findFirst({
+      where: { taskId: req.params.id, childId, instanceDate: today },
+    });
+    if (existing) throw new ConflictError('Child already has this task assigned');
+
+    const assignment = await prisma.taskAssignment.create({
+      data: { taskId: req.params.id, childId, instanceDate: today },
+      include: { child: { select: { id: true, firstName: true, lastName: true } } },
+    });
+
+    await createNotification({
+      userId: childId,
+      notificationType: 'task_assigned',
+      title: '📋 Task Assigned',
+      message: `You have been assigned: "${task.title}"`,
+      actionUrl: '/child/tasks',
+    }).catch(() => {});
+
+    res.status(201).json({ success: true, data: { assignment } });
   } catch (error) {
     next(error);
   }

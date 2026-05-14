@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Loader2, Clock, Tag } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Clock, Tag, UserPlus, X, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
-import { tasksApi } from '@/lib/api';
+import { tasksApi, familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 // M5 — overlap modal
@@ -34,7 +34,11 @@ interface Task {
   startTime?: string;
   estimatedMinutes?: number;
   status: 'active' | 'paused' | 'archived';
+  isRecurring: boolean;
+  recurrencePattern?: string;
   assignments?: {
+    id: string;
+    status: string;
     child: { id: string; firstName: string; lastName: string };
   }[];
 }
@@ -54,6 +58,8 @@ interface FormState {
   requiresPhotoEvidence: boolean;
   status: 'active' | 'paused' | 'archived';
   maxClaimsTotal: string;
+  isRecurring: boolean;
+  recurrencePattern: string;
 }
 
 // ── Option arrays ────────────────────────────────────────────────────────────
@@ -93,10 +99,15 @@ export default function EditTaskPage() {
     requiresPhotoEvidence: false,
     status: 'active',
     maxClaimsTotal: '',
+    isRecurring: false,
+    recurrencePattern: 'daily',
   });
 
   // M5 — overlap warning state
   const [pendingWarnings, setPendingWarnings] = useState<OverlapWarning[]>([]);
+  const [familyChildren, setFamilyChildren] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
+  const [addingChild, setAddingChild] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
 
   // ── Load task ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -120,6 +131,8 @@ export default function EditTaskPage() {
           maxClaimsTotal: (t as any).maxClaimsTotal != null ? String((t as any).maxClaimsTotal) : '',
           requiresPhotoEvidence: t.requiresPhotoEvidence,
           status: t.status,
+          isRecurring: t.isRecurring,
+          recurrencePattern: t.recurrencePattern ?? 'daily',
         });
       } catch {
         showError('Failed to load task');
@@ -130,7 +143,45 @@ export default function EditTaskPage() {
     };
 
     if (taskId) loadTask();
+    // Load family children for reassign dropdown
+    familyApi.getMembers().then((res) => {
+      const members = (res.data as any).members ?? [];
+      setFamilyChildren(members.filter((m: any) => m.role === 'child').map((m: any) => ({
+        id: m.id, firstName: m.firstName, lastName: m.lastName,
+      })));
+    }).catch(() => {});
   }, [taskId, showError, router]);
+
+  const handleUnassign = async (childId: string) => {
+    try {
+      await tasksApi.unassignChild(taskId, childId);
+      setTask((prev) => prev ? { ...prev, assignments: prev.assignments?.filter((a) => a.child.id !== childId) } : prev);
+      showSuccess('Child removed from task');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to remove assignment');
+    }
+  };
+
+  const handleAssignChild = async () => {
+    if (!addingChild) return;
+    setIsAssigning(true);
+    try {
+      await tasksApi.assignChild(taskId, addingChild);
+      const child = familyChildren.find((c) => c.id === addingChild);
+      if (child) {
+        setTask((prev) => prev ? {
+          ...prev,
+          assignments: [...(prev.assignments ?? []), { id: Date.now().toString(), status: 'pending', child }],
+        } : prev);
+      }
+      setAddingChild('');
+      showSuccess('Child assigned to task');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to assign child');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const handleChange = (
@@ -184,6 +235,8 @@ export default function EditTaskPage() {
         requiresPhotoEvidence: form.requiresPhotoEvidence,
         status: form.status,
         maxClaimsTotal: form.maxClaimsTotal ? parseInt(form.maxClaimsTotal, 10) : null,
+        isRecurring: form.isRecurring,
+        recurrencePattern: form.isRecurring ? form.recurrencePattern : undefined,
       } as any);
 
       const result = response.data as { warnings?: OverlapWarning[] };
@@ -475,25 +528,73 @@ export default function EditTaskPage() {
             <span className="text-sm font-medium text-slate-700">Require photo evidence</span>
           </label>
 
-          {/* Assigned children — read-only */}
-          {task.assignments && task.assignments.length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-slate-700 mb-2">Assigned to</p>
-              <div className="flex flex-wrap gap-2">
-                {task.assignments.map((a) => (
-                  <span
-                    key={a.child.id}
-                    className="px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm font-medium"
-                  >
-                    {a.child.firstName} {a.child.lastName}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs text-slate-400 mt-1">
-                To change assignments, delete and recreate the task.
-              </p>
+          {/* Recurring schedule */}
+          <div>
+            <label className="flex items-center gap-3 cursor-pointer mb-2">
+              <input
+                name="isRecurring"
+                type="checkbox"
+                checked={form.isRecurring}
+                onChange={handleChange}
+                className="w-4 h-4 text-primary-500 border-slate-300 rounded focus:ring-primary-500"
+              />
+              <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                <Repeat className="w-4 h-4" /> Recurring Task
+              </span>
+            </label>
+            {form.isRecurring && (
+              <select
+                name="recurrencePattern"
+                value={form.recurrencePattern}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="weekdays">Weekdays Only</option>
+                <option value="weekends">Weekends Only</option>
+              </select>
+            )}
+          </div>
+
+          {/* Assignments — reassignable */}
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1.5">
+              <UserPlus className="w-4 h-4" /> Assigned to
+            </p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {(task.assignments ?? []).filter((a) => ['pending', 'in_progress'].includes(a.status)).map((a) => (
+                <span key={a.child.id} className="flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm font-medium">
+                  {a.child.firstName} {a.child.lastName}
+                  <button type="button" onClick={() => handleUnassign(a.child.id)} className="hover:text-red-500 ml-0.5">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              ))}
+              {(task.assignments ?? []).filter((a) => ['pending', 'in_progress'].includes(a.status)).length === 0 && (
+                <span className="text-sm text-slate-400">No active assignments</span>
+              )}
             </div>
-          )}
+            {familyChildren.length > 0 && (
+              <div className="flex gap-2">
+                <select
+                  value={addingChild}
+                  onChange={(e) => setAddingChild(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                >
+                  <option value="">Add a child…</option>
+                  {familyChildren
+                    .filter((c) => !(task.assignments ?? []).filter((a) => ['pending', 'in_progress'].includes(a.status)).some((a) => a.child.id === c.id))
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>
+                    ))}
+                </select>
+                <Button size="sm" onClick={handleAssignChild} disabled={!addingChild || isAssigning} loading={isAssigning}>
+                  Assign
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* Actions */}
           <div className="flex gap-3 pt-2 border-t border-slate-100">
