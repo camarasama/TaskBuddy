@@ -405,7 +405,7 @@ dashboardRouter.get('/leaderboard', async (req, res, next) => {
         startDate.setHours(0, 0, 0, 0);
         break;
       case 'weekly':
-        startDate.setDate(startDate.getDate() - startDate.getDay());
+        startDate.setDate(startDate.getDate() - 7); // rolling 7 days
         startDate.setHours(0, 0, 0, 0);
         break;
       case 'monthly':
@@ -430,11 +430,12 @@ dashboardRouter.get('/leaderboard', async (req, res, next) => {
 
     const entries = await Promise.all(
       children.map(async (child) => {
-        // Get points earned in period
+        // Count all positive-earning transactions in the period
         const pointsResult = await prisma.pointsLedger.aggregate({
           where: {
             childId: child.id,
-            transactionType: 'earned',
+            transactionType: { in: ['earned', 'game_reward', 'bonus', 'milestone_bonus'] },
+            pointsAmount: { gt: 0 },
             createdAt: { gte: startDate },
           },
           _sum: { pointsAmount: true },
