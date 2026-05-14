@@ -70,9 +70,9 @@ const DIFFICULTY_OPTIONS: { value: FormState['difficulty']; label: string; color
 ];
 
 const STATUS_OPTIONS: { value: FormState['status']; label: string }[] = [
-  { value: 'active',   label: 'Active' },
-  { value: 'paused',   label: 'Paused' },
-  { value: 'archived', label: 'Archived' },
+  { value: 'active', label: 'Active' },
+  { value: 'paused', label: 'Paused' },
+  // 'archived' is intentionally absent — use the Archive button on the task list
 ];
 
 // ── Page ────────────────────────────────────────────────────────────────────
