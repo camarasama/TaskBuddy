@@ -93,10 +93,10 @@ export default function ChildTasksPage() {
         tasks: any[];
         hasPendingPrimaries?: boolean;
       };
-      const unassignedSecondary = tasksData.tasks.filter(
-        (t: any) => t.taskTag === 'secondary' && t.assignments.length === 0
+      const unassignedPool = tasksData.tasks.filter(
+        (t: any) => t.assignments.length === 0
       );
-      setAvailableTasks(unassignedSecondary);
+      setAvailableTasks(unassignedPool);
       setHasPendingPrimaries(tasksData.hasPendingPrimaries ?? false);
     } catch {
       showError('Failed to load tasks');
@@ -311,7 +311,7 @@ export default function ChildTasksPage() {
               <div className="mt-6">
                 <h2 className="font-display font-bold text-lg text-slate-900 mb-3 flex items-center gap-2">
                   <Gift className="w-5 h-5 text-gold-500" />
-                  Bonus Tasks
+                  Available Tasks
                   {hasPendingPrimaries && (
                     <span className="text-xs font-normal text-slate-500 flex items-center gap-1">
                       <Lock className="w-3 h-3" /> Complete primary tasks first
@@ -587,10 +587,11 @@ function AvailableTaskCard({
   onSelfAssign: () => void;
   isSelfAssigning: boolean;
 }) {
-  const isBlocked = locked || dailyLimitReached;
+  const primaryDailyBlocked = dailyLimitReached && task.taskTag === 'primary';
+  const isBlocked = locked || primaryDailyBlocked;
   const tooltip = locked
     ? 'Complete your current primary task first.'
-    : dailyLimitReached
+    : primaryDailyBlocked
     ? 'You have already completed a primary task today.'
     : undefined;
 

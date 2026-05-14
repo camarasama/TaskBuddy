@@ -120,12 +120,13 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
     if (category) where.category = category;
     if (difficulty) where.difficulty = difficulty;
 
-    // M5 — Children need to see:
+    // Children need to see:
     // 1. Tasks assigned to them (primary or secondary)
     // 2. Unassigned secondary tasks available to self-assign
+    // 3. Unassigned primary tasks available to self-assign (one per day)
     if (req.user!.role === 'child') {
       const targetChildId = req.user!.userId;
-      
+
       where.OR = [
         {
           assignments: {
@@ -134,9 +135,11 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
         },
         {
           taskTag: 'secondary',
-          assignments: {
-            none: {},
-          },
+          assignments: { none: {} },
+        },
+        {
+          taskTag: 'primary',
+          assignments: { none: {} },
         },
       ];
     } else if (childId) {

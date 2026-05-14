@@ -1,13 +1,14 @@
 // backend/src/routes/taskSelfAssign.ts
 // CR-10: POST /tasks/assignments/self-assign
-// Allows a child to pick up an available secondary task from the pool.
+// Allows a child to pick up an available task from the pool.
 //
 // Guards (all server-side):
 //   1. Child must be authenticated.
-//   2. The task must belong to the child's family, be active, and have taskTag = "secondary".
-//   3. Child must NOT have any pending primary assignment (primaries must be done first).
-//   4. Child must NOT already be at the 3-task active limit.
-//   5. Child must NOT already have this task assigned.
+//   2. The task must belong to the child's family and be active.
+//   3. Child must NOT have any pending/in-progress primary assignment.
+//   4. [PRIMARY only] Child must NOT have already completed a primary today (daily cap).
+//   5. Child must NOT already be at the 3-task active limit.
+//   6. Child must NOT already have this task assigned today.
 
 import { Router } from 'express';
 import { z } from 'zod';
@@ -53,14 +54,7 @@ taskSelfAssignRouter.post(
         throw new NotFoundError('Task not found or is not available.');
       }
 
-      // Guard 1: only secondary tasks are self-assignable
-      if (task.taskTag !== 'secondary') {
-        throw new ForbiddenError(
-          'Only secondary (bonus) tasks can be self-assigned. Primary tasks are assigned by a parent.'
-        );
-      }
-
-      // Guard 2: child must have no pending primary assignments
+      // Guard 1: child must have no pending/in-progress primary assignments
       const pendingPrimaries = await prisma.taskAssignment.count({
         where: {
           childId,
@@ -71,34 +65,38 @@ taskSelfAssignRouter.post(
 
       if (pendingPrimaries > 0) {
         throw new ConflictError(
-          'You must complete your main tasks before picking up a bonus task.'
+          'You must complete your current primary task before picking up another task.'
         );
       }
 
-      // Guard 3: daily primary completion cap — one primary per day
-      const todayUtc = new Date();
-      todayUtc.setUTCHours(0, 0, 0, 0);
+      // Guard 2 (primary only): daily cap — one primary self-assign per day
+      if (task.taskTag === 'primary') {
+        const todayUtc = new Date();
+        todayUtc.setUTCHours(0, 0, 0, 0);
 
-      const completedPrimariesToday = await prisma.taskAssignment.count({
-        where: {
-          childId,
-          task: { taskTag: 'primary' },
-          status: { in: ['completed', 'approved'] },
-          completedAt: { gte: todayUtc },
-        },
-      });
+        const completedPrimariesToday = await prisma.taskAssignment.count({
+          where: {
+            childId,
+            task: { taskTag: 'primary' },
+            status: { in: ['completed', 'approved'] },
+            completedAt: { gte: todayUtc },
+          },
+        });
 
-      if (completedPrimariesToday >= 1) {
-        throw new ConflictError('You have already completed a primary task today. Come back tomorrow for more bonus tasks!');
+        if (completedPrimariesToday >= 1) {
+          throw new ConflictError(
+            'You have already completed a primary task today. Come back tomorrow!'
+          );
+        }
       }
 
-      // Guard 4: check total active limit (max 3)
-      const limitCheck = await checkAssignmentLimits(childId, 'secondary');
+      // Guard 3: check total active limit
+      const limitCheck = await checkAssignmentLimits(childId, task.taskTag as 'primary' | 'secondary');
       if (!limitCheck.allowed) {
         throw new ConflictError(limitCheck.reason!);
       }
 
-      // Guard 5: prevent duplicate assignment for today
+      // Guard 4: prevent duplicate assignment for today
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
