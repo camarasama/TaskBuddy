@@ -33,7 +33,8 @@ import { prisma } from '../services/database';
 import { authenticate, requireParent, requireAuth, familyIsolation } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { NotFoundError, ForbiddenError, ConflictError } from '../middleware/errorHandler';
-import { GAMIFICATION, difficultyFromPoints } from '@taskbuddy/shared';
+import { GAMIFICATION } from '@taskbuddy/shared';
+import { difficultyFromPoints } from '../../../shared/src/utils/difficultyFromPoints';
 import { uploadPhoto } from '../middleware/upload';
 // M5 — CR-09 / CR-10 utilities
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
