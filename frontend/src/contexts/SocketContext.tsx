@@ -50,8 +50,14 @@ const SocketContext = createContext<SocketContextValue>({
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-const SOCKET_URL =
-  (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1').replace('/api/v1', '');
+// Derive the socket server URL from the API base URL.
+// If NEXT_PUBLIC_API_URL is absolute (http/https), strip the /api/v1 suffix.
+// Otherwise default to localhost:3001 (the backend dev port).
+const SOCKET_URL = (() => {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
+  if (apiUrl.startsWith('http')) return apiUrl.replace('/api/v1', '');
+  return 'http://localhost:3001';
+})();
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth();
@@ -98,9 +104,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setIsConnected(false);
     });
 
+    let errorCount = 0;
     socket.on('connect_error', (err) => {
-      // Non-fatal: app degrades gracefully to 30-second polling in NotificationBell
-      console.warn('[Socket] Connection error (non-fatal, polling will cover it):', err.message);
+      errorCount++;
+      if (errorCount === 1) {
+        console.warn('[Socket] WebSocket unavailable, falling back to polling:', err.message);
+      }
+      // Suppress repeated errors — polling handles connectivity silently
     });
 
     socketRef.current = socket;
