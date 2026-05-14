@@ -14,7 +14,8 @@ export interface WelcomeData {
 
 export function buildWelcome(data: WelcomeData): string {
   const { firstName, familyName } = data;
-  const dashboardUrl = `${process.env.FRONTEND_URL || process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:3000'}/parent/dashboard`;
+  const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:3000';
+  const verifyUrl = `${baseUrl}/verify-email`;
 
   const inner = `
   <!-- Body -->
@@ -53,7 +54,7 @@ export function buildWelcome(data: WelcomeData): string {
         </tr>
       </table>
 
-      ${ctaButton('Go to Dashboard', dashboardUrl)}
+      ${ctaButton('Verify My Email', verifyUrl)}
 
       <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
         Need help getting started? Visit your Family Settings to invite a co-parent,

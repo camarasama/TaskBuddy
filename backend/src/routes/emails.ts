@@ -9,6 +9,7 @@
  * POST /admin/emails/:id/resend — re-send a failed email using its logged data
  */
 
+import crypto from 'crypto';
 import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../services/database';
 import { EmailService, EmailTriggerType } from '../services/email';
@@ -112,21 +113,57 @@ router.post('/:id/resend', async (req: Request, res: Response, next: NextFunctio
       );
     }
 
-    // Attempt resend — EmailService will create a new log entry for this attempt
+    // Reconstruct templateData from the DB so resent emails have real content
+    const [user, family] = await Promise.all([
+      log.toUserId
+        ? prisma.user.findUnique({ where: { id: log.toUserId }, select: { firstName: true } })
+        : null,
+      log.familyId
+        ? prisma.family.findUnique({ where: { id: log.familyId }, select: { familyName: true } })
+        : null,
+    ]);
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    let templateData: Record<string, unknown> = {};
+
+    switch (log.triggerType) {
+      case 'welcome':
+        templateData = {
+          firstName: user?.firstName ?? 'there',
+          familyName: family?.familyName ?? 'your family',
+        };
+        break;
+      case 'email_verification': {
+        // Generate a fresh token so the resent link is valid
+        const newToken = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        if (log.toUserId) {
+          await prisma.user.update({
+            where: { id: log.toUserId },
+            data: { emailVerificationToken: newToken, emailVerificationExpiresAt: expiry },
+          });
+        }
+        templateData = {
+          firstName: user?.firstName ?? 'there',
+          verifyUrl: `${frontendUrl}/verify-email?token=${newToken}`,
+          expiryHours: 24,
+        };
+        break;
+      }
+      default:
+        templateData = {};
+    }
+
     await EmailService.send({
       triggerType: log.triggerType as EmailTriggerType,
       toEmail: log.toEmail,
       toUserId: log.toUserId,
-      familyId: log.familyId,
+      familyId: log.familyId ?? '',
       subject: log.subject,
-      // EmailService.send() expects templateData but the log stores rendered HTML.
-      // For resends, we pass an empty templateData and trust that EmailService
-      // will render a fresh template. The admin should use this for transient
-      // SMTP failures, not for template data changes.
-      templateData: {},
+      templateData,
       referenceType: log.referenceType ?? undefined,
       referenceId: log.referenceId ?? undefined,
-      skipPreferenceCheck: true, // Admin-initiated resend bypasses prefs
+      skipPreferenceCheck: true,
     });
 
     // Update the original log with resend metadata
