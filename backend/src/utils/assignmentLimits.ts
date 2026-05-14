@@ -33,6 +33,7 @@ export async function checkAssignmentLimits(
     where: {
       childId,
       status: { in: ['pending', 'in_progress'] },
+      task: { status: { not: 'archived' } }, // archived tasks don't count toward limits
     },
     include: {
       task: { select: { taskTag: true } },
@@ -76,6 +77,7 @@ export async function getChildCapacity(childId: string): Promise<ChildCapacity> 
     where: {
       childId,
       status: { in: ['pending', 'in_progress'] },
+      task: { status: { not: 'archived' } }, // archived tasks don't count toward capacity
     },
     include: {
       task: { select: { taskTag: true } },
