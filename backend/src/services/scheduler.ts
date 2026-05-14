@@ -57,8 +57,9 @@ export function initScheduler(): void {
     }
   }, { timezone: 'UTC' });
 
-  // ─── Nightly due-date enforcement (02:00 UTC) ──────────────────────────────
-  cron.schedule('0 2 * * *', async () => {
+  // ─── Hourly due-date enforcement ──────────────────────────────────────────
+  // Runs every hour so tasks expired during the day are caught promptly.
+  cron.schedule('0 * * * *', async () => {
     const now = new Date();
     const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -250,6 +251,6 @@ export function initScheduler(): void {
 
   console.log('[Scheduler] Cron jobs registered:');
   console.log('  00:05 UTC — Reward expiry & sold-out deactivation (M6)');
-  console.log('  02:00 UTC — Due-date enforcement: expire/warn/archive (PC item 8)');
+  console.log('  0 * * * * — Due-date enforcement: expire/warn/archive (hourly)');
   console.log('  */5  UTC — Task expiry reminders: 24h/12h/6h/3h/1h/30min/15min/5min');
 }
