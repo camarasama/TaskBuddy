@@ -169,6 +169,7 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
         { dueDate: 'asc' },
         { createdAt: 'desc' },
       ],
+      distinct: ['id'],
     });
 
     // M5 — CR-10: For child role, compute hasPendingPrimaries and attach

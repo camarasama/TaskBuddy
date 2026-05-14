@@ -103,13 +103,17 @@ export default function ChildTasksPage() {
         hasPendingPrimaries?: boolean;
       };
       // Pool = tasks the backend says this child can still claim.
-      // Backend already excludes tasks where this child is assigned.
-      // claimsRemaining is set by the backend; null means unlimited.
+      // Deduplicate by id (Prisma OR can produce duplicates).
+      const seen = new Set<string>();
       const unassignedPool = tasksData.tasks.filter((t: any) => {
+        if (seen.has(t.id)) return false;
         if (t.status === 'archived') return false;
-        // If backend provided claimsRemaining, honour it
+        // Exclude tasks this child already has an active assignment for
+        const myAssignmentIds = new Set(visibleAssignments.map((a: any) => a.task?.id ?? a.taskId));
+        if (myAssignmentIds.has(t.id)) return false;
+        seen.add(t.id);
+        // Show if claims are still available
         if (t.claimsRemaining !== undefined) return t.claimsRemaining === null || t.claimsRemaining > 0;
-        // Fallback: only show truly unassigned tasks (no cap set)
         return t.assignments?.length === 0;
       });
       setAvailableTasks(unassignedPool);
