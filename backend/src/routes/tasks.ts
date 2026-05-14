@@ -58,8 +58,8 @@ const createTaskSchema = z.object({
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
   // M5 — CR-01: primary/secondary tag (defaults to primary)
   taskTag: z.enum(['primary', 'secondary']).optional().default('primary'),
-  pointsValue: z.number().int().min(1).max(1000),
-  dueDate: z.string().datetime().optional(),
+  pointsValue: z.number().int().min(5).max(1000),
+  dueDate: z.string().datetime(),
   // M5 — CR-09: optional scheduling for overlap detection
   startTime: z.string().datetime().optional(),
   estimatedMinutes: z.number().int().min(1).max(480).optional(),

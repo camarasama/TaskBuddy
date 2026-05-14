@@ -52,7 +52,7 @@ const taskSchema = z.object({
   recurrencePattern: z.string().optional(),
   // Make assignedTo optional - allow creating unassigned tasks
   assignedTo: z.array(z.string()).optional().default([]),
-  dueDate: z.string().optional(),
+  dueDate: z.string().min(1, 'Due date is required'),
 });
 
 type TaskForm = z.infer<typeof taskSchema>;
@@ -100,7 +100,7 @@ export default function CreateTaskPage() {
       difficulty: 'medium',
       taskTag: 'primary',
       pointsValue: 25,
-      requiresPhotoEvidence: false,
+      requiresPhotoEvidence: true,
       isRecurring: false,
       assignedTo: [],
     },
@@ -110,6 +110,7 @@ export default function CreateTaskPage() {
   const taskTag = watch('taskTag');
   const assignedTo = watch('assignedTo');
   const isRecurring = watch('isRecurring');
+  const dueDate = watch('dueDate');
 
   useEffect(() => { loadChildren(); }, []);
 
@@ -197,7 +198,13 @@ export default function CreateTaskPage() {
     }
   };
 
-  const onSubmit = (data: TaskForm) => submitTask(data);
+  const onSubmit = (data: TaskForm) => {
+    if (!data.dueDate) {
+      showError('Due date is required');
+      return;
+    }
+    submitTask(data);
+  };
 
   // Called when parent clicks "Assign Anyway" on the overlap modal
   const handleAssignAnyway = async () => {
@@ -428,9 +435,12 @@ export default function CreateTaskPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   <Calendar className="w-4 h-4 inline-block mr-1" />
-                  Due Date (optional)
+                  Due Date
                 </label>
-                <Input type="datetime-local" {...register('dueDate')} />
+                <Input type="datetime-local" required {...register('dueDate')} />
+                {errors.dueDate && (
+                  <p className="text-sm text-red-600 mt-1">{errors.dueDate.message}</p>
+                )}
               </div>
 
               {/* M5 — CR-09: Start Time */}
@@ -523,7 +533,7 @@ export default function CreateTaskPage() {
             <Link href="/parent/tasks" className="flex-1">
               <Button variant="secondary" fullWidth size="lg">Cancel</Button>
             </Link>
-            <Button type="submit" fullWidth size="lg" loading={isLoading} className="flex-1">
+            <Button type="submit" fullWidth size="lg" loading={isLoading} disabled={isLoading || !dueDate} className="flex-1">
               Create Task
             </Button>
           </div>
