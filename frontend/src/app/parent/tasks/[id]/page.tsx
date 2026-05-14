@@ -53,6 +53,7 @@ interface FormState {
   estimatedMinutes: string;
   requiresPhotoEvidence: boolean;
   status: 'active' | 'paused' | 'archived';
+  maxClaimsTotal: string;
 }
 
 // ── Option arrays ────────────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ export default function EditTaskPage() {
     estimatedMinutes: '',
     requiresPhotoEvidence: false,
     status: 'active',
+    maxClaimsTotal: '',
   });
 
   // M5 — overlap warning state
@@ -115,6 +117,7 @@ export default function EditTaskPage() {
           dueDate: t.dueDate ? t.dueDate.slice(0, 16) : '',
           startTime: t.startTime ? t.startTime.slice(0, 16) : '',
           estimatedMinutes: t.estimatedMinutes != null ? String(t.estimatedMinutes) : '',
+          maxClaimsTotal: (t as any).maxClaimsTotal != null ? String((t as any).maxClaimsTotal) : '',
           requiresPhotoEvidence: t.requiresPhotoEvidence,
           status: t.status,
         });
@@ -180,7 +183,8 @@ export default function EditTaskPage() {
         estimatedMinutes: estimatedNum ?? undefined,
         requiresPhotoEvidence: form.requiresPhotoEvidence,
         status: form.status,
-      });
+        maxClaimsTotal: form.maxClaimsTotal ? parseInt(form.maxClaimsTotal, 10) : null,
+      } as any);
 
       const result = response.data as { warnings?: OverlapWarning[] };
 
@@ -421,6 +425,27 @@ export default function EditTaskPage() {
               />
               <span className="text-sm text-slate-500 whitespace-nowrap">minutes</span>
             </div>
+          </div>
+
+          {/* Max claims from pool */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Max claims from pool <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                name="maxClaimsTotal"
+                type="number"
+                value={form.maxClaimsTotal}
+                onChange={handleChange}
+                min={1}
+                max={100}
+                placeholder="e.g. 3"
+                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <span className="text-sm text-slate-500 whitespace-nowrap">children</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">How many different children can claim this from the pool.</p>
           </div>
 
           {/* Status */}

@@ -47,6 +47,7 @@ interface TaskAssignment {
   rejectionReason?: string | null;
   dueDate?: string;
   canSelfAssign?: boolean;
+  claimsRemaining?: number | null;
   task: {
     id: string;
     title: string;
@@ -656,6 +657,11 @@ function AvailableTaskCard({
             </span>
           </div>
           <p className="font-bold text-slate-900 truncate">{task.title}</p>
+          {task.claimsRemaining != null && (
+            <p className="text-xs text-slate-400 mt-0.5">
+              {task.claimsRemaining} spot{task.claimsRemaining !== 1 ? 's' : ''} left
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-1 text-gold-600 font-bold text-sm">

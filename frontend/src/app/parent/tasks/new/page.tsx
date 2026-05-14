@@ -55,6 +55,10 @@ const taskSchema = z.object({
   recurrencePattern: z.string().optional(),
   // Make assignedTo optional - allow creating unassigned tasks
   assignedTo: z.array(z.string()).optional().default([]),
+  maxClaimsTotal: z.preprocess(
+    (v) => (typeof v === 'number' && isNaN(v) ? undefined : v),
+    z.number().int().min(1).max(100).optional()
+  ),
   dueDate: z.string().min(1, 'Due date is required').refine(
     (v) => new Date(v) > new Date(),
     { message: 'Due date must be in the future' }
@@ -448,6 +452,27 @@ export default function CreateTaskPage() {
                 </div>
                 {errors.estimatedMinutes && (
                   <p className="text-sm text-red-600 mt-1">{errors.estimatedMinutes.message}</p>
+                )}
+              </div>
+
+              {/* Max claims from pool */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Max claims from pool (optional)
+                </label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    placeholder="e.g. 3"
+                    {...register('maxClaimsTotal', { valueAsNumber: true })}
+                  />
+                  <span className="text-sm text-slate-500 whitespace-nowrap">children</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Limits how many different children can claim this task. Leave blank for unlimited.
+                </p>
+                {errors.maxClaimsTotal && (
+                  <p className="text-sm text-red-600 mt-1">{errors.maxClaimsTotal.message}</p>
                 )}
               </div>
 

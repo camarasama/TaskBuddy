@@ -74,6 +74,8 @@ const createTaskSchema = z.object({
   recurrenceConfig: z.record(z.unknown()).optional(),
   // Make assignedTo optional - parents can create unassigned tasks
   assignedTo: z.array(z.string().uuid()).optional().default([]),
+  // How many different children can claim this task from the pool (null = unlimited)
+  maxClaimsTotal: z.number().int().min(1).max(100).nullable().optional(),
 });
 
 const updateTaskSchema = z.object({
@@ -93,6 +95,7 @@ const updateTaskSchema = z.object({
   estimatedMinutes: z.number().int().min(1).max(480).nullable().optional(),
   requiresPhotoEvidence: z.boolean().optional(),
   status: z.enum(['active', 'paused', 'archived']).optional(),
+  maxClaimsTotal: z.number().int().min(1).max(100).nullable().optional(),
 });
 
 const taskFiltersSchema = z.object({
@@ -135,19 +138,12 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
       if (!status) where.status = { not: 'archived' };
 
       where.OR = [
-        {
-          assignments: {
-            some: { childId: targetChildId },
-          },
-        },
-        {
-          taskTag: 'secondary',
-          assignments: { none: {} },
-        },
-        {
-          taskTag: 'primary',
-          assignments: { none: {} },
-        },
+        // Already assigned to this child (always show their own tasks)
+        { assignments: { some: { childId: targetChildId } } },
+        // Pool: secondary tasks this child hasn't claimed yet
+        { taskTag: 'secondary', NOT: { assignments: { some: { childId: targetChildId } } } },
+        // Pool: primary tasks this child hasn't claimed yet
+        { taskTag: 'primary', NOT: { assignments: { some: { childId: targetChildId } } } },
       ];
     } else if (childId) {
       where.assignments = {
@@ -187,18 +183,33 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
         },
       }) > 0;
 
-      const tasksWithFlags = tasks.map((task) => {
-        const alreadyAssigned = task.assignments.some(a => a.childId === childId);
-        const canSelfAssign = 
-          task.taskTag === 'secondary' && 
-          !hasPendingPrimaries && 
-          !alreadyAssigned;
+      const tasksWithFlags = tasks
+        .filter((task) => {
+          // Filter pool tasks that have reached their claim limit
+          const alreadyAssigned = task.assignments.some(a => a.childId === childId);
+          if (alreadyAssigned) return true; // always keep child's own tasks
+          if (task.maxClaimsTotal == null) return true; // no cap
+          const claimedCount = task.assignments.length; // total distinct claimers
+          return claimedCount < task.maxClaimsTotal;
+        })
+        .map((task) => {
+          const alreadyAssigned = task.assignments.some(a => a.childId === childId);
+          const claimedCount = task.assignments.length;
+          const claimsRemaining = task.maxClaimsTotal != null
+            ? task.maxClaimsTotal - claimedCount
+            : null;
+          const canSelfAssign =
+            (task.taskTag === 'secondary' || task.taskTag === 'primary') &&
+            !hasPendingPrimaries &&
+            !alreadyAssigned;
 
-        return {
-          ...task,
-          canSelfAssign,
-        };
-      });
+          return {
+            ...task,
+            canSelfAssign,
+            claimedCount,
+            claimsRemaining,
+          };
+        });
 
       return res.json({
         success: true,

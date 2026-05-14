@@ -169,6 +169,8 @@ model Task {
   recurrencePattern     String?         @map("recurrence_pattern")
   recurrenceConfig      Json?           @map("recurrence_config")
   autoApprove           Boolean         @default(false) @map("auto_approve")
+  // How many different children can claim this task from the pool (null = unlimited)
+  maxClaimsTotal        Int?            @map("max_claims_total")
   status                TaskStatus      @default(active)
   createdAt             DateTime        @default(now()) @map("created_at")
   updatedAt             DateTime        @updatedAt @map("updated_at")

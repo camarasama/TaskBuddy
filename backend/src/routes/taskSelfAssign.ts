@@ -48,10 +48,21 @@ taskSelfAssignRouter.post(
           status: 'active',
           deletedAt: null,
         },
+        include: { assignments: { select: { childId: true } } },
       });
 
       if (!task) {
         throw new NotFoundError('Task not found or is not available.');
+      }
+
+      // Guard: claim cap — reject if maxClaimsTotal reached
+      if (task.maxClaimsTotal != null) {
+        const uniqueClaimers = new Set(task.assignments.map((a) => a.childId)).size;
+        if (uniqueClaimers >= task.maxClaimsTotal) {
+          throw new ConflictError(
+            `This task has reached its maximum of ${task.maxClaimsTotal} claim${task.maxClaimsTotal > 1 ? 's' : ''}.`,
+          );
+        }
       }
 
       // Guard 1: child must have no pending/in-progress primary assignments
