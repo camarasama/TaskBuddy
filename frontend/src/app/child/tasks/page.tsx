@@ -72,6 +72,7 @@ export default function ChildTasksPage() {
   const [completingId, setCompletingId]         = useState<string | null>(null);
   const [resubmittingId, setResubmittingId]     = useState<string | null>(null);
   const [selfAssigningId, setSelfAssigningId]   = useState<string | null>(null);
+  const [dailyLimitReached, setDailyLimitReached] = useState(false);
   const [showConfetti, setShowConfetti]         = useState(false);
   const [photoAssignment, setPhotoAssignment]   = useState<TaskAssignment | null>(null);
   const [hasPendingPrimaries, setHasPendingPrimaries] = useState(false);
@@ -197,8 +198,16 @@ export default function ChildTasksPage() {
       await tasksApi.selfAssign(taskId);
       showSuccess('Bonus task added!');
       await loadTasks();
-    } catch {
-      showError('Failed to self-assign task');
+    } catch (err) {
+      const code = (err as any)?.data?.error?.code;
+      if (code === 'CONFLICT') {
+        const msg = (err as any)?.message ?? '';
+        if (msg.toLowerCase().includes('primary task today')) {
+          setDailyLimitReached(true);
+        }
+      }
+      const message = err instanceof Error ? err.message : 'Failed to self-assign task';
+      showError(message);
     } finally {
       setSelfAssigningId(null);
     }
@@ -315,6 +324,7 @@ export default function ChildTasksPage() {
                       key={task.id}
                       task={task}
                       locked={hasPendingPrimaries}
+                      dailyLimitReached={dailyLimitReached}
                       onSelfAssign={() => handleSelfAssign(task.id)}
                       isSelfAssigning={selfAssigningId === task.id}
                     />
@@ -567,18 +577,27 @@ function ReturnedTaskCard({
 function AvailableTaskCard({
   task,
   locked,
+  dailyLimitReached,
   onSelfAssign,
   isSelfAssigning,
 }: {
   task: any;
   locked: boolean;
+  dailyLimitReached: boolean;
   onSelfAssign: () => void;
   isSelfAssigning: boolean;
 }) {
+  const isBlocked = locked || dailyLimitReached;
+  const tooltip = locked
+    ? 'Complete your current primary task first.'
+    : dailyLimitReached
+    ? 'You have already completed a primary task today.'
+    : undefined;
+
   return (
     <div className={cn(
       'bg-white rounded-2xl p-4 border shadow-sm',
-      locked ? 'border-slate-100 opacity-60' : 'border-gold-200'
+      isBlocked ? 'border-slate-100 opacity-60' : 'border-gold-200'
     )}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -595,21 +614,26 @@ function AvailableTaskCard({
             <Star className="w-3.5 h-3.5" />
             <span>{task.pointsValue}</span>
           </div>
-          <Button
-            size="sm"
-            onClick={onSelfAssign}
-            disabled={locked || isSelfAssigning}
-            className="bg-gold-500 hover:bg-gold-600 text-white disabled:opacity-40"
-          >
-            {locked
-              ? <Lock className="w-3.5 h-3.5" />
-              : isSelfAssigning
-              ? <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              : <Plus className="w-3.5 h-3.5" />
-            }
-          </Button>
+          <div title={tooltip}>
+            <Button
+              size="sm"
+              onClick={onSelfAssign}
+              disabled={isBlocked || isSelfAssigning}
+              className="bg-gold-500 hover:bg-gold-600 text-white disabled:opacity-40"
+            >
+              {isBlocked
+                ? <Lock className="w-3.5 h-3.5" />
+                : isSelfAssigning
+                ? <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                : <Plus className="w-3.5 h-3.5" />
+              }
+            </Button>
+          </div>
         </div>
       </div>
+      {tooltip && (
+        <p className="mt-2 text-xs text-slate-400">{tooltip}</p>
+      )}
     </div>
   );
 }

@@ -52,6 +52,12 @@ export function getInitials(firstName?: string | null, lastName?: string | null)
   return first || last ? `${first}${last}` : '?';
 }
 
+export function difficultyFromPoints(points: number): 'easy' | 'medium' | 'hard' {
+  if (points <= 15) return 'easy';
+  if (points <= 30) return 'medium';
+  return 'hard';
+}
+
 export function getDifficultyColor(difficulty: string): string {
   switch (difficulty) {
     case 'EASY':

@@ -33,7 +33,7 @@ import { prisma } from '../services/database';
 import { authenticate, requireParent, requireAuth, familyIsolation } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { NotFoundError, ForbiddenError, ConflictError } from '../middleware/errorHandler';
-import { GAMIFICATION } from '@taskbuddy/shared';
+import { GAMIFICATION, difficultyFromPoints } from '@taskbuddy/shared';
 import { uploadPhoto } from '../middleware/upload';
 // M5 — CR-09 / CR-10 utilities
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
@@ -55,7 +55,7 @@ const createTaskSchema = z.object({
   title: z.string().min(3).max(200),
   description: z.string().max(1000).optional(),
   category: z.string().max(50).optional(),
-  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  // difficulty derived server-side from pointsValue via difficultyFromPoints()
   // M5 — CR-01: primary/secondary tag (defaults to primary)
   taskTag: z.enum(['primary', 'secondary']).optional().default('primary'),
   pointsValue: z.number().int().min(5).max(1000),
@@ -209,6 +209,7 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
 taskRouter.post('/', requireParent, validateBody(createTaskSchema), async (req, res, next) => {
   try {
     const { assignedTo = [], dueDate, startTime, estimatedMinutes, taskTag = 'primary', ...taskData } = req.body;
+    const difficulty = difficultyFromPoints((taskData as { pointsValue: number }).pointsValue);
     const result = await TaskService.createTask({
       familyId: req.familyId!,
       createdBy: req.user!.userId,
@@ -217,7 +218,7 @@ taskRouter.post('/', requireParent, validateBody(createTaskSchema), async (req, 
       dueDate,
       startTime,
       estimatedMinutes,
-      taskData,
+      taskData: { ...taskData, difficulty },
       ipAddress: req.ip,
     });
     res.status(201).json({ success: true, data: result });

@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/Input';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { tasksApi, familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { cn } from '@/lib/utils';
+import { cn, difficultyFromPoints, getDifficultyColor } from '@/lib/utils';
 import Link from 'next/link';
 // M5 — new components
 import {
@@ -40,7 +40,7 @@ import {
 const taskSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(200),
   description: z.string().max(1000).optional(),
-  difficulty: z.enum(['easy', 'medium', 'hard']),
+  // difficulty is derived server-side from pointsValue
   // M5 — CR-01
   taskTag: z.enum(['primary', 'secondary']),
   pointsValue: z.number().min(1).max(1000),
@@ -70,17 +70,6 @@ interface Child {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const difficultyOptions = [
-  { value: 'easy', label: 'Easy', points: '5-15 pts', color: 'success' },
-  { value: 'medium', label: 'Medium', points: '15-30 pts', color: 'warning' },
-  { value: 'hard', label: 'Hard', points: '30-50 pts', color: 'destructive' },
-] as const;
-
-const suggestedPoints: Record<string, number> = {
-  easy: 10,
-  medium: 25,
-  hard: 40,
-};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function CreateTaskPage() {
@@ -103,7 +92,6 @@ export default function CreateTaskPage() {
   } = useForm<TaskForm>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
-      difficulty: 'medium',
       taskTag: 'primary',
       pointsValue: 25,
       requiresPhotoEvidence: true,
@@ -112,17 +100,12 @@ export default function CreateTaskPage() {
     },
   });
 
-  const difficulty = watch('difficulty');
   const taskTag = watch('taskTag');
   const assignedTo = watch('assignedTo');
   const isRecurring = watch('isRecurring');
   const dueDate = watch('dueDate');
 
   useEffect(() => { loadChildren(); }, []);
-
-  useEffect(() => {
-    setValue('pointsValue', suggestedPoints[difficulty]);
-  }, [difficulty, setValue]);
 
   // ── Data loading ─────────────────────────────────────────────────────────────
   const loadChildren = async () => {
@@ -319,38 +302,11 @@ export default function CreateTaskPage() {
             </div>
           </section>
 
-          {/* ── Difficulty & Points ─────────────────────────────────────────── */}
+          {/* ── Points ─────────────────────────────────────────────────────── */}
           <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
             <h2 className="font-display font-bold text-lg text-slate-900 mb-4">
-              Difficulty & Points
+              Points
             </h2>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-slate-700 mb-3">
-                Difficulty Level
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {difficultyOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setValue('difficulty', option.value)}
-                    className={cn(
-                      'p-4 rounded-xl border-2 text-center transition-all',
-                      difficulty === option.value
-                        ? option.color === 'success'
-                          ? 'border-success-500 bg-success-50'
-                          : option.color === 'warning'
-                          ? 'border-warning-500 bg-warning-50'
-                          : 'border-red-500 bg-red-50'
-                        : 'border-slate-200 hover:border-slate-300'
-                    )}
-                  >
-                    <p className="font-bold text-slate-900">{option.label}</p>
-                    <p className="text-sm text-slate-500">{option.points}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <Input
@@ -365,6 +321,18 @@ export default function CreateTaskPage() {
                 <span className="font-bold">pts</span>
               </div>
             </div>
+            {watch('pointsValue') >= 5 && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
+                <span>Difficulty:</span>
+                <span className={cn(
+                  'px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize',
+                  getDifficultyColor(difficultyFromPoints(watch('pointsValue')).toUpperCase())
+                )}>
+                  {difficultyFromPoints(watch('pointsValue'))}
+                </span>
+                <span className="text-slate-400 text-xs">(5–15 = easy · 16–30 = medium · 31+ = hard)</span>
+              </div>
+            )}
             <div className="mt-4 p-3 bg-primary-50 rounded-lg flex items-start gap-2">
               <Info className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-primary-800">

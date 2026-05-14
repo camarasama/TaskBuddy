@@ -75,13 +75,30 @@ taskSelfAssignRouter.post(
         );
       }
 
-      // Guard 3: check total active limit (max 3)
+      // Guard 3: daily primary completion cap — one primary per day
+      const todayUtc = new Date();
+      todayUtc.setUTCHours(0, 0, 0, 0);
+
+      const completedPrimariesToday = await prisma.taskAssignment.count({
+        where: {
+          childId,
+          task: { taskTag: 'primary' },
+          status: { in: ['completed', 'approved'] },
+          completedAt: { gte: todayUtc },
+        },
+      });
+
+      if (completedPrimariesToday >= 1) {
+        throw new ConflictError('You have already completed a primary task today. Come back tomorrow for more bonus tasks!');
+      }
+
+      // Guard 4: check total active limit (max 3)
       const limitCheck = await checkAssignmentLimits(childId, 'secondary');
       if (!limitCheck.allowed) {
         throw new ConflictError(limitCheck.reason!);
       }
 
-      // Guard 4: prevent duplicate assignment for today
+      // Guard 5: prevent duplicate assignment for today
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
