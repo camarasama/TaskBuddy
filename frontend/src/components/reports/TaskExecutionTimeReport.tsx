@@ -11,7 +11,8 @@ import {
   ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts';
 import { reportsApi } from '@/lib/api';
-import { AlertCircle } from 'lucide-react';
+import { downloadExport } from '@/lib/downloadExport';
+import { AlertCircle, Download } from 'lucide-react';
 
 interface Row {
   date: string; childName: string; taskTitle: string;
@@ -39,6 +40,7 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<'csv' | 'pdf' | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -48,6 +50,17 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
   }, [childId, startDate, endDate]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    setExporting(format);
+    try {
+      const url = format === 'csv'
+        ? reportsApi.exportCsvUrl('task-execution-time', { childId, startDate, endDate })
+        : reportsApi.exportPdfUrl('task-execution-time', { childId, startDate, endDate });
+      await downloadExport(url);
+    } catch (e) { alert(`Export failed: ${(e as Error).message}`); }
+    finally { setExporting(null); }
+  };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading R-11…</div>;
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
@@ -84,6 +97,26 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
 
   return (
     <div className="space-y-6">
+      {/* Export buttons */}
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => handleExport('csv')}
+          disabled={!!exporting}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+        >
+          <Download className="w-3.5 h-3.5" />
+          {exporting === 'csv' ? 'Exporting…' : 'CSV'}
+        </button>
+        <button
+          onClick={() => handleExport('pdf')}
+          disabled={!!exporting}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+        >
+          <Download className="w-3.5 h-3.5" />
+          {exporting === 'pdf' ? 'Exporting…' : 'PDF'}
+        </button>
+      </div>
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[

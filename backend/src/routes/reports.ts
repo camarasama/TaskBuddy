@@ -21,9 +21,11 @@ import {
   exportTaskCompletionCsv, exportPointsLedgerCsv, exportRewardRedemptionCsv,
   exportEngagementStreakCsv, exportAchievementCsv, exportLeaderboardCsv,
   exportExpiryOverdueCsv, exportPlatformHealthCsv, exportAuditTrailCsv, exportEmailDeliveryCsv,
+  exportExecutionTimeCsv,
   exportTaskCompletionPdf, exportPointsLedgerPdf, exportRewardRedemptionPdf,
   exportEngagementStreakPdf, exportAchievementPdf, exportLeaderboardPdf,
   exportExpiryOverduePdf, exportPlatformHealthPdf, exportAuditTrailPdf, exportEmailDeliveryPdf,
+  exportExecutionTimePdf,
 } from '../services/ExportService';
 
 export const reportsRouter = Router();
@@ -116,7 +118,7 @@ reportsRouter.get('/email-delivery', async (req, res) => {
 const ALL_REPORTS = [
   'task-completion', 'points-ledger', 'reward-redemption', 'engagement-streak',
   'achievement', 'leaderboard', 'expiry-overdue', 'platform-health',
-  'audit-trail', 'email-delivery',
+  'audit-trail', 'email-delivery', 'task-execution-time',
 ] as const;
 
 type ReportName = typeof ALL_REPORTS[number];
@@ -164,7 +166,8 @@ reportsRouter.get('/:name/export', async (req: Request, res: Response) => {
           const page = parseInt((req.query.page as string) ?? '1', 10);
           buffer = await exportAuditTrailCsv(await getAuditTrailReport(filters, page, 10000)); break;
         }
-        case 'email-delivery':    buffer = await exportEmailDeliveryCsv(await getEmailDeliveryReport(filters)); break;
+        case 'email-delivery':        buffer = await exportEmailDeliveryCsv(await getEmailDeliveryReport(filters)); break;
+        case 'task-execution-time':   buffer = await exportExecutionTimeCsv(await getExecutionTimeReport(filters)); break;
         default: res.status(404).json({ error: `Unknown report: ${name}` }); return;
       }
     } else {
@@ -186,7 +189,8 @@ reportsRouter.get('/:name/export', async (req: Request, res: Response) => {
           const page = parseInt((req.query.page as string) ?? '1', 10);
           buffer = await exportAuditTrailPdf(await getAuditTrailReport(filters, page, 1000)); break;
         }
-        case 'email-delivery':    buffer = await exportEmailDeliveryPdf(await getEmailDeliveryReport(filters)); break;
+        case 'email-delivery':        buffer = await exportEmailDeliveryPdf(await getEmailDeliveryReport(filters)); break;
+        case 'task-execution-time':   buffer = await exportExecutionTimePdf(await getExecutionTimeReport(filters)); break;
         default: res.status(404).json({ error: `Unknown report: ${name}` }); return;
       }
     }

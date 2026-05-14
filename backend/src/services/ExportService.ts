@@ -19,6 +19,7 @@ import type {
   PlatformHealthReport,
   AuditTrailReport,
   EmailDeliveryReport,
+  ExecutionTimeReport,
 } from './ReportService';
 
 // ─── PDF theme ────────────────────────────────────────────────────────────────
@@ -200,6 +201,21 @@ export async function exportAuditTrailCsv(report: AuditTrailReport): Promise<Buf
 
 export async function exportEmailDeliveryCsv(report: EmailDeliveryReport): Promise<Buffer> {
   return rowsToCsvBuffer(report.rows.map((r) => ({ Date: r.date, 'Trigger Type': r.triggerType, Status: r.status, 'To Email': r.toEmail, Subject: r.subject, 'Resend Count': r.resendCount, 'Error Message': r.errorMessage ?? '' })));
+}
+
+/** R-11 CSV */
+export async function exportExecutionTimeCsv(report: ExecutionTimeReport): Promise<Buffer> {
+  return rowsToCsvBuffer(report.rows.map((r) => ({
+    Date: r.date,
+    Child: r.childName,
+    Task: r.taskTitle,
+    Difficulty: r.difficulty ?? '',
+    'Estimated (min)': r.estimatedMinutes ?? '',
+    'Actual (min)': r.actualMinutes,
+    'Speed %': r.ratio !== null ? Math.round(r.ratio * 100) : '',
+    Anomaly: r.anomaly ? 'Yes' : '',
+    'Anomaly Reason': r.anomalyReason ?? '',
+  })));
 }
 
 // ─── PDF exports (all 10) ─────────────────────────────────────────────────────
@@ -437,6 +453,43 @@ export async function exportEmailDeliveryPdf(report: EmailDeliveryReport): Promi
   drawTable(ctx, ['Date', 'Trigger Type', 'Status', 'To Email', 'Subject'],
     [55, 100, 48, 110, 150],
     report.rows.map((r) => [r.date, r.triggerType.replace(/_/g, ' ').slice(0, 18), r.status, r.toEmail.slice(0, 18), r.subject.slice(0, 24)]),
+  );
+  return finalize(ctx.pdfDoc);
+}
+/** R-11 PDF */
+export async function exportExecutionTimePdf(report: ExecutionTimeReport): Promise<Buffer> {
+  const ctx = await buildPdf('R-11: Task Execution Time Report',
+    `${report.summary.totalRecords} timed tasks · Avg ${report.summary.avgActualMinutes}m · On-time ${report.summary.onTimeRate}%`);
+  drawSummaryBoxes(ctx, [
+    { label: 'Total Records', value: report.summary.totalRecords },
+    { label: 'Avg Time', value: `${report.summary.avgActualMinutes}m` },
+    { label: 'Median Time', value: `${report.summary.medianActualMinutes}m` },
+    { label: 'On-time Rate', value: `${report.summary.onTimeRate}%` },
+    { label: 'Anomalies', value: report.summary.anomalyCount, color: report.summary.anomalyCount > 0 ? AMBER : GREEN },
+  ]);
+
+  drawHeading(ctx, 'Average Time by Difficulty');
+  for (const [diff, { avg, count }] of Object.entries(report.summary.byDifficulty)) {
+    ctx.page.drawText(`${diff.padEnd(12)} avg: ${avg}m  (${count} tasks)`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 8, font: ctx.font, color: BRAND_DARK });
+    ctx.y.v -= 12;
+  }
+  ctx.y.v -= 6;
+
+  drawHeading(ctx, 'Average Time by Child');
+  for (const { name, avg, count } of Object.values(report.summary.byChild)) {
+    ctx.page.drawText(`${name.slice(0, 20).padEnd(22)} avg: ${avg}m  (${count} tasks)`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 8, font: ctx.font, color: BRAND_DARK });
+    ctx.y.v -= 12;
+  }
+  ctx.y.v -= 6;
+
+  drawHeading(ctx, 'Execution Detail');
+  drawTable(ctx, ['Date', 'Child', 'Task', 'Difficulty', 'Est.', 'Actual', 'Speed%'],
+    [50, 60, 120, 55, 35, 45, 45],
+    report.rows.map((r) => [
+      r.date, r.childName.split(' ')[0], r.taskTitle.slice(0, 22),
+      r.difficulty ?? '—', r.estimatedMinutes ? `${r.estimatedMinutes}m` : '—',
+      `${r.actualMinutes}m`, r.ratio !== null ? `${Math.round(r.ratio * 100)}%` : '—',
+    ]),
   );
   return finalize(ctx.pdfDoc);
 }
