@@ -101,7 +101,7 @@ export default function ChildTasksPage() {
         hasPendingPrimaries?: boolean;
       };
       const unassignedPool = tasksData.tasks.filter(
-        (t: any) => t.assignments.length === 0
+        (t: any) => t.assignments.length === 0 && t.status !== 'archived'
       );
       setAvailableTasks(unassignedPool);
       setHasPendingPrimaries(tasksData.hasPendingPrimaries ?? false);

@@ -122,11 +122,13 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
     if (difficulty) where.difficulty = difficulty;
 
     // Children need to see:
-    // 1. Tasks assigned to them (primary or secondary)
-    // 2. Unassigned secondary tasks available to self-assign
-    // 3. Unassigned primary tasks available to self-assign (one per day)
+    // 1. Their own assignments (active tasks only — not archived)
+    // 2. Unassigned active tasks available to self-assign
     if (req.user!.role === 'child') {
       const targetChildId = req.user!.userId;
+
+      // Never show archived tasks to children
+      if (!status) where.status = { not: 'archived' };
 
       where.OR = [
         {
