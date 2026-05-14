@@ -118,8 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setToken(response.data.tokens.accessToken, response.data.user.role);
     setUser(response.data.user as AuthUser);
-    // Redirect to email verification screen; user can continue after verifying
-    router.push('/verify-email');
+    // Redirect to email verification screen with email so resend works without auth
+    const email = encodeURIComponent(response.data.user.email ?? '');
+    router.push(`/verify-email${email ? `?email=${email}` : ''}`);
   }, [router]);
 
   const logout = useCallback(async () => {

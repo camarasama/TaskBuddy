@@ -13,6 +13,7 @@
 
 import crypto from 'crypto';
 import { Router } from 'express';
+import { config } from '../config';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { authService } from '../services/auth';
@@ -162,19 +163,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
       metadata: { email: result.user.email, familyName: req.body.familyName },
     });
 
-    // M9 — Welcome email
-    EmailService.send({
-      triggerType: 'welcome',
-      toEmail: result.user.email!,
-      toUserId: result.user.id,
-      familyId: result.user.familyId ?? undefined,
-      subject: `Welcome to TaskBuddy, ${result.user.firstName}!`,
-      templateData: { firstName: result.user.firstName, familyName: req.body.familyName },
-    }).catch((err) =>
-      console.error('[auth/register] Welcome email failed (non-fatal):', err?.message)
-    );
-
-    // Email verification token — save and send
+    // Generate verification token first so both emails can include it
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await prisma.user.update({
@@ -185,17 +174,32 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
       },
     });
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const verifyUrl = `${frontendUrl}/verify-email?token=${verifyToken}`;
+
+    // Welcome email — CTA links directly to the verification URL
+    EmailService.send({
+      triggerType: 'welcome',
+      toEmail: result.user.email!,
+      toUserId: result.user.id,
+      familyId: result.user.familyId!,
+      subject: `Welcome to TaskBuddy, ${result.user.firstName}!`,
+      templateData: {
+        firstName: result.user.firstName,
+        familyName: req.body.familyName,
+        verifyUrl,
+      },
+    }).catch((err) =>
+      console.error('[auth/register] Welcome email failed (non-fatal):', err?.message)
+    );
+
+    // Dedicated verification email
     EmailService.send({
       triggerType: 'email_verification',
       toEmail: result.user.email!,
       toUserId: result.user.id,
       familyId: result.user.familyId!,
       subject: 'Verify your TaskBuddy email',
-      templateData: {
-        firstName: result.user.firstName,
-        verifyUrl: `${frontendUrl}/verify-email?token=${verifyToken}`,
-        expiryHours: 24,
-      },
+      templateData: { firstName: result.user.firstName, verifyUrl, expiryHours: 24 },
     }).catch((err) =>
       console.error('[auth/register] Verification email failed (non-fatal):', err?.message)
     );
@@ -438,39 +442,59 @@ authRouter.post('/verify-email', async (req, res, next) => {
   }
 });
 
-// Simple in-memory rate limiter: max 3 resends per hour per userId
+// Rate limiter: max 3 resends per hour keyed by email address
 const resendRateLimit = new Map<string, { count: number; resetAt: number }>();
 
-// POST /auth/resend-verification - Resend verification email
-authRouter.post('/resend-verification', authenticate, async (req, res, next) => {
+// POST /auth/resend-verification — no auth required (works from email link in fresh session)
+// Accepts { email } in body OR uses req.user.userId if the user is already logged in.
+authRouter.post('/resend-verification', async (req, res, next) => {
   try {
-    const userId = req.user!.userId;
-    const now = Date.now();
-    const limit = resendRateLimit.get(userId);
+    // Support both authenticated (token present) and unauthenticated (email in body) callers
+    let user: { id: string; email: string | null; firstName: string; emailVerifiedAt: Date | null; familyId: string | null } | null = null;
 
-    if (limit && now < limit.resetAt) {
-      if (limit.count >= 3) {
-        throw new ConflictError('Too many requests. Please try again in an hour.');
-      }
-      limit.count++;
-    } else {
-      resendRateLimit.set(userId, { count: 1, resetAt: now + 60 * 60 * 1000 });
+    if (req.headers.authorization) {
+      // Try to authenticate silently — ignore errors (token may have expired)
+      try {
+        const jwt = await import('jsonwebtoken');
+        const token = req.headers.authorization.split(' ')[1];
+        const payload = jwt.default.verify(token, config.jwt.secret) as { userId: string };
+        user = await prisma.user.findUnique({
+          where: { id: payload.userId },
+          select: { id: true, email: true, firstName: true, emailVerifiedAt: true, familyId: true },
+        });
+      } catch { /* fall through to email-based lookup */ }
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, firstName: true, emailVerifiedAt: true, familyId: true },
-    });
+    if (!user && req.body?.email) {
+      user = await prisma.user.findFirst({
+        where: { email: (req.body.email as string).toLowerCase(), deletedAt: null },
+        select: { id: true, email: true, firstName: true, emailVerifiedAt: true, familyId: true },
+      });
+    }
 
-    if (!user?.email) throw new NotFoundError('User not found');
+    // Always return 200 to prevent email enumeration
+    if (!user?.email) {
+      return res.json({ success: true, data: { message: 'If that email exists, a verification link has been sent.' } });
+    }
     if (user.emailVerifiedAt) {
       return res.json({ success: true, data: { message: 'Email already verified' } });
+    }
+
+    // Rate limit by email
+    const rateKey = user.email.toLowerCase();
+    const now = Date.now();
+    const limit = resendRateLimit.get(rateKey);
+    if (limit && now < limit.resetAt) {
+      if (limit.count >= 3) throw new ConflictError('Too many requests. Please try again in an hour.');
+      limit.count++;
+    } else {
+      resendRateLimit.set(rateKey, { count: 1, resetAt: now + 60 * 60 * 1000 });
     }
 
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: user.id },
       data: { emailVerificationToken: verifyToken, emailVerificationExpiresAt: verifyExpiry },
     });
 
@@ -478,7 +502,7 @@ authRouter.post('/resend-verification', authenticate, async (req, res, next) => 
     EmailService.send({
       triggerType: 'email_verification',
       toEmail: user.email,
-      toUserId: userId,
+      toUserId: user.id,
       familyId: user.familyId!,
       subject: 'Verify your TaskBuddy email',
       templateData: {

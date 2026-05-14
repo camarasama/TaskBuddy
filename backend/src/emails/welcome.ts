@@ -10,12 +10,13 @@ import { baseLayout, ctaButton } from './base';
 export interface WelcomeData {
   firstName: string;
   familyName: string;
+  verifyUrl?: string;
 }
 
 export function buildWelcome(data: WelcomeData): string {
   const { firstName, familyName } = data;
   const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:3000';
-  const verifyUrl = `${baseUrl}/verify-email`;
+  const verifyUrl = data.verifyUrl || `${baseUrl}/verify-email`;
 
   const inner = `
   <!-- Body -->

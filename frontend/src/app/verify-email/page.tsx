@@ -12,6 +12,7 @@ function VerifyEmailInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
+  const emailParam = searchParams.get('email') ?? undefined;
   const { success: showSuccess, error: showError } = useToast();
 
   const [status, setStatus] = useState<'idle' | 'verifying' | 'verified' | 'error'>('idle');
@@ -36,7 +37,7 @@ function VerifyEmailInner() {
   const handleResend = async () => {
     setResending(true);
     try {
-      await authApi.resendVerification();
+      await authApi.resendVerification(emailParam);
       setResent(true);
       showSuccess('Verification email sent! Check your inbox.');
     } catch (err) {

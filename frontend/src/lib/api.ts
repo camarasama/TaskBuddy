@@ -221,9 +221,10 @@ export const authApi = {
       body: JSON.stringify({ token }),
     }),
 
-  resendVerification: () =>
+  resendVerification: (email?: string) =>
     request<ApiResponse<{ message: string }>>('/auth/resend-verification', {
       method: 'POST',
+      body: email ? JSON.stringify({ email }) : undefined,
     }),
 
   logout: () =>
