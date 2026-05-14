@@ -47,6 +47,7 @@ interface LogsResponse {
 
 const TRIGGER_LABELS: Record<string, string> = {
   welcome: 'Welcome',
+  email_verification: 'Email Verification',
   task_submitted: 'Task Submitted',
   task_approved: 'Task Approved',
   task_rejected: 'Task Rejected',
@@ -89,6 +90,7 @@ export default function AdminEmailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resending, setResending] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   // Filters
@@ -119,13 +121,14 @@ export default function AdminEmailsPage() {
 
   const handleResend = async (logId: string) => {
     setResending(logId);
+    setResendError(null);
     try {
       await emailsApi.resend(logId);
-      await fetchLogs(); // Refresh to show updated resend count
     } catch (err: any) {
-      alert(`Resend failed: ${err?.message || 'Unknown error'}`);
+      setResendError(err?.message || 'Resend failed');
     } finally {
       setResending(null);
+      await fetchLogs(); // Always reload so status reflects the latest attempt
     }
   };
 
@@ -211,11 +214,22 @@ export default function AdminEmailsPage() {
         </div>
       </div>
 
-      {/* Error state */}
+      {/* Load error */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
           <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {/* Resend error */}
+      {resendError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+            <p className="text-sm text-red-700"><strong>Resend failed:</strong> {resendError}</p>
+          </div>
+          <button onClick={() => setResendError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
         </div>
       )}
 
