@@ -237,11 +237,11 @@ export default function EditTaskPage() {
 
       <div className="space-y-6 max-w-2xl mx-auto">
         <Link
-          href={`/parent/tasks/${taskId}`}
+          href="/parent/tasks"
           className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Task</span>
+          <span>Back to Tasks</span>
         </Link>
 
         <motion.div
