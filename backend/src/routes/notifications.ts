@@ -16,6 +16,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../services/database';
 import { authenticate } from '../middleware/auth';
 import { emitNotificationNew } from '../services/SocketService';
+import { PushService } from '../services/PushService';
 
 export const notificationsRouter = Router();
 
@@ -154,6 +155,41 @@ notificationsRouter.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /push/subscribe — Save web push subscription ───────────────────────
+
+notificationsRouter.post('/push/subscribe', async (req: Request, res: Response) => {
+  try {
+    const { userId } = getUser(req);
+    const { endpoint, keys } = req.body as { endpoint: string; keys: { p256dh: string; auth: string } };
+    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+      res.status(400).json({ error: 'Invalid subscription object' });
+      return;
+    }
+    await prisma.pushSubscription.upsert({
+      where: { endpoint },
+      create: { userId, endpoint, p256dhKey: keys.p256dh, authKey: keys.auth },
+      update: { userId, p256dhKey: keys.p256dh, authKey: keys.auth },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save subscription', detail: String(err) });
+  }
+});
+
+// ─── DELETE /push/unsubscribe — Remove web push subscription ─────────────────
+
+notificationsRouter.delete('/push/unsubscribe', async (req: Request, res: Response) => {
+  try {
+    const { userId } = getUser(req);
+    const { endpoint } = req.body as { endpoint?: string };
+    const where = endpoint ? { endpoint } : { userId };
+    await prisma.pushSubscription.deleteMany({ where: where as any });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove subscription', detail: String(err) });
+  }
+});
+
 // ─── createNotification — internal helper ────────────────────────────────────
 
 export async function createNotification(params: {
@@ -186,6 +222,13 @@ export async function createNotification(params: {
       referenceType: notification.referenceType ?? undefined,
       referenceId: notification.referenceId ?? undefined,
     });
+
+    // Fire-and-forget web push
+    PushService.sendPush(params.userId, {
+      title: params.title,
+      body: params.message,
+      actionUrl: params.actionUrl,
+    }).catch(() => {});
   } catch (err) {
     console.error('[createNotification] failed:', err);
   }

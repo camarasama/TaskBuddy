@@ -9,6 +9,7 @@ import {
   Gift,
   Trophy,
   Medal,
+  Gamepad2,
   LogOut,
   CheckCircle2,
 } from 'lucide-react';
@@ -27,6 +28,7 @@ const navItems = [
   { href: '/child/dashboard', icon: Home, label: 'Home' },
   { href: '/child/tasks', icon: ListTodo, label: 'Tasks' },
   { href: '/child/rewards', icon: Gift, label: 'Rewards' },
+  { href: '/child/games', icon: Gamepad2, label: 'Games' },
   { href: '/child/achievements', icon: Trophy, label: 'Badges' },
   { href: '/child/leaderboard', icon: Medal, label: 'Rank' },
 ];

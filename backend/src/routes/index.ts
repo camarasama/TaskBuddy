@@ -9,6 +9,9 @@ import { dashboardRouter } from './dashboard';
 import { achievementRouter } from './achievements';
 // M9 — Email log admin viewer + resend endpoint
 import  emailRouter  from './emails';
+// PE — Mini games
+import { gamesRouter } from './games';
+
 export const apiRouter = Router();
 
 // Mount route modules
@@ -22,6 +25,8 @@ apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/achievements', achievementRouter);
 // M9 — Admin email log viewer (GET /admin/emails, POST /admin/emails/:id/resend)
 apiRouter.use('/admin/emails', emailRouter);
+// PE — Mini games (child-only)
+apiRouter.use('/games', gamesRouter);
 
 // API info endpoint
 apiRouter.get('/', (_req, res) => {

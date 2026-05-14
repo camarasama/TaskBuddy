@@ -21,6 +21,7 @@ import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
 import { reportsRouter } from './routes/reports';
 import { notificationsRouter } from './routes/notifications';
 import { initSocketService } from './services/SocketService';
+import { seedGames } from './routes/gamesSeed';
 
 // Validate environment configuration
 validateConfig();
@@ -157,6 +158,8 @@ initRecurringScheduler(); // M8 — midnight recurring task generation
 startExpiryEmailCron();
 startStreakAtRiskCron();
 initSocketService(io); // M10 — Phase 5: wire socket emit helper
+
+seedGames().catch(console.error);
 
 httpServer.listen(PORT, () => {
   console.log(`

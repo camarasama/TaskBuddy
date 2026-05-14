@@ -4,6 +4,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, setToken, setAccessToken, getAccessToken } from '@/lib/api';
+import { subscribeToPush } from '@/lib/pushSubscription';
 
 interface AuthUser {
   id: string;
@@ -77,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setToken(response.data.tokens.accessToken, response.data.user.role);
     setUser(response.data.user as AuthUser);
+    subscribeToPush().catch(() => {}); // fire-and-forget
 
     // M8 — Redirect admin to admin dashboard, parents to parent dashboard
     if (response.data.user.role === 'admin') {

@@ -782,3 +782,20 @@ export const notificationsApi = {
       method: 'DELETE',
     }),
 };
+
+export const gamesApi = {
+  list: () =>
+    request<ApiResponse<{ games: unknown[] }>>('/games'),
+
+  startSession: (gameDefinitionId: string) =>
+    request<ApiResponse<{ sessionId: string; expiresAt: string; game: unknown; questions: unknown[] }>>('/games/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ gameDefinitionId }),
+    }),
+
+  submitSession: (sessionId: string, answers: number[]) =>
+    request<ApiResponse<{ correct: boolean; pointsAwarded: number; xpAwarded: number; cappedMessage?: string }>>(`/games/sessions/${sessionId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }),
+};

@@ -32,6 +32,7 @@ if (isProd) {
     register: true,
     skipWaiting: true,
     disable: false,
+    customWorkerSrc: 'src/service-worker/push-handler',
   });
   module.exports = withPWA(nextConfig);
 } else {
