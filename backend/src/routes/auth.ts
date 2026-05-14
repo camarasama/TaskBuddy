@@ -95,7 +95,15 @@ const acceptInviteSchema = z.object({
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
   password: z.string().min(VALIDATION.PASSWORD.MIN_LENGTH),
-  dateOfBirth: z.string().optional(),
+  dateOfBirth: z.string().regex(
+    /^\d{4}-\d{2}-\d{2}$/,
+    'Date of birth must be in YYYY-MM-DD format'
+  ).refine((dob) => {
+    const birth = new Date(dob);
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 18);
+    return birth <= cutoff;
+  }, { message: 'Co-parent must be at least 18 years old' }).optional(),
   phone: z.string().optional(),
 });
 

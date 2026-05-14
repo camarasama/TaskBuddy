@@ -45,7 +45,10 @@ const createRewardSchema = z.object({
   maxRedemptionsPerChild: z.number().int().min(1).optional(),
   // M6 — CR-11: household cap
   maxRedemptionsTotal: z.number().int().min(1).optional(),
-  expiresAt: z.string().datetime().nullable().optional(),
+  expiresAt: z.string().datetime().nullable().optional()
+    .refine((v) => v === null || v === undefined || new Date(v) > new Date(), {
+      message: 'Expiry date must be in the future',
+    }),
   isCollaborative: z.boolean().optional(),
 });
 

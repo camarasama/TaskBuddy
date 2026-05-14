@@ -161,6 +161,11 @@ export default function EditTaskPage() {
       return;
     }
 
+    if (form.dueDate && new Date(form.dueDate) <= new Date()) {
+      showError('Due date must be in the future');
+      return;
+    }
+
     setIsSaving(true);
     try {
       const response = await tasksApi.update(taskId, {

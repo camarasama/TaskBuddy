@@ -149,6 +149,12 @@ export default function EditRewardPage() {
         return;
       }
 
+      if (formData.expiresAt && new Date(formData.expiresAt) <= new Date()) {
+        showError('Expiry date must be in the future');
+        setIsSaving(false);
+        return;
+      }
+
       await rewardsApi.update(rewardId, {
         name: formData.name,
         description: formData.description || undefined,
@@ -350,6 +356,7 @@ export default function EditRewardPage() {
               <input
                 type="datetime-local"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                min={new Date().toISOString().slice(0, 16)}
                 value={formData.expiresAt}
                 onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
               />

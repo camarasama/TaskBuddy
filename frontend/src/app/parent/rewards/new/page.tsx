@@ -72,6 +72,12 @@ export default function NewRewardPage() {
         return;
       }
 
+      if (formData.expiresAt && new Date(formData.expiresAt) <= new Date()) {
+        showError('Expiry date must be in the future');
+        setIsLoading(false);
+        return;
+      }
+
       await rewardsApi.create({
         name: formData.name,
         description: formData.description || undefined,

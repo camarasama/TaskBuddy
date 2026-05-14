@@ -84,7 +84,10 @@ const updateTaskSchema = z.object({
   // M5 — CR-01
   taskTag: z.enum(['primary', 'secondary']).optional(),
   pointsValue: z.number().int().min(1).max(1000).optional(),
-  dueDate: z.string().datetime().nullable().optional(),
+  dueDate: z.string().datetime().nullable().optional()
+    .refine((v) => v === null || v === undefined || new Date(v) > new Date(), {
+      message: 'Due date must be in the future',
+    }),
   // M5 — CR-09
   startTime: z.string().datetime().nullable().optional(),
   estimatedMinutes: z.number().int().min(1).max(480).nullable().optional(),

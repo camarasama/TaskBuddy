@@ -20,9 +20,14 @@ familyRouter.use(authenticate, familyIsolation);
 const addChildSchema = z.object({
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
-  dateOfBirth: z.string().refine((date) => !isNaN(Date.parse(date)), {
-    message: 'Invalid date format',
-  }),
+  dateOfBirth: z.string()
+    .refine((date) => !isNaN(Date.parse(date)), { message: 'Invalid date format' })
+    .refine((date) => {
+      const birth = new Date(date);
+      const minAge = new Date(); minAge.setFullYear(minAge.getFullYear() - 16);
+      const maxAge = new Date(); maxAge.setFullYear(maxAge.getFullYear() - 10);
+      return birth >= minAge && birth <= maxAge;
+    }, { message: 'Child must be between 10 and 16 years old' }),
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/).optional(),
   pin: z.string().regex(/^\d{4}$/, 'PIN must be exactly 4 digits').optional(),
 });

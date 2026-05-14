@@ -264,6 +264,16 @@ function ChildModal({
         });
         showSuccess('Child updated');
       } else {
+        // Validate child age 10–16
+        if (!formData.dateOfBirth) { showError('Date of birth is required'); setIsLoading(false); return; }
+        const birth = new Date(formData.dateOfBirth);
+        const minAge = new Date(); minAge.setFullYear(minAge.getFullYear() - 16);
+        const maxAge = new Date(); maxAge.setFullYear(maxAge.getFullYear() - 10);
+        if (birth < minAge || birth > maxAge) {
+          showError('Child must be between 10 and 16 years old');
+          setIsLoading(false);
+          return;
+        }
         await familyApi.addChild({
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -319,9 +329,11 @@ function ChildModal({
           {!child && (
             <>
               <Input
-                label="Date of Birth"
+                label="Date of Birth (age 10–16)"
                 type="date"
                 value={formData.dateOfBirth}
+                max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 10); return d.toISOString().split('T')[0]; })()}
+                min={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 16); return d.toISOString().split('T')[0]; })()}
                 onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                 required
               />
