@@ -44,6 +44,7 @@ import { uploadFile } from '../services/storage';
 import { AuditService } from '../services/AuditService';
 // P4 — Business logic delegated to TaskService
 import { TaskService } from '../services/TaskService';
+import { createNotification } from './notifications';
 
 export const taskRouter = Router();
 
@@ -311,6 +312,28 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
           task.id
         );
         warnings.push(...overlaps);
+      }
+    }
+
+    // When archiving a task, expire all active assignments and notify affected children
+    if (updateData.status === 'archived') {
+      const activeAssignments = await prisma.taskAssignment.findMany({
+        where: { taskId: req.params.id, status: { in: ['pending', 'in_progress'] } },
+        select: { id: true, childId: true },
+      });
+      if (activeAssignments.length > 0) {
+        await prisma.taskAssignment.updateMany({
+          where: { id: { in: activeAssignments.map((a) => a.id) } },
+          data: { status: 'expired' },
+        });
+        for (const a of activeAssignments) {
+          createNotification({
+            userId: a.childId,
+            notificationType: 'task_archived',
+            title: 'Task Removed',
+            message: `"${task.title}" has been archived by a parent and removed from your task list.`,
+          }).catch(() => {});
+        }
       }
     }
 

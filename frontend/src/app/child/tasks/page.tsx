@@ -55,6 +55,7 @@ interface TaskAssignment {
     pointsValue: number;
     requiresPhotoEvidence: boolean;
     taskTag: 'primary' | 'secondary';
+    status: string;
   };
 }
 
@@ -89,7 +90,11 @@ export default function ChildTasksPage() {
       ]);
 
       const assignmentsData = assignmentsRes.data as { assignments: TaskAssignment[] };
-      setAssignments(assignmentsData.assignments);
+      // Filter out assignments whose task has been archived — child can't act on them
+      const visibleAssignments = assignmentsData.assignments.filter(
+        (a) => a.task.status !== 'archived'
+      );
+      setAssignments(visibleAssignments);
 
       const tasksData = tasksRes.data as {
         tasks: any[];
