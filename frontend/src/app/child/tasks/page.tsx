@@ -30,6 +30,7 @@ import {
   Plus,
   RotateCcw,
   AlertCircle,
+  Play,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ChildLayout } from '@/components/layouts/ChildLayout';
@@ -69,6 +70,7 @@ export default function ChildTasksPage() {
   const [availableTasks, setAvailableTasks]     = useState<any[]>([]);
   const [isLoading, setIsLoading]               = useState(true);
   const [activeTab, setActiveTab]               = useState<Tab>('active');
+  const [startingId, setStartingId]             = useState<string | null>(null);
   const [completingId, setCompletingId]         = useState<string | null>(null);
   const [resubmittingId, setResubmittingId]     = useState<string | null>(null);
   const [selfAssigningId, setSelfAssigningId]   = useState<string | null>(null);
@@ -119,6 +121,21 @@ export default function ChildTasksPage() {
   );
   // Bug fix: rejected tasks now show in "Returned" tab
   const returnedAssignments  = assignments.filter(a => a.status === 'rejected');
+
+  // ── Start a task (pending → in_progress) ─────────────────────────────────
+
+  const handleStart = async (assignment: TaskAssignment) => {
+    setStartingId(assignment.id);
+    try {
+      await tasksApi.startAssignment(assignment.id);
+      await loadTasks();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to start task';
+      showError(message);
+    } finally {
+      setStartingId(null);
+    }
+  };
 
   // ── Complete (submit) a task ──────────────────────────────────────────────
 
@@ -300,7 +317,9 @@ export default function ChildTasksPage() {
                 <TaskCard
                   key={a.id}
                   assignment={a}
+                  onStart={() => handleStart(a)}
                   onComplete={() => handleComplete(a)}
+                  isStarting={startingId === a.id}
                   isCompleting={completingId === a.id}
                 />
               ))
@@ -386,11 +405,15 @@ export default function ChildTasksPage() {
 
 function TaskCard({
   assignment,
+  onStart,
   onComplete,
+  isStarting,
   isCompleting,
 }: {
   assignment: TaskAssignment;
+  onStart: () => void;
   onComplete: () => void;
+  isStarting: boolean;
   isCompleting: boolean;
 }) {
   const isPending = assignment.status === 'pending';
@@ -440,6 +463,25 @@ function TaskCard({
           <Clock className="w-4 h-4" />
           Waiting for parent approval…
         </div>
+      ) : isPending ? (
+        <Button
+          onClick={onStart}
+          disabled={isStarting}
+          size="sm"
+          fullWidth
+          className={isPrimary ? 'bg-xp-600 hover:bg-xp-700 text-white' : 'bg-gold-500 hover:bg-gold-600 text-white'}
+        >
+          {isStarting ? (
+            <span className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              Starting…
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <Play className="w-4 h-4" /> Start Task
+            </span>
+          )}
+        </Button>
       ) : (
         <Button
           onClick={onComplete}

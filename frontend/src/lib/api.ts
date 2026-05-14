@@ -365,6 +365,11 @@ export const tasksApi = {
   getPendingApprovals: () =>
     request<ApiResponse<{ assignments: unknown[] }>>('/tasks/assignments/pending'),
 
+  startAssignment: (assignmentId: string) =>
+    request<ApiResponse<{ assignment: unknown }>>(`/tasks/assignments/${assignmentId}/start`, {
+      method: 'PUT',
+    }),
+
   completeAssignment: (assignmentId: string, photoUrl?: string, note?: string) =>
     request<ApiResponse<{ assignment: unknown }>>(`/tasks/assignments/${assignmentId}/complete`, {
       method: 'PUT',

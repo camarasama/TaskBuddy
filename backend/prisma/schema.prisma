@@ -198,7 +198,11 @@ model TaskAssignment {
   pointsAwarded   Int?             @map("points_awarded")
   xpAwarded       Int?             @map("xp_awarded")
   // M9 — tracks when the expiry-warning email was sent to prevent duplicate cron emails
-  emailSentAt     DateTime?        @map("email_sent_at")
+  emailSentAt              DateTime?        @map("email_sent_at")
+  // PD — time tracking for auto-approve override
+  startedAt                DateTime?        @map("started_at")
+  autoApproveOverridden    Boolean          @default(false) @map("auto_approve_overridden")
+  autoApproveOverrideReason String?         @map("auto_approve_override_reason")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
@@ -432,6 +436,9 @@ model FamilySettings {
   id                        String   @id @default(uuid())
   familyId                  String   @unique @map("family_id")
   autoApproveRecurringTasks Boolean  @default(false) @map("auto_approve_recurring_tasks")
+  // PD — configurable thresholds for time-based auto-approve override
+  autoApproveMinRatio       Float    @default(0.3) @map("auto_approve_min_ratio")
+  autoApproveMaxRatio       Float    @default(3.0) @map("auto_approve_max_ratio")
   enableDailyChallenges     Boolean  @default(true) @map("enable_daily_challenges")
   enableLeaderboard         Boolean  @default(false) @map("enable_leaderboard")
   streakGracePeriodHours    Int      @default(4) @map("streak_grace_period_hours")

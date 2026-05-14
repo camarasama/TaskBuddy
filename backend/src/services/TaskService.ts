@@ -169,8 +169,34 @@ export class TaskService {
       });
     }
 
+    // PD — Time-based auto-approve override: skip auto-approve if completion time is
+    // suspiciously short or long relative to estimatedMinutes + family thresholds.
+    let timingOverride = false;
+    let timingReason: string | undefined;
+
+    if (assignment.task.autoApprove && assignment.task.estimatedMinutes && (assignment as any).startedAt) {
+      const settings = await prisma.familySettings.findUnique({
+        where: { familyId },
+        select: { autoApproveMinRatio: true, autoApproveMaxRatio: true },
+      });
+      const minRatio = (settings as any)?.autoApproveMinRatio ?? 0.3;
+      const maxRatio = (settings as any)?.autoApproveMaxRatio ?? 3.0;
+      const actualMs = new Date().getTime() - new Date((assignment as any).startedAt).getTime();
+      const actualMinutes = Math.round(actualMs / 60000);
+      const est = assignment.task.estimatedMinutes;
+
+      if (actualMinutes < est * minRatio || actualMinutes > est * maxRatio) {
+        timingOverride = true;
+        timingReason = `Completed in ${actualMinutes}m (est ${est}m)`;
+        await prisma.taskAssignment.update({
+          where: { id: assignmentId },
+          data: { autoApproveOverridden: true, autoApproveOverrideReason: timingReason },
+        });
+      }
+    }
+
     // BUG-02: Auto-approve path — award XP/points immediately, skip parent queue
-    if (assignment.task.autoApprove) {
+    if (assignment.task.autoApprove && !timingOverride) {
       const childWithProfile = await prisma.user.findUnique({
         where: { id: assignment.childId },
         include: { childProfile: true },

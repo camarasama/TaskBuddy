@@ -439,6 +439,36 @@ taskRouter.get('/assignments/me', async (req, res, next) => {
   }
 });
 
+// PUT /tasks/assignments/:id/start - Child starts a task (pending → in_progress, stamps startedAt)
+taskRouter.put('/assignments/:id/start', async (req, res, next) => {
+  try {
+    const assignment = await prisma.taskAssignment.findFirst({
+      where: {
+        id: req.params.id,
+        task: { familyId: req.familyId, deletedAt: null },
+      },
+      select: { id: true, childId: true, status: true },
+    });
+
+    if (!assignment) throw new NotFoundError('Assignment not found');
+    if (req.user!.role === 'child' && assignment.childId !== req.user!.userId) {
+      throw new ForbiddenError("Cannot start another child's task");
+    }
+    if (assignment.status !== 'pending') {
+      throw new ConflictError(`Task is already ${assignment.status} — cannot start again`);
+    }
+
+    const updated = await prisma.taskAssignment.update({
+      where: { id: req.params.id },
+      data: { status: 'in_progress', startedAt: new Date() },
+    });
+
+    res.json({ success: true, data: { assignment: updated } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // PUT /tasks/assignments/:id/complete - Mark assignment as complete
 taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), async (req, res, next) => {
   try {
