@@ -102,9 +102,16 @@ export default function ChildTasksPage() {
         tasks: any[];
         hasPendingPrimaries?: boolean;
       };
-      const unassignedPool = tasksData.tasks.filter(
-        (t: any) => t.assignments.length === 0 && t.status !== 'archived'
-      );
+      // Pool = tasks the backend says this child can still claim.
+      // Backend already excludes tasks where this child is assigned.
+      // claimsRemaining is set by the backend; null means unlimited.
+      const unassignedPool = tasksData.tasks.filter((t: any) => {
+        if (t.status === 'archived') return false;
+        // If backend provided claimsRemaining, honour it
+        if (t.claimsRemaining !== undefined) return t.claimsRemaining === null || t.claimsRemaining > 0;
+        // Fallback: only show truly unassigned tasks (no cap set)
+        return t.assignments?.length === 0;
+      });
       setAvailableTasks(unassignedPool);
       setHasPendingPrimaries(tasksData.hasPendingPrimaries ?? false);
     } catch {
