@@ -63,18 +63,20 @@ export interface SendToParentsInput {
 // ─── SMTP transport ───────────────────────────────────────────────────────────
 
 function createTransport() {
-  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  // Default to 465 (implicit TLS). nodemailer v8 has a broken STARTTLS
+  // implementation on port 587 for Gmail — "Unexpected socket close" on send.
+  // Port 465 with secure:true (implicit TLS) works correctly on all providers.
+  const port = parseInt(process.env.SMTP_PORT || '465', 10);
+  const isImplicitTLS = port === 465;
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port,
-    // port 465 = implicit TLS (secure:true), port 587 = STARTTLS (secure:false)
-    secure: port === 465,
+    secure: isImplicitTLS,
     auth: {
       user: process.env.SMTP_USER || '',
       pass: process.env.SMTP_PASS || '',
     },
     tls: {
-      // Reject self-signed certs in production; allow in dev for local SMTP
       rejectUnauthorized: process.env.NODE_ENV === 'production',
     },
   });
