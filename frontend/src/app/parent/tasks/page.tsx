@@ -120,7 +120,13 @@ function ParentTasksInner() {
     try {
       await tasksApi.update(taskId, { status: 'archived' });
       showSuccess('Task archived');
-      loadData();
+      const moved = tasks.find((t) => t.id === taskId);
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      if (moved) {
+        setArchivedTasks((prev) =>
+          [{ ...moved, status: 'archived' }, ...prev].slice(0, 10)
+        );
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to archive task';
       showError(message);
@@ -131,7 +137,11 @@ function ParentTasksInner() {
     try {
       await tasksApi.update(taskId, { status: 'active' });
       showSuccess('Task restored');
-      loadData();
+      const moved = archivedTasks.find((t) => t.id === taskId);
+      setArchivedTasks((prev) => prev.filter((t) => t.id !== taskId));
+      if (moved) {
+        setTasks((prev) => [{ ...moved, status: 'active' }, ...prev]);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to restore task';
       showError(message);
