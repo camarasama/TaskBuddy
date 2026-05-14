@@ -16,6 +16,7 @@ import EngagementStreakReport from '@/components/reports/EngagementStreakReport'
 import AchievementReport from '@/components/reports/AchievementReport';
 import LeaderboardReport from '@/components/reports/LeaderboardReport';
 import ExpiryOverdueReport from '@/components/reports/ExpiryOverdueReport';
+import TaskExecutionTimeReport from '@/components/reports/TaskExecutionTimeReport';
 
 // Audit Trail and Email Delivery are admin-only — not included here.
 const TABS = [
@@ -26,6 +27,7 @@ const TABS = [
   { id: 'r05', label: 'Achievement', icon: '🏆' },
   { id: 'r06', label: 'Leaderboard', icon: '🥇' },
   { id: 'r07', label: 'Expiry',      icon: '⏰' },
+  { id: 'r11', label: 'Exec Time',   icon: '⏱️' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -124,6 +126,7 @@ export default function ReportsPage() {
             {activeTab === 'r05' && <AchievementReport {...filters} />}
             {activeTab === 'r06' && <LeaderboardReport />}
             {activeTab === 'r07' && <ExpiryOverdueReport {...filters} />}
+            {activeTab === 'r11' && <TaskExecutionTimeReport {...filters} />}
           </div>
         </div>
       </div>

@@ -960,3 +960,115 @@ export async function getEmailDeliveryReport(filters: ReportFilters): Promise<Em
     },
   };
 }
+
+// ─── R-11: Task Execution Time ─────────────────────────────────────────────────
+
+export interface ExecutionTimeRow {
+  date: string;
+  childId: string;
+  childName: string;
+  taskTitle: string;
+  difficulty: string | null;
+  estimatedMinutes: number | null;
+  actualMinutes: number;
+  ratio: number | null;          // actualMinutes / estimatedMinutes
+  anomaly: boolean;              // too fast (<30%) or too slow (>300%)
+  anomalyReason: string | null;
+}
+
+export interface ExecutionTimeSummary {
+  totalRecords: number;
+  avgActualMinutes: number;
+  medianActualMinutes: number;
+  onTimeRate: number;            // % within [30%, 300%] of estimate
+  anomalyCount: number;
+  byDifficulty: Record<string, { avg: number; count: number }>;
+  byChild: Record<string, { name: string; avg: number; count: number }>;
+}
+
+export interface ExecutionTimeReport {
+  rows: ExecutionTimeRow[];
+  summary: ExecutionTimeSummary;
+}
+
+export async function getExecutionTimeReport(filters: ReportFilters): Promise<ExecutionTimeReport> {
+  const where: Prisma.TaskAssignmentWhereInput = {
+    startedAt: { not: null },
+    completedAt: { not: null },
+    status: { in: ['completed', 'approved'] },
+    ...(filters.childId && { childId: filters.childId }),
+    ...(filters.startDate || filters.endDate
+      ? { completedAt: { ...(filters.startDate ? { gte: filters.startDate } : {}), ...(filters.endDate ? { lte: filters.endDate } : {}) } }
+      : {}),
+    task: { ...(filters.familyId ? { familyId: filters.familyId } : {}), deletedAt: null },
+  };
+
+  const assignments = await prisma.taskAssignment.findMany({
+    where,
+    include: {
+      task: { select: { title: true, difficulty: true, estimatedMinutes: true } },
+      child: { select: { id: true, firstName: true, lastName: true } },
+    },
+    orderBy: { completedAt: 'desc' },
+    take: 500,
+  });
+
+  const rows: ExecutionTimeRow[] = assignments.map((a) => {
+    const actualMs = (a.completedAt as Date).getTime() - (a.startedAt as Date).getTime();
+    const actualMinutes = Math.max(0, Math.round(actualMs / 60_000));
+    const est = a.task.estimatedMinutes;
+    const ratio = est && est > 0 ? Math.round((actualMinutes / est) * 100) / 100 : null;
+    const anomaly = ratio !== null && (ratio < 0.3 || ratio > 3.0);
+    return {
+      date: (a.completedAt as Date).toISOString().slice(0, 10),
+      childId: a.childId,
+      childName: `${a.child.firstName} ${a.child.lastName}`,
+      taskTitle: a.task.title,
+      difficulty: a.task.difficulty,
+      estimatedMinutes: est,
+      actualMinutes,
+      ratio,
+      anomaly,
+      anomalyReason: (a as any).autoApproveOverrideReason ?? null,
+    };
+  });
+
+  // Summary
+  const times = rows.map((r) => r.actualMinutes);
+  const avg = times.length ? Math.round(times.reduce((s, v) => s + v, 0) / times.length) : 0;
+  const sorted = [...times].sort((a, b) => a - b);
+  const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+  const withEstimate = rows.filter((r) => r.ratio !== null);
+  const onTime = withEstimate.filter((r) => r.ratio! >= 0.3 && r.ratio! <= 3.0).length;
+  const onTimeRate = withEstimate.length ? Math.round((onTime / withEstimate.length) * 100) : 100;
+
+  const byDiff: Record<string, { avg: number; count: number; _sum: number }> = {};
+  const byChild: Record<string, { name: string; avg: number; count: number; _sum: number }> = {};
+
+  for (const r of rows) {
+    const dk = r.difficulty ?? 'unknown';
+    if (!byDiff[dk]) byDiff[dk] = { avg: 0, count: 0, _sum: 0 };
+    byDiff[dk].count++;
+    byDiff[dk]._sum += r.actualMinutes;
+
+    if (!byChild[r.childId]) byChild[r.childId] = { name: r.childName, avg: 0, count: 0, _sum: 0 };
+    byChild[r.childId].count++;
+    byChild[r.childId]._sum += r.actualMinutes;
+  }
+
+  for (const d of Object.values(byDiff)) d.avg = Math.round(d._sum / d.count);
+  for (const c of Object.values(byChild)) c.avg = Math.round(c._sum / c.count);
+
+  return {
+    rows,
+    summary: {
+      totalRecords: rows.length,
+      avgActualMinutes: avg,
+      medianActualMinutes: median,
+      onTimeRate,
+      anomalyCount: rows.filter((r) => r.anomaly).length,
+      byDifficulty: Object.fromEntries(Object.entries(byDiff).map(([k, v]) => [k, { avg: v.avg, count: v.count }])),
+      byChild: Object.fromEntries(Object.entries(byChild).map(([k, v]) => [k, { name: v.name, avg: v.avg, count: v.count }])),
+    },
+  };
+}

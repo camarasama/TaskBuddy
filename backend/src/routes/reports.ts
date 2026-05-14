@@ -15,7 +15,7 @@ import {
   getTaskCompletionReport, getPointsLedgerReport, getRewardRedemptionReport,
   getEngagementStreakReport, getAchievementReport, getLeaderboardReport,
   getExpiryOverdueReport, getPlatformHealthReport, getAuditTrailReport,
-  getEmailDeliveryReport, ReportFilters,
+  getEmailDeliveryReport, getExecutionTimeReport, ReportFilters,
 } from '../services/ReportService';
 import {
   exportTaskCompletionCsv, exportPointsLedgerCsv, exportRewardRedemptionCsv,
@@ -78,6 +78,11 @@ reportsRouter.get('/leaderboard', async (req, res) => {
     const period = (req.query.period as 'weekly' | 'monthly' | 'all-time') ?? 'weekly';
     res.json(await getLeaderboardReport(familyId, period));
   } catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+});
+
+reportsRouter.get('/task-execution-time', async (req, res) => {
+  try { res.json(await getExecutionTimeReport(buildFilters(req))); }
+  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
 });
 
 reportsRouter.get('/expiry-overdue', async (req, res) => {

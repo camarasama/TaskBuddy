@@ -720,6 +720,9 @@ export const reportsApi = {
   getEmailDelivery: (params?: ReportParams) =>
     request<unknown>(`/reports/email-delivery${buildReportQuery(params)}`),
 
+  getExecutionTime: (params?: ReportParams) =>
+    request<unknown>(`/reports/task-execution-time${buildReportQuery(params)}`),
+
   exportCsvUrl: (reportName: string, params?: ReportParams & { period?: string }): string => {
     const p: Record<string, string> = { format: 'csv' };
     if (params) Object.entries(params).forEach(([k, v]) => { if (v) p[k] = String(v); });
