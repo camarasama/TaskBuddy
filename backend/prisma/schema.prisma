@@ -201,8 +201,10 @@ model TaskAssignment {
   rejectionReason String?          @map("rejection_reason")
   pointsAwarded   Int?             @map("points_awarded")
   xpAwarded       Int?             @map("xp_awarded")
-  // M9 — tracks when the expiry-warning email was sent to prevent duplicate cron emails
+  // M9 — legacy single-send flag (superseded by expiryRemindersSent)
   emailSentAt              DateTime?        @map("email_sent_at")
+  // Comma-separated list of reminder thresholds already sent, e.g. "24h,12h,1h,30min"
+  expiryRemindersSent      String           @default("") @map("expiry_reminders_sent")
   // PD — time tracking for auto-approve override
   startedAt                DateTime?        @map("started_at")
   autoApproveOverridden    Boolean          @default(false) @map("auto_approve_overridden")
