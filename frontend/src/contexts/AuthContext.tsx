@@ -118,7 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setToken(response.data.tokens.accessToken, response.data.user.role);
     setUser(response.data.user as AuthUser);
-    router.push('/parent/dashboard');
+    // Redirect to email verification screen; user can continue after verifying
+    router.push('/verify-email');
   }, [router]);
 
   const logout = useCallback(async () => {

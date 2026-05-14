@@ -14,9 +14,10 @@
  * All other nav items and UI unchanged from original.
  */
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { authApi } from '@/lib/api';
 import {
   Home,
   ListTodo,
@@ -80,6 +81,51 @@ export function ParentLayout({ children }: ParentLayoutProps) {
 }
 
 // ─── Inner layout — lives inside SocketProvider ───────────────────────────────
+
+function EmailVerificationBanner() {
+  const [show, setShow] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('emailNotVerified')) setShow(true);
+    const handler = () => setShow(true);
+    window.addEventListener('emailNotVerified', handler);
+    return () => window.removeEventListener('emailNotVerified', handler);
+  }, []);
+
+  const handleResend = useCallback(async () => {
+    setResending(true);
+    try {
+      await authApi.resendVerification();
+      setResent(true);
+    } catch {
+      // ignore
+    } finally {
+      setResending(false);
+    }
+  }, []);
+
+  if (!show) return null;
+  return (
+    <div className="bg-warning-50 border-b border-warning-200 px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
+      <span className="text-warning-800">
+        ⚠️ Please verify your email address to unlock all features.
+      </span>
+      {resent ? (
+        <span className="text-success-700 font-medium">Email sent — check your inbox.</span>
+      ) : (
+        <button
+          onClick={handleResend}
+          disabled={resending}
+          className="text-warning-700 font-semibold underline hover:no-underline disabled:opacity-50"
+        >
+          {resending ? 'Sending…' : 'Resend email'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function ParentLayoutInner({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -246,6 +292,7 @@ function ParentLayoutInner({ children }: { children: ReactNode }) {
 
       {/* ── Main Content ────────────────────────────────────────────────────── */}
       <main className="lg:pl-64 pt-16 lg:pt-0">
+        <EmailVerificationBanner />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {children}
         </div>

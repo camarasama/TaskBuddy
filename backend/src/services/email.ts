@@ -23,6 +23,7 @@ import { renderTemplate } from '../emails/base';
 
 export type EmailTriggerType =
   | 'welcome'
+  | 'email_verification'
   | 'task_submitted'
   | 'task_approved'
   | 'task_rejected'

@@ -11,11 +11,15 @@
  * All other routes are unchanged from M8.
  */
 
+import crypto from 'crypto';
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { authService } from '../services/auth';
 import { inviteService } from '../services/invite';
 import { authenticate } from '../middleware/auth';
+import { prisma } from '../services/database';
+import { ConflictError, NotFoundError } from '../middleware/errorHandler';
 import { validateBody } from '../middleware/validate';
 import { VALIDATION } from '@taskbuddy/shared';
 // M8 — Audit logging for auth events
@@ -153,20 +157,42 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
       metadata: { email: result.user.email, familyName: req.body.familyName },
     });
 
-    // M9 — Welcome email: fire-and-forget so SMTP issues never block registration.
-    // The welcome email is sent to the new primary parent only.
+    // M9 — Welcome email
     EmailService.send({
       triggerType: 'welcome',
       toEmail: result.user.email!,
       toUserId: result.user.id,
       familyId: result.user.familyId ?? undefined,
       subject: `Welcome to TaskBuddy, ${result.user.firstName}!`,
-      templateData: {
-        firstName: result.user.firstName,
-        familyName: req.body.familyName,
-      },
+      templateData: { firstName: result.user.firstName, familyName: req.body.familyName },
     }).catch((err) =>
       console.error('[auth/register] Welcome email failed (non-fatal):', err?.message)
+    );
+
+    // Email verification token — save and send
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await prisma.user.update({
+      where: { id: result.user.id },
+      data: {
+        emailVerificationToken: verifyToken,
+        emailVerificationExpiresAt: verifyExpiry,
+      },
+    });
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    EmailService.send({
+      triggerType: 'email_verification',
+      toEmail: result.user.email!,
+      toUserId: result.user.id,
+      familyId: result.user.familyId!,
+      subject: 'Verify your TaskBuddy email',
+      templateData: {
+        firstName: result.user.firstName,
+        verifyUrl: `${frontendUrl}/verify-email?token=${verifyToken}`,
+        expiryHours: 24,
+      },
+    }).catch((err) =>
+      console.error('[auth/register] Verification email failed (non-fatal):', err?.message)
     );
 
     res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
@@ -357,7 +383,6 @@ authRouter.post('/refresh', validateBody(refreshSchema), async (req, res, next) 
 
     const tokens = await authService.refreshToken(refreshToken);
 
-    const jwt = require('jsonwebtoken');
     const decoded = jwt.decode(tokens.refreshToken) as { role?: string } | null;
     const isChild = decoded?.role === 'child';
 
@@ -367,6 +392,100 @@ authRouter.post('/refresh', validateBody(refreshSchema), async (req, res, next) 
       success: true,
       data: { tokens },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── Email verification ────────────────────────────────────────────────────────
+
+// POST /auth/verify-email - Consume verification token
+authRouter.post('/verify-email', async (req, res, next) => {
+  try {
+    const { token } = req.body as { token?: string };
+    if (!token) throw new NotFoundError('Verification token is required');
+
+    const user = await prisma.user.findFirst({
+      where: { emailVerificationToken: token },
+      select: { id: true, emailVerificationExpiresAt: true, emailVerifiedAt: true },
+    });
+
+    if (!user) throw new NotFoundError('Invalid or expired verification link');
+    if (user.emailVerifiedAt) {
+      return res.json({ success: true, data: { message: 'Email already verified' } });
+    }
+    if (!user.emailVerificationExpiresAt || user.emailVerificationExpiresAt < new Date()) {
+      throw new ConflictError('Verification link has expired. Please request a new one.');
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerifiedAt: new Date(),
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+      },
+    });
+
+    res.json({ success: true, data: { message: 'Email verified successfully' } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Simple in-memory rate limiter: max 3 resends per hour per userId
+const resendRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+// POST /auth/resend-verification - Resend verification email
+authRouter.post('/resend-verification', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user!.userId;
+    const now = Date.now();
+    const limit = resendRateLimit.get(userId);
+
+    if (limit && now < limit.resetAt) {
+      if (limit.count >= 3) {
+        throw new ConflictError('Too many requests. Please try again in an hour.');
+      }
+      limit.count++;
+    } else {
+      resendRateLimit.set(userId, { count: 1, resetAt: now + 60 * 60 * 1000 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, firstName: true, emailVerifiedAt: true, familyId: true },
+    });
+
+    if (!user?.email) throw new NotFoundError('User not found');
+    if (user.emailVerifiedAt) {
+      return res.json({ success: true, data: { message: 'Email already verified' } });
+    }
+
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { emailVerificationToken: verifyToken, emailVerificationExpiresAt: verifyExpiry },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    EmailService.send({
+      triggerType: 'email_verification',
+      toEmail: user.email,
+      toUserId: userId,
+      familyId: user.familyId!,
+      subject: 'Verify your TaskBuddy email',
+      templateData: {
+        firstName: user.firstName,
+        verifyUrl: `${frontendUrl}/verify-email?token=${verifyToken}`,
+        expiryHours: 24,
+      },
+    }).catch((err) =>
+      console.error('[auth/resend-verification] Email failed (non-fatal):', err?.message)
+    );
+
+    res.json({ success: true, data: { message: 'Verification email sent' } });
   } catch (error) {
     next(error);
   }
@@ -452,8 +571,13 @@ authRouter.post('/admin/register', validateBody(adminRegisterSchema), async (req
       });
     }
 
-    // Gate 2: submitted code must match
-    if (inviteCode !== validCode) {
+    // Gate 2: submitted code must match — use timing-safe comparison to prevent timing attacks
+    const inviteBuffer = Buffer.from(inviteCode);
+    const validBuffer  = Buffer.from(validCode);
+    const codeMatches =
+      inviteBuffer.length === validBuffer.length &&
+      crypto.timingSafeEqual(inviteBuffer, validBuffer);
+    if (!codeMatches) {
       return res.status(403).json({
         success: false,
         error: { message: 'Invalid invite code.' },

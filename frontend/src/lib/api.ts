@@ -144,6 +144,11 @@ async function request<T>(
     const fullMsg = details.length
       ? details.map((d: { field: string; message: string }) => `${d.field}: ${d.message}`).join('; ')
       : baseMsg;
+    // Signal unverified email so layouts can show a banner
+    if (response.status === 403 && errBody.code === 'EMAIL_NOT_VERIFIED' && typeof window !== 'undefined') {
+      sessionStorage.setItem('emailNotVerified', '1');
+      window.dispatchEvent(new CustomEvent('emailNotVerified'));
+    }
     throw new ApiError(fullMsg, response.status, data);
   }
 
@@ -207,6 +212,17 @@ export const authApi = {
 
   regenerateFamilyCode: () =>
     request<ApiResponse<{ familyCode: string }>>('/auth/family/regenerate-code', {
+      method: 'POST',
+    }),
+
+  verifyEmail: (token: string) =>
+    request<ApiResponse<{ message: string }>>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
+  resendVerification: () =>
+    request<ApiResponse<{ message: string }>>('/auth/resend-verification', {
       method: 'POST',
     }),
 

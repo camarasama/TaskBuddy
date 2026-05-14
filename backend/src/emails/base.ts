@@ -24,6 +24,7 @@ import { buildRewardRedeemed } from './rewardRedeemed';
 import { buildLevelUp } from './levelUp';
 import { buildStreakAtRisk } from './streakAtRisk';
 import { buildCoParentInvite } from './coParentInvite';
+import { buildEmailVerification } from './emailVerification';
 
 // ─── Branding constants ───────────────────────────────────────────────────────
 
@@ -145,6 +146,8 @@ export async function renderTemplate(
   switch (triggerType) {
     case 'welcome':
       return buildWelcome(data as any);
+    case 'email_verification':
+      return buildEmailVerification(data as any);
     case 'task_submitted':
       return buildTaskSubmitted(data as any);
     case 'task_approved':
