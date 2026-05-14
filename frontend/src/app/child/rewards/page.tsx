@@ -1,4 +1,5 @@
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
  * Child Rewards Page — updated M6 (CR-11)
@@ -117,6 +118,8 @@ export default function ChildRewardsPage() {
   };
 
   const pendingRedemptions = redemptions.filter((r) => r.status === 'pending');
+
+    useDataRefresh(loadData);
 
   if (isLoading) {
     return (

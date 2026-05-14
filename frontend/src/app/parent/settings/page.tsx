@@ -1,4 +1,5 @@
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
  * parent/settings/page.tsx — Updated M9 (Email Notifications)
@@ -207,6 +208,7 @@ export default function ParentSettingsPage() {
     loadData();
     loadParents();
   }, [loadData, loadParents]);
+  useDataRefresh(loadData);
 
   // ── Handlers ────────────────────────────────────────────────────────────
 

@@ -1,4 +1,5 @@
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -64,6 +65,7 @@ export default function LeaderboardPage() {
     const interval = setInterval(load, 30_000);
     return () => clearInterval(interval);
   }, [load]);
+  useDataRefresh(load);
 
   const myId = (user as any)?.id;
   const entries = data?.entries ?? [];

@@ -1,4 +1,5 @@
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
  * app/admin/emails/page.tsx — M9
@@ -118,6 +119,7 @@ export default function AdminEmailsPage() {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
+  useDataRefresh(fetchLogs);
 
   const handleResend = async (logId: string) => {
     setResending(logId);

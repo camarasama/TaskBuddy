@@ -1,4 +1,5 @@
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
  * child/dashboard/page.tsx — Updated M10 Phase 6 (Real-time Socket Engagement)
@@ -142,7 +143,7 @@ export default function ChildDashboardPage() {
     const loadDashboard = async () => {
       try {
         const response = await dashboardApi.getChildDashboard();
-        const apiData = response.data as unknown as ChildDashboardData & {
+        const apiData = response.data as unknown as unknown as ChildDashboardData & {
           // M7: approval endpoint returns levelUp; dashboard may relay it
           levelUp?: {
             leveledUp: boolean;
@@ -175,7 +176,19 @@ export default function ChildDashboardPage() {
     };
 
     loadDashboard();
+    return () => {};
   }, [showError]);
+
+  // Reload dashboard on any app mutation
+  useDataRefresh(() => {
+    dashboardApi.getChildDashboard().then((r) => {
+      const d = r.data as unknown as ChildDashboardData;
+      if (d) {
+        setData(d);
+        if ((d as any).child?.childProfile?.pointsBalance != null) setLivePoints((d as any).child.childProfile.pointsBalance);
+      }
+    }).catch(() => {});
+  });
 
   // M10 — Phase 6: Real-time socket event handlers
   useEffect(() => {

@@ -1,4 +1,5 @@
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
  * /notifications — M10 Phase 4/5
@@ -93,6 +94,7 @@ export default function NotificationsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useDataRefresh(load);
 
   // Filter
   const filtered = notifications.filter((n) => {

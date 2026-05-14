@@ -12,6 +12,7 @@
  */
 
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 import { useEffect, useState, useCallback } from 'react';
 import { adminApi, getAccessToken } from '@/lib/api';
@@ -98,6 +99,7 @@ export default function AdminAuditLogPage() {
   }, []);
 
   useEffect(() => { load(page, appliedFilters); }, [page, appliedFilters, load]);
+  useDataRefresh(() => load(page, appliedFilters));
 
   function applyFilters() {
     setPage(1);

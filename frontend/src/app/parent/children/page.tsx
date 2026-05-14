@@ -1,4 +1,5 @@
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -68,6 +69,8 @@ export default function ParentChildrenPage() {
       showError('Failed to remove child');
     }
   };
+
+    useDataRefresh(loadChildren);
 
   if (isLoading) {
     return (

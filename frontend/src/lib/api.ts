@@ -152,7 +152,15 @@ async function request<T>(
     throw new ApiError(fullMsg, response.status, data);
   }
 
-  if (isGet && response.ok) setCached(url, data);
+  if (isGet && response.ok) {
+    setCached(url, data);
+  } else if (!isGet && response.ok && typeof window !== 'undefined') {
+    // After any successful mutation, invalidate cache for the affected resource
+    // and notify all pages so they reload their data.
+    const resourcePrefix = `${API_BASE}/${endpoint.split('/')[1]}`; // e.g. /tasks, /rewards
+    invalidateCache(resourcePrefix);
+    window.dispatchEvent(new CustomEvent('app:refresh'));
+  }
   return data;
 }
 

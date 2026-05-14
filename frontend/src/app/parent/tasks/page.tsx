@@ -1,6 +1,7 @@
 //parent tasks page
 
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -179,6 +180,8 @@ function ParentTasksInner() {
     { key: 'pending', label: 'Pending Approval', count: pendingApprovals.length },
     { key: 'completed', label: 'Completed', count: completedCount },
   ];
+
+    useDataRefresh(loadData);
 
   if (isLoading) {
     return (

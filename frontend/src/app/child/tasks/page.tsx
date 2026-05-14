@@ -1,4 +1,5 @@
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
  * app/child/tasks/page.tsx — updated (Bug fix: rejected task resubmission)
@@ -116,6 +117,7 @@ export default function ChildTasksPage() {
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
+  useDataRefresh(loadTasks);
 
   // ── Derive tab lists ──────────────────────────────────────────────────────
 

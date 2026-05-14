@@ -8,6 +8,7 @@
  */
 
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 import { useEffect, useState, useCallback } from 'react';
 import { adminApi } from '@/lib/api';
@@ -65,6 +66,7 @@ export default function AdminUsersPage() {
   }, []);
 
   useEffect(() => { load(page, search); }, [page, search, load]);
+  useDataRefresh(() => load(page, search));
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

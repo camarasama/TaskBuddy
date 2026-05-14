@@ -7,6 +7,7 @@
  */
 
 'use client';
+import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -56,6 +57,7 @@ export default function AdminFamiliesPage() {
   useEffect(() => {
     load(page, search);
   }, [page, search, load]);
+  useDataRefresh(() => load(page, search));
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
