@@ -45,7 +45,7 @@ const createRewardSchema = z.object({
   maxRedemptionsPerChild: z.number().int().min(1).optional(),
   // M6 — CR-11: household cap
   maxRedemptionsTotal: z.number().int().min(1).optional(),
-  expiresAt: z.string().datetime().optional(),
+  expiresAt: z.string().datetime().nullable().optional(),
   isCollaborative: z.boolean().optional(),
 });
 
