@@ -47,7 +47,12 @@ const registerSchema = z.object({
     dateOfBirth: z.string().regex(
       /^\d{4}-\d{2}-\d{2}$/,
       'Date of birth must be in YYYY-MM-DD format'
-    ),
+    ).refine((dob) => {
+      const birth = new Date(dob);
+      const cutoff = new Date();
+      cutoff.setFullYear(cutoff.getFullYear() - 18);
+      return birth <= cutoff;
+    }, { message: 'Parent must be at least 18 years old' }),
     phoneNumber: z
       .string()
       .regex(

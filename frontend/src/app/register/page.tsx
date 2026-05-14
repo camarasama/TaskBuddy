@@ -44,7 +44,12 @@ const registerSchema = z
     dateOfBirth: z.string().min(1, 'Date of birth is required').regex(
       /^\d{4}-\d{2}-\d{2}$/,
       'Please select a valid date'
-    ),
+    ).refine((dob) => {
+      const birth = new Date(dob);
+      const cutoff = new Date();
+      cutoff.setFullYear(cutoff.getFullYear() - 18);
+      return birth <= cutoff;
+    }, { message: 'You must be at least 18 years old to register' }),
     // M7 — CR-02: Optional phone in E.164 format
     phoneNumber: z
       .string()
