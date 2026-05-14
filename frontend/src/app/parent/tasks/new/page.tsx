@@ -46,7 +46,10 @@ const taskSchema = z.object({
   pointsValue: z.number().min(1).max(1000),
   // M5 — CR-09
   startTime: z.string().optional(),
-  estimatedMinutes: z.number().min(1).max(480).optional(),
+  estimatedMinutes: z.preprocess(
+    (v) => (typeof v === 'number' && isNaN(v) ? undefined : v),
+    z.number().int().min(1).max(480).optional()
+  ),
   requiresPhotoEvidence: z.boolean(),
   isRecurring: z.boolean(),
   recurrencePattern: z.string().optional(),
