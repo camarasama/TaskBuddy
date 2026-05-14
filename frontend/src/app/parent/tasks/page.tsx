@@ -16,6 +16,8 @@ import {
   ChevronRight,
   Camera,
   FileText,
+  Archive,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -81,6 +83,7 @@ function ParentTasksInner() {
 
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<TaskAssignment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -92,16 +95,46 @@ function ParentTasksInner() {
 
   const loadData = async () => {
     try {
-      const [tasksRes, pendingRes] = await Promise.all([
+      const [tasksRes, pendingRes, archivedRes] = await Promise.all([
         tasksApi.getAll(),
         tasksApi.getPendingApprovals(),
+        tasksApi.getAll({ status: 'archived' }),
       ]);
-      setTasks((tasksRes.data as { tasks: Task[] }).tasks);
+      const allActive = (tasksRes.data as { tasks: Task[] }).tasks.filter(
+        (t) => t.status !== 'archived'
+      );
+      setTasks(allActive);
       setPendingApprovals((pendingRes.data as { assignments: TaskAssignment[] }).assignments);
+      const archived = (archivedRes.data as { tasks: Task[] }).tasks
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10);
+      setArchivedTasks(archived);
     } catch {
       showError('Failed to load tasks');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleArchive = async (taskId: string) => {
+    try {
+      await tasksApi.update(taskId, { status: 'archived' });
+      showSuccess('Task archived');
+      loadData();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to archive task';
+      showError(message);
+    }
+  };
+
+  const handleRestore = async (taskId: string) => {
+    try {
+      await tasksApi.update(taskId, { status: 'active' });
+      showSuccess('Task restored');
+      loadData();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to restore task';
+      showError(message);
     }
   };
 
@@ -256,67 +289,122 @@ function ParentTasksInner() {
                 />
               ) : (
                 filteredTasks.map((task) => (
-                  <TaskCard key={task.id} task={task} />
+                  <TaskCard key={task.id} task={task} onArchive={handleArchive} />
                 ))
               )}
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* ── Recently Archived ─────────────────────────────────────── */}
+        {archivedTasks.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Archive className="w-4 h-4 text-slate-400" />
+              <h2 className="font-semibold text-slate-600 text-sm uppercase tracking-wide">
+                Recently Archived
+              </h2>
+              <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-500">
+                {archivedTasks.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {archivedTasks.map((task) => (
+                <ArchivedTaskRow key={task.id} task={task} onRestore={handleRestore} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </ParentLayout>
   );
 }
 
 // Task Card Component
-function TaskCard({ task }: { task: Task }) {
+function TaskCard({ task, onArchive }: { task: Task; onArchive: (id: string) => void }) {
   const assignedCount = task.assignments?.length || 0;
   const completedCount = task.assignments?.filter(a => a.status === 'approved').length || 0;
 
   return (
-    <Link href={`/parent/tasks/${task.id}`}>
-      <motion.div
-        whileHover={{ scale: 1.01 }}
-        className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+    <div className="relative group">
+      <Link href={`/parent/tasks/${task.id}`}>
+        <motion.div
+          whileHover={{ scale: 1.01 }}
+          className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="font-bold text-slate-900 truncate">{task.title}</h3>
+                <span className={cn('badge', getDifficultyColor(task.difficulty))}>
+                  {task.difficulty}
+                </span>
+              </div>
+              {task.description && (
+                <p className="text-sm text-slate-600 line-clamp-2 mb-3">
+                  {task.description}
+                </p>
+              )}
+              <div className="flex items-center gap-3 text-sm flex-wrap">
+                <span className={cn('badge', getStatusColor(task.status))}>
+                  {task.status.replace('_', ' ')}
+                </span>
+                {assignedCount > 0 && (
+                  <span className="text-slate-500">
+                    {completedCount}/{assignedCount} completed
+                  </span>
+                )}
+                {task.assignments && task.assignments.length > 0 && (
+                  <span className="text-slate-400">
+                    {task.assignments.map(a => a.child?.firstName).filter(Boolean).join(', ')}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-1 text-gold-600 font-bold">
+                <Star className="w-4 h-4" />
+                <span>{task.pointsValue}</span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-slate-400" />
+            </div>
+          </div>
+        </motion.div>
+      </Link>
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onArchive(task.id); }}
+        title="Archive task"
+        className="absolute top-3 right-10 p-1.5 rounded-lg text-slate-300 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all"
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="font-bold text-slate-900 truncate">{task.title}</h3>
-              <span className={cn('badge', getDifficultyColor(task.difficulty))}>
-                {task.difficulty}
-              </span>
-            </div>
-            {task.description && (
-              <p className="text-sm text-slate-600 line-clamp-2 mb-3">
-                {task.description}
-              </p>
-            )}
-            <div className="flex items-center gap-3 text-sm flex-wrap">
-              <span className={cn('badge', getStatusColor(task.status))}>
-                {task.status.replace('_', ' ')}
-              </span>
-              {assignedCount > 0 && (
-                <span className="text-slate-500">
-                  {completedCount}/{assignedCount} completed
-                </span>
-              )}
-              {task.assignments && task.assignments.length > 0 && (
-                <span className="text-slate-400">
-                  {task.assignments.map(a => a.child?.firstName).filter(Boolean).join(', ')}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-1 text-gold-600 font-bold">
-              <Star className="w-4 h-4" />
-              <span>{task.pointsValue}</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-slate-400" />
-          </div>
+        <Archive className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+// Archived Task Row
+function ArchivedTaskRow({ task, onRestore }: { task: Task; onRestore: (id: string) => void }) {
+  return (
+    <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3 border border-slate-200">
+      <div className="flex items-center gap-3 min-w-0">
+        <span className={cn('badge flex-shrink-0', getDifficultyColor(task.difficulty))}>
+          {task.difficulty}
+        </span>
+        <span className="text-sm font-medium text-slate-500 truncate">{task.title}</span>
+        <div className="flex items-center gap-1 text-slate-400 text-xs flex-shrink-0">
+          <Star className="w-3 h-3" />
+          <span>{task.pointsValue}</span>
         </div>
-      </motion.div>
-    </Link>
+      </div>
+      <button
+        onClick={() => onRestore(task.id)}
+        title="Restore task"
+        className="flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-800 font-medium flex-shrink-0 ml-3"
+      >
+        <RotateCcw className="w-3.5 h-3.5" />
+        Restore
+      </button>
+    </div>
   );
 }
 
