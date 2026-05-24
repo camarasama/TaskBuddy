@@ -456,58 +456,155 @@ POST   /api/v1/admin/emails/:id/resend Re-send a failed email
 
 ### Prerequisites
 
-- **Node.js** 20+
-- **npm** 9+
-- **PostgreSQL** 15+
-- **Git**
+| Requirement | Version | Notes |
+|---|---|---|
+| **Node.js** | 20+ | Check with `node -v` |
+| **npm** | 9+ | Bundled with Node.js |
+| **PostgreSQL** | 15+ | Must be running locally |
+| **Git** | Any | — |
 
-### 1. Clone the repository
+---
+
+### Step 1 — Clone the repository
 
 ```bash
-git clone https://github.com/your-username/task-buddy.git
-cd task-buddy
+git clone https://github.com/camarasama/TaskBuddy.git
+cd TaskBuddy
 ```
 
-### 2. Install all dependencies
+---
+
+### Step 2 — Install all dependencies
+
+Run this once from the **root** of the repository. npm workspaces will install dependencies for `frontend/`, `backend/`, and `shared/` in one command.
 
 ```bash
 npm install
 ```
 
-This installs dependencies for the root workspace, `frontend/`, `backend/`, and `shared/` packages via npm workspaces.
+---
 
-### 3. Set up the database
+### Step 3 — Create the PostgreSQL database
 
 ```bash
 createdb taskbuddy
 ```
 
-### 4. Configure the backend environment
+If `createdb` is not on your PATH, use psql instead:
 
-```bash
-cd backend
-cp .env.example .env
+```sql
+psql -U postgres -c "CREATE DATABASE taskbuddy;"
 ```
 
-Edit `backend/.env` — at minimum set `DATABASE_URL` and `SMTP_*` variables. See [Environment Variables](#8-environment-variables) for the full reference.
+---
 
-### 5. Run database migrations
+### Step 4 — Configure the backend environment
+
+Create the file `backend/.env` with the following content. The variables marked **required** must be set before the server will start.
+
+```dotenv
+# ── Database (required) ───────────────────────────────────────────────────────
+DATABASE_URL=postgresql://postgres:password@localhost:5432/taskbuddy
+
+# ── Server ────────────────────────────────────────────────────────────────────
+PORT=3001
+NODE_ENV=development
+
+# ── CORS (comma-separated list of allowed frontend origins) ───────────────────
+CLIENT_URL=http://localhost:3000
+
+# ── JWT (required — use any long random strings) ──────────────────────────────
+JWT_SECRET=change-me-to-a-long-random-string
+JWT_REFRESH_SECRET=change-me-to-another-long-random-string
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+JWT_CHILD_ACCESS_EXPIRES_IN=24h
+JWT_CHILD_REFRESH_EXPIRES_IN=90d
+
+# ── File Storage ──────────────────────────────────────────────────────────────
+# Use "local" for development (files saved to ./uploads/)
+STORAGE_PROVIDER=local
+UPLOADS_BASE_PATH=./uploads
+
+# Cloudflare R2 — only needed when STORAGE_PROVIDER=r2
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+R2_PUBLIC_URL=
+
+# ── Email / SMTP ───────────────────────────────────────────────────────────────
+# For Gmail: enable 2FA, then generate an App Password at
+# https://myaccount.google.com/apppasswords
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-gmail@gmail.com
+SMTP_PASS=your-16-char-app-password
+SMTP_FROM=your-gmail@gmail.com
+
+# ── Invitations ───────────────────────────────────────────────────────────────
+INVITE_TOKEN_EXPIRES_HOURS=168
+
+# ── Admin registration gate ───────────────────────────────────────────────────
+# Any string — you must supply this when registering an admin account
+ADMIN_INVITE_CODE=some-secret-code
+
+# ── ngrok / Remote Testing (only needed for remote demos) ─────────────────────
+# FRONTEND_URL=https://xxxx.ngrok-free.app
+```
+
+> **Tip:** The app will start without valid SMTP credentials — emails will silently fail and be logged as `failed` in the email log. This is fine for local testing.
+
+---
+
+### Step 5 — Configure the frontend environment
+
+For local development no frontend env file is required — the frontend defaults to `http://localhost:3001/api/v1`.
+
+Only create `frontend/.env.local` if you are using ngrok or a remote API host:
+
+```dotenv
+NEXT_PUBLIC_API_URL=https://xxxx.ngrok-free.app/api/v1
+```
+
+---
+
+### Step 6 — Push the database schema
+
+From the `backend/` directory, push the Prisma schema to create all tables:
 
 ```bash
 cd backend
-npx prisma migrate dev
+npx prisma db push
 npx prisma generate
 ```
 
 Or from the root:
+
 ```bash
-npm run db:migrate
+npm run db:push -w backend
+npm run db:generate -w backend
 ```
 
-### 6. Start the application
+> **Note:** The project uses `prisma db push` (schema-push) rather than `prisma migrate dev`. Do not run `migrate dev` — it will conflict with the existing migration history.
+
+---
+
+### Step 7 — Create the uploads directory
+
+The backend stores uploaded photos here when `STORAGE_PROVIDER=local`.
 
 ```bash
-# From root — starts both frontend and backend concurrently
+mkdir -p backend/uploads
+```
+
+---
+
+### Step 8 — Start the application
+
+From the **root** directory — this starts both frontend and backend concurrently:
+
+```bash
 npm run dev
 ```
 
@@ -516,36 +613,79 @@ npm run dev
 | Frontend | http://localhost:3000 |
 | Backend API | http://localhost:3001 |
 
-### 7. Seed the database (optional)
+Open http://localhost:3000 and register a new family to get started.
+
+---
+
+### Step 9 — Seed the database (optional)
 
 ```bash
 npm run db:seed
 ```
 
-Creates a sample family with one parent, two children, sample tasks, and rewards.
+Creates a sample family (`The Smiths`) with one parent, two children (ages 12 and 15), sample tasks, and rewards so you can explore the app immediately.
+
+---
+
+### Step 10 — Create an admin account (optional)
+
+To access the `/admin` dashboard, register an admin account via the API:
+
+```bash
+curl -X POST http://localhost:3001/api/v1/auth/admin/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@example.com",
+    "password": "AdminPass123!",
+    "firstName": "Admin",
+    "lastName": "User",
+    "inviteCode": "some-secret-code"
+  }'
+```
+
+Replace `some-secret-code` with the value you set for `ADMIN_INVITE_CODE` in `backend/.env`.
+
+---
 
 ### Remote Testing via ngrok
+
+To share the app over the internet (useful for testing on a mobile device or demonstrating remotely):
 
 ```bash
 # Terminal 1 — expose the frontend
 ngrok http 3000
 
-# Terminal 2 — expose the backend (if needed separately)
+# Terminal 2 — expose the backend
 ngrok http 3001
 ```
 
-Then set in `backend/.env`:
+Then update `backend/.env`:
+
 ```dotenv
-CLIENT_URL=https://xxxx.ngrok-free.app
-FRONTEND_URL=https://xxxx.ngrok-free.app
+CLIENT_URL=https://your-frontend-ngrok-url.ngrok-free.app
+FRONTEND_URL=https://your-frontend-ngrok-url.ngrok-free.app
 ```
 
-And in `frontend/.env.local`:
+And create/update `frontend/.env.local`:
+
 ```dotenv
-NEXT_PUBLIC_API_URL=https://xxxx.ngrok-free.app/api/v1
+NEXT_PUBLIC_API_URL=https://your-backend-ngrok-url.ngrok-free.app/api/v1
 ```
 
-Restart both services. Invite links and all notification emails will now point to the ngrok URL.
+Restart both services (`Ctrl+C`, then `npm run dev`). Invite links and all email notifications will now resolve to the ngrok URLs.
+
+---
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `relation "users" does not exist` | Run `npx prisma db push` from `backend/` |
+| `Cannot find module '@taskbuddy/shared'` | Run `npm install` from the root again |
+| `ECONNREFUSED 5432` | Start PostgreSQL (`brew services start postgresql` / `pg_ctl start`) |
+| Port 3000 or 3001 already in use | Kill the process: `npx kill-port 3000 3001` |
+| Emails not sending | Check `SMTP_PASS` is an App Password (not your Gmail password); verify 2FA is enabled |
+| File uploads failing locally | Ensure `backend/uploads/` directory exists |
 
 ---
 
