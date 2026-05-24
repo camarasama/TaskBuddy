@@ -21,6 +21,7 @@ export interface RegisterInput {
     lastName: string;
     email: string;
     password: string;
+    gender?: string;
   };
 }
 
@@ -44,6 +45,8 @@ export interface AddChildInput {
   username?: string;
   pin?: string;
   createdBy: string;
+  email?: string;
+  gender?: string;
 }
 
 export class AuthService {
@@ -86,6 +89,7 @@ export class AuthService {
           isPrimaryParent: true,
           firstName: parent.firstName,
           lastName: parent.lastName,
+          ...(parent.gender ? { gender: parent.gender } : {}),
         },
       });
 
@@ -202,30 +206,30 @@ export class AuthService {
       },
     });
 
-    if (!user || !user.childProfile) {
-      throw new NotFoundError('Child not found');
-    }
-
-    // Check if account is locked
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
+    // Check lockout before expensive bcrypt call
+    if (user && user.lockedUntil && user.lockedUntil > new Date()) {
       throw new UnauthorizedError('Account is temporarily locked');
     }
 
-    // Verify PIN
-    if (!user.childProfile.pinHash) {
-      throw new UnauthorizedError('PIN not set up for this account');
+    // Always run bcrypt to prevent timing-based enumeration
+    const pinHash = user?.childProfile?.pinHash ?? '$2b$12$invalidhashpadding00000000000000000000000000000000000000';
+    const isValid = !!(user?.childProfile) && await bcrypt.compare(pin, pinHash);
+
+    if (!user || !user.childProfile || !isValid) {
+      if (user) {
+        // Lock the account for 15 minutes on any failed PIN attempt
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lockedUntil: new Date(Date.now() + 15 * 60_000) },
+        });
+      }
+      throw new UnauthorizedError('Invalid credentials');
     }
 
-    const isValid = await bcrypt.compare(pin, user.childProfile.pinHash);
-    if (!isValid) {
-      // TODO: Track failed attempts and lock account
-      throw new UnauthorizedError('Invalid PIN');
-    }
-
-    // Update last login
+    // Clear lockout and record successful login
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { lastLoginAt: new Date(), lockedUntil: null },
     });
 
     // Generate tokens with child-specific expiry (90d refresh, 24h access)
@@ -270,7 +274,7 @@ export class AuthService {
 
   // Add a child to the family
   async addChild(input: AddChildInput) {
-    const { familyId, firstName, lastName, dateOfBirth, username, pin, createdBy } = input;
+    const { familyId, firstName, lastName, dateOfBirth, username, pin, createdBy, email, gender } = input;
 
     // Verify creator is parent in same family
     const creator = await prisma.user.findUnique({
@@ -315,6 +319,8 @@ export class AuthService {
           firstName,
           lastName,
           username: username?.toLowerCase(),
+          ...(email ? { email: email.toLowerCase() } : {}),
+          ...(gender ? { gender } : {}),
         },
       });
 
@@ -460,9 +466,11 @@ export class AuthService {
 
     // Remove sensitive data
     const { passwordHash: _, ...userWithoutPassword } = user;
-    const profile = user.childProfile
-      ? { ...user.childProfile, pinHash: undefined }
-      : undefined;
+    let profile: Record<string, unknown> | undefined;
+    if (user.childProfile) {
+      const { pinHash: _pin, ...safeProfile } = user.childProfile;
+      profile = safeProfile;
+    }
 
     return {
       ...userWithoutPassword,

@@ -10,6 +10,8 @@ import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
 import { getChildCapacity, type ChildCapacity } from '../utils/assignmentLimits';
 // M8 — Audit logging for all mutating family routes
 import { AuditService } from '../services/AuditService';
+// M9 — Email notifications
+import { EmailService } from '../services/email';
 
 export const familyRouter = Router();
 
@@ -30,6 +32,8 @@ const addChildSchema = z.object({
     }, { message: 'Child must be between 10 and 16 years old' }),
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/).optional(),
   pin: z.string().regex(/^\d{4}$/, 'PIN must be exactly 4 digits').optional(),
+  email: z.string().email().optional(),
+  gender: z.enum(['boy', 'girl']).optional(),
 });
 
 const updateChildSchema = z.object({
@@ -37,6 +41,7 @@ const updateChildSchema = z.object({
   lastName: z.string().min(1).max(50).optional(),
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/).optional(),
   avatarUrl: z.string().url().optional(),
+  gender: z.enum(['boy', 'girl']).optional(),
 });
 
 const updateSettingsSchema = z.object({
@@ -271,18 +276,45 @@ familyRouter.post('/me/children', requireParent, validateBody(addChildSchema), a
       username: req.body.username,
       pin: req.body.pin,
       createdBy: req.user!.userId,
+      email: req.body.email,
+      gender: req.body.gender,
     });
+
+    const createdChildId = (result as any).user?.id || (result as any).id;
 
     // M8 — Audit: child added to family
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'CREATE',
       resourceType: 'child',
-      resourceId: (result as any).user?.id || (result as any).id,
+      resourceId: createdChildId,
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { firstName: req.body.firstName, lastName: req.body.lastName },
     });
+
+    // M9 — fire-and-forget child welcome email (only when email was provided)
+    if (req.body.email) {
+      prisma.family.findUnique({ where: { id: req.familyId! } })
+        .then((family) => {
+          EmailService.send({
+            triggerType: 'child_welcome',
+            toEmail: req.body.email,
+            toUserId: createdChildId,
+            familyId: req.familyId!,
+            subject: `Welcome to TaskBuddy, ${req.body.firstName}!`,
+            templateData: {
+              childFirstName: req.body.firstName,
+              childLastName: req.body.lastName,
+              username: req.body.username || '',
+              familyCode: family?.familyCode || '',
+              appUrl: process.env.CLIENT_URL || 'http://localhost:3000',
+            },
+            skipPreferenceCheck: true,
+          }).catch((err: Error) => console.error('[child_welcome email]', err.message));
+        })
+        .catch((err: Error) => console.error('[child_welcome email] family fetch failed', err.message));
+    }
 
     res.status(201).json({
       success: true,
@@ -350,6 +382,7 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
         lastName: req.body.lastName,
         username: req.body.username?.toLowerCase(),
         avatarUrl: req.body.avatarUrl,
+        ...(req.body.gender !== undefined ? { gender: req.body.gender } : {}),
       },
       include: {
         childProfile: true,
@@ -372,6 +405,32 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
       ipAddress: req.ip,
       metadata: { changes: req.body },
     });
+
+    // M9 — fire-and-forget child_profile_updated email when name/username changed
+    if (updatedChild.email) {
+      const changed: string[] = [];
+      if (req.body.firstName && req.body.firstName !== child.firstName) changed.push('first name');
+      if (req.body.lastName && req.body.lastName !== child.lastName) changed.push('last name');
+      if (req.body.username && req.body.username !== child.username) changed.push('username');
+      if (changed.length > 0) {
+        EmailService.send({
+          triggerType: 'child_profile_updated',
+          toEmail: updatedChild.email,
+          toUserId: updatedChild.id,
+          familyId: req.familyId!,
+          subject: `Your TaskBuddy profile was updated`,
+          templateData: {
+            childFirstName: updatedChild.firstName,
+            changed: changed.join(', '),
+            newFirstName: updatedChild.firstName,
+            newLastName: updatedChild.lastName,
+            newUsername: updatedChild.username || '',
+            appUrl: process.env.CLIENT_URL || 'http://localhost:3000',
+          },
+          skipPreferenceCheck: true,
+        }).catch((err: Error) => console.error('[child_profile_updated email]', err.message));
+      }
+    }
 
     res.json({
       success: true,

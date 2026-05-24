@@ -6,6 +6,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { reportsApi } from '@/lib/api';
+import { formatDateTime } from '@/lib/utils';
 import { downloadExport } from '@/lib/downloadExport';
 
 interface AuditRow { id: string; actorName: string | null; action: string; resourceType: string; resourceId: string; familyId: string | null; ipAddress: string | null; createdAt: string; }
@@ -68,7 +69,7 @@ export default function AuditTrailReport({ familyId, startDate, endDate }: Props
         <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Timestamp', 'Actor', 'Action', 'Resource', 'Resource ID', 'IP'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-gray-50">{filtered.map((r) => (
             <tr key={r.id} className="hover:bg-gray-50/50">
-              <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{new Date(r.createdAt).toLocaleString()}</td><td className="px-3 py-2 font-medium text-gray-700">{r.actorName ?? 'System'}</td>
+              <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{formatDateTime(r.createdAt)}</td><td className="px-3 py-2 font-medium text-gray-700">{r.actorName ?? 'System'}</td>
               <td className="px-3 py-2"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ACTION_COLORS[r.action] ?? 'bg-gray-100 text-gray-600'}`}>{r.action}</span></td>
               <td className="px-3 py-2 text-gray-600">{r.resourceType}</td><td className="px-3 py-2 text-gray-400 font-mono text-xs">{r.resourceId.slice(0, 8)}…</td><td className="px-3 py-2 text-gray-400 text-xs">{r.ipAddress ?? '—'}</td>
             </tr>

@@ -186,16 +186,17 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
 
       const tasksWithFlags = tasks
         .filter((task) => {
-          // Filter pool tasks that have reached their claim limit
-          const alreadyAssigned = task.assignments.some(a => a.childId === childId);
-          if (alreadyAssigned) return true; // always keep child's own tasks
+          // Filter pool tasks that have reached their claim limit.
+          // Expired assignments don't count as "already assigned" — the child can re-claim.
+          const alreadyAssigned = task.assignments.some(a => a.childId === childId && a.status !== 'expired');
+          if (alreadyAssigned) return true; // always keep child's own active tasks
           if (task.maxClaimsTotal == null) return true; // no cap
-          const claimedCount = task.assignments.length; // total distinct claimers
+          const claimedCount = task.assignments.filter(a => a.status !== 'expired').length;
           return claimedCount < task.maxClaimsTotal;
         })
         .map((task) => {
-          const alreadyAssigned = task.assignments.some(a => a.childId === childId);
-          const claimedCount = task.assignments.length;
+          const alreadyAssigned = task.assignments.some(a => a.childId === childId && a.status !== 'expired');
+          const claimedCount = task.assignments.filter(a => a.status !== 'expired').length;
           const claimsRemaining = task.maxClaimsTotal != null
             ? task.maxClaimsTotal - claimedCount
             : null;

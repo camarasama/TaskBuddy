@@ -59,6 +59,7 @@ const registerSchema = z
       )
       .optional()
       .or(z.literal('')), // allow empty string (treated as not provided)
+    gender: z.enum(['male', 'female']).optional(),
     password: z
       .string()
       .min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`),
@@ -96,6 +97,7 @@ export default function RegisterPage() {
         password: data.password,
         dateOfBirth: data.dateOfBirth,
         phoneNumber: data.phoneNumber || undefined,
+        gender: data.gender || undefined,
       });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -178,6 +180,22 @@ export default function RegisterPage() {
                   error={errors.lastName?.message}
                   {...register('lastName')}
                 />
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Gender <span className="text-slate-400">(optional)</span>
+                </label>
+                <select
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
+                  {...register('gender')}
+                >
+                  <option value="">Prefer not to say</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+                {errors.gender && <p className="mt-1 text-sm text-red-600">{errors.gender.message}</p>}
               </div>
 
               {/* Email */}

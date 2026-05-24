@@ -37,10 +37,12 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
-import { familyApi, authApi } from '@/lib/api';
+import { familyApi, authApi, invalidateCache } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { InviteCoParentModal } from '@/components/InviteCoParentModal';
+import { AvatarUpload } from '@/components/AvatarUpload';
+import { getInitials, formatDate } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,10 +117,11 @@ interface PendingInvite {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ParentSettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const { error: showError, success: showSuccess } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [gender, setGender] = useState<string>(user?.gender || '');
   const [copied, setCopied] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
@@ -222,7 +225,9 @@ export default function ParentSettingsPage() {
           ...familySettings,
           notificationPreferences: notificationPrefs,
         }),
+        authApi.updateMe({ gender: gender || undefined }),
       ]);
+      await refreshUser();
       showSuccess('Settings saved');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save settings';
@@ -420,8 +425,12 @@ export default function ParentSettingsPage() {
                 className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-sm font-semibold text-primary-700 flex-shrink-0">
-                    {parent.firstName[0]}{parent.lastName[0]}
+                  <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-sm font-semibold text-primary-700 flex-shrink-0 overflow-hidden">
+                    {parent.avatarUrl ? (
+                      <img src={parent.avatarUrl} alt={parent.firstName} className="w-full h-full object-cover" />
+                    ) : (
+                      <>{parent.firstName[0]}{parent.lastName[0]}</>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -474,7 +483,7 @@ export default function ParentSettingsPage() {
                       <p className="text-sm font-medium text-slate-700 truncate">{invite.email}</p>
                       <p className="text-xs text-slate-400">
                         Invited by {invite.invitedBy.firstName} · expires{' '}
-                        {new Date(invite.expiresAt).toLocaleDateString()}
+                        {formatDate(invite.expiresAt)}
                       </p>
                     </div>
                     <span className="text-xs text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full flex-shrink-0">
@@ -673,12 +682,41 @@ export default function ParentSettingsPage() {
           </div>
 
           <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              {user && (
+                <AvatarUpload
+                  currentUrl={user.avatarUrl}
+                  initials={getInitials(user.firstName, user.lastName)}
+                  size="md"
+                  onUpload={async (url) => {
+                    await authApi.updateMe({ avatarUrl: url });
+                    invalidateCache('/api/v1/auth');
+                    await refreshUser();
+                  }}
+                />
+              )}
+              <div>
+                <p className="font-medium text-slate-900">
+                  {user?.firstName} {user?.lastName}
+                </p>
+                <p className="text-sm text-slate-500">{user?.email}</p>
+                <p className="text-xs text-slate-400 mt-0.5">Click avatar to change photo</p>
+              </div>
+            </div>
+
             <div>
-              <p className="text-sm text-slate-500">Logged in as</p>
-              <p className="font-medium text-slate-900">
-                {user?.firstName} {user?.lastName}
-              </p>
-              <p className="text-sm text-slate-500">{user?.email}</p>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Gender <span className="text-slate-400">(optional)</span>
+              </label>
+              <select
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+              >
+                <option value="">Prefer not to say</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
             </div>
 
             <ChangePasswordForm />

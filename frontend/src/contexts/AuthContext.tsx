@@ -14,6 +14,7 @@ interface AuthUser {
   role: string;
   familyId: string;
   avatarUrl?: string;
+  gender?: string;
   profile?: any;
   family?: any;
 }
@@ -35,6 +36,7 @@ interface AuthContextType {
     password: string;
     dateOfBirth?: string;
     phoneNumber?: string;
+    gender?: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -112,6 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastName: string;
       email: string;
       password: string;
+      dateOfBirth?: string;
+      phoneNumber?: string;
+      gender?: string;
     }
   ) => {
     const response = await authApi.register({ familyName, parent });

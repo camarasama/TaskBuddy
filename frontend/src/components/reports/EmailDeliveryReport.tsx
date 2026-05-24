@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { reportsApi } from '@/lib/api';
 import { downloadExport } from '@/lib/downloadExport';
+import { formatDate } from '@/lib/utils';
 
 interface EmailRow { date: string; triggerType: string; status: string; toEmail: string; subject: string; resendCount: number; errorMessage: string | null; createdAt: string; }
 interface Report { rows: EmailRow[]; summary: { totalSent: number; totalFailed: number; totalBounced: number; deliveryRate: number; byTriggerType: Record<string, { sent: number; failed: number }>; failureReasons: Array<{ reason: string; count: number }> } }
@@ -87,7 +88,7 @@ export default function EmailDeliveryReport({ familyId, startDate, endDate }: Pr
         <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Date', 'Trigger', 'Status', 'To', 'Subject', 'Resends'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-gray-50">{filtered.slice(0, 50).map((r, i) => (
             <tr key={i} className="hover:bg-gray-50/50">
-              <td className="px-3 py-2 text-gray-500 text-xs">{r.date}</td><td className="px-3 py-2 text-gray-600 text-xs">{r.triggerType.replace(/_/g, ' ')}</td>
+              <td className="px-3 py-2 text-gray-500 text-xs">{formatDate(r.date)}</td><td className="px-3 py-2 text-gray-600 text-xs">{r.triggerType.replace(/_/g, ' ')}</td>
               <td className="px-3 py-2"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: `${STATUS_COLORS[r.status]}20`, color: STATUS_COLORS[r.status] }}>{r.status}</span></td>
               <td className="px-3 py-2 text-gray-600 text-xs">{r.toEmail}</td><td className="px-3 py-2 text-gray-500 text-xs max-w-[200px] truncate">{r.subject}</td><td className="px-3 py-2 text-gray-500 text-xs">{r.resendCount > 0 ? r.resendCount : '—'}</td>
             </tr>

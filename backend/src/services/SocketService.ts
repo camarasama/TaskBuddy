@@ -22,6 +22,9 @@
  */
 
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import jwt from 'jsonwebtoken';
+import { config } from '../config';
+import type { TokenPayload } from '../middleware/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,29 +101,35 @@ let io: SocketIOServer | null = null;
 export function initSocketService(ioInstance: SocketIOServer): void {
   io = ioInstance;
 
-  io.on('connection', (socket: Socket) => {
-    const { userId, familyId } = socket.handshake.auth as {
-      userId?: string;
-      familyId?: string;
-    };
-
-    if (!userId || !familyId) {
-      // Reject connections without identity — they can't receive targeted events
-      console.warn('[SocketService] Connection rejected — missing userId/familyId in auth');
-      socket.disconnect(true);
-      return;
+  // Verify JWT on every socket connection — reject unauthenticated clients
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token as string | undefined;
+    if (!token) return next(new Error('Authentication required'));
+    try {
+      const payload = jwt.verify(token, config.jwt.secret) as TokenPayload;
+      (socket as any).user = payload;
+      next();
+    } catch {
+      next(new Error('Invalid token'));
     }
+  });
+
+  io.on('connection', (socket: Socket) => {
+    const user = (socket as any).user as TokenPayload;
+    const { userId, familyId } = user;
 
     // Join rooms so targeted emits work
     socket.join(`family:${familyId}`);
     socket.join(`user:${userId}`);
 
-    console.log(
-      `[SocketService] Client connected: socket=${socket.id} user=${userId} family=${familyId}`
-    );
+    if (config.env !== 'production') {
+      console.debug(`[SocketService] Client connected: socket=${socket.id}`);
+    }
 
     socket.on('disconnect', (reason) => {
-      console.log(`[SocketService] Client disconnected: socket=${socket.id} reason=${reason}`);
+      if (config.env !== 'production') {
+        console.debug(`[SocketService] Client disconnected: socket=${socket.id} reason=${reason}`);
+      }
     });
   });
 

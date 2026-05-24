@@ -18,7 +18,9 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { authService } from '../services/auth';
 import { inviteService } from '../services/invite';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireParent } from '../middleware/auth';
+import { uploadPhoto } from '../middleware/upload';
+import { uploadFile } from '../services/storage';
 import { prisma } from '../services/database';
 import { ConflictError, NotFoundError } from '../middleware/errorHandler';
 import { validateBody } from '../middleware/validate';
@@ -61,6 +63,7 @@ const registerSchema = z.object({
         'Phone number must be in E.164 format (e.g. +233201234567)'
       )
       .optional(),
+    gender: z.enum(['male', 'female']).optional(),
   }),
 });
 
@@ -105,6 +108,7 @@ const acceptInviteSchema = z.object({
     return birth <= cutoff;
   }, { message: 'Co-parent must be at least 18 years old' }).optional(),
   phone: z.string().optional(),
+  gender: z.enum(['male', 'female']).optional(),
 });
 
 /**
@@ -290,6 +294,28 @@ authRouter.post('/child/pin/setup', authenticate, validateBody(setupPinSchema), 
       ipAddress: req.ip,
       metadata: { event: 'pin_setup' },
     });
+
+    // M9 — fire-and-forget PIN reset notification email
+    prisma.user.findUnique({
+      where: { id: req.body.childId },
+      select: { id: true, email: true, firstName: true, familyId: true },
+    }).then((childUser) => {
+      if (childUser?.email) {
+        EmailService.send({
+          triggerType: 'child_profile_updated',
+          toEmail: childUser.email,
+          toUserId: childUser.id,
+          familyId: childUser.familyId!,
+          subject: `Your TaskBuddy PIN was reset`,
+          templateData: {
+            childFirstName: childUser.firstName,
+            changed: 'PIN',
+            appUrl: process.env.CLIENT_URL || 'http://localhost:3000',
+          },
+          skipPreferenceCheck: true,
+        }).catch((err: Error) => console.error('[child_pin_updated email]', err.message));
+      }
+    }).catch((err: Error) => console.error('[child_pin_updated email] user fetch failed', err.message));
 
     res.json({
       success: true,
@@ -582,6 +608,51 @@ authRouter.get('/me', authenticate, async (req, res, next) => {
     next(error);
   }
 });
+
+// PUT /auth/me - Update current parent's own profile (avatarUrl etc.)
+const updateMeSchema = z.object({
+  avatarUrl: z.string().url().nullable().optional(),
+  gender: z.enum(['male', 'female']).nullable().optional(),
+});
+
+authRouter.put('/me', authenticate, requireParent, validateBody(updateMeSchema), async (req, res, next) => {
+  try {
+    const updated = await prisma.user.update({
+      where: { id: req.user!.userId },
+      data: {
+        avatarUrl: req.body.avatarUrl ?? undefined,
+        gender: req.body.gender ?? undefined,
+      },
+    });
+    const { passwordHash: _, ...user } = updated;
+    res.json({ success: true, data: { user } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /auth/upload-image - Upload an image to storage, return its URL (no DB write)
+authRouter.post(
+  '/upload-image',
+  authenticate,
+  uploadPhoto.single('photo'),
+  async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: { message: 'No file uploaded' } });
+      }
+      const result = await uploadFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        config.apiUrl,
+      );
+      res.json({ success: true, data: { url: result.thumbnailUrl } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // ============================================
 // M8 — ADMIN REGISTRATION

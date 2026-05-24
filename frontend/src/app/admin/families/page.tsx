@@ -12,6 +12,7 @@ import { useDataRefresh } from '@/hooks/useDataRefresh';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { adminApi } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 interface Family {
   id: string;
@@ -191,7 +192,7 @@ export default function AdminFamiliesPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs">
-                    {new Date(family.createdAt).toLocaleDateString()}
+                    {formatDate(family.createdAt)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

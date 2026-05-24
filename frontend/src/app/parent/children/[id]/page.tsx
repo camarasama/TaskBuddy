@@ -18,8 +18,10 @@ import {
   Key,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { ResetPinModal } from '@/components/ResetPinModal';
+import { AvatarUpload } from '@/components/AvatarUpload';
 import { familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { getInitials, formatPoints, formatDate } from '@/lib/utils';
@@ -42,6 +44,7 @@ interface Child {
   dateOfBirth: string;
   avatarUrl?: string;
   createdAt: string;
+  gender?: string | null;
   childProfile?: ChildProfile;
 }
 
@@ -52,27 +55,29 @@ export default function ChildDetailsPage() {
   const [child, setChild] = useState<Child | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showResetPinModal, setShowResetPinModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const childId = params.id as string;
 
-  useEffect(() => {
-    const loadChild = async () => {
-      try {
-        const response = await familyApi.getChild(childId);
-        const data = response.data as { child: Child };
-        setChild(data.child);
-      } catch {
-        showError('Failed to load child details');
-        router.push('/parent/children');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadChild = async () => {
+    try {
+      const response = await familyApi.getChild(childId);
+      const data = response.data as { child: Child };
+      setChild(data.child);
+    } catch {
+      showError('Failed to load child details');
+      router.push('/parent/children');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (childId) {
       loadChild();
     }
-  }, [childId, showError, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [childId]);
 
   if (isLoading) {
     return (
@@ -127,17 +132,15 @@ export default function ChildDetailsPage() {
         >
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             {/* Avatar */}
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-3xl shadow-lg">
-              {child.avatarUrl ? (
-                <img
-                  src={child.avatarUrl}
-                  alt={child.firstName}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                getInitials(child.firstName, child.lastName)
-              )}
-            </div>
+            <AvatarUpload
+              currentUrl={child.avatarUrl}
+              initials={getInitials(child.firstName, child.lastName)}
+              size="lg"
+              onUpload={async (url) => {
+                await familyApi.updateChild(child.id, { avatarUrl: url });
+                setChild((prev) => prev ? { ...prev, avatarUrl: url } : prev);
+              }}
+            />
 
             {/* Info */}
             <div className="flex-1">
@@ -146,6 +149,11 @@ export default function ChildDetailsPage() {
               </h1>
               {child.username && (
                 <p className="text-slate-500">@{child.username}</p>
+              )}
+              {child.gender && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                  {child.gender}
+                </span>
               )}
               <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-600">
                 {age !== null && (
@@ -163,7 +171,7 @@ export default function ChildDetailsPage() {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm">
+              <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
                 <Edit2 className="w-4 h-4" />
                 Edit
               </Button>
@@ -273,6 +281,18 @@ export default function ChildDetailsPage() {
           </motion.div>
         </div>
 
+        {/* Edit Child Modal */}
+        {isEditing && (
+          <EditChildModal
+            child={child}
+            onClose={() => setIsEditing(false)}
+            onSuccess={() => {
+              setIsEditing(false);
+              loadChild();
+            }}
+          />
+        )}
+
         {/* Reset PIN Modal */}
         {showResetPinModal && (
           <ResetPinModal
@@ -316,5 +336,115 @@ function StatCard({
       <p className="text-2xl font-bold text-slate-900">{value}</p>
       <p className="text-sm text-slate-500">{label}</p>
     </motion.div>
+  );
+}
+
+function EditChildModal({
+  child,
+  onClose,
+  onSuccess,
+}: {
+  child: Child;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { error: showError, success: showSuccess } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: child.firstName,
+    lastName: child.lastName,
+    username: child.username || '',
+    avatarUrl: child.avatarUrl || '',
+    gender: child.gender || '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      await familyApi.updateChild(child.id, {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        username: formData.username || undefined,
+        avatarUrl: formData.avatarUrl || undefined,
+        gender: formData.gender || undefined,
+      });
+      showSuccess('Child updated');
+      onSuccess();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update child';
+      showError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl"
+      >
+        <h2 className="font-display text-xl font-bold text-slate-900 mb-6">Edit Child</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex justify-center">
+            <AvatarUpload
+              currentUrl={formData.avatarUrl}
+              initials={getInitials(formData.firstName || child.firstName, formData.lastName || child.lastName)}
+              size="lg"
+              onUpload={(url) => setFormData((f) => ({ ...f, avatarUrl: url }))}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="First Name"
+              value={formData.firstName}
+              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              required
+            />
+            <Input
+              label="Last Name"
+              value={formData.lastName}
+              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              required
+            />
+          </div>
+
+          <Input
+            label="Username (optional)"
+            placeholder="For child login"
+            value={formData.username}
+            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+          />
+
+          <div className="w-full">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Gender (optional)
+            </label>
+            <select
+              value={formData.gender}
+              onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+              className="w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+            >
+              <option value="">Not specified</option>
+              <option value="boy">Boy</option>
+              <option value="girl">Girl</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button type="button" variant="secondary" fullWidth onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" fullWidth loading={isLoading}>
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
   );
 }

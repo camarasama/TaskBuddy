@@ -15,6 +15,7 @@ import { useDataRefresh } from '@/hooks/useDataRefresh';
 import { useState, useEffect, useCallback } from 'react';
 import { Mail, RefreshCw, AlertCircle, CheckCircle, Clock, Search, Filter } from 'lucide-react';
 import { emailsApi } from '@/lib/api';
+import { formatDateTime } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -304,10 +305,7 @@ export default function AdminEmailsPage() {
 
                       {/* Sent at */}
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                        {new Date(log.createdAt).toLocaleString('en-GB', {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        })}
+                        {formatDateTime(log.createdAt)}
                       </td>
 
                       {/* Actions */}
@@ -349,7 +347,7 @@ export default function AdminEmailsPage() {
                             {log.lastResentAt && (
                               <div>
                                 <span className="font-medium text-gray-700">Last resent:</span>{' '}
-                                {new Date(log.lastResentAt).toLocaleString('en-GB')}
+                                {formatDateTime(log.lastResentAt)}
                               </div>
                             )}
                           </div>

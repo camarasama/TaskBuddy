@@ -16,6 +16,7 @@ import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 import { useEffect, useState, useCallback } from 'react';
 import { adminApi, getAccessToken } from '@/lib/api';
+import { formatDateTime } from '@/lib/utils';
 
 interface AuditLogEntry {
   id: string;
@@ -271,7 +272,7 @@ export default function AdminAuditLogPage() {
                 data?.logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50">
                     <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap font-mono">
-                      {new Date(log.createdAt).toLocaleString()}
+                      {formatDateTime(log.createdAt)}
                     </td>
                     <td className="px-4 py-2.5">
                       <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded ${ACTION_COLORS[log.action] || 'bg-slate-100 text-slate-600'}`}>

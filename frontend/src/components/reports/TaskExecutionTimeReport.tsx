@@ -13,6 +13,7 @@ import {
 import { reportsApi } from '@/lib/api';
 import { downloadExport } from '@/lib/downloadExport';
 import { AlertCircle, Download } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 interface Row {
   date: string; childName: string; taskTitle: string;
@@ -217,7 +218,7 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
               <tbody className="divide-y divide-gray-50">
                 {report.rows.slice(0, 100).map((r, i) => (
                   <tr key={i} className={r.anomaly ? 'bg-amber-50' : 'hover:bg-gray-50'}>
-                    <td className="px-4 py-2 text-gray-500">{r.date}</td>
+                    <td className="px-4 py-2 text-gray-500">{formatDate(r.date)}</td>
                     <td className="px-4 py-2 font-medium">{r.childName.split(' ')[0]}</td>
                     <td className="px-4 py-2 max-w-xs truncate text-gray-700">{r.taskTitle}</td>
                     <td className="px-4 py-2">

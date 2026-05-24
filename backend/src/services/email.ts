@@ -32,7 +32,9 @@ export type EmailTriggerType =
   | 'reward_redeemed'
   | 'level_up'
   | 'streak_at_risk'
-  | 'co_parent_invite';
+  | 'co_parent_invite'
+  | 'child_welcome'
+  | 'child_profile_updated';
 
 // ─── Input types ─────────────────────────────────────────────────────────────
 

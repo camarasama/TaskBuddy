@@ -40,6 +40,7 @@ export interface AcceptInviteInput {
   password: string;
   dateOfBirth?: string;
   phone?: string;
+  gender?: string;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -156,7 +157,7 @@ export class InviteService {
 
   // POST /auth/accept-invite
   async acceptInvite(input: AcceptInviteInput) {
-    const { token, firstName, lastName, password, dateOfBirth, phone } = input;
+    const { token, firstName, lastName, password, dateOfBirth, phone, gender } = input;
 
     // 1. Look up the invitation
     const invitation = await prisma.familyInvitation.findUnique({
@@ -210,6 +211,7 @@ export class InviteService {
             lastName,
             ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),
             ...(phone ? { phone } : {}),
+            ...(gender ? { gender } : {}),
           },
         });
 

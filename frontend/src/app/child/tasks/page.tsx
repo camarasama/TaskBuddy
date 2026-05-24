@@ -108,8 +108,13 @@ export default function ChildTasksPage() {
       const unassignedPool = tasksData.tasks.filter((t: any) => {
         if (seen.has(t.id)) return false;
         if (t.status === 'archived') return false;
-        // Exclude tasks this child already has an active assignment for
-        const myAssignmentIds = new Set(visibleAssignments.map((a: any) => a.task?.id ?? a.taskId));
+        // Exclude tasks this child has a non-expired assignment for.
+        // Expired assignments should not block re-claiming a pool task.
+        const myAssignmentIds = new Set(
+          visibleAssignments
+            .filter((a: any) => a.status !== 'expired')
+            .map((a: any) => a.task?.id ?? a.taskId)
+        );
         if (myAssignmentIds.has(t.id)) return false;
         seen.add(t.id);
         // Show if claims are still available

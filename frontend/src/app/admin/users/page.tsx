@@ -12,6 +12,7 @@ import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 import { useEffect, useState, useCallback } from 'react';
 import { adminApi } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 interface UserRow {
   id: string;
@@ -190,9 +191,7 @@ export default function AdminUsersPage() {
                     {user.email || user.username || '—'}
                   </td>
                   <td className="px-4 py-3 text-slate-400 text-xs">
-                    {user.lastLoginAt
-                      ? new Date(user.lastLoginAt).toLocaleDateString()
-                      : 'Never'}
+                    {user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never'}
                   </td>
                   <td className="px-4 py-3">
                     {/* Don't allow force-reset on admin accounts */}

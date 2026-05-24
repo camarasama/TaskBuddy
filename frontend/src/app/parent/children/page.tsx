@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { ResetPinModal } from '@/components/ResetPinModal';
+import { AvatarUpload } from '@/components/AvatarUpload';
 import { familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { getInitials, formatPoints } from '@/lib/utils';
@@ -26,6 +27,8 @@ interface Child {
   lastName: string;
   username?: string;
   dateOfBirth: string;
+  avatarUrl?: string | null;
+  gender?: string | null;
   childProfile?: {
     level: number;
     totalXp: number;
@@ -176,8 +179,12 @@ function ChildCard({
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-xl">
-            {getInitials(child.firstName, child.lastName)}
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-xl overflow-hidden">
+            {child.avatarUrl ? (
+              <img src={child.avatarUrl} alt={child.firstName} className="w-full h-full object-cover" />
+            ) : (
+              getInitials(child.firstName, child.lastName)
+            )}
           </div>
           <div>
             <h3 className="font-bold text-slate-900">
@@ -185,6 +192,11 @@ function ChildCard({
             </h3>
             {child.username && (
               <p className="text-sm text-slate-500">@{child.username}</p>
+            )}
+            {child.gender && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize mt-0.5">
+                {child.gender}
+              </span>
             )}
           </div>
         </div>
@@ -252,6 +264,9 @@ function ChildModal({
     username: child?.username || '',
     dateOfBirth: child?.dateOfBirth?.split('T')[0] || '',
     pin: '',
+    avatarUrl: child?.avatarUrl || '',
+    email: '',
+    gender: child?.gender || '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -264,6 +279,8 @@ function ChildModal({
           firstName: formData.firstName,
           lastName: formData.lastName,
           username: formData.username || undefined,
+          avatarUrl: formData.avatarUrl || undefined,
+          gender: formData.gender || undefined,
         });
         showSuccess('Child updated');
       } else {
@@ -283,6 +300,8 @@ function ChildModal({
           username: formData.username || undefined,
           dateOfBirth: formData.dateOfBirth,
           pin: formData.pin || undefined,
+          email: formData.email || undefined,
+          gender: formData.gender || undefined,
         });
         showSuccess('Child added');
       }
@@ -307,6 +326,17 @@ function ChildModal({
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {child && (
+            <div className="flex justify-center">
+              <AvatarUpload
+                currentUrl={formData.avatarUrl}
+                initials={getInitials(formData.firstName || child.firstName, formData.lastName || child.lastName)}
+                size="lg"
+                onUpload={(url) => setFormData((f) => ({ ...f, avatarUrl: url }))}
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="First Name"
@@ -328,6 +358,36 @@ function ChildModal({
             value={formData.username}
             onChange={(e) => setFormData({ ...formData, username: e.target.value })}
           />
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Gender <span className="text-slate-400">(optional)</span>
+            </label>
+            <select
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
+              value={formData.gender}
+              onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+            >
+              <option value="">Not specified</option>
+              <option value="boy">Boy</option>
+              <option value="girl">Girl</option>
+            </select>
+          </div>
+
+          {!child && (
+            <>
+              <Input
+                label="Email address (optional)"
+                type="email"
+                placeholder="Child's email for notifications"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+              <p className="text-sm text-slate-500 -mt-2">
+                If provided, the child will receive a welcome email with their login details.
+              </p>
+            </>
+          )}
 
           {!child && (
             <>

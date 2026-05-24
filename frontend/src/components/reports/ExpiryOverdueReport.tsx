@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { reportsApi } from '@/lib/api';
 import { downloadExport } from '@/lib/downloadExport';
+import { formatDate } from '@/lib/utils';
 
 interface ExpiryRow { taskId: string; taskTitle: string; taskTag: string; childName: string; dueDate: string; instanceDate: string; status: string; daysPastDue: number | null; }
 interface Report { rows: ExpiryRow[]; summary: { totalOverdue: number; totalExpired: number; expiryRate: number; byChild: Record<string, number> } }
@@ -67,7 +68,7 @@ export default function ExpiryOverdueReport({ childId, startDate, endDate }: Pro
               <tr key={i} className={`hover:bg-gray-50/50 ${(r.daysPastDue ?? 0) > 3 ? 'bg-red-50/30' : ''}`}>
                 <td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td><td className="px-3 py-2 text-gray-600 max-w-[180px] truncate">{r.taskTitle}</td>
                 <td className="px-3 py-2"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.taskTag === 'primary' ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'}`}>{r.taskTag}</span></td>
-                <td className="px-3 py-2 text-gray-600">{r.dueDate}</td><td className="px-3 py-2 text-gray-500 capitalize">{r.status}</td>
+                <td className="px-3 py-2 text-gray-600">{formatDate(r.dueDate)}</td><td className="px-3 py-2 text-gray-500 capitalize">{r.status}</td>
                 <td className="px-3 py-2">{r.daysPastDue !== null && r.daysPastDue > 0 ? <span className={`font-medium ${r.daysPastDue > 3 ? 'text-red-600' : 'text-orange-500'}`}>{r.daysPastDue}d overdue</span> : <span className="text-amber-500 text-xs">due soon</span>}</td>
               </tr>
             ))}</tbody>

@@ -11,6 +11,7 @@ import { useDataRefresh } from '@/hooks/useDataRefresh';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { notificationsApi, type NotificationItem } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ function timeAgo(isoString: string): string {
   if (diff < 60) return 'just now';
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return new Date(isoString).toLocaleDateString();
+  return formatDate(isoString);
 }
 
 const TYPE_ICON: Record<string, string> = {

@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, Cell } from 'recharts';
 import { reportsApi } from '@/lib/api';
 import { downloadExport } from '@/lib/downloadExport';
+import { formatDate } from '@/lib/utils';
 
 interface LedgerRow { date: string; childName: string; transactionType: string; pointsAmount: number; balanceAfter: number; referenceType: string | null; description: string | null; }
 interface Report { rows: LedgerRow[]; summary: { totalPointsEarned: number; totalPointsSpent: number; totalXpEvents: number; byType: Record<string, number>; byChild: Record<string, { earned: number; spent: number }> } }
@@ -80,7 +81,7 @@ export default function PointsLedgerReport({ childId, startDate, endDate }: Prop
         <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Date', 'Child', 'Type', 'Amount', 'Balance After', 'Description'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-gray-50">{report.rows.slice(0, 50).map((r, i) => (
             <tr key={i} className="hover:bg-gray-50/50">
-              <td className="px-3 py-2 text-gray-600">{r.date}</td><td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td>
+              <td className="px-3 py-2 text-gray-600">{formatDate(r.date)}</td><td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td>
               <td className="px-3 py-2"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">{r.transactionType}</span></td>
               <td className={`px-3 py-2 font-medium ${r.pointsAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{r.pointsAmount >= 0 ? '+' : ''}{r.pointsAmount}</td>
               <td className="px-3 py-2 text-gray-700">{r.balanceAfter}</td><td className="px-3 py-2 text-gray-500 max-w-[200px] truncate">{r.description ?? '—'}</td>

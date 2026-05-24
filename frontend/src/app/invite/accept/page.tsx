@@ -21,6 +21,7 @@ interface FormData {
   lastName: string;
   dateOfBirth: string;
   phone: string;
+  gender: string;
   password: string;
   confirmPassword: string;
 }
@@ -69,6 +70,7 @@ function AcceptInviteInner() {
     lastName: '',
     dateOfBirth: '',
     phone: '',
+    gender: '',
     password: '',
     confirmPassword: '',
   });
@@ -158,6 +160,7 @@ function AcceptInviteInner() {
           lastName: form.lastName.trim(),
           dateOfBirth: form.dateOfBirth,
           phone: form.phone.trim() || undefined,
+          gender: form.gender || undefined,
           password: form.password,
         }),
       });
@@ -323,6 +326,23 @@ function AcceptInviteInner() {
                     onChange={(e) => setField('phone', e.target.value)}
                     disabled={isSubmitting}
                   />
+                </div>
+
+                {/* Gender */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    Gender <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <select
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
+                    value={form.gender}
+                    onChange={(e) => setField('gender', e.target.value)}
+                    disabled={isSubmitting}
+                  >
+                    <option value="">Prefer not to say</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
                 </div>
 
                 {/* Password */}

@@ -255,6 +255,32 @@ export const authApi = {
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
 
+  updateMe: (data: { avatarUrl?: string | null; gender?: string | null }) =>
+    request<ApiResponse<{ user: unknown }>>('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  uploadImage: async (file: File): Promise<ApiResponse<{ url: string }>> => {
+    const url = `${API_BASE}/auth/upload-image`;
+    const token = getAccessToken();
+    const formData = new FormData();
+    formData.append('photo', file);
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+      credentials: 'include',
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new ApiError(data.error?.message || 'Upload failed', response.status, data);
+    }
+    return data;
+  },
+
 };
 
 // Family API
@@ -293,6 +319,8 @@ export const familyApi = {
     dateOfBirth: string;
     username?: string;
     pin?: string;
+    email?: string;
+    gender?: string;
   }) =>
     request<ApiResponse<unknown>>('/families/me/children', {
       method: 'POST',

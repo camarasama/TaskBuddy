@@ -50,6 +50,7 @@ model User {
   firstName    String    @map("first_name")
   lastName     String    @map("last_name")
   avatarUrl    String?   @map("avatar_url")
+  gender       String?   @map("gender")
   isPrimaryParent Boolean   @default(false) @map("is_primary_parent")
   dateOfBirth     DateTime? @map("date_of_birth") @db.Date
   phone           String?

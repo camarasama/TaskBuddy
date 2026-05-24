@@ -20,8 +20,8 @@ export const config = {
   },
 
   jwt: {
-    secret: process.env.JWT_SECRET || 'dev-secret-change-me',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-me',
+    secret: process.env.JWT_SECRET || '',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || '',
     expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
@@ -42,15 +42,14 @@ export const config = {
 
 // Validate required config
 export function validateConfig(): void {
-  const required: string[] = [];
+  if (config.env === 'test') return;
 
-  // Only require JWT secrets in production (defaults exist for development)
+  const required = ['JWT_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL', 'ADMIN_INVITE_CODE'];
   if (config.env === 'production') {
-    required.push('JWT_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL', 'REDIS_URL');
+    required.push('REDIS_URL');
   }
 
   const missing = required.filter(key => !process.env[key]);
-
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }

@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminApi } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 interface Member {
   id: string;
@@ -144,7 +145,7 @@ export default function AdminFamilyDetailPage({ params }: { params: Promise<{ id
             <h2 className="text-xl font-semibold text-slate-800">{family.familyName}</h2>
             <div className="text-sm text-slate-500 mt-1 font-mono">{family.familyCode}</div>
             <div className="text-xs text-slate-400 mt-1">
-              Registered {new Date(family.createdAt).toLocaleDateString()}
+              Registered {formatDate(family.createdAt)}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -254,7 +255,7 @@ function MemberSection({
                   </>
                 )}
                 <td className="px-5 py-2.5 text-slate-400 text-xs">
-                  {m.lastLoginAt ? new Date(m.lastLoginAt).toLocaleDateString() : 'Never'}
+                  {m.lastLoginAt ? formatDate(m.lastLoginAt) : 'Never'}
                 </td>
                 <td className="px-5 py-2.5">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${m.isActive ? 'text-green-700 bg-green-50' : 'text-slate-500 bg-slate-100'}`}>
