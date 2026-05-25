@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { reportsApi } from '@/lib/api';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatLabel } from '@/lib/utils';
 import { downloadExport } from '@/lib/downloadExport';
 
 interface AuditRow { id: string; actorName: string | null; action: string; resourceType: string; resourceId: string; familyId: string | null; ipAddress: string | null; createdAt: string; }
@@ -61,7 +61,7 @@ export default function AuditTrailReport({ familyId, startDate, endDate }: Props
           <option value="">All Actions</option>{actions.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
         <select value={filterResource} onChange={(e) => setFilterResource(e.target.value)} className="rounded-lg border border-gray-200 text-sm px-3 py-1.5 bg-white text-gray-700">
-          <option value="">All Resources</option>{resourceTypes.map((r) => <option key={r} value={r}>{r}</option>)}
+          <option value="">All Resources</option>{resourceTypes.map((r) => <option key={r} value={r}>{formatLabel(r)}</option>)}
         </select>
         <span className="text-xs text-gray-400 ml-auto">{report.total} total log entries</span>
       </div>
@@ -71,7 +71,7 @@ export default function AuditTrailReport({ familyId, startDate, endDate }: Props
             <tr key={r.id} className="hover:bg-gray-50/50">
               <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{formatDateTime(r.createdAt)}</td><td className="px-3 py-2 font-medium text-gray-700">{r.actorName ?? 'System'}</td>
               <td className="px-3 py-2"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ACTION_COLORS[r.action] ?? 'bg-gray-100 text-gray-600'}`}>{r.action}</span></td>
-              <td className="px-3 py-2 text-gray-600">{r.resourceType}</td><td className="px-3 py-2 text-gray-400 font-mono text-xs">{r.resourceId.slice(0, 8)}…</td><td className="px-3 py-2 text-gray-400 text-xs">{r.ipAddress ?? '—'}</td>
+              <td className="px-3 py-2 text-gray-600">{formatLabel(r.resourceType)}</td><td className="px-3 py-2 text-gray-400 font-mono text-xs">{r.resourceId.slice(0, 8)}…</td><td className="px-3 py-2 text-gray-400 text-xs">{r.ipAddress ?? '—'}</td>
             </tr>
           ))}</tbody>
         </table>

@@ -31,6 +31,9 @@ const GREEN = rgb(0.13, 0.77, 0.37);
 const RED = rgb(0.94, 0.27, 0.27);
 const AMBER = rgb(0.96, 0.62, 0.04);
 
+// ─── Label formatter (converts snake_case DB values to Title Case) ────────────
+const fmtLabel = (v: string) => v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
 // ─── CSV helper ───────────────────────────────────────────────────────────────
 
 async function rowsToCsvBuffer(rows: Record<string, unknown>[]): Promise<Buffer> {
@@ -149,15 +152,15 @@ async function finalize(pdfDoc: PDFDocument): Promise<Buffer> {
 // ─── CSV exports ──────────────────────────────────────────────────────────────
 
 export async function exportTaskCompletionCsv(report: TaskCompletionReport): Promise<Buffer> {
-  return rowsToCsvBuffer(report.rows.map((r) => ({ Date: r.date, Child: r.childName, Task: r.taskTitle, Tag: r.taskTag, Difficulty: r.difficulty ?? '', 'Points Awarded': r.pointsAwarded, 'XP Awarded': r.xpAwarded, 'Completed At': r.completedAt, 'Approved At': r.approvedAt ?? '' })));
+  return rowsToCsvBuffer(report.rows.map((r) => ({ Date: r.date, Child: r.childName, Task: r.taskTitle, Tag: fmtLabel(r.taskTag), Difficulty: fmtLabel(r.difficulty ?? ''), 'Points Awarded': r.pointsAwarded, 'XP Awarded': r.xpAwarded, 'Completed At': r.completedAt, 'Approved At': r.approvedAt ?? '' })));
 }
 
 export async function exportPointsLedgerCsv(report: LedgerReport): Promise<Buffer> {
-  return rowsToCsvBuffer(report.rows.map((r) => ({ Date: r.date, Child: r.childName, 'Transaction Type': r.transactionType, 'Points Amount': r.pointsAmount, 'Balance After': r.balanceAfter, Reference: r.referenceType ?? '', Description: r.description ?? '' })));
+  return rowsToCsvBuffer(report.rows.map((r) => ({ Date: r.date, Child: r.childName, 'Transaction Type': fmtLabel(r.transactionType), 'Points Amount': r.pointsAmount, 'Balance After': r.balanceAfter, Reference: r.referenceType ?? '', Description: r.description ?? '' })));
 }
 
 export async function exportRewardRedemptionCsv(report: RedemptionReport): Promise<Buffer> {
-  return rowsToCsvBuffer(report.rows.map((r) => ({ Date: r.date, Child: r.childName, Reward: r.rewardName, Tier: r.rewardTier ?? '', 'Points Spent': r.pointsSpent, Status: r.status, 'Fulfilled At': r.fulfilledAt ?? '' })));
+  return rowsToCsvBuffer(report.rows.map((r) => ({ Date: r.date, Child: r.childName, Reward: r.rewardName, Tier: fmtLabel(r.rewardTier ?? ''), 'Points Spent': r.pointsSpent, Status: fmtLabel(r.status), 'Fulfilled At': r.fulfilledAt ?? '' })));
 }
 
 export async function exportEngagementStreakCsv(report: EngagementReport): Promise<Buffer> {
@@ -173,7 +176,7 @@ export async function exportLeaderboardCsv(report: LeaderboardReport): Promise<B
 }
 
 export async function exportExpiryOverdueCsv(report: ExpiryReport): Promise<Buffer> {
-  return rowsToCsvBuffer(report.rows.map((r) => ({ Child: r.childName, Task: r.taskTitle, Tag: r.taskTag, 'Due Date': r.dueDate, Status: r.status, 'Days Past Due': r.daysPastDue ?? '' })));
+  return rowsToCsvBuffer(report.rows.map((r) => ({ Child: r.childName, Task: r.taskTitle, Tag: fmtLabel(r.taskTag), 'Due Date': r.dueDate, Status: fmtLabel(r.status), 'Days Past Due': r.daysPastDue ?? '' })));
 }
 
 export async function exportPlatformHealthCsv(report: PlatformHealthReport): Promise<Buffer> {
@@ -200,7 +203,7 @@ export async function exportAuditTrailCsv(report: AuditTrailReport): Promise<Buf
 }
 
 export async function exportEmailDeliveryCsv(report: EmailDeliveryReport): Promise<Buffer> {
-  return rowsToCsvBuffer(report.rows.map((r) => ({ Date: r.date, 'Trigger Type': r.triggerType, Status: r.status, 'To Email': r.toEmail, Subject: r.subject, 'Resend Count': r.resendCount, 'Error Message': r.errorMessage ?? '' })));
+  return rowsToCsvBuffer(report.rows.map((r) => ({ Date: r.date, 'Trigger Type': fmtLabel(r.triggerType), Status: fmtLabel(r.status), 'To Email': r.toEmail, Subject: r.subject, 'Resend Count': r.resendCount, 'Error Message': r.errorMessage ?? '' })));
 }
 
 /** R-11 CSV */
@@ -234,7 +237,7 @@ export async function exportTaskCompletionPdf(report: TaskCompletionReport): Pro
   drawHeading(ctx, 'By Difficulty');
   const diffEntries = Object.entries(report.summary.byDifficulty);
   for (const [diff, count] of diffEntries) {
-    ctx.page.drawText(`${diff.padEnd(10)} ${count}`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 8, font: ctx.font, color: BRAND_DARK });
+    ctx.page.drawText(`${fmtLabel(diff).padEnd(10)} ${count}`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 8, font: ctx.font, color: BRAND_DARK });
     ctx.y.v -= 12;
   }
   ctx.y.v -= 6;
@@ -242,7 +245,7 @@ export async function exportTaskCompletionPdf(report: TaskCompletionReport): Pro
   drawHeading(ctx, 'Task Data');
   drawTable(ctx, ['Date', 'Child', 'Task', 'Tag', 'Difficulty', 'Points', 'XP'],
     [62, 90, 115, 52, 62, 52, 45],
-    report.rows.map((r) => [r.date, r.childName, r.taskTitle.slice(0, 22), r.taskTag, r.difficulty ?? '—', r.pointsAwarded, r.xpAwarded]),
+    report.rows.map((r) => [r.date, r.childName, r.taskTitle.slice(0, 22), fmtLabel(r.taskTag), fmtLabel(r.difficulty ?? '—'), r.pointsAwarded, r.xpAwarded]),
   );
   return finalize(ctx.pdfDoc);
 }
@@ -259,7 +262,7 @@ export async function exportPointsLedgerPdf(report: LedgerReport): Promise<Buffe
 
   drawHeading(ctx, 'Transaction Type Breakdown');
   for (const [type, count] of Object.entries(report.summary.byType)) {
-    ctx.page.drawText(`${type.padEnd(20)} ${count}`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 8, font: ctx.font, color: BRAND_DARK });
+    ctx.page.drawText(`${fmtLabel(type).padEnd(20)} ${count}`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 8, font: ctx.font, color: BRAND_DARK });
     ctx.y.v -= 12;
   }
   ctx.y.v -= 6;
@@ -267,7 +270,7 @@ export async function exportPointsLedgerPdf(report: LedgerReport): Promise<Buffe
   drawHeading(ctx, 'Transaction Data');
   drawTable(ctx, ['Date', 'Child', 'Type', 'Amount', 'Balance After', 'Description'],
     [55, 90, 85, 52, 72, 110],
-    report.rows.map((r) => [r.date, r.childName, r.transactionType, r.pointsAmount >= 0 ? `+${r.pointsAmount}` : r.pointsAmount, r.balanceAfter, (r.description ?? '').slice(0, 18)]),
+    report.rows.map((r) => [r.date, r.childName, fmtLabel(r.transactionType), r.pointsAmount >= 0 ? `+${r.pointsAmount}` : r.pointsAmount, r.balanceAfter, (r.description ?? '').slice(0, 18)]),
   );
   return finalize(ctx.pdfDoc);
 }
@@ -282,7 +285,7 @@ export async function exportRewardRedemptionPdf(report: RedemptionReport): Promi
 
   drawHeading(ctx, 'Status Breakdown');
   for (const [status, count] of Object.entries(report.summary.byStatus)) {
-    ctx.page.drawText(`${status.padEnd(15)} ${count}`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 8, font: ctx.font, color: BRAND_DARK });
+    ctx.page.drawText(`${fmtLabel(status).padEnd(15)} ${count}`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 8, font: ctx.font, color: BRAND_DARK });
     ctx.y.v -= 12;
   }
   ctx.y.v -= 4;
@@ -297,7 +300,7 @@ export async function exportRewardRedemptionPdf(report: RedemptionReport): Promi
   drawHeading(ctx, 'Redemption Data');
   drawTable(ctx, ['Date', 'Child', 'Reward', 'Tier', 'Points', 'Status'],
     [60, 90, 120, 60, 55, 65],
-    report.rows.map((r) => [r.date, r.childName, r.rewardName.slice(0, 20), r.rewardTier ?? '—', r.pointsSpent, r.status]),
+    report.rows.map((r) => [r.date, r.childName, r.rewardName.slice(0, 20), fmtLabel(r.rewardTier ?? '—'), r.pointsSpent, fmtLabel(r.status)]),
   );
   return finalize(ctx.pdfDoc);
 }
@@ -378,7 +381,7 @@ export async function exportExpiryOverduePdf(report: ExpiryReport): Promise<Buff
     drawHeading(ctx, 'Overdue Tasks');
     drawTable(ctx, ['Child', 'Task', 'Tag', 'Due Date', 'Status', 'Days Overdue'],
       [100, 130, 50, 65, 60, 70],
-      report.rows.map((r) => [r.childName, r.taskTitle.slice(0, 22), r.taskTag, r.dueDate, r.status, r.daysPastDue != null && r.daysPastDue > 0 ? `${r.daysPastDue}d` : 'due soon']),
+      report.rows.map((r) => [r.childName, r.taskTitle.slice(0, 22), fmtLabel(r.taskTag), r.dueDate, fmtLabel(r.status), r.daysPastDue != null && r.daysPastDue > 0 ? `${r.daysPastDue}d` : 'due soon']),
     );
   }
   return finalize(ctx.pdfDoc);
@@ -444,7 +447,7 @@ export async function exportEmailDeliveryPdf(report: EmailDeliveryReport): Promi
 
   drawHeading(ctx, 'By Trigger Type');
   for (const [type, { sent, failed }] of Object.entries(report.summary.byTriggerType)) {
-    ctx.page.drawText(`${type.replace(/_/g, ' ').slice(0, 28).padEnd(30)} sent: ${sent}  failed: ${failed}`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 7.5, font: ctx.font, color: BRAND_DARK });
+    ctx.page.drawText(`${fmtLabel(type).slice(0, 28).padEnd(30)} sent: ${sent}  failed: ${failed}`, { x: ctx.margin + 8, y: ctx.y.v - 4, size: 7.5, font: ctx.font, color: BRAND_DARK });
     ctx.y.v -= 12;
   }
   ctx.y.v -= 6;
@@ -452,7 +455,7 @@ export async function exportEmailDeliveryPdf(report: EmailDeliveryReport): Promi
   drawHeading(ctx, 'Email Log Data');
   drawTable(ctx, ['Date', 'Trigger Type', 'Status', 'To Email', 'Subject'],
     [55, 100, 48, 110, 150],
-    report.rows.map((r) => [r.date, r.triggerType.replace(/_/g, ' ').slice(0, 18), r.status, r.toEmail.slice(0, 18), r.subject.slice(0, 24)]),
+    report.rows.map((r) => [r.date, fmtLabel(r.triggerType).slice(0, 18), fmtLabel(r.status), r.toEmail.slice(0, 18), r.subject.slice(0, 24)]),
   );
   return finalize(ctx.pdfDoc);
 }
