@@ -96,6 +96,8 @@ const updateTaskSchema = z.object({
   requiresPhotoEvidence: z.boolean().optional(),
   status: z.enum(['active', 'paused', 'archived']).optional(),
   maxClaimsTotal: z.number().int().min(1).max(100).nullable().optional(),
+  isRecurring: z.boolean().optional(),
+  recurrencePattern: z.enum(['daily', 'weekly', 'weekdays', 'weekends']).optional(),
 });
 
 const taskFiltersSchema = z.object({
@@ -665,6 +667,37 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
       ipAddress: req.ip,
     });
     res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /tasks/assignments/:id/reset - Reset a completed/approved assignment back to pending
+taskRouter.put('/assignments/:id/reset', requireParent, async (req, res, next) => {
+  try {
+    const assignment = await prisma.taskAssignment.findFirst({
+      where: {
+        id: req.params.id,
+        task: { familyId: req.familyId, deletedAt: null },
+      },
+      select: { id: true, status: true },
+    });
+    if (!assignment) throw new NotFoundError('Assignment not found');
+    if (!['completed', 'approved', 'rejected'].includes(assignment.status)) {
+      throw new ConflictError('Only completed, approved, or rejected assignments can be reset');
+    }
+    const updated = await prisma.taskAssignment.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'pending',
+        completedAt: null,
+        approvedAt: null,
+        approvedBy: null,
+        pointsAwarded: null,
+        xpAwarded: null,
+      },
+    });
+    res.json({ success: true, data: { assignment: updated } });
   } catch (error) {
     next(error);
   }

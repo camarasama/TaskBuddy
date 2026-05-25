@@ -32,12 +32,13 @@ import {
   RotateCcw,
   AlertCircle,
   Play,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ChildLayout } from '@/components/layouts/ChildLayout';
 import { tasksApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { cn, getDifficultyColor, formatPoints } from '@/lib/utils';
+import { cn, getDifficultyColor, formatPoints, formatDate } from '@/lib/utils';
 import Confetti from 'react-confetti';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -46,7 +47,6 @@ interface TaskAssignment {
   id: string;
   status: string;
   rejectionReason?: string | null;
-  dueDate?: string;
   canSelfAssign?: boolean;
   claimsRemaining?: number | null;
   task: {
@@ -58,6 +58,7 @@ interface TaskAssignment {
     requiresPhotoEvidence: boolean;
     taskTag: 'primary' | 'secondary';
     status: string;
+    dueDate?: string;
   };
 }
 
@@ -475,6 +476,12 @@ function TaskCard({
           {assignment.task.description && (
             <p className="text-sm text-slate-500 mt-1 line-clamp-2">{assignment.task.description}</p>
           )}
+          {assignment.task.dueDate && (
+            <p className="flex items-center gap-1 text-xs text-slate-400 mt-1">
+              <Calendar className="w-3 h-3" />
+              Due {formatDate(assignment.task.dueDate)}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1 text-gold-600 font-bold shrink-0">
           <Star className="w-4 h-4" />
@@ -596,6 +603,12 @@ function ReturnedTaskCard({
             </span>
           </div>
           <h3 className="font-bold text-slate-900">{assignment.task.title}</h3>
+          {assignment.task.dueDate && (
+            <p className="flex items-center gap-1 text-xs text-slate-400 mt-1">
+              <Calendar className="w-3 h-3" />
+              Due {formatDate(assignment.task.dueDate)}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1 text-gold-600 font-bold shrink-0">
           <Star className="w-4 h-4" />
@@ -675,6 +688,12 @@ function AvailableTaskCard({
             </span>
           </div>
           <p className="font-bold text-slate-900 truncate">{task.title}</p>
+          {task.dueDate && (
+            <p className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
+              <Calendar className="w-3 h-3" />
+              Due {formatDate(task.dueDate)}
+            </p>
+          )}
           {task.claimsRemaining != null && (
             <p className="text-xs text-slate-400 mt-0.5">
               {task.claimsRemaining} spot{task.claimsRemaining !== 1 ? 's' : ''} left

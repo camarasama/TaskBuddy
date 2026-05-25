@@ -536,7 +536,12 @@ export async function getLeaderboardReport(
       },
       pointsLedger: {
         where: {
-          transactionType: 'earned',
+          // All positive-earning transaction types, matching the dashboard leaderboard.
+          // 'earned' only captured task approvals; game_reward and milestone_bonus
+          // were silently excluded, causing the score to be lower than the child's
+          // actual points.
+          transactionType: { in: ['earned', 'game_reward', 'bonus', 'milestone_bonus'] },
+          pointsAmount: { gt: 0 },
           ...(startDate ? { createdAt: { gte: startDate } } : {}),
         },
       },

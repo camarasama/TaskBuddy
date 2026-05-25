@@ -62,6 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await authApi.me();
         if (response.data) {
           setUser(response.data.user as AuthUser);
+          // Clear stale "please verify" banner if the loaded user is already verified
+          if (response.data.user.emailVerifiedAt) {
+            sessionStorage.removeItem('emailNotVerified');
+          }
         }
       } catch {
         setAccessToken(null);

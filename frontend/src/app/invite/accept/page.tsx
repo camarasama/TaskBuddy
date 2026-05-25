@@ -175,6 +175,8 @@ function AcceptInviteInner() {
 
       const { tokens } = json.data;
       localStorage.setItem('accessToken', tokens.accessToken);
+      // Invite-accepted users are pre-verified; clear any stale banner flag
+      sessionStorage.removeItem('emailNotVerified');
       setSuccess(true);
       setTimeout(() => router.push('/parent/dashboard'), 1500);
     } catch {

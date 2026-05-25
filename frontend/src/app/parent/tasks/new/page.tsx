@@ -47,7 +47,7 @@ const taskSchema = z.object({
   // M5 — CR-09
   startTime: z.string().optional(),
   estimatedMinutes: z.preprocess(
-    (v) => (typeof v === 'number' && isNaN(v) ? undefined : v),
+    (v) => (v === '' || v === null || (typeof v === 'number' && isNaN(v)) ? undefined : v),
     z.number().int().min(1).max(480).optional()
   ),
   requiresPhotoEvidence: z.boolean(),
@@ -56,7 +56,7 @@ const taskSchema = z.object({
   // Make assignedTo optional - allow creating unassigned tasks
   assignedTo: z.array(z.string()).optional().default([]),
   maxClaimsTotal: z.preprocess(
-    (v) => (typeof v === 'number' && isNaN(v) ? undefined : v),
+    (v) => (v === '' || v === null || (typeof v === 'number' && isNaN(v)) ? undefined : v),
     z.number().int().min(1).max(100).optional()
   ),
   dueDate: z.string().min(1, 'Due date is required').refine(

@@ -209,6 +209,7 @@ export class InviteService {
             isPrimaryParent: false,
             firstName,
             lastName,
+            emailVerifiedAt: new Date(),
             ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),
             ...(phone ? { phone } : {}),
             ...(gender ? { gender } : {}),

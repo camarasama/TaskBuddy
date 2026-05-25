@@ -76,7 +76,9 @@ export async function generateRecurringAssignments(): Promise<{
         // Fetch all assignments for this task to determine active children
         assignments: {
           where: {
-            status: { in: ['pending', 'in_progress', 'completed', 'approved'] },
+            // Include 'expired' so children who missed yesterday still get
+            // tomorrow's instance created — that's the whole point of recurring.
+            status: { in: ['pending', 'in_progress', 'completed', 'approved', 'expired'] },
           },
           orderBy: { instanceDate: 'desc' },
           // We only need to know which childIds have been assigned to this task
@@ -91,13 +93,30 @@ export async function generateRecurringAssignments(): Promise<{
 
     console.log(`[RecurringScheduler] Found ${recurringTasks.length} active recurring tasks`);
 
+    // End-of-day for the new instance: 23:59:59.999 of tomorrow (local server time).
+    const endOfInstanceDay = new Date(tomorrow);
+    endOfInstanceDay.setHours(23, 59, 59, 999);
+
     for (const task of recurringTasks) {
+      // Always advance the task's dueDate to the end of the new instance day so:
+      //  - children see a current deadline on their task cards
+      //  - the hourly expiry cron has a valid cutoff for the new cycle
+      //  - unassigned pool tasks also get a rolling due date
+      try {
+        await prisma.task.update({
+          where: { id: task.id },
+          data: { dueDate: endOfInstanceDay },
+        });
+      } catch (dueDateErr) {
+        console.error(`[RecurringScheduler] Failed to advance dueDate for task ${task.id}:`, dueDateErr);
+      }
+
       // 2. Resolve the unique set of children currently assigned to this task.
       //    We use the most recently seen childId set — deduplicated.
       const uniqueChildIds = [...new Set(task.assignments.map((a) => a.childId))];
 
       if (uniqueChildIds.length === 0) {
-        // No children assigned yet — nothing to auto-generate
+        // No children assigned yet (pool task) — dueDate still advances above.
         continue;
       }
 
