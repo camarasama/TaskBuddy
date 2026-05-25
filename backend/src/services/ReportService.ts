@@ -554,7 +554,8 @@ export async function getLeaderboardReport(
       childId: c.id,
       childName: `${c.firstName} ${c.lastName}`,
       avatarUrl: c.avatarUrl,
-      avatarEmoji: (c.childProfile as any).avatarEmoji ?? null,
+      avatarEmoji: (c.childProfile as any).avatarEmoji
+        ?? (c.gender === 'male' ? '👦' : c.gender === 'female' ? '👧' : '🧒'),
       score: c.pointsLedger.reduce((s, e) => s + e.pointsAmount, 0),
       tasksCompleted: c.taskAssignments.length,
       currentStreak: c.childProfile!.currentStreakDays,
