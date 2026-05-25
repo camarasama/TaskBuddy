@@ -38,7 +38,7 @@ import { Button } from '@/components/ui/Button';
 import { ChildLayout } from '@/components/layouts/ChildLayout';
 import { tasksApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { cn, getDifficultyColor, formatPoints, formatDate } from '@/lib/utils';
+import { cn, getDifficultyColor, formatPoints, formatDate, formatDateTime } from '@/lib/utils';
 import Confetti from 'react-confetti';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -479,7 +479,7 @@ function TaskCard({
           {assignment.task.dueDate && (
             <p className="flex items-center gap-1 text-xs text-slate-400 mt-1">
               <Calendar className="w-3 h-3" />
-              Due {formatDate(assignment.task.dueDate)}
+              Due {formatDateTime(assignment.task.dueDate)}
             </p>
           )}
         </div>
@@ -606,7 +606,7 @@ function ReturnedTaskCard({
           {assignment.task.dueDate && (
             <p className="flex items-center gap-1 text-xs text-slate-400 mt-1">
               <Calendar className="w-3 h-3" />
-              Due {formatDate(assignment.task.dueDate)}
+              Due {formatDateTime(assignment.task.dueDate)}
             </p>
           )}
         </div>
@@ -691,7 +691,7 @@ function AvailableTaskCard({
           {task.dueDate && (
             <p className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
               <Calendar className="w-3 h-3" />
-              Due {formatDate(task.dueDate)}
+              Due {formatDateTime(task.dueDate)}
             </p>
           )}
           {task.claimsRemaining != null && (

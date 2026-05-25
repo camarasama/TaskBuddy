@@ -26,7 +26,7 @@ import { Input } from '@/components/ui/Input';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { tasksApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { cn, getDifficultyColor, getStatusColor, formatDate } from '@/lib/utils';
+import { cn, getDifficultyColor, getStatusColor, formatDate, formatDateTime } from '@/lib/utils';
 import Link from 'next/link';
 
 interface Task {
@@ -367,7 +367,7 @@ function TaskCard({ task, onArchive }: { task: Task; onArchive: (id: string) => 
                 {task.dueDate && (
                   <span className="flex items-center gap-1 text-slate-500">
                     <Calendar className="w-3.5 h-3.5" />
-                    {formatDate(task.dueDate)}
+                    {formatDateTime(task.dueDate)}
                   </span>
                 )}
                 {assignedCount > 0 && (
