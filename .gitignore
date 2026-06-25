@@ -10,4 +10,4 @@ uploads/
 *.log
 do_not_upload/
 frontend/public/sw.js
-frontend/public/workbox-*.js
+frontend/public/workbox-*.js*.tsbuildinfo

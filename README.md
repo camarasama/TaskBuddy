@@ -25,7 +25,7 @@
 
 ## 1. Project Overview
 
-TaskBuddy is a **family task management Progressive Web Application (PWA)** designed to help parents assign, track, and reward household tasks for children aged 10–16. The application uses gamification mechanics (experience points (XP), a points currency, level progression, streaks, and achievements) to motivate children to complete tasks consistently.
+TaskBuddy is a **family task management Progressive Web Application (PWA)** designed to help parents assign, track, and reward household tasks for children aged 10-16. The application uses gamification mechanics (experience points (XP), a points currency, level progression, streaks, and achievements) to motivate children to complete tasks consistently.
 
 ### The Problem
 
@@ -880,7 +880,7 @@ task-buddy/
 
 ## 10. Development Roadmap
 
-### Phase 0: Foundation (Weeks 1–3) ✅ Complete
+### Phase 0: Foundation (Weeks 1-3) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
@@ -889,7 +889,7 @@ task-buddy/
 | M3 | Memorable family codes (ADJECTIVE-ANIMAL-NNNN) + persistent child sessions | ✅ Done |
 | M4 | Co-parent / spouse invite flow + cancellation | ✅ Done |
 
-### Phase 1: Core Gameplay (Weeks 4–6) ✅ Complete
+### Phase 1: Core Gameplay (Weeks 4-6) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
@@ -897,19 +897,19 @@ task-buddy/
 | M6 | Reward triple-cap: per-child limit, household cap, expiry with countdown | ✅ Done |
 | M7 | XP/Points dual currency: level-up bonus points, streak milestone bonuses | ✅ Done |
 
-### Phase 2: Admin & Audit (Weeks 7–9) ✅ Complete
+### Phase 2: Admin & Audit (Weeks 7-9) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
 | M8 | Admin dashboard, platform overview, family suspension, achievement CRUD, audit log | ✅ Done |
 
-### Phase 3: Email Notifications (Weeks 10–12) ✅ Complete
+### Phase 3: Email Notifications (Weeks 10-12) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
 | M9 | EmailService, 10 HTML templates, all triggers, expiry/streak crons, preference toggles | ✅ Done |
 
-### Phase 4: Reports & Real-time (Weeks 13–18) ✅ Complete
+### Phase 4: Reports & Real-time (Weeks 13-18) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
@@ -1027,7 +1027,7 @@ pg_dump taskbuddy > backup_$(date +%Y%m%d).sql
 ### Key Design Decisions
 
 **PIN + Family Code Authentication for Children**
-Children aged 10–16 often lack personal email addresses and find password managers impractical. TaskBuddy uses a memorable family code (e.g. `MEGA-VIPER-8481`) combined with a 4-digit PIN, lowering the login barrier while maintaining per-child account separation.
+Children aged 10-16 often lack personal email addresses and find password managers impractical. TaskBuddy uses a memorable family code (e.g. `MEGA-VIPER-8481`) combined with a 4-digit PIN, lowering the login barrier while maintaining per-child account separation.
 
 **Dual XP/Points Currency**
 XP drives level progression (cosmetic, cannot be spent) while Points are the spendable currency for rewards. This prevents children from sacrificing long-term progression for short-term purchases, a common flaw in single-currency gamification systems.

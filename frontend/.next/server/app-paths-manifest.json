@@ -1,7 +1,0 @@
-{
-  "/not-found": "app/not-found.js",
-  "/page": "app/page.js",
-  "/login/page": "app/login/page.js",
-  "/parent/dashboard/page": "app/parent/dashboard/page.js",
-  "/parent/settings/page": "app/parent/settings/page.js"
-}

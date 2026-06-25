@@ -334,7 +334,7 @@ export default function CreateTaskPage() {
                 )}>
                   {difficultyFromPoints(watch('pointsValue'))}
                 </span>
-                <span className="text-slate-400 text-xs">(5–15 = easy · 16–30 = medium · 31+ = hard)</span>
+                <span className="text-slate-400 text-xs">(5-15 = easy · 16-30 = medium · 31+ = hard)</span>
               </div>
             )}
             <div className="mt-4 p-3 bg-primary-50 rounded-lg flex items-start gap-2">

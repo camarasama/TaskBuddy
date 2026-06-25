@@ -284,7 +284,7 @@ function ChildModal({
         });
         showSuccess('Child updated');
       } else {
-        // Validate child age 10–16
+        // Validate child age 10-16
         if (!formData.dateOfBirth) { showError('Date of birth is required'); setIsLoading(false); return; }
         const birth = new Date(formData.dateOfBirth);
         const minAge = new Date(); minAge.setFullYear(minAge.getFullYear() - 16);
@@ -392,7 +392,7 @@ function ChildModal({
           {!child && (
             <>
               <Input
-                label="Date of Birth (age 10–16)"
+                label="Date of Birth (age 10-16)"
                 type="date"
                 value={formData.dateOfBirth}
                 max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 10); return d.toISOString().split('T')[0]; })()}
