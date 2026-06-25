@@ -1,8 +1,7 @@
 # TaskBuddy
 
-> **End-of-Programme Project — BSc Information Technology**
-> Regional Maritime University, Ghana · February 2026
-> **Student:** Souleymane Camara
+> **Family task management, gamified.** Assign chores, reward effort, and watch kids stay motivated.
+> A product of Evolution Prime IT Ltd · Available on web, iOS, and Android.
 
 ---
 
@@ -20,13 +19,13 @@
 10. [Development Roadmap](#10-development-roadmap)
 11. [Testing](#11-testing)
 12. [Deployment](#12-deployment)
-13. [Academic Context](#13-academic-context)
+13. [Design Notes](#13-design-notes)
 
 ---
 
 ## 1. Project Overview
 
-TaskBuddy is a **family task management Progressive Web Application (PWA)** designed to help parents assign, track, and reward household tasks for children aged 10–16. The application uses gamification mechanics — experience points (XP), a points currency, level progression, streaks, and achievements — to motivate children to complete tasks consistently.
+TaskBuddy is a **family task management Progressive Web Application (PWA)** designed to help parents assign, track, and reward household tasks for children aged 10–16. The application uses gamification mechanics (experience points (XP), a points currency, level progression, streaks, and achievements) to motivate children to complete tasks consistently.
 
 ### The Problem
 
@@ -41,11 +40,11 @@ TaskBuddy provides:
 - **Multi-parent support** so spouses, co-parents, and guardians share full management access
 - **Photo evidence submission** so children prove task completion before points are awarded
 - **Memorable family codes** (e.g. `MEGA-VIPER-8481`) for children to log in without email addresses
-- **Reward caps** — per-child and household-wide redemption limits with optional expiry dates
-- **Email notifications** — automated emails for task events, reward redemptions, level-ups, and streak reminders
-- **In-app notifications** — real-time bell with socket-pushed alerts and a 60-second polling fallback
-- **10 analytics reports** — CSV/PDF-exportable task, points, reward, streak, achievement, and leaderboard reports
-- **Real-time live updates** — socket-driven dashboard counters, achievement celebrations, and streak toasts
+- **Reward caps**: per-child and household-wide redemption limits with optional expiry dates
+- **Email notifications**: automated emails for task events, reward redemptions, level-ups, and streak reminders
+- **In-app notifications**: real-time bell with socket-pushed alerts and a 60-second polling fallback
+- **10 analytics reports**: CSV/PDF-exportable task, points, reward, streak, achievement, and leaderboard reports
+- **Real-time live updates**: socket-driven dashboard counters, achievement celebrations, and streak toasts
 
 ---
 
@@ -62,23 +61,23 @@ TaskBuddy provides:
 | Family code management | Regenerate the family login code at any time |
 | Email notifications | Receive emails for task submissions, approvals, reward redemptions, level-ups, and streak alerts |
 | Notification preferences | Toggle each email type on/off per family from the Settings page |
-| In-app notification bell | Real-time bell badge with dropdown — socket-pushed, polling fallback |
+| In-app notification bell | Real-time bell badge with dropdown: socket-pushed, polling fallback |
 | Reports | 7 family-scoped analytics reports with date filters, child filters, CSV/PDF export |
 | Settings | Configure grace periods, leaderboard visibility, auto-approve rules |
 
 ### For Children
 | Feature | Description |
 |---|---|
-| PIN + family code login | Log in with a memorable code and a 4-digit PIN — no email needed |
+| PIN + family code login | Log in with a memorable code and a 4-digit PIN, no email needed |
 | Persistent sessions | Stay logged in across browser closes (via localStorage) |
-| Task dashboard | See primary and secondary tasks separately — secondary tasks unlock when primary is done |
+| Task dashboard | See primary and secondary tasks separately; secondary tasks unlock when primary is done |
 | Returned tasks | Tasks rejected by a parent appear in a "Returned" tab with feedback and a Resubmit button |
 | Photo evidence | Upload proof of completion directly from the task card |
 | XP & levelling | Earn XP to unlock new levels (cosmetic progression, cannot be spent) |
 | Points & rewards | Earn points to redeem against parent-created rewards |
 | Streak tracking | Daily streak counter with configurable grace periods |
-| Achievements | Unlock badges for milestones — celebrated with live toast notifications |
-| Reward shop | See live cap status — "Sold Out" and "Expired" rewards are clearly labelled |
+| Achievements | Unlock badges for milestones, celebrated with live toast notifications |
+| Reward shop | See live cap status: "Sold Out" and "Expired" rewards are clearly labelled |
 | In-app notifications | Bell badge with real-time socket push and 60-second polling fallback |
 
 ### For Admins
@@ -90,10 +89,10 @@ TaskBuddy provides:
 | Achievement CRUD | Create and manage global achievement definitions |
 | Audit log | Immutable, filterable record of all mutations |
 | Email log viewer | Paginated email delivery history with resend capability |
-| Platform reports | 10 reports including Audit Trail, Email Delivery, and Platform Health — with family/child filters |
+| Platform reports | 10 reports including Audit Trail, Email Delivery, and Platform Health, with family/child filters |
 
 ### Platform
-- **PWA** — installable on Android, iOS, and desktop
+- **PWA**: installable on Android, iOS, and desktop
 - **Mobile-first** responsive design
 - Works over ngrok for remote testing and demonstration
 
@@ -107,11 +106,11 @@ TaskBuddy provides:
 | Next.js | 14 | React framework, App Router, SSR/CSR |
 | TypeScript | 5 | Type safety across the entire codebase |
 | Tailwind CSS | 3 | Utility-first styling |
-| Framer Motion | — | Page and component animations |
-| React Hook Form + Zod | — | Form handling and validation |
-| Lucide React | — | Icon library |
-| Recharts | — | M10: charts for all 10 analytics reports |
-| Socket.io-client | — | M10: real-time WebSocket connection |
+| Framer Motion | - | Page and component animations |
+| React Hook Form + Zod | - | Form handling and validation |
+| Lucide React | - | Icon library |
+| Recharts | - | M10: charts for all 10 analytics reports |
+| Socket.io-client | - | M10: real-time WebSocket connection |
 
 ### Backend
 | Technology | Version | Purpose |
@@ -120,13 +119,13 @@ TaskBuddy provides:
 | TypeScript | 5 | Type-safe backend code |
 | Prisma ORM | 5 | Database access and migrations |
 | PostgreSQL | 15 | Primary relational database |
-| JSON Web Tokens | — | Access + refresh token authentication |
-| bcrypt | — | Password hashing |
-| Nodemailer | — | Transactional email (all notification triggers) |
-| Multer + Sharp | — | File upload handling and thumbnail generation |
-| node-cron | — | Scheduled jobs (expiry warnings, streak-at-risk alerts) |
-| Socket.io | — | M10: WebSocket server for real-time events |
-| Zod | — | Request validation schemas |
+| JSON Web Tokens | - | Access + refresh token authentication |
+| bcrypt | - | Password hashing |
+| Nodemailer | - | Transactional email (all notification triggers) |
+| Multer + Sharp | - | File upload handling and thumbnail generation |
+| node-cron | - | Scheduled jobs (expiry warnings, streak-at-risk alerts) |
+| Socket.io | - | M10: WebSocket server for real-time events |
+| Zod | - | Request validation schemas |
 
 ### Infrastructure & Storage
 | Technology | Purpose |
@@ -201,8 +200,8 @@ Co-parent invite:
 
 ```
 Socket rooms:
-  family:{familyId}  — family-wide events (task:submitted, task:approved, points:updated)
-  user:{userId}      — user-specific events (notification:new, achievement:unlocked)
+  family:{familyId}  : family-wide events (task:submitted, task:approved, points:updated)
+  user:{userId}      : user-specific events (notification:new, achievement:unlocked)
 
 Events emitted by server:
   task:submitted       → parent room: pending approval count incremented
@@ -305,18 +304,18 @@ family_settings
 
 ### Key Migrations (in order)
 ```
-init_schema                          — all base tables
-add_memorable_family_code            — families.familyCode
-add_co_parent_support                — users.isPrimaryParent + family_invitations
-add_user_dob_phone                   — users.dateOfBirth + users.phone
-add_task_tag_and_schedule            — tasks.taskTag + tasks.startTime/estimatedMinutes (M5)
-add_reward_total_cap                 — rewards.maxRedemptionsTotal (M6)
-m7_xp_dual_currency                  — child_profiles.totalXpEarned + TransactionType.milestone_bonus
-m8_admin_audit                       — audit_logs + families.isSuspended
-add_email_logs                       — email_logs + task_assignments.emailSentAt + EmailLogStatus
-add_email_log_relations              — EmailLog relations to User and Family
-m10_notifications                    — notifications table + composite index (M10)
-add_notification_composite_index     — @@index([userId, isRead, createdAt(sort: Desc)]) (M10 perf fix)
+init_schema                          : all base tables
+add_memorable_family_code            : families.familyCode
+add_co_parent_support                : users.isPrimaryParent + family_invitations
+add_user_dob_phone                   : users.dateOfBirth + users.phone
+add_task_tag_and_schedule            : tasks.taskTag + tasks.startTime/estimatedMinutes (M5)
+add_reward_total_cap                 : rewards.maxRedemptionsTotal (M6)
+m7_xp_dual_currency                  : child_profiles.totalXpEarned + TransactionType.milestone_bonus
+m8_admin_audit                       : audit_logs + families.isSuspended
+add_email_logs                       : email_logs + task_assignments.emailSentAt + EmailLogStatus
+add_email_log_relations              : EmailLog relations to User and Family
+m10_notifications                    : notifications table + composite index (M10)
+add_notification_composite_index     : @@index([userId, isRead, createdAt(sort: Desc)]) (M10 perf fix)
 ```
 
 ---
@@ -363,7 +362,7 @@ GET    /api/v1/tasks/:id
 PUT    /api/v1/tasks/:id
 DELETE /api/v1/tasks/:id
 GET    /api/v1/tasks/:id/assignments        List assignments for a task
-GET    /api/v1/tasks/assignments/me         Child's own assignments (incl. rejected — for Returned tab)
+GET    /api/v1/tasks/assignments/me         Child's own assignments (incl. rejected, for Returned tab)
 PUT    /api/v1/tasks/assignments/:id/complete   Child submits (also accepts rejected → resubmit)
 PUT    /api/v1/tasks/assignments/:id/approve    Parent approves or rejects with optional feedback
 POST   /api/v1/tasks/assignments/:id/upload     Upload photo evidence (multipart)
@@ -385,11 +384,11 @@ PUT    /api/v1/rewards/redemptions/:id/cancel    Cancel + refund points
 
 **Computed fields on reward responses (M6):**
 ```
-totalRedemptionsUsed   — non-cancelled claims across the household
-remainingTotal         — household claims left (null = no cap)
-remainingForChild      — claims left for requesting child (null = no cap)
-isExpired              — true when expiresAt is set and in the past
-isSoldOut              — true when totalRedemptionsUsed >= maxRedemptionsTotal
+totalRedemptionsUsed   : non-cancelled claims across the household
+remainingTotal         : household claims left (null = no cap)
+remainingForChild      : claims left for requesting child (null = no cap)
+isExpired              : true when expiresAt is set and in the past
+isSoldOut              : true when totalRedemptionsUsed >= maxRedemptionsTotal
 ```
 
 ### Dashboard & Uploads
@@ -461,11 +460,11 @@ POST   /api/v1/admin/emails/:id/resend Re-send a failed email
 | **Node.js** | 20+ | Check with `node -v` |
 | **npm** | 9+ | Bundled with Node.js |
 | **PostgreSQL** | 15+ | Must be running locally |
-| **Git** | Any | — |
+| **Git** | Any | - |
 
 ---
 
-### Step 1 — Clone the repository
+### Step 1: Clone the repository
 
 ```bash
 git clone https://github.com/camarasama/TaskBuddy.git
@@ -474,7 +473,7 @@ cd TaskBuddy
 
 ---
 
-### Step 2 — Install all dependencies
+### Step 2: Install all dependencies
 
 Run this once from the **root** of the repository. npm workspaces will install dependencies for `frontend/`, `backend/`, and `shared/` in one command.
 
@@ -484,7 +483,7 @@ npm install
 
 ---
 
-### Step 3 — Create the PostgreSQL database
+### Step 3: Create the PostgreSQL database
 
 ```bash
 createdb taskbuddy
@@ -498,7 +497,7 @@ psql -U postgres -c "CREATE DATABASE taskbuddy;"
 
 ---
 
-### Step 4 — Configure the backend environment
+### Step 4: Configure the backend environment
 
 Create the file `backend/.env` with the following content. The variables marked **required** must be set before the server will start.
 
@@ -513,7 +512,7 @@ NODE_ENV=development
 # ── CORS (comma-separated list of allowed frontend origins) ───────────────────
 CLIENT_URL=http://localhost:3000
 
-# ── JWT (required — use any long random strings) ──────────────────────────────
+# ── JWT (required, use any long random strings) ──────────────────────────────
 JWT_SECRET=change-me-to-a-long-random-string
 JWT_REFRESH_SECRET=change-me-to-another-long-random-string
 JWT_ACCESS_EXPIRES_IN=15m
@@ -526,7 +525,7 @@ JWT_CHILD_REFRESH_EXPIRES_IN=90d
 STORAGE_PROVIDER=local
 UPLOADS_BASE_PATH=./uploads
 
-# Cloudflare R2 — only needed when STORAGE_PROVIDER=r2
+# Cloudflare R2: only needed when STORAGE_PROVIDER=r2
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
@@ -546,20 +545,20 @@ SMTP_FROM=your-gmail@gmail.com
 INVITE_TOKEN_EXPIRES_HOURS=168
 
 # ── Admin registration gate ───────────────────────────────────────────────────
-# Any string — you must supply this when registering an admin account
+# Any string: you must supply this when registering an admin account
 ADMIN_INVITE_CODE=some-secret-code
 
 # ── ngrok / Remote Testing (only needed for remote demos) ─────────────────────
 # FRONTEND_URL=https://xxxx.ngrok-free.app
 ```
 
-> **Tip:** The app will start without valid SMTP credentials — emails will silently fail and be logged as `failed` in the email log. This is fine for local testing.
+> **Tip:** The app will start without valid SMTP credentials; emails will silently fail and be logged as `failed` in the email log. This is fine for local testing.
 
 ---
 
-### Step 5 — Configure the frontend environment
+### Step 5: Configure the frontend environment
 
-For local development no frontend env file is required — the frontend defaults to `http://localhost:3001/api/v1`.
+For local development no frontend env file is required; the frontend defaults to `http://localhost:3001/api/v1`.
 
 Only create `frontend/.env.local` if you are using ngrok or a remote API host:
 
@@ -569,7 +568,7 @@ NEXT_PUBLIC_API_URL=https://xxxx.ngrok-free.app/api/v1
 
 ---
 
-### Step 6 — Push the database schema
+### Step 6: Push the database schema
 
 From the `backend/` directory, push the Prisma schema to create all tables:
 
@@ -586,11 +585,11 @@ npm run db:push -w backend
 npm run db:generate -w backend
 ```
 
-> **Note:** The project uses `prisma db push` (schema-push) rather than `prisma migrate dev`. Do not run `migrate dev` — it will conflict with the existing migration history.
+> **Note:** The project uses `prisma db push` (schema-push) rather than `prisma migrate dev`. Do not run `migrate dev`; it will conflict with the existing migration history.
 
 ---
 
-### Step 7 — Create the uploads directory
+### Step 7: Create the uploads directory
 
 The backend stores uploaded photos here when `STORAGE_PROVIDER=local`.
 
@@ -600,9 +599,9 @@ mkdir -p backend/uploads
 
 ---
 
-### Step 8 — Start the application
+### Step 8: Start the application
 
-From the **root** directory — this starts both frontend and backend concurrently:
+From the **root** directory, this starts both frontend and backend concurrently:
 
 ```bash
 npm run dev
@@ -617,7 +616,7 @@ Open http://localhost:3000 and register a new family to get started.
 
 ---
 
-### Step 9 — Seed the database (optional)
+### Step 9: Seed the database (optional)
 
 ```bash
 npm run db:seed
@@ -627,7 +626,7 @@ Creates a sample family (`The Smiths`) with one parent, two children (ages 12 an
 
 ---
 
-### Step 10 — Create an admin account (optional)
+### Step 10: Create an admin account (optional)
 
 To access the `/admin` dashboard, register an admin account via the API:
 
@@ -652,10 +651,10 @@ Replace `some-secret-code` with the value you set for `ADMIN_INVITE_CODE` in `ba
 To share the app over the internet (useful for testing on a mobile device or demonstrating remotely):
 
 ```bash
-# Terminal 1 — expose the frontend
+# Terminal 1: expose the frontend
 ngrok http 3000
 
-# Terminal 2 — expose the backend
+# Terminal 2: expose the backend
 ngrok http 3001
 ```
 
@@ -701,7 +700,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/taskbuddy
 PORT=3001
 NODE_ENV=development
 
-# ── CORS — comma-separated list of allowed frontend origins ───────────────────
+# ── CORS: comma-separated list of allowed frontend origins ───────────────────
 CLIENT_URL=http://localhost:3000
 
 # ── JWT ───────────────────────────────────────────────────────────────────────
@@ -722,7 +721,7 @@ R2_SECRET_ACCESS_KEY=
 R2_BUCKET_NAME=
 R2_PUBLIC_URL=
 
-# ── Email (SMTP) — M9 ─────────────────────────────────────────────────────────
+# ── Email (SMTP) - M9 ─────────────────────────────────────────────────────────
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-gmail@gmail.com
@@ -754,7 +753,7 @@ ADMIN_INVITE_CODE=your-admin-invite-code
 task-buddy/
 ├── package.json                 # Root workspace config
 │
-├── shared/                      # @taskbuddy/shared — types & constants
+├── shared/                      # @taskbuddy/shared: types & constants
 │   └── src/
 │       ├── types/
 │       │   └── models.ts
@@ -881,7 +880,7 @@ task-buddy/
 
 ## 10. Development Roadmap
 
-### Phase 0 — Foundation (Weeks 1–3) ✅ Complete
+### Phase 0: Foundation (Weeks 1–3) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
@@ -890,27 +889,27 @@ task-buddy/
 | M3 | Memorable family codes (ADJECTIVE-ANIMAL-NNNN) + persistent child sessions | ✅ Done |
 | M4 | Co-parent / spouse invite flow + cancellation | ✅ Done |
 
-### Phase 1 — Core Gameplay (Weeks 4–6) ✅ Complete
+### Phase 1: Core Gameplay (Weeks 4–6) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
 | M5 | Task tags (primary/secondary), assignment limits, overlap warnings | ✅ Done |
-| M6 | Reward triple-cap — per-child limit, household cap, expiry with countdown | ✅ Done |
-| M7 | XP/Points dual currency — level-up bonus points, streak milestone bonuses | ✅ Done |
+| M6 | Reward triple-cap: per-child limit, household cap, expiry with countdown | ✅ Done |
+| M7 | XP/Points dual currency: level-up bonus points, streak milestone bonuses | ✅ Done |
 
-### Phase 2 — Admin & Audit (Weeks 7–9) ✅ Complete
+### Phase 2: Admin & Audit (Weeks 7–9) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
 | M8 | Admin dashboard, platform overview, family suspension, achievement CRUD, audit log | ✅ Done |
 
-### Phase 3 — Email Notifications (Weeks 10–12) ✅ Complete
+### Phase 3: Email Notifications (Weeks 10–12) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
 | M9 | EmailService, 10 HTML templates, all triggers, expiry/streak crons, preference toggles | ✅ Done |
 
-### Phase 4 — Reports & Real-time (Weeks 13–18) ✅ Complete
+### Phase 4: Reports & Real-time (Weeks 13–18) ✅ Complete
 
 | Milestone | Description | Status |
 |---|---|---|
@@ -922,14 +921,14 @@ task-buddy/
 
 ### Acceptance Tests (Phase 0)
 
-**M3 — Family Codes**
+**M3: Family Codes**
 1. Child logs in using `MEGA-VIPER-8481` (or your family's code) + PIN → reaches dashboard
 2. Close browser completely, reopen, navigate to app → child is still logged in (persistent session)
 3. Parent session → close browser, reopen → redirected to login (session cleared)
 
-**M4 — Co-Parent Invite**
+**M4: Co-Parent Invite**
 1. Go to **Settings → Family Members** → click **Invite Adult** → enter email → Send
-2. Check inbox — receive invite email with link
+2. Check inbox, receive invite email with link
 3. Click link → see "You've been invited to join [Family Name] by [Parent Name]"
 4. Fill in name, date of birth, phone (optional), password → Create Account
 5. Log in as co-parent → full parent access (create tasks, rewards, approve completions)
@@ -938,52 +937,52 @@ task-buddy/
 
 ### Acceptance Tests (Phase 1)
 
-**M5 — Task Rules**
+**M5: Task Rules**
 1. Assign a 4th task to a child → HTTP 409 "Maximum 3 active assignments"
 2. Complete primary task, then try to claim a secondary task while primary is still pending → blocked
 3. Create two tasks with overlapping times for the same child → overlap warning shown
 
-**M6 — Reward Triple Cap** ✅ All passed
-1. **Household cap** — Create reward with `maxRedemptionsTotal=2`. Two children redeem it. Third attempt → HTTP 409 "This reward has been fully claimed by the household." Reward shows "Sold Out".
-2. **Per-child cap** — Create reward with `maxRedemptionsPerChild=1`. Same child redeems twice → HTTP 409 "You have already claimed this reward the maximum number of times."
-3. **Expiry** — Create reward with `expiresAt` 2 minutes away. After expiry → "Expired" badge. Redemption attempt → HTTP 409 "This reward has expired."
+**M6: Reward Triple Cap** ✅ All passed
+1. **Household cap**: Create reward with `maxRedemptionsTotal=2`. Two children redeem it. Third attempt → HTTP 409 "This reward has been fully claimed by the household." Reward shows "Sold Out".
+2. **Per-child cap**: Create reward with `maxRedemptionsPerChild=1`. Same child redeems twice → HTTP 409 "You have already claimed this reward the maximum number of times."
+3. **Expiry**: Create reward with `expiresAt` 2 minutes away. After expiry → "Expired" badge. Redemption attempt → HTTP 409 "This reward has expired."
 
-**M7 — XP & Points Dual Currency** ✅ All passed
+**M7: XP & Points Dual Currency** ✅ All passed
 1. Approve a `hard` task → child's `pointsBalance` increases by `task.pointsValue` and `experiencePoints` increases by 35 XP.
 2. Level-up → `milestone_bonus` ledger entry for `newLevel × 5` Points. Level-up celebration modal fires.
 3. 7-day streak → `milestone_bonus` ledger entry for +35 Points.
 
 ### Acceptance Tests (Phase 2)
 
-**M8 — Admin & Audit** ✅ All passed
+**M8: Admin & Audit** ✅ All passed
 1. Create recurring task → trigger midnight cron → new assignment appears for next day.
 2. Register admin with `ADMIN_INVITE_CODE` → lands on `/admin/dashboard` with correct platform counts.
 3. Create task, approve submission, redeem reward → filter audit log by actor → three entries with correct action/resourceType/timestamp.
 
 ### Acceptance Tests (Phase 3)
 
-**M9 — Email Notifications** ✅ All passed
+**M9: Email Notifications** ✅ All passed
 1. Child marks task complete → parent receives email within 60 seconds with "Review Submission" link.
-2. Task with `dueDate` 20 hours away → trigger 00:05 cron → parent receives expiry warning. `emailSentAt` set — no duplicate on next run.
+2. Task with `dueDate` 20 hours away → trigger 00:05 cron → parent receives expiry warning. `emailSentAt` set; no duplicate on next run.
 3. Disable "Task Submitted" in settings → child completes task → no email queued. Admin email log confirms no entry.
 
 ### Acceptance Tests (Phase 4)
 
-**M10 — Reports** ✅ All passed
+**M10: Reports** ✅ All passed
 1. Navigate to **Parent → Reports** → R-01 Completion chart renders with correct task counts for the selected date range.
 2. Set child filter → all reports update to show only that child's data.
 3. Click **Export CSV** → browser downloads a `.csv` file with correct headers and rows.
 4. Navigate to **Admin → Reports** → all 10 tabs visible including Platform Health, Audit Trail, Email Delivery. Family ID filter applied → data scoped to that family.
 5. Parent visits Reports → R-08 Audit Trail and R-09 Email Delivery tabs are NOT visible (admin-only).
 
-**M10 — Notifications** ✅ All passed
+**M10: Notifications** ✅ All passed
 1. Parent assigns a task → child's bell badge increments in real-time (socket push). Notification reads "New Task Assigned: [task name]".
 2. Parent approves a task → child's bell badge increments. Notification reads "Task Approved! You earned +X pts".
 3. Parent rejects a task with feedback → child's bell shows "Task Returned" notification. Task appears in **Returned** tab with parent's feedback. Child clicks **Resubmit** → task moves back to pending.
 4. Close bell dropdown → badge count decrements for each read item. "Mark all read" clears badge instantly.
 5. Disconnect network → bell falls back to 60-second polling. Reconnect → socket resumes, polling stops.
 
-**M10 — Real-time Live Updates** ✅ All passed
+**M10: Real-time Live Updates** ✅ All passed
 1. Parent approves task → child dashboard points balance updates without page refresh. Level-up modal fires if threshold crossed.
 2. Child unlocks an achievement → `AchievementToast` celebration slides in on their dashboard.
 3. Child hits a streak milestone → `StreakMilestoneToast` fires with streak count.
@@ -1023,35 +1022,21 @@ pg_dump taskbuddy > backup_$(date +%Y%m%d).sql
 
 ---
 
-## 13. Academic Context
-
-### Project Information
-| Field | Detail |
-|---|---|
-| Programme | BSc Information Technology |
-| Institution | Regional Maritime University, Ghana |
-| Project Type | End-of-Programme Project |
-| Academic Year | 2025–2026 |
-| Student | Souleymane Camara |
-
-### Research Questions
-1. How can gamification mechanics increase children's task completion rates in a household context?
-2. What authentication patterns are most appropriate for children aged 10–16 who may not have personal email addresses?
-3. How should a multi-parent family model be designed to avoid permission hierarchies while still enabling account governance?
+## 13. Design Notes
 
 ### Key Design Decisions
 
 **PIN + Family Code Authentication for Children**
-Children aged 10–16 often lack personal email addresses and find password managers impractical. TaskBuddy uses a memorable family code (e.g. `MEGA-VIPER-8481`) combined with a 4-digit PIN — lowering the login barrier while maintaining per-child account separation.
+Children aged 10–16 often lack personal email addresses and find password managers impractical. TaskBuddy uses a memorable family code (e.g. `MEGA-VIPER-8481`) combined with a 4-digit PIN, lowering the login barrier while maintaining per-child account separation.
 
 **Dual XP/Points Currency**
-XP drives level progression (cosmetic, cannot be spent) while Points are the spendable currency for rewards. This prevents children from sacrificing long-term progression for short-term purchases — a common flaw in single-currency gamification systems.
+XP drives level progression (cosmetic, cannot be spent) while Points are the spendable currency for rewards. This prevents children from sacrificing long-term progression for short-term purchases, a common flaw in single-currency gamification systems.
 
 **Co-Parent Role Design**
 Rather than introducing a hierarchical co-parent role, the system reuses the existing `parent` role with an `isPrimaryParent` boolean. This ensures all permission middleware works without modification, and co-parents gain full access instantly upon accepting an invite.
 
 **Persistent Child Sessions**
-Children's refresh tokens are stored in `localStorage` (persisting browser closes) while parents use `sessionStorage` (cleared on browser close). This reduces login friction for children — who frequently close tabs accidentally — while maintaining stricter session control for parents who have account governance authority.
+Children's refresh tokens are stored in `localStorage` (persisting browser closes) while parents use `sessionStorage` (cleared on browser close). This reduces login friction for children (who frequently close tabs accidentally) while maintaining stricter session control for parents who have account governance authority.
 
 **Reward Cap Architecture (M6)**
 Rewards support three independent constraints: a per-child redemption limit, a household-wide total cap, and an optional expiry date. All three are enforced server-side in a sequential three-gate check that returns distinct HTTP 409 error messages for each case. Computed fields (`isSoldOut`, `isExpired`, `remainingTotal`, `remainingForChild`) are appended to every reward response so the frontend can render accurate state without additional API calls.
@@ -1065,27 +1050,26 @@ XP is awarded only on task **approval** (not on completion). The amount is deter
 | Medium | 15 XP |
 | Hard | 35 XP |
 
-Level thresholds follow an exponential curve: Level 1 → 2 requires 100 XP, with each subsequent level requiring 50% more (`floor(100 × 1.5^(level-1))`). Level-up detection runs after every XP award — if a threshold is crossed, the level is updated and a `milestone_bonus` Points entry is created for `newLevel × 5` Points.
+Level thresholds follow an exponential curve: Level 1 → 2 requires 100 XP, with each subsequent level requiring 50% more (`floor(100 × 1.5^(level-1))`). Level-up detection runs after every XP award: if a threshold is crossed, the level is updated and a `milestone_bonus` Points entry is created for `newLevel × 5` Points.
 
 **Primary / Secondary Task System (M5)**
 Tasks are classified as `primary` (must-do assignments) or `secondary` (optional bonus tasks). Children cannot claim secondary tasks while a primary task is pending. Assignment limits (max 3 total, max 1 primary) are enforced server-side.
 
 **Email Notification Architecture (M9)**
-All email delivery is centralised through `EmailService` — a single class that handles SMTP transport, retry logic (up to 2 retries), notification preference checks, and audit logging to `email_logs`. All calls are fire-and-forget. Two cron jobs run daily: an expiry scan at 00:05 and a streak-at-risk alert at 18:00.
+All email delivery is centralised through `EmailService`, a single class that handles SMTP transport, retry logic (up to 2 retries), notification preference checks, and audit logging to `email_logs`. All calls are fire-and-forget. Two cron jobs run daily: an expiry scan at 00:05 and a streak-at-risk alert at 18:00.
 
 **Real-time Architecture (M10)**
-Socket.io is used for all live updates. Two room types are maintained: `family:{familyId}` for family-wide events (task approvals, points updates) and `user:{userId}` for user-specific events (notifications, achievements). The server joins each socket to its rooms on connection using the JWT payload. The `NotificationContext` on the frontend acts as a singleton — a single fetch/poll/socket handler shared between the desktop sidebar bell and the mobile header bell, eliminating the double-fetch that previously occurred because CSS `display:none` does not prevent React components from mounting and running effects.
+Socket.io is used for all live updates. Two room types are maintained: `family:{familyId}` for family-wide events (task approvals, points updates) and `user:{userId}` for user-specific events (notifications, achievements). The server joins each socket to its rooms on connection using the JWT payload. The `NotificationContext` on the frontend acts as a singleton: a single fetch/poll/socket handler shared between the desktop sidebar bell and the mobile header bell, eliminating the double-fetch that previously occurred because CSS `display:none` does not prevent React components from mounting and running effects.
 
 **Performance Architecture (M10)**
-Several N+1 query patterns were eliminated: the parent dashboard child-stats block previously fired 3 COUNT queries per child; this was replaced with 3 `groupBy` queries covering all children at once. The leaderboard had the same pattern (2 queries per child). `weeklyStats` used a `$transaction` for three read-only queries — replaced with `Promise.all`. All notification routes now run `findMany` + `count` in parallel. The `ReportService` and `notifications` routes were also migrated from orphaned `new PrismaClient()` instances to the shared singleton, eliminating redundant connection pools. A 30-second stale-while-revalidate GET cache in `api.ts` serves repeat page visits instantly from memory.
+Several N+1 query patterns were eliminated: the parent dashboard child-stats block previously fired 3 COUNT queries per child; this was replaced with 3 `groupBy` queries covering all children at once. The leaderboard had the same pattern (2 queries per child). `weeklyStats` used a `$transaction` for three read-only queries, replaced with `Promise.all`. All notification routes now run `findMany` + `count` in parallel. The `ReportService` and `notifications` routes were also migrated from orphaned `new PrismaClient()` instances to the shared singleton, eliminating redundant connection pools. A 30-second stale-while-revalidate GET cache in `api.ts` serves repeat page visits instantly from memory.
 
 ---
 
 ## License
 
-This project was developed as an academic submission for Regional Maritime University, Ghana. All rights reserved.
+TaskBuddy is proprietary software. Copyright (c) 2026 Evolution Prime IT Ltd. All rights reserved. See [LICENSE](LICENSE).
 
 ---
 
-*TaskBuddy · M10 Complete · All 5 Phases Done · February 2026*
-*Souleymane Camara · BSc Information Technology · Regional Maritime University, Ghana*
+*TaskBuddy - a product of Evolution Prime IT Ltd.*
