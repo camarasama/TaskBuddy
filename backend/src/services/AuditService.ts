@@ -18,6 +18,7 @@
  *  - familyId is nullable for cross-family admin actions.
  */
 
+import { Prisma } from '@prisma/client';
 import { prisma } from './database';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -91,7 +92,7 @@ export const AuditService = {
           resourceType: input.resourceType,
           resourceId:   input.resourceId,
           familyId:     input.familyId ?? null,
-          metadata:     input.metadata ?? undefined,
+          metadata:     (input.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
           ipAddress:    input.ipAddress ?? null,
         },
       });

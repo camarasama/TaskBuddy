@@ -148,7 +148,7 @@ export async function generateRecurringAssignments(): Promise<{
               },
             });
 
-            if (child) {
+            if (child && child.family) {
               // Notify all parents in the family
               await prisma.notification.createMany({
                 data: child.family.users.map((parent) => ({

@@ -6,8 +6,9 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"No frontend tests configured yet\" && exit 0"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",

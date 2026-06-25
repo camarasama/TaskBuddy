@@ -233,9 +233,14 @@ export class EmailService {
       return;
     }
 
+    // Parents always have an email; narrow the nullable type and skip any without one
+    const parentsWithEmail = parents.filter(
+      (p): p is typeof p & { email: string } => p.email !== null,
+    );
+
     // Send concurrently; don't let one failure block others
     await Promise.allSettled(
-      parents.map((parent) =>
+      parentsWithEmail.map((parent) =>
         EmailService.send({
           triggerType,
           toEmail: parent.email,

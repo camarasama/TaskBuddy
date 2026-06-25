@@ -7,7 +7,7 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm -w backend run dev",
     "dev:frontend": "npm -w frontend run dev",
-    "build": "npm run build:backend && npm run build:frontend",
+    "build": "npm run db:generate && npm run build:backend && npm run build:frontend",
     "build:backend": "npm -w backend run build",
     "build:frontend": "npm -w frontend run build",
     "lint": "npm run lint:backend && npm run lint:frontend",
@@ -18,7 +18,9 @@
     "test:frontend": "npm -w frontend run test",
     "db:migrate": "npm -w backend run db:migrate",
     "db:seed": "npm -w backend run db:seed",
-    "db:studio": "npm -w backend run db:studio"
+    "db:studio": "npm -w backend run db:studio",
+    "db:generate": "npm -w backend run db:generate",
+    "postinstall": "npm -w backend run db:generate"
   },
   "workspaces": [
     "backend",

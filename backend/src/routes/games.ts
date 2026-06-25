@@ -72,7 +72,7 @@ gamesRouter.get('/', async (req, res, next) => {
           xpReward: def.xpReward,
           cooldownHours: def.cooldownHours,
           ageGroup: def.ageGroup,
-          questionCount: (def.questionsJson as Question[]).length,
+          questionCount: (def.questionsJson as unknown as Question[]).length,
           onCooldown,
           cooldownEndsAt,
         };
@@ -119,7 +119,7 @@ gamesRouter.post('/sessions', async (req, res, next) => {
       data: { status: 'expired' },
     });
 
-    const questions = def.questionsJson as Question[];
+    const questions = def.questionsJson as unknown as Question[];
     const correctAnswers = questions.map((q) => q.correctIndex);
     const solutionHash = hashAnswers(correctAnswers);
 

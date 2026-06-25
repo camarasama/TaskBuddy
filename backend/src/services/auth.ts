@@ -155,7 +155,7 @@ export class AuthService {
     // Generate tokens (parent uses standard expiry)
     const tokens = this.generateTokens({
       userId: user.id,
-      familyId: user.familyId,
+      familyId: user.familyId!,
       role: user.role,
       ageGroup: user.childProfile?.ageGroup || undefined,
     });
@@ -235,7 +235,7 @@ export class AuthService {
     // Generate tokens with child-specific expiry (90d refresh, 24h access)
     const tokens = this.generateChildTokens({
       userId: user.id,
-      familyId: user.familyId,
+      familyId: user.familyId!,
       role: user.role,
       ageGroup: user.childProfile.ageGroup || undefined,
     });
@@ -430,7 +430,7 @@ export class AuthService {
       if (user.role === 'child') {
         return this.generateChildTokens({
           userId: user.id,
-          familyId: user.familyId,
+          familyId: user.familyId!,
           role: user.role,
           ageGroup: user.childProfile?.ageGroup || undefined,
         });
@@ -438,7 +438,7 @@ export class AuthService {
 
       return this.generateTokens({
         userId: user.id,
-        familyId: user.familyId,
+        familyId: user.familyId!,
         role: user.role,
         ageGroup: user.childProfile?.ageGroup || undefined,
       });
@@ -566,7 +566,16 @@ export class AuthService {
 
     // Return with explicit familyId: null so callers (audit log, etc.)
     // have a typed value - admin users genuinely have no family.
-    return { user: { ...user, familyId: null } };
+    return {
+      user: {
+        id: user.id,
+        email: user.email!,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        familyId: null,
+      },
+    };
   }
 
 }

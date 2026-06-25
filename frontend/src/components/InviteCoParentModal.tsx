@@ -131,7 +131,7 @@ export function InviteCoParentModal({ onClose, onSuccess }: InviteCoParentModalP
             <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
               <Mail className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800">
-                Email couldn't be sent - SMTP isn't configured yet. Copy the link
+                Email couldn&apos;t be sent - SMTP isn&apos;t configured yet. Copy the link
                 below and send it to <strong>{email}</strong> manually.
               </p>
             </div>
@@ -167,7 +167,7 @@ export function InviteCoParentModal({ onClose, onSuccess }: InviteCoParentModalP
           /* ── Normal invite form ── */
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
             <p className="text-sm text-slate-500 leading-relaxed">
-              They'll receive a link to create their account and join your family
+              They&apos;ll receive a link to create their account and join your family
               with full parent access - tasks, approvals, rewards and more.
             </p>
 

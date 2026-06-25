@@ -44,7 +44,7 @@ async function sendStreakAtRiskEmails(): Promise<void> {
       firstName: true,
       lastName: true,
       familyId: true,
-      currentStreak: true,
+      childProfile: { select: { currentStreakDays: true } },
       taskAssignments: {
         where: {
           status: 'completed',
@@ -64,18 +64,19 @@ async function sendStreakAtRiskEmails(): Promise<void> {
 
   for (const child of atRisk) {
     const childName = `${child.firstName} ${child.lastName}`;
+    const streak = child.childProfile?.currentStreakDays ?? 0;
 
     try {
       await EmailService.sendToFamilyParents({
         familyId: child.familyId!,
         triggerType: 'streak_at_risk',
         subjectBuilder: () =>
-          child.currentStreak > 0
-            ? `${childName}'s ${child.currentStreak}-day streak is at risk today`
+          streak > 0
+            ? `${childName}'s ${streak}-day streak is at risk today`
             : `${childName} hasn't completed any tasks today`,
         templateData: {
           childName,
-          currentStreak: child.currentStreak ?? 0,
+          currentStreak: streak,
           childId: child.id,
         },
         referenceType: 'user',

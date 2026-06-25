@@ -32,7 +32,7 @@ if (isProd) {
     register: true,
     skipWaiting: true,
     disable: false,
-    customWorkerSrc: 'src/service-worker/push-handler',
+    customWorkerDir: 'src/service-worker',
   });
   module.exports = withPWA(nextConfig);
 } else {

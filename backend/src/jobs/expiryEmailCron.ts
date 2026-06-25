@@ -34,11 +34,11 @@ async function sendExpiryWarnings(): Promise<void> {
   const assignments = await prisma.taskAssignment.findMany({
     where: {
       status: { in: ['pending', 'in_progress'] },
-      dueDate: { gt: now, lte: in24h },
+      task: { dueDate: { gt: now, lte: in24h } },
       emailSentAt: null,
     },
     include: {
-      task: { select: { title: true, familyId: true } },
+      task: { select: { title: true, familyId: true, dueDate: true } },
       child: { select: { firstName: true, lastName: true } },
     },
   });
@@ -58,7 +58,7 @@ async function sendExpiryWarnings(): Promise<void> {
         templateData: {
           childName,
           taskTitle,
-          dueAt: assignment.dueDate,
+          dueAt: assignment.task.dueDate,
           assignmentId: assignment.id,
         },
         referenceType: 'task_assignment',
@@ -89,11 +89,11 @@ async function sendExpiredDigest(): Promise<void> {
   const assignments = await prisma.taskAssignment.findMany({
     where: {
       status: { in: ['pending', 'in_progress'] },
-      dueDate: { lt: now },
+      task: { dueDate: { lt: now } },
       emailSentAt: null,
     },
     include: {
-      task: { select: { title: true, familyId: true } },
+      task: { select: { title: true, familyId: true, dueDate: true } },
       child: { select: { firstName: true, lastName: true } },
     },
   });
@@ -113,7 +113,7 @@ async function sendExpiredDigest(): Promise<void> {
         templateData: {
           childName,
           taskTitle,
-          dueAt: assignment.dueDate,
+          dueAt: assignment.task.dueDate,
           assignmentId: assignment.id,
         },
         referenceType: 'task_assignment',

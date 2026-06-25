@@ -19,7 +19,7 @@ function calculateLevel(totalXp: number): number {
   return level;
 }
 
-interface UnlockedAchievement {
+export interface UnlockedAchievement {
   id: string;
   name: string;
   pointsReward: number;

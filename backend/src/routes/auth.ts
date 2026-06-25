@@ -398,7 +398,7 @@ authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, 
       triggerType: 'welcome',
       toEmail: result.user.email!,
       toUserId: result.user.id,
-      familyId: result.user.familyId ?? undefined,
+      familyId: result.user.familyId!,
       subject: `Welcome to TaskBuddy, ${result.user.firstName}!`,
       templateData: {
         firstName: result.user.firstName,

@@ -205,7 +205,7 @@ export default function NotificationsPage() {
               {activeTab === 'unread' ? 'All caught up!' : 'No notifications here yet'}
             </p>
             {activeTab === 'unread' && (
-              <p className="text-sm text-gray-400 mt-1">You've read everything.</p>
+              <p className="text-sm text-gray-400 mt-1">You&apos;ve read everything.</p>
             )}
           </div>
         ) : (

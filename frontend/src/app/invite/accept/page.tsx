@@ -243,7 +243,7 @@ function AcceptInviteInner() {
                 <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
                   <Users className="w-5 h-5 text-white" />
                 </div>
-                <p className="text-sm font-medium text-white/80">You've been invited!</p>
+                <p className="text-sm font-medium text-white/80">You&apos;ve been invited!</p>
               </div>
               <p className="text-base font-semibold leading-snug">
                 Join <span className="font-bold">{preview.familyName}</span> on TaskBuddy
