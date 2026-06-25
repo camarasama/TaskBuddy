@@ -1,21 +1,21 @@
 /**
- * jobs/expiryEmailCron.ts — M9
+ * jobs/expiryEmailCron.ts - M9
  *
  * Runs at midnight (00:05) every day.
  * Scans task assignments in two passes:
  *
- *  Pass 1 — Expiring soon (due within 24 h, not yet submitted, emailSentAt not set)
+ *  Pass 1 - Expiring soon (due within 24 h, not yet submitted, emailSentAt not set)
  *    → Send 'task_expiring' email to family parents
  *    → Set emailSentAt on the assignment to prevent duplicate sends
  *
- *  Pass 2 — Expired (past dueDate, still pending/in_progress, not yet notified)
+ *  Pass 2 - Expired (past dueDate, still pending/in_progress, not yet notified)
  *    → Send 'task_expired' email to family parents
  *    → Set emailSentAt (reuses the same field; only one email type per assignment)
  *
  * The emailSentAt field added in the M9 schema migration is the deduplication guard.
  * Once set, neither pass will re-process the same assignment (T2 requirement).
  *
- * Usage — register in your main server file:
+ * Usage - register in your main server file:
  *   import { startExpiryEmailCron } from './jobs/expiryEmailCron';
  *   startExpiryEmailCron();
  */
@@ -75,7 +75,7 @@ async function sendExpiryWarnings(): Promise<void> {
         `[expiryEmailCron] Failed to send expiry warning for assignment ${assignment.id}:`,
         err?.message,
       );
-      // Do NOT set emailSentAt — allow retry on next cron run
+      // Do NOT set emailSentAt - allow retry on next cron run
     }
   }
 }
@@ -136,7 +136,7 @@ async function sendExpiredDigest(): Promise<void> {
 // ─── Cron entry point ─────────────────────────────────────────────────────────
 
 export function startExpiryEmailCron(): void {
-  // Run at 00:05 every day — 5-minute offset avoids exact-midnight DB load spikes
+  // Run at 00:05 every day - 5-minute offset avoids exact-midnight DB load spikes
   cron.schedule('5 0 * * *', async () => {
     console.log('[expiryEmailCron] Starting expiry email scan...');
     try {

@@ -1,5 +1,5 @@
 /**
- * levelService.ts — M7: Level-up detection and milestone bonus (CR-06)
+ * levelService.ts - M7: Level-up detection and milestone bonus (CR-06)
  *
  * Place this file at: backend/src/services/levelService.ts
  *
@@ -8,7 +8,7 @@
  * If they levelled up, creates a PointsLedger entry of type "milestone_bonus"
  * for (newLevel × LEVEL_MULTIPLIER) Points and updates pointsBalance.
  *
- * This service does NOT award XP itself — that happens in the approval route.
+ * This service does NOT award XP itself - that happens in the approval route.
  * It only handles the downstream level-up bonus Points logic.
  */
 
@@ -66,7 +66,7 @@ export async function checkAndApplyLevelUp(
     return { leveledUp: false, oldLevel, newLevel: calculatedLevel, bonusPointsAwarded: 0 };
   }
 
-  // Level-up detected — award bonus Points for EACH level gained
+  // Level-up detected - award bonus Points for EACH level gained
   // (Edge case: a very large XP award could jump multiple levels at once)
   let totalBonusPoints = 0;
   for (let lvl = oldLevel + 1; lvl <= calculatedLevel; lvl++) {
@@ -92,11 +92,11 @@ export async function checkAndApplyLevelUp(
       pointsAmount: totalBonusPoints,
       balanceAfter: newBalance,
       referenceType: 'level_up',
-      referenceId: childId, // Self-reference — no external record to link
+      referenceId: childId, // Self-reference - no external record to link
       description:
         calculatedLevel === oldLevel + 1
-          ? `Level up! Reached Level ${calculatedLevel} — bonus ${totalBonusPoints} Points`
-          : `Multi-level up! Level ${oldLevel} → ${calculatedLevel} — bonus ${totalBonusPoints} Points`,
+          ? `Level up! Reached Level ${calculatedLevel} - bonus ${totalBonusPoints} Points`
+          : `Multi-level up! Level ${oldLevel} → ${calculatedLevel} - bonus ${totalBonusPoints} Points`,
     },
   });
 

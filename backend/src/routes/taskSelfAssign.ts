@@ -55,7 +55,7 @@ taskSelfAssignRouter.post(
         throw new NotFoundError('Task not found or is not available.');
       }
 
-      // Guard: claim cap — reject if maxClaimsTotal reached
+      // Guard: claim cap - reject if maxClaimsTotal reached
       if (task.maxClaimsTotal != null) {
         const uniqueClaimers = new Set(task.assignments.map((a) => a.childId)).size;
         if (uniqueClaimers >= task.maxClaimsTotal) {
@@ -80,7 +80,7 @@ taskSelfAssignRouter.post(
         );
       }
 
-      // Guard 2 (primary only): daily cap — one primary self-assign per day
+      // Guard 2 (primary only): daily cap - one primary self-assign per day
       if (task.taskTag === 'primary') {
         const todayUtc = new Date();
         todayUtc.setUTCHours(0, 0, 0, 0);
@@ -124,7 +124,7 @@ taskSelfAssignRouter.post(
         throw new ConflictError('You have already picked up this task today.');
       }
 
-      // All guards passed — create the assignment
+      // All guards passed - create the assignment
       const assignment = await prisma.taskAssignment.create({
         data: {
           taskId,

@@ -169,7 +169,7 @@ export class TaskService {
       });
     }
 
-    // PD — Time-based auto-approve override: skip auto-approve if completion time is
+    // PD - Time-based auto-approve override: skip auto-approve if completion time is
     // suspiciously short or long relative to estimatedMinutes + family thresholds.
     let timingOverride = false;
     let timingReason: string | undefined;
@@ -195,7 +195,7 @@ export class TaskService {
       }
     }
 
-    // BUG-02: Auto-approve path — award XP/points immediately, skip parent queue
+    // BUG-02: Auto-approve path - award XP/points immediately, skip parent queue
     if (assignment.task.autoApprove && !timingOverride) {
       const childWithProfile = await prisma.user.findUnique({
         where: { id: assignment.childId },

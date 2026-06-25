@@ -1,5 +1,5 @@
 /**
- * services/RecurringScheduler.ts — M8
+ * services/RecurringScheduler.ts - M8
  *
  * Midnight cron job that automatically generates TaskAssignment records for
  * all active recurring tasks. This is the fix for BUG-03 (recurring tasks
@@ -12,7 +12,7 @@
  *  3. For each recurring task, resolves which children are assigned via the
  *     most recent TaskAssignment for that task.
  *  4. Skips children who already have an assignment for tomorrow's date
- *     (idempotent — safe to run more than once if the cron fires twice).
+ *     (idempotent - safe to run more than once if the cron fires twice).
  *  5. Checks CR-10 assignment limits (max 3 active, max 1 primary per child).
  *     If a child is at the cap, the assignment is SKIPPED and a parent
  *     notification is queued so parents know the task was not auto-generated.
@@ -65,7 +65,7 @@ export async function generateRecurringAssignments(): Promise<{
     // 1. Fetch all active recurring tasks with their current assignments.
     //    We include the most recent assignment per task to identify which
     //    children were last assigned (recurring tasks may not have a static
-    //    assignedTo list — they replicate the previous assignment).
+    //    assignedTo list - they replicate the previous assignment).
     const recurringTasks = await prisma.task.findMany({
       where: {
         isRecurring: true,
@@ -93,11 +93,11 @@ export async function generateRecurringAssignments(): Promise<{
 
     for (const task of recurringTasks) {
       // 2. Resolve the unique set of children currently assigned to this task.
-      //    We use the most recently seen childId set — deduplicated.
+      //    We use the most recently seen childId set - deduplicated.
       const uniqueChildIds = [...new Set(task.assignments.map((a) => a.childId))];
 
       if (uniqueChildIds.length === 0) {
-        // No children assigned yet — nothing to auto-generate
+        // No children assigned yet - nothing to auto-generate
         continue;
       }
 
@@ -115,7 +115,7 @@ export async function generateRecurringAssignments(): Promise<{
           });
 
           if (existingAssignment) {
-            // Already generated — do not duplicate
+            // Already generated - do not duplicate
             continue;
           }
 
@@ -123,7 +123,7 @@ export async function generateRecurringAssignments(): Promise<{
           const limitCheck = await checkAssignmentLimits(childId, task.taskTag);
 
           if (!limitCheck.allowed) {
-            // Cap reached — queue a parent notification and skip
+            // Cap reached - queue a parent notification and skip
             skipped++;
 
             console.warn(
@@ -251,7 +251,7 @@ export function initRecurringScheduler(): void {
   }
 
   cron.schedule(schedule, async () => {
-    console.log('[RecurringScheduler] Cron triggered — generating recurring assignments...');
+    console.log('[RecurringScheduler] Cron triggered - generating recurring assignments...');
     await generateRecurringAssignments();
   });
 

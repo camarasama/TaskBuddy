@@ -1,5 +1,5 @@
 /**
- * services/email.ts — M9 Email Notifications
+ * services/email.ts - M9 Email Notifications
  *
  * Central email sender for all TaskBuddy notification triggers.
  * Responsibilities:
@@ -66,7 +66,7 @@ export interface SendToParentsInput {
 
 function createTransport() {
   // Default to 465 (implicit TLS). nodemailer v8 has a broken STARTTLS
-  // implementation on port 587 for Gmail — "Unexpected socket close" on send.
+  // implementation on port 587 for Gmail - "Unexpected socket close" on send.
   // Port 465 with secure:true (implicit TLS) works correctly on all providers.
   const port = parseInt(process.env.SMTP_PORT || '465', 10);
   const isImplicitTLS = port === 465;
@@ -94,7 +94,7 @@ function buildFromAddress(): string {
   if (fromEmail && fromEmail.toLowerCase() === user.toLowerCase()) {
     return smtpFrom; // safe to use the display-name version
   }
-  // Gmail rejects mismatched from — fall back to bare auth user
+  // Gmail rejects mismatched from - fall back to bare auth user
   return user;
 }
 
@@ -148,7 +148,7 @@ export class EmailService {
     if (!skipPreferenceCheck) {
       const enabled = await isNotificationEnabled(familyId, triggerType);
       if (!enabled) {
-        // Preference is off — do not queue or log (T3 requirement: not queued, not dropped)
+        // Preference is off - do not queue or log (T3 requirement: not queued, not dropped)
         console.log(
           `[EmailService] ${triggerType} suppressed by family prefs (familyId=${familyId})`,
         );

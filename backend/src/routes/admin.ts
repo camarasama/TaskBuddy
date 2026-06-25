@@ -1,24 +1,24 @@
 /**
- * routes/admin.ts — M8
+ * routes/admin.ts - M8
  *
  * All /api/v1/admin/* endpoints. Every route in this file requires the
- * requireAdmin middleware — non-admin requests are rejected with 403.
+ * requireAdmin middleware - non-admin requests are rejected with 403.
  *
  * Routes:
- *   GET  /admin/overview                     — Platform health stats
- *   GET  /admin/families                     — Paginated family list
- *   GET  /admin/families/:id                 — Family detail (read-only)
- *   PATCH /admin/families/:id/suspend        — Suspend a family
- *   PATCH /admin/families/:id/reactivate     — Reactivate a suspended family
- *   GET  /admin/users                        — Cross-family user search
- *   GET  /admin/users/:id                    — User detail
- *   POST /admin/users/:id/force-reset        — Trigger password reset
- *   GET  /admin/achievements                 — List global achievements
- *   POST /admin/achievements                 — Create global achievement
- *   PUT  /admin/achievements/:id             — Edit global achievement
- *   DELETE /admin/achievements/:id           — Delete global achievement
- *   GET  /admin/audit-logs                   — Paginated, filterable audit log
- *   GET  /admin/audit-logs/export            — CSV export of audit log
+ *   GET  /admin/overview                     - Platform health stats
+ *   GET  /admin/families                     - Paginated family list
+ *   GET  /admin/families/:id                 - Family detail (read-only)
+ *   PATCH /admin/families/:id/suspend        - Suspend a family
+ *   PATCH /admin/families/:id/reactivate     - Reactivate a suspended family
+ *   GET  /admin/users                        - Cross-family user search
+ *   GET  /admin/users/:id                    - User detail
+ *   POST /admin/users/:id/force-reset        - Trigger password reset
+ *   GET  /admin/achievements                 - List global achievements
+ *   POST /admin/achievements                 - Create global achievement
+ *   PUT  /admin/achievements/:id             - Edit global achievement
+ *   DELETE /admin/achievements/:id           - Delete global achievement
+ *   GET  /admin/audit-logs                   - Paginated, filterable audit log
+ *   GET  /admin/audit-logs/export            - CSV export of audit log
  *
  * Note: POST /auth/admin/register lives in routes/auth.ts (it's a public
  * endpoint gated by ADMIN_INVITE_CODE, not by the admin JWT guard).
@@ -428,7 +428,7 @@ adminRouter.get('/users', validateQuery(userSearchSchema), async (req, res, next
 // ─── GET /admin/users/:id ─────────────────────────────────────────────────────
 
 /**
- * User detail view — cross-family. Includes family context and child profile
+ * User detail view - cross-family. Includes family context and child profile
  * if the user is a child.
  */
 adminRouter.get('/users/:id', async (req, res, next) => {

@@ -1,5 +1,5 @@
 /**
- * reports.ts — M10 Phase 4 (updated: PDF for all 10 reports)
+ * reports.ts - M10 Phase 4 (updated: PDF for all 10 reports)
  *
  * Routes (all under /api/v1/reports):
  *   GET /task-completion, /points-ledger, /reward-redemption,

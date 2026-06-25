@@ -1,5 +1,5 @@
 /**
- * services/AuditService.ts — M8
+ * services/AuditService.ts - M8
  *
  * Provides a single logAction() helper that writes an immutable row to the
  * audit_logs table. Every mutating route in the app calls this after a
@@ -11,7 +11,7 @@
  *    throws. If the write fails (e.g. DB overload) we log to stderr and
  *    continue rather than failing the original request. Audit loss is
  *    preferable to user-visible errors.
- *  - The metadata field accepts any JSON — callers include a before/after
+ *  - The metadata field accepts any JSON - callers include a before/after
  *    snapshot for updates, or a small context object for creates/deletes.
  *  - actorId is nullable to support system/cron-generated events (e.g. the
  *    recurring task scheduler) where there is no human actor.
@@ -28,7 +28,7 @@ export interface AuditLogInput {
 
   /**
    * A short uppercase verb describing the action.
-   * Recommended values (not enforced — use consistently):
+   * Recommended values (not enforced - use consistently):
    *   CREATE | UPDATE | DELETE | APPROVE | REJECT | REDEEM | FULFILL |
    *   CANCEL | SUSPEND | REACTIVATE | LOGIN | REGISTER | INVITE_SENT |
    *   INVITE_ACCEPTED | FORCE_RESET | COMPLETE | SELF_ASSIGN
@@ -46,13 +46,13 @@ export interface AuditLogInput {
   /** The primary key of the affected record. */
   resourceId: string;
 
-  /** Family scope — null for cross-family or admin-only actions. */
+  /** Family scope - null for cross-family or admin-only actions. */
   familyId?: string | null;
 
   /**
    * Optional JSON context. Good patterns:
-   *   - Create:  { title, taskTag } — enough to identify the record
-   *   - Update:  { changes: req.body } — the incoming patch
+   *   - Create:  { title, taskTag } - enough to identify the record
+   *   - Update:  { changes: req.body } - the incoming patch
    *   - Approve: { pointsAwarded, xpAwarded, levelUp }
    *   - Delete:  { name, reason }
    */

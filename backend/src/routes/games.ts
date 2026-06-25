@@ -1,10 +1,10 @@
 /**
- * routes/games.ts — PE Mini Games
+ * routes/games.ts - PE Mini Games
  * Mounted at /api/v1/games
  *
- * GET  /games              — list active game definitions with cooldown status
- * POST /games/sessions     — start a session, return questions WITHOUT answers
- * POST /games/sessions/:id/submit — submit answers, award points if correct
+ * GET  /games              - list active game definitions with cooldown status
+ * POST /games/sessions     - start a session, return questions WITHOUT answers
+ * POST /games/sessions/:id/submit - submit answers, award points if correct
  */
 
 import crypto from 'crypto';

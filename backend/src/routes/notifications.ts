@@ -1,5 +1,5 @@
 /**
- * notifications.ts — M10 Phase 4/5 (performance fix)
+ * notifications.ts - M10 Phase 4/5 (performance fix)
  *
  * Performance fixes applied:
  *  1. Use shared `prisma` singleton from ../services/database (not `new PrismaClient()`)
@@ -34,7 +34,7 @@ function getUser(req: Request): AuthUser {
   return (req as any).user as AuthUser;
 }
 
-// ─── GET / — List notifications ───────────────────────────────────────────────
+// ─── GET / - List notifications ───────────────────────────────────────────────
 
 notificationsRouter.get('/', async (req: Request, res: Response) => {
   try {
@@ -42,7 +42,7 @@ notificationsRouter.get('/', async (req: Request, res: Response) => {
     const limit = Math.min(parseInt((req.query.limit as string) ?? '20', 10), 100);
     const unreadOnly = req.query.unreadOnly === 'true';
 
-    // Run both queries in parallel — halves DB round-trips vs sequential awaits
+    // Run both queries in parallel - halves DB round-trips vs sequential awaits
     const [notifications, unreadCount] = await Promise.all([
       prisma.notification.findMany({
         where: {
@@ -63,7 +63,7 @@ notificationsRouter.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// ─── GET /unread-count — Fast badge count ────────────────────────────────────
+// ─── GET /unread-count - Fast badge count ────────────────────────────────────
 
 notificationsRouter.get('/unread-count', async (req: Request, res: Response) => {
   try {
@@ -75,7 +75,7 @@ notificationsRouter.get('/unread-count', async (req: Request, res: Response) => 
   }
 });
 
-// ─── PUT /:id/read — Mark single notification as read ────────────────────────
+// ─── PUT /:id/read - Mark single notification as read ────────────────────────
 
 notificationsRouter.put('/:id/read', async (req: Request, res: Response) => {
   try {
@@ -109,7 +109,7 @@ notificationsRouter.put('/:id/read', async (req: Request, res: Response) => {
   }
 });
 
-// ─── PUT /read-all — Mark all notifications as read ──────────────────────────
+// ─── PUT /read-all - Mark all notifications as read ──────────────────────────
 
 notificationsRouter.put('/read-all', async (req: Request, res: Response) => {
   try {
@@ -124,7 +124,7 @@ notificationsRouter.put('/read-all', async (req: Request, res: Response) => {
   }
 });
 
-// ─── DELETE /:id — Delete a notification ─────────────────────────────────────
+// ─── DELETE /:id - Delete a notification ─────────────────────────────────────
 
 notificationsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
@@ -155,7 +155,7 @@ notificationsRouter.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// ─── POST /push/subscribe — Save web push subscription ───────────────────────
+// ─── POST /push/subscribe - Save web push subscription ───────────────────────
 
 notificationsRouter.post('/push/subscribe', async (req: Request, res: Response) => {
   try {
@@ -176,7 +176,7 @@ notificationsRouter.post('/push/subscribe', async (req: Request, res: Response) 
   }
 });
 
-// ─── DELETE /push/unsubscribe — Remove web push subscription ─────────────────
+// ─── DELETE /push/unsubscribe - Remove web push subscription ─────────────────
 
 notificationsRouter.delete('/push/unsubscribe', async (req: Request, res: Response) => {
   try {
@@ -190,7 +190,7 @@ notificationsRouter.delete('/push/unsubscribe', async (req: Request, res: Respon
   }
 });
 
-// ─── createNotification — internal helper ────────────────────────────────────
+// ─── createNotification - internal helper ────────────────────────────────────
 
 export async function createNotification(params: {
   userId: string;
@@ -214,7 +214,7 @@ export async function createNotification(params: {
       },
     });
 
-    // Static import — resolved once at module load, not on every call
+    // Static import - resolved once at module load, not on every call
     emitNotificationNew(params.userId, {
       notificationType: notification.notificationType,
       title: notification.title,

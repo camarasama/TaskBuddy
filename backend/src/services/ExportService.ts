@@ -1,8 +1,8 @@
 /**
- * ExportService — M10 Phase 4 (updated: PDF for all 10 reports)
+ * ExportService - M10 Phase 4 (updated: PDF for all 10 reports)
  *
- * CSV  — all 10 reports via fast-csv (raw data, no charts)
- * PDF  — all 10 reports via pdf-lib (summary stats + data table)
+ * CSV  - all 10 reports via fast-csv (raw data, no charts)
+ * PDF  - all 10 reports via pdf-lib (summary stats + data table)
  */
 
 import { format as formatCsv } from '@fast-csv/format';
@@ -242,7 +242,7 @@ export async function exportTaskCompletionPdf(report: TaskCompletionReport): Pro
   drawHeading(ctx, 'Task Data');
   drawTable(ctx, ['Date', 'Child', 'Task', 'Tag', 'Difficulty', 'Points', 'XP'],
     [62, 90, 115, 52, 62, 52, 45],
-    report.rows.map((r) => [r.date, r.childName, r.taskTitle.slice(0, 22), r.taskTag, r.difficulty ?? '—', r.pointsAwarded, r.xpAwarded]),
+    report.rows.map((r) => [r.date, r.childName, r.taskTitle.slice(0, 22), r.taskTag, r.difficulty ?? '-', r.pointsAwarded, r.xpAwarded]),
   );
   return finalize(ctx.pdfDoc);
 }
@@ -297,7 +297,7 @@ export async function exportRewardRedemptionPdf(report: RedemptionReport): Promi
   drawHeading(ctx, 'Redemption Data');
   drawTable(ctx, ['Date', 'Child', 'Reward', 'Tier', 'Points', 'Status'],
     [60, 90, 120, 60, 55, 65],
-    report.rows.map((r) => [r.date, r.childName, r.rewardName.slice(0, 20), r.rewardTier ?? '—', r.pointsSpent, r.status]),
+    report.rows.map((r) => [r.date, r.childName, r.rewardName.slice(0, 20), r.rewardTier ?? '-', r.pointsSpent, r.status]),
   );
   return finalize(ctx.pdfDoc);
 }
@@ -314,7 +314,7 @@ export async function exportEngagementStreakPdf(report: EngagementReport): Promi
   drawHeading(ctx, 'Child Engagement Data');
   drawTable(ctx, ['Child', 'Current Streak', 'Longest Streak', 'Tasks Done', 'Adherence %', 'Last Active'],
     [110, 80, 80, 65, 70, 80],
-    report.rows.map((r) => [r.childName, `${r.currentStreak}d`, `${r.longestStreak}d`, r.totalTasksCompleted, `${r.primaryAdherenceRate}%`, r.lastActivityDate ?? '—']),
+    report.rows.map((r) => [r.childName, `${r.currentStreak}d`, `${r.longestStreak}d`, r.totalTasksCompleted, `${r.primaryAdherenceRate}%`, r.lastActivityDate ?? '-']),
   );
   return finalize(ctx.pdfDoc);
 }
@@ -338,7 +338,7 @@ export async function exportAchievementPdf(report: AchievementReport): Promise<B
   drawHeading(ctx, 'Child Achievement Data');
   drawTable(ctx, ['Child', 'Level', 'Current XP', 'Total XP', 'Achievements', 'Latest Achievement'],
     [100, 40, 65, 65, 72, 130],
-    report.rows.map((r) => [r.childName, `Lv ${r.currentLevel}`, r.experiencePoints, r.totalXpEarned, r.achievementsUnlocked, r.latestAchievementName ?? '—']),
+    report.rows.map((r) => [r.childName, `Lv ${r.currentLevel}`, r.experiencePoints, r.totalXpEarned, r.achievementsUnlocked, r.latestAchievementName ?? '-']),
   );
   return finalize(ctx.pdfDoc);
 }
@@ -349,9 +349,9 @@ export async function exportLeaderboardPdf(report: LeaderboardReport): Promise<B
 
   if (report.rows.length > 0) {
     drawSummaryBoxes(ctx, [
-      { label: '🥇 ' + (report.rows[0]?.childName ?? '—'), value: report.rows[0]?.score ?? 0, color: AMBER },
-      { label: '🥈 ' + (report.rows[1]?.childName ?? '—'), value: report.rows[1]?.score ?? 0 },
-      { label: '🥉 ' + (report.rows[2]?.childName ?? '—'), value: report.rows[2]?.score ?? 0 },
+      { label: '🥇 ' + (report.rows[0]?.childName ?? '-'), value: report.rows[0]?.score ?? 0, color: AMBER },
+      { label: '🥈 ' + (report.rows[1]?.childName ?? '-'), value: report.rows[1]?.score ?? 0 },
+      { label: '🥉 ' + (report.rows[2]?.childName ?? '-'), value: report.rows[2]?.score ?? 0 },
     ]);
   }
 
@@ -373,7 +373,7 @@ export async function exportExpiryOverduePdf(report: ExpiryReport): Promise<Buff
   ]);
 
   if (report.rows.length === 0) {
-    ctx.page.drawText('✓ No overdue tasks — great work!', { x: ctx.margin, y: ctx.y.v - 10, size: 10, font: ctx.bold, color: GREEN });
+    ctx.page.drawText('✓ No overdue tasks - great work!', { x: ctx.margin, y: ctx.y.v - 10, size: 10, font: ctx.bold, color: GREEN });
   } else {
     drawHeading(ctx, 'Overdue Tasks');
     drawTable(ctx, ['Child', 'Task', 'Tag', 'Due Date', 'Status', 'Days Overdue'],
@@ -427,7 +427,7 @@ export async function exportAuditTrailPdf(report: AuditTrailReport): Promise<Buf
   drawHeading(ctx, 'Audit Log Data');
   drawTable(ctx, ['Timestamp', 'Actor', 'Action', 'Resource', 'Resource ID', 'IP'],
     [105, 90, 60, 75, 65, 75],
-    report.rows.map((r) => [new Date(r.createdAt).toLocaleString().slice(0, 16), r.actorName ?? 'System', r.action, r.resourceType, r.resourceId.slice(0, 8), r.ipAddress ?? '—']),
+    report.rows.map((r) => [new Date(r.createdAt).toLocaleString().slice(0, 16), r.actorName ?? 'System', r.action, r.resourceType, r.resourceId.slice(0, 8), r.ipAddress ?? '-']),
   );
   return finalize(ctx.pdfDoc);
 }
@@ -487,8 +487,8 @@ export async function exportExecutionTimePdf(report: ExecutionTimeReport): Promi
     [50, 60, 120, 55, 35, 45, 45],
     report.rows.map((r) => [
       r.date, r.childName.split(' ')[0], r.taskTitle.slice(0, 22),
-      r.difficulty ?? '—', r.estimatedMinutes ? `${r.estimatedMinutes}m` : '—',
-      `${r.actualMinutes}m`, r.ratio !== null ? `${Math.round(r.ratio * 100)}%` : '—',
+      r.difficulty ?? '-', r.estimatedMinutes ? `${r.estimatedMinutes}m` : '-',
+      `${r.actualMinutes}m`, r.ratio !== null ? `${Math.round(r.ratio * 100)}%` : '-',
     ]),
   );
   return finalize(ctx.pdfDoc);

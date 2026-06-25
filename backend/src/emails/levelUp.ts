@@ -1,5 +1,5 @@
 /**
- * emails/levelUp.ts — M9
+ * emails/levelUp.ts - M9
  * Sent to ALL parents when a child levels up as part of a task approval.
  * triggerType: 'level_up'
  * templateData: { childName, newLevel, bonusPoints }
@@ -43,7 +43,7 @@ export function buildLevelUp(data: LevelUpData): string {
       ${ctaButton('View Progress', dashboardUrl)}
 
       <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
-        Keep encouraging ${childName} — the next level awaits!
+        Keep encouraging ${childName} - the next level awaits!
       </p>
     </td>
   </tr>`;

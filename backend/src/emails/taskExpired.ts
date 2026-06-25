@@ -1,5 +1,5 @@
 /**
- * emails/taskExpired.ts — M9
+ * emails/taskExpired.ts - M9
  * Sent by the midnight cron when a task passed its due date without completion.
  * triggerType: 'task_expired'
  * templateData: { childName, taskTitle, dueAt, assignmentId }

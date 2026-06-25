@@ -22,7 +22,7 @@ model Family {
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
-  // M8 — Admin: allows admin to suspend a family (blocks all logins for that family)
+  // M8 - Admin: allows admin to suspend a family (blocks all logins for that family)
   isSuspended  Boolean   @default(false) @map("is_suspended")
   suspendedAt  DateTime? @map("suspended_at")
   suspendedBy  String?   @map("suspended_by")
@@ -105,9 +105,9 @@ model ChildProfile {
   lastActivityDate    DateTime? @map("last_activity_date")
   level               Int       @default(1)
   experiencePoints    Int       @default(0) @map("experience_points")
-  // M7 — CR-06: lifetime XP earned (never decremented — separate from spendable Points)
+  // M7 - CR-06: lifetime XP earned (never decremented - separate from spendable Points)
   totalXpEarned       Int       @default(0) @map("total_xp_earned")
-  // M10 — Phase 5: selected emoji avatar from the avatar picker grid
+  // M10 - Phase 5: selected emoji avatar from the avatar picker grid
   avatarEmoji         String?   @map("avatar_emoji")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
@@ -158,11 +158,11 @@ model Task {
   description           String?
   category              String?
   difficulty            TaskDifficulty?
-  // M5 — CR-01: primary = must-do, secondary = bonus/self-assignable
+  // M5 - CR-01: primary = must-do, secondary = bonus/self-assignable
   taskTag               TaskTag         @default(primary) @map("task_tag")
   pointsValue           Int             @default(10) @map("points_value")
   dueDate               DateTime?       @map("due_date")
-  // M5 — CR-09: optional scheduling fields for overlap detection
+  // M5 - CR-09: optional scheduling fields for overlap detection
   startTime             DateTime?       @map("start_time")
   estimatedMinutes      Int?            @map("estimated_minutes")
   requiresPhotoEvidence Boolean         @default(false) @map("requires_photo_evidence")
@@ -202,11 +202,11 @@ model TaskAssignment {
   rejectionReason String?          @map("rejection_reason")
   pointsAwarded   Int?             @map("points_awarded")
   xpAwarded       Int?             @map("xp_awarded")
-  // M9 — legacy single-send flag (superseded by expiryRemindersSent)
+  // M9 - legacy single-send flag (superseded by expiryRemindersSent)
   emailSentAt              DateTime?        @map("email_sent_at")
   // Comma-separated list of reminder thresholds already sent, e.g. "24h,12h,1h,30min"
   expiryRemindersSent      String           @default("") @map("expiry_reminders_sent")
-  // PD — time tracking for auto-approve override
+  // PD - time tracking for auto-approve override
   startedAt                DateTime?        @map("started_at")
   autoApproveOverridden    Boolean          @default(false) @map("auto_approve_overridden")
   autoApproveOverrideReason String?         @map("auto_approve_override_reason")
@@ -224,7 +224,7 @@ model TaskAssignment {
   @@index([childId])
   @@index([status])
   @@index([instanceDate])
-  // M9 — index for the expiry cron so it can efficiently find un-emailed assignments
+  // M9 - index for the expiry cron so it can efficiently find un-emailed assignments
   @@index([emailSentAt])
   @@map("task_assignments")
 }
@@ -287,7 +287,7 @@ model Reward {
   iconUrl                String?     @map("icon_url")
   isActive               Boolean     @default(true) @map("is_active")
   maxRedemptionsPerChild Int?        @map("max_redemptions_per_child")
-  // M6 — CR-11: household-level redemption cap (total across all children)
+  // M6 - CR-11: household-level redemption cap (total across all children)
   maxRedemptionsTotal    Int?        @map("max_redemptions_total")
   expiresAt              DateTime?   @map("expires_at")
   isCollaborative        Boolean     @default(false) @map("is_collaborative")
@@ -345,7 +345,7 @@ model Achievement {
   isSystemAchievement   Boolean          @default(true) @map("is_system_achievement")
   pointsReward          Int              @default(0) @map("points_reward")
   xpReward              Int              @default(0) @map("xp_reward")
-  // M10 — Phase 4: minimum XP level required to unlock (used in R-05 level distribution)
+  // M10 - Phase 4: minimum XP level required to unlock (used in R-05 level distribution)
   xpThreshold           Int              @default(0) @map("xp_threshold")
   createdAt             DateTime         @default(now()) @map("created_at")
 
@@ -443,15 +443,15 @@ model FamilySettings {
   id                        String   @id @default(uuid())
   familyId                  String   @unique @map("family_id")
   autoApproveRecurringTasks Boolean  @default(false) @map("auto_approve_recurring_tasks")
-  // PE — daily cap on points a child can earn through mini-games
+  // PE - daily cap on points a child can earn through mini-games
   maxGamePointsPerDay       Int      @default(100) @map("max_game_points_per_day")
-  // PD — configurable thresholds for time-based auto-approve override
+  // PD - configurable thresholds for time-based auto-approve override
   autoApproveMinRatio       Float    @default(0.3) @map("auto_approve_min_ratio")
   autoApproveMaxRatio       Float    @default(3.0) @map("auto_approve_max_ratio")
   enableDailyChallenges     Boolean  @default(true) @map("enable_daily_challenges")
   enableLeaderboard         Boolean  @default(false) @map("enable_leaderboard")
   streakGracePeriodHours    Int      @default(4) @map("streak_grace_period_hours")
-  // M9 — CR-08: per-family email notification preferences.
+  // M9 - CR-08: per-family email notification preferences.
   // Keys: task_submitted | task_approved | task_rejected | task_expiring | task_expired |
   //       reward_redeemed | level_up | streak_at_risk | welcome | co_parent_invite
   // Default: all enabled. Individual parents can override per-key via PUT /families/me/settings.
@@ -481,7 +481,7 @@ model FamilyInvitation {
   token           String    @unique
   expiresAt       DateTime  @map("expires_at")
   acceptedAt      DateTime? @map("accepted_at")
-  // M10 — Phase 4: R-08 tracks co-parent invite acceptance rate
+  // M10 - Phase 4: R-08 tracks co-parent invite acceptance rate
   cancelledAt     DateTime? @map("cancelled_at")
   relationship    String?   // e.g. "spouse", "partner", "guardian"
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -497,20 +497,20 @@ model FamilyInvitation {
 }
 
 // ============================================
-// M8 — ADMIN & AUDIT
+// M8 - ADMIN & AUDIT
 // ============================================
 
 /**
- * AuditLog — immutable record of every mutating action in the system.
+ * AuditLog - immutable record of every mutating action in the system.
  * Written by AuditService.logAction() from all mutating routes.
- * Never updated or deleted — admin can only read and export.
+ * Never updated or deleted - admin can only read and export.
  *
  * action examples    : CREATE | UPDATE | DELETE | APPROVE | REJECT |
  *                      REDEEM | FULFILL | SUSPEND | REACTIVATE | LOGIN |
  *                      REGISTER | INVITE_SENT | INVITE_ACCEPTED | FORCE_RESET
  * resourceType examples: task | task_assignment | reward | reward_redemption |
  *                        family | user | child | invitation | achievement
- * metadata           : arbitrary JSON snapshot — e.g. { before, after } for
+ * metadata           : arbitrary JSON snapshot - e.g. { before, after } for
  *                      updates, or { reason } for suspensions.
  */
 model AuditLog {
@@ -523,7 +523,7 @@ model AuditLog {
   resourceType String   @map("resource_type")
   // The ID of the affected resource
   resourceId   String   @map("resource_id")
-  // Optional family scope — null for cross-family admin actions
+  // Optional family scope - null for cross-family admin actions
   familyId     String?  @map("family_id")
   // Optional JSON payload: before/after state, extra context
   metadata     Json?
@@ -540,11 +540,11 @@ model AuditLog {
 }
 
 // ============================================
-// M9 — EMAIL LOGS
+// M9 - EMAIL LOGS
 // ============================================
 
 /**
- * EmailLog — immutable record of every email attempt made by EmailService.
+ * EmailLog - immutable record of every email attempt made by EmailService.
  *
  * EmailService writes a row here for every send attempt whether it succeeds
  * or fails. The admin email log viewer reads this table.
@@ -556,19 +556,19 @@ model AuditLog {
  *   welcome        | co_parent_invite
  *
  * status:
- *   sent    — SMTP accepted the message (no bounce detected yet)
- *   failed  — SMTP threw an error; errorMessage has details
- *   bounced — future use via webhook (not implemented in M9)
+ *   sent    - SMTP accepted the message (no bounce detected yet)
+ *   failed  - SMTP threw an error; errorMessage has details
+ *   bounced - future use via webhook (not implemented in M9)
  */
 model EmailLog {
   id           String          @id @default(uuid())
-  // Recipient email address (denormalised — user may be deleted later)
+  // Recipient email address (denormalised - user may be deleted later)
   toEmail      String          @map("to_email")
   // The user this email was sent to (null if family-level send or user deleted)
   toUserId     String?         @map("to_user_id")
   toUser       User?           @relation("ReceivedEmails", fields: [toUserId], references: [id], onDelete: SetNull)
   family       Family?         @relation(fields: [familyId], references: [id], onDelete: SetNull)
-  // Family scope — null for admin-triggered emails
+  // Family scope - null for admin-triggered emails
   familyId     String?         @map("family_id")
   // Which template / notification type triggered this email
   triggerType  String          @map("trigger_type")
@@ -581,7 +581,7 @@ model EmailLog {
   // The resource that triggered this email (e.g. assignment id, redemption id)
   referenceType String?        @map("reference_type")
   referenceId   String?        @map("reference_id")
-  // M9 — admin resend: tracks how many times this specific log entry was re-sent
+  // M9 - admin resend: tracks how many times this specific log entry was re-sent
   resendCount  Int             @default(0) @map("resend_count")
   lastResentAt DateTime?       @map("last_resent_at")
   createdAt    DateTime        @default(now()) @map("created_at")
@@ -626,7 +626,7 @@ model GameDefinition {
   xpReward     Int      @default(10) @map("xp_reward")
   cooldownHours Int     @default(24) @map("cooldown_hours")
   ageGroup     String?  @map("age_group") // '10-12' | '13-16' | null = all ages
-  // Stores questions array as JSON — answers included here (never sent to client)
+  // Stores questions array as JSON - answers included here (never sent to client)
   questionsJson Json    @map("questions_json")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
@@ -649,7 +649,7 @@ model GameSession {
   status           GameSessionStatus @default(in_progress)
   pointsAwarded    Int               @default(0) @map("points_awarded")
   xpAwarded        Int               @default(0) @map("xp_awarded")
-  // SHA-256 of the correct answer array — never returned to client
+  // SHA-256 of the correct answer array - never returned to client
   solutionHash     String            @map("solution_hash")
   createdAt        DateTime          @default(now()) @map("created_at")
 
@@ -683,7 +683,7 @@ enum TaskDifficulty {
   hard
 }
 
-// M5 — CR-01: task classification
+// M5 - CR-01: task classification
 enum TaskTag {
   primary   // Must-do task assigned by parent
   secondary // Bonus/optional task; child can self-assign if no primary is pending
@@ -710,9 +710,9 @@ enum TransactionType {
   bonus
   penalty
   adjustment
-  // M7 — CR-06: awarded when child levels up or hits a streak milestone
+  // M7 - CR-06: awarded when child levels up or hits a streak milestone
   milestone_bonus
-  // PE — awarded when child completes a mini-game
+  // PE - awarded when child completes a mini-game
   game_reward
 }
 
@@ -756,7 +756,7 @@ enum ModerationStatus {
   rejected
 }
 
-// M9 — email delivery status
+// M9 - email delivery status
 enum EmailLogStatus {
   sent
   failed

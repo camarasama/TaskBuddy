@@ -1,5 +1,5 @@
 /**
- * emails/streakAtRisk.ts — M9
+ * emails/streakAtRisk.ts - M9
  * Sent by the 6pm cron when a child has 0 task completions that day.
  * triggerType: 'streak_at_risk'
  * templateData: { childName, currentStreak, childId }
@@ -57,7 +57,7 @@ export function buildStreakAtRisk(data: StreakAtRiskData): string {
   return baseLayout(
     inner,
     hasStreak
-      ? `${childName}'s ${streakLabel} streak is at risk — no tasks completed today.`
+      ? `${childName}'s ${streakLabel} streak is at risk - no tasks completed today.`
       : `${childName} hasn't completed any tasks today.`,
   );
 }

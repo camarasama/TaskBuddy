@@ -6,11 +6,11 @@ import { inviteService } from '../services/invite';
 import { authenticate, requireParent, familyIsolation } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
-// M5 — import capacity utility
+// M5 - import capacity utility
 import { getChildCapacity, type ChildCapacity } from '../utils/assignmentLimits';
-// M8 — Audit logging for all mutating family routes
+// M8 - Audit logging for all mutating family routes
 import { AuditService } from '../services/AuditService';
-// M9 — Email notifications
+// M9 - Email notifications
 import { EmailService } from '../services/email';
 
 export const familyRouter = Router();
@@ -99,7 +99,7 @@ familyRouter.put('/me', requireParent, validateBody(updateFamilySchema), async (
       },
     });
 
-    // M8 — Audit: family name updated
+    // M8 - Audit: family name updated
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'UPDATE',
@@ -165,7 +165,7 @@ familyRouter.post('/me/invite', requireParent, validateBody(inviteCoParentSchema
       email: req.body.email,
     });
 
-    // M8 — Audit: co-parent invitation sent
+    // M8 - Audit: co-parent invitation sent
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'INVITE_SENT',
@@ -181,7 +181,7 @@ familyRouter.post('/me/invite', requireParent, validateBody(inviteCoParentSchema
       data: {
         message: emailSent
           ? `Invitation sent to ${req.body.email}`
-          : `Invitation created. Email delivery failed — use the link below to share manually.`,
+          : `Invitation created. Email delivery failed - use the link below to share manually.`,
         acceptUrl,
         emailSent,
       },
@@ -214,7 +214,7 @@ familyRouter.delete('/me/parents/:id', requireParent, async (req, res, next) => 
       req.params.id
     );
 
-    // M8 — Audit: co-parent removed
+    // M8 - Audit: co-parent removed
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'DELETE',
@@ -243,7 +243,7 @@ familyRouter.delete('/me/invitations/:id', requireParent, async (req, res, next)
       req.params.id
     );
 
-    // M8 — Audit: pending invitation cancelled
+    // M8 - Audit: pending invitation cancelled
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'DELETE',
@@ -282,7 +282,7 @@ familyRouter.post('/me/children', requireParent, validateBody(addChildSchema), a
 
     const createdChildId = (result as any).user?.id || (result as any).id;
 
-    // M8 — Audit: child added to family
+    // M8 - Audit: child added to family
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'CREATE',
@@ -293,7 +293,7 @@ familyRouter.post('/me/children', requireParent, validateBody(addChildSchema), a
       metadata: { firstName: req.body.firstName, lastName: req.body.lastName },
     });
 
-    // M9 — fire-and-forget child welcome email (only when email was provided)
+    // M9 - fire-and-forget child welcome email (only when email was provided)
     if (req.body.email) {
       prisma.family.findUnique({ where: { id: req.familyId! } })
         .then((family) => {
@@ -395,7 +395,7 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
       ? { ...updatedChild.childProfile, pinHash: undefined }
       : undefined;
 
-    // M8 — Audit: child profile updated by parent
+    // M8 - Audit: child profile updated by parent
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'UPDATE',
@@ -406,7 +406,7 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
       metadata: { changes: req.body },
     });
 
-    // M9 — fire-and-forget child_profile_updated email when name/username changed
+    // M9 - fire-and-forget child_profile_updated email when name/username changed
     if (updatedChild.email) {
       const changed: string[] = [];
       if (req.body.firstName && req.body.firstName !== child.firstName) changed.push('first name');
@@ -465,7 +465,7 @@ familyRouter.delete('/me/children/:id', requireParent, async (req, res, next) =>
       },
     });
 
-    // M8 — Audit: child account deactivated by parent
+    // M8 - Audit: child account deactivated by parent
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'DELETE',
@@ -529,7 +529,7 @@ familyRouter.put('/me/settings', requireParent, validateBody(updateSettingsSchem
   }
 });
 
-// M5 — POST /families/children/capacities - Get task capacity for multiple children
+// M5 - POST /families/children/capacities - Get task capacity for multiple children
 const childCapacitiesSchema = z.object({
   childIds: z.array(z.string().uuid()).min(1).max(20),
 });

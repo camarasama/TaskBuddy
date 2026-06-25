@@ -1,5 +1,5 @@
 /**
- * services/invite.ts — Updated M9 (Email Notifications)
+ * services/invite.ts - Updated M9 (Email Notifications)
  *
  * Changes from M8:
  *  - The inline nodemailer createTransport(), buildFromAddress(), and
@@ -19,7 +19,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from './database';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../middleware/errorHandler';
 import { authService } from './auth';
-// M9 — Replaces the inline nodemailer call that was here in M4-M8
+// M9 - Replaces the inline nodemailer call that was here in M4-M8
 import { EmailService } from './email';
 
 const SALT_ROUNDS = 12;
@@ -102,8 +102,8 @@ export class InviteService {
       },
     });
 
-    // 6. Send the invite email (best-effort — don't throw if SMTP not configured in dev)
-    // FRONTEND_URL takes priority — set this to your ngrok URL when testing remotely:
+    // 6. Send the invite email (best-effort - don't throw if SMTP not configured in dev)
+    // FRONTEND_URL takes priority - set this to your ngrok URL when testing remotely:
     //   FRONTEND_URL=https://xxxx-xx-xx-xx-xx.ngrok-free.app
     // Falls back to CLIENT_URL (comma-separated list), then localhost.
     const frontendUrl = (
@@ -116,7 +116,7 @@ export class InviteService {
     const inviterName = `${caller.firstName} ${caller.lastName}`;
     const expiresDays = Math.round(INVITE_EXPIRES_HOURS / 24);
 
-    // M9 — Send via EmailService (replaces inline nodemailer from M4-M8).
+    // M9 - Send via EmailService (replaces inline nodemailer from M4-M8).
     // Fire-and-forget so SMTP issues never block the API response.
     // EmailService logs the attempt to email_logs regardless of outcome.
     // skipPreferenceCheck=true because the invitee has no family prefs record yet.
@@ -136,7 +136,7 @@ export class InviteService {
         },
         referenceType: 'family_invitation',
         referenceId: token,
-        // Skip the notificationPreferences check for invite emails —
+        // Skip the notificationPreferences check for invite emails -
         // the invitee is not yet a family member so they have no prefs record.
         skipPreferenceCheck: true,
       });
@@ -189,14 +189,14 @@ export class InviteService {
       if (existingUser.familyId === invitation.familyId) {
         throw new ConflictError('An account with this email already exists in this family. Try logging in instead.');
       }
-      // Email used in another family — also a conflict (emails are globally unique)
+      // Email used in another family - also a conflict (emails are globally unique)
       throw new ConflictError('An account with this email already exists. If this is your email, please log in and contact support to be added to this family.');
     }
 
     // 5. Hash password
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // 6. Create the co-parent user and mark invitation accepted — both in one transaction
+    // 6. Create the co-parent user and mark invitation accepted - both in one transaction
     let result;
     try {
       result = await prisma.$transaction(async (tx) => {
@@ -322,7 +322,7 @@ export class InviteService {
     });
   }
 
-  // GET /auth/invite-preview?token=... — public, no auth required
+  // GET /auth/invite-preview?token=... - public, no auth required
   // Returns just enough info to render the accept page (family name, inviter name, email)
   async getInvitePreview(token: string) {
     const invitation = await prisma.familyInvitation.findUnique({
@@ -353,7 +353,7 @@ export class InviteService {
     };
   }
 
-  // DELETE /families/me/invitations/:id — cancel a pending invite
+  // DELETE /families/me/invitations/:id - cancel a pending invite
   async cancelInvite(familyId: string, callerId: string, invitationId: string): Promise<void> {
     // Verify caller is a parent in this family
     const caller = await prisma.user.findUnique({ where: { id: callerId } });
@@ -361,7 +361,7 @@ export class InviteService {
       throw new UnauthorizedError('Not authorized');
     }
 
-    // Find the invitation — must belong to same family and still be pending
+    // Find the invitation - must belong to same family and still be pending
     const invitation = await prisma.familyInvitation.findFirst({
       where: {
         id: invitationId,

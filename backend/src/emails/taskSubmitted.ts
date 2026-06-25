@@ -1,5 +1,5 @@
 /**
- * emails/taskSubmitted.ts — M9
+ * emails/taskSubmitted.ts - M9
  * Sent to ALL parents when a child marks a task as complete (pending review).
  * triggerType: 'task_submitted'
  * templateData: { childName, taskTitle, completedAt, assignmentId }
@@ -29,7 +29,7 @@ export function buildTaskSubmitted(data: TaskSubmittedData): string {
   <tr>
     <td style="padding:40px 40px 16px;">
       <h2 style="margin:0 0 12px;color:#1e293b;font-size:22px;font-weight:700;">
-        Task completed — review needed ✏️
+        Task completed - review needed ✏️
       </h2>
       <p style="margin:0 0 20px;color:#475569;font-size:16px;line-height:1.6;">
         <strong>${childName}</strong> has marked a task as complete and is waiting for your approval.
@@ -51,6 +51,6 @@ export function buildTaskSubmitted(data: TaskSubmittedData): string {
 
   return baseLayout(
     inner,
-    `${childName} completed "${taskTitle}" — tap to review and approve.`,
+    `${childName} completed "${taskTitle}" - tap to review and approve.`,
   );
 }

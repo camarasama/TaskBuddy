@@ -1,10 +1,10 @@
 /**
- * rewardCaps.ts — M6 (CR-11)
+ * rewardCaps.ts - M6 (CR-11)
  *
  * Isolated three-gate redemption guard. Called by the redeem route before
  * any points are deducted. Returns { allowed: true } or { allowed: false, reason, statusCode }.
  *
- * Gate order matters — check expiry first so the child gets the most specific error:
+ * Gate order matters - check expiry first so the child gets the most specific error:
  *   Gate 1: expiresAt     → "This reward has expired."
  *   Gate 2: total cap     → "This reward has been fully claimed by the household."
  *   Gate 3: per-child cap → "You have already claimed this reward the maximum number of times."
@@ -17,7 +17,7 @@ import { prisma } from '../services/database';
 export interface CapCheckResult {
   allowed: boolean;
   reason?: string;
-  // HTTP status to send back — always 409 Conflict for cap violations
+  // HTTP status to send back - always 409 Conflict for cap violations
   statusCode?: 409;
 }
 
@@ -53,7 +53,7 @@ export async function checkRedemptionCaps(
   // ── Gate 1: Expiry ──────────────────────────────────────────────────────────
   // Check this explicitly so we return a specific "expired" message rather than
   // silently falling through to a 404. The redeem route no longer filters by
-  // expiresAt in the findFirst query — it fetches the reward unconditionally and
+  // expiresAt in the findFirst query - it fetches the reward unconditionally and
   // delegates all cap logic here.
   if (reward.expiresAt && reward.expiresAt <= new Date()) {
     return {

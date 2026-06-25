@@ -1,5 +1,5 @@
 /**
- * jobs/streakAtRiskCron.ts — M9
+ * jobs/streakAtRiskCron.ts - M9
  *
  * Runs at 18:00 (6pm) every day.
  * Finds all children who:
@@ -10,7 +10,7 @@
  * "Today" is defined as: from midnight to end of day in UTC.
  * The cron only sends if the 'streak_at_risk' preference is enabled for the family.
  *
- * Usage — register in your main server file:
+ * Usage - register in your main server file:
  *   import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
  *   startStreakAtRiskCron();
  */
@@ -35,7 +35,7 @@ async function sendStreakAtRiskEmails(): Promise<void> {
       taskAssignments: {
         some: {
           status: { in: ['pending', 'in_progress'] },
-          // Assignment was due today or is ongoing (no dueDate filter — covers all active tasks)
+          // Assignment was due today or is ongoing (no dueDate filter - covers all active tasks)
         },
       },
     },

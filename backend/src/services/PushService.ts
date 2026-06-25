@@ -41,7 +41,7 @@ export class PushService {
           );
         } catch (err: any) {
           if (err?.statusCode === 410 || err?.statusCode === 404) {
-            staleIds.push(sub.id); // subscription expired — clean up
+            staleIds.push(sub.id); // subscription expired - clean up
           }
         }
       })

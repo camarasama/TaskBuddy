@@ -1,5 +1,5 @@
 /**
- * emails/taskApproved.ts — M9
+ * emails/taskApproved.ts - M9
  * Sent to ALL parents when a task submission is approved.
  * triggerType: 'task_approved'
  * templateData: { childName, taskTitle, pointsAwarded, xpAwarded, newBalance }

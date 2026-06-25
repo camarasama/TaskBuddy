@@ -1,12 +1,12 @@
 /**
- * routes/tasks.ts — Updated M10 Phase 5 (Socket.io Real-time Events)
+ * routes/tasks.ts - Updated M10 Phase 5 (Socket.io Real-time Events)
  *
  * Changes from M9:
  *  - PUT /assignments/:id/complete: createNotification() for the child (task_submitted).
  *  - PUT /assignments/:id/approve (approve): createNotification() for the child (task_approved)
  *    and optionally (level_up) if a level-up fired.
  *  - PUT /assignments/:id/approve (reject): createNotification() for the child (task_rejected).
- *  All notifications are fire-and-forget — they never block the HTTP response.
+ *  All notifications are fire-and-forget - they never block the HTTP response.
  *
  * Previous M9 history:
  *
@@ -14,7 +14,7 @@
  *  - PUT /assignments/:id/complete: after marking status='completed', calls
  *    EmailService.sendToFamilyParents() with triggerType='task_submitted'.
  *    The email goes to ALL parent-role users in the family (CR-08).
- *    Fire-and-forget — email failure never blocks the completion response.
+ *    Fire-and-forget - email failure never blocks the completion response.
  *
  *  - PUT /assignments/:id/approve (approve branch): after awarding points/XP,
  *    calls EmailService.send() with triggerType='task_approved' to the child's
@@ -22,7 +22,7 @@
  *
  *  - PUT /assignments/:id/approve (reject branch): calls EmailService.send()
  *    with triggerType='task_rejected'. The child is NOT emailed (children
- *    have no email address) — parents receive all notifications.
+ *    have no email address) - parents receive all notifications.
  *
  * All other routes are unchanged from M8.
  */
@@ -36,14 +36,14 @@ import { NotFoundError, ForbiddenError, ConflictError } from '../middleware/erro
 import { GAMIFICATION } from '@taskbuddy/shared';
 import { difficultyFromPoints } from '../../../shared/src/utils/difficultyFromPoints';
 import { uploadPhoto } from '../middleware/upload';
-// M5 — CR-09 / CR-10 utilities
+// M5 - CR-09 / CR-10 utilities
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
 import { getTaskOverlaps } from '../utils/overlapCheck';
 // BUG FIX: Use StorageService (memoryStorage buffer) instead of old disk-path approach
 import { uploadFile } from '../services/storage';
-// M8 — Audit logging for all mutating task routes
+// M8 - Audit logging for all mutating task routes
 import { AuditService } from '../services/AuditService';
-// P4 — Business logic delegated to TaskService
+// P4 - Business logic delegated to TaskService
 import { TaskService } from '../services/TaskService';
 import { createNotification } from './notifications';
 
@@ -58,14 +58,14 @@ const createTaskSchema = z.object({
   description: z.string().max(1000).optional(),
   category: z.string().max(50).optional(),
   // difficulty derived server-side from pointsValue via difficultyFromPoints()
-  // M5 — CR-01: primary/secondary tag (defaults to primary)
+  // M5 - CR-01: primary/secondary tag (defaults to primary)
   taskTag: z.enum(['primary', 'secondary']).optional().default('primary'),
   pointsValue: z.number().int().min(5).max(1000),
   dueDate: z.string().datetime().refine(
     (v) => new Date(v) > new Date(),
     { message: 'Due date must be in the future' }
   ),
-  // M5 — CR-09: optional scheduling for overlap detection
+  // M5 - CR-09: optional scheduling for overlap detection
   startTime: z.string().datetime().optional(),
   estimatedMinutes: z.number().int().min(1).max(480).optional(),
   requiresPhotoEvidence: z.boolean().optional(),
@@ -83,14 +83,14 @@ const updateTaskSchema = z.object({
   description: z.string().max(1000).optional(),
   category: z.string().max(50).optional(),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
-  // M5 — CR-01
+  // M5 - CR-01
   taskTag: z.enum(['primary', 'secondary']).optional(),
   pointsValue: z.number().int().min(1).max(1000).optional(),
   dueDate: z.string().datetime().nullable().optional()
     .refine((v) => v === null || v === undefined || new Date(v) > new Date(), {
       message: 'Due date must be in the future',
     }),
-  // M5 — CR-09
+  // M5 - CR-09
   startTime: z.string().datetime().nullable().optional(),
   estimatedMinutes: z.number().int().min(1).max(480).nullable().optional(),
   requiresPhotoEvidence: z.boolean().optional(),
@@ -129,7 +129,7 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
     if (difficulty) where.difficulty = difficulty;
 
     // Children need to see:
-    // 1. Their own assignments (active tasks only — not archived)
+    // 1. Their own assignments (active tasks only - not archived)
     // 2. Unassigned active tasks available to self-assign
     if (req.user!.role === 'child') {
       const targetChildId = req.user!.userId;
@@ -172,7 +172,7 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
       distinct: ['id'],
     });
 
-    // M5 — CR-10: For child role, compute hasPendingPrimaries and attach
+    // M5 - CR-10: For child role, compute hasPendingPrimaries and attach
     // canSelfAssign to each secondary task so the UI can show the lock state.
     if (req.user!.role === 'child') {
       const childId = req.user!.userId;
@@ -187,7 +187,7 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
       const tasksWithFlags = tasks
         .filter((task) => {
           // Filter pool tasks that have reached their claim limit.
-          // Expired assignments don't count as "already assigned" — the child can re-claim.
+          // Expired assignments don't count as "already assigned" - the child can re-claim.
           const alreadyAssigned = task.assignments.some(a => a.childId === childId && a.status !== 'expired');
           if (alreadyAssigned) return true; // always keep child's own active tasks
           if (task.maxClaimsTotal == null) return true; // no cap
@@ -288,7 +288,7 @@ taskRouter.get('/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /tasks/:id/assignments/:childId — Parent removes a child's assignment
+// DELETE /tasks/:id/assignments/:childId - Parent removes a child's assignment
 taskRouter.delete('/:id/assignments/:childId', requireParent, async (req, res, next) => {
   try {
     const task = await prisma.task.findFirst({
@@ -309,7 +309,7 @@ taskRouter.delete('/:id/assignments/:childId', requireParent, async (req, res, n
   }
 });
 
-// POST /tasks/:id/assign — Parent assigns task to a new child
+// POST /tasks/:id/assign - Parent assigns task to a new child
 taskRouter.post('/:id/assign', requireParent, async (req, res, next) => {
   try {
     const { childId } = req.body as { childId: string };
@@ -368,7 +368,7 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
 
     const { dueDate, startTime, estimatedMinutes, ...updateData } = req.body;
 
-    // M5 — CR-09: Re-run overlap check if scheduling fields changed
+    // M5 - CR-09: Re-run overlap check if scheduling fields changed
     const warnings: Awaited<ReturnType<typeof getTaskOverlaps>> = [];
     const timingChanged =
       startTime !== undefined || estimatedMinutes !== undefined;
@@ -436,7 +436,7 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
       },
     });
 
-    // M8 — Audit: task updated
+    // M8 - Audit: task updated
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'UPDATE',
@@ -476,7 +476,7 @@ taskRouter.delete('/:id', requireParent, async (req, res, next) => {
       data: { deletedAt: new Date() },
     });
 
-    // M8 — Audit: task soft-deleted
+    // M8 - Audit: task soft-deleted
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'DELETE',
@@ -558,7 +558,7 @@ taskRouter.put('/assignments/:id/start', async (req, res, next) => {
       throw new ForbiddenError("Cannot start another child's task");
     }
     if (assignment.status !== 'pending') {
-      throw new ConflictError(`Task is already ${assignment.status} — cannot start again`);
+      throw new ConflictError(`Task is already ${assignment.status} - cannot start again`);
     }
 
     const updated = await prisma.taskAssignment.update({
@@ -700,7 +700,7 @@ taskRouter.get('/assignments/pending', requireParent, async (req, res, next) => 
   }
 });
 
-// POST /tasks/assignments/self-assign - Child self-assigns a secondary task (M5 — CR-10)
+// POST /tasks/assignments/self-assign - Child self-assigns a secondary task (M5 - CR-10)
 taskRouter.post('/assignments/self-assign', requireAuth, async (req, res, next) => {
   try {
     if (req.user!.role !== 'child') {
@@ -755,7 +755,7 @@ taskRouter.post('/assignments/self-assign', requireAuth, async (req, res, next) 
       },
     });
 
-    // M8 — Audit: child self-assigned a secondary task
+    // M8 - Audit: child self-assigned a secondary task
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'SELF_ASSIGN',

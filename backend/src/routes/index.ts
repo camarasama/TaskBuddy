@@ -2,14 +2,14 @@ import { Router } from 'express';
 import { authRouter } from './auth';
 import { familyRouter } from './family';
 import { taskRouter } from './tasks';
-// M5 — import the self-assign router
+// M5 - import the self-assign router
 import { taskSelfAssignRouter } from './taskSelfAssign';
 import { rewardRouter } from './rewards';
 import { dashboardRouter } from './dashboard';
 import { achievementRouter } from './achievements';
-// M9 — Email log admin viewer + resend endpoint
+// M9 - Email log admin viewer + resend endpoint
 import  emailRouter  from './emails';
-// PE — Mini games
+// PE - Mini games
 import { gamesRouter } from './games';
 
 export const apiRouter = Router();
@@ -17,15 +17,15 @@ export const apiRouter = Router();
 // Mount route modules
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/families', familyRouter);
-// M5 — Mount self-assign BEFORE the main taskRouter so the more specific path matches first
+// M5 - Mount self-assign BEFORE the main taskRouter so the more specific path matches first
 apiRouter.use('/tasks/assignments/self-assign', taskSelfAssignRouter);
 apiRouter.use('/tasks', taskRouter);
 apiRouter.use('/rewards', rewardRouter);
 apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/achievements', achievementRouter);
-// M9 — Admin email log viewer (GET /admin/emails, POST /admin/emails/:id/resend)
+// M9 - Admin email log viewer (GET /admin/emails, POST /admin/emails/:id/resend)
 apiRouter.use('/admin/emails', emailRouter);
-// PE — Mini games (child-only)
+// PE - Mini games (child-only)
 apiRouter.use('/games', gamesRouter);
 
 // API info endpoint

@@ -218,7 +218,7 @@ dashboardRouter.get('/child', requireChild, async (req, res, next) => {
       ],
     });
 
-    // Calculate streak info — BUG-06 FIX: atRisk now reads streakGracePeriodHours from FamilySettings
+    // Calculate streak info - BUG-06 FIX: atRisk now reads streakGracePeriodHours from FamilySettings
     const completedToday = todaysTasks.filter(
       (a) => a.status === 'completed' || a.status === 'approved'
     ).length;

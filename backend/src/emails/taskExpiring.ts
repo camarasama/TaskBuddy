@@ -1,5 +1,5 @@
 /**
- * emails/taskExpiring.ts — M9
+ * emails/taskExpiring.ts - M9
  * Sent by the midnight cron when a task is due within 24 hours.
  * triggerType: 'task_expiring'
  * templateData: { childName, taskTitle, dueAt, assignmentId }

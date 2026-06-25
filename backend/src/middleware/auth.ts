@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { UnauthorizedError, ForbiddenError, AppError } from './errorHandler';
 import type { UserRole } from '@taskbuddy/shared';
-// M8 — needed to check if a family is suspended before allowing access
+// M8 - needed to check if a family is suspended before allowing access
 import { prisma } from '../services/database';
 
 // Extend Express Request type
@@ -106,11 +106,11 @@ export const requireChild = requireRole('child');
 // Require any authenticated user
 export const requireAuth = requireRole('parent', 'child', 'admin');
 
-// M8 — Require admin role exclusively (no parent fallback)
+// M8 - Require admin role exclusively (no parent fallback)
 // Used to protect all /admin/* routes.
 export const requireAdmin = requireRole('admin');
 
-// Require email verified (parents only — children have no email)
+// Require email verified (parents only - children have no email)
 export async function requireEmailVerified(req: Request, _res: Response, next: NextFunction): Promise<void> {
   if (!req.user || req.user.role !== 'parent') {
     next();
@@ -149,7 +149,7 @@ export function familyIsolation(req: Request, _res: Response, next: NextFunction
   // Ensure familyId is always available
   req.familyId = req.user.familyId;
 
-  // M8 — Check suspension + email verification for parents
+  // M8 - Check suspension + email verification for parents
   if (req.user.role !== 'admin' && req.familyId) {
     prisma.family
       .findUnique({ where: { id: req.familyId }, select: { isSuspended: true } })

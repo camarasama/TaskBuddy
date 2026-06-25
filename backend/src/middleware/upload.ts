@@ -1,10 +1,10 @@
 import multer from 'multer';
 
 // Use memoryStorage so files are held in buffer.
-// StorageService (storage.ts) handles all writes — to local disk or R2.
+// StorageService (storage.ts) handles all writes - to local disk or R2.
 const memStorage = multer.memoryStorage();
 
-// File filter — images only
+// File filter - images only
 const imageFilter = (
   _req: Express.Request,
   file: Express.Multer.File,

@@ -1,5 +1,5 @@
 /**
- * emails/welcome.ts — M9
+ * emails/welcome.ts - M9
  * Sent to a new parent when they register or accept a co-parent invitation.
  * triggerType: 'welcome'
  * templateData: { firstName, familyName }

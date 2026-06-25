@@ -1,5 +1,5 @@
 /**
- * gamification.ts — M7: Shared gamification constants (CR-06)
+ * gamification.ts - M7: Shared gamification constants (CR-06)
  *
  * Place this file at: backend/src/utils/gamification.ts
  *

@@ -1,5 +1,5 @@
 /**
- * gamesSeed.ts — Seed initial quiz game definitions.
+ * gamesSeed.ts - Seed initial quiz game definitions.
  * Called once from the games router on first run OR via prisma/seed.ts.
  * Safe to call multiple times (upserts by title).
  */

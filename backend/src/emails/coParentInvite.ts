@@ -1,5 +1,5 @@
 /**
- * emails/coParentInvite.ts — M9
+ * emails/coParentInvite.ts - M9
  * Replaces the inline buildInviteEmail() that was in services/invite.ts (M4-M8).
  * Sent when a primary parent invites a co-parent to join the family.
  * triggerType: 'co_parent_invite'
@@ -43,7 +43,7 @@ export function buildCoParentInvite(data: CoParentInviteData): string {
     <td style="padding:0 40px 40px;">
       <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
         This invitation expires in <strong>${expiresDays} days</strong>.
-        If you didn't expect this email you can safely ignore it — no account will be created.
+        If you didn't expect this email you can safely ignore it - no account will be created.
       </p>
       <p style="margin:12px 0 0;color:#94a3b8;font-size:12px;">
         Or copy this link:

@@ -1,12 +1,12 @@
 /**
- * services/SocketService.ts — M10 Phase 5
+ * services/SocketService.ts - M10 Phase 5
  *
  * Singleton wrapper around the Socket.io Server instance.
  * All backend route handlers import from here to emit typed events.
  *
  * Room conventions (joined automatically in the connection handler):
- *   family:{familyId}  — receives events relevant to the whole family
- *   user:{userId}      — receives events targeted at one specific user
+ *   family:{familyId}  - receives events relevant to the whole family
+ *   user:{userId}      - receives events targeted at one specific user
  *
  * Fire-and-forget: every emit is synchronous (socket.io handles delivery);
  * routes do NOT await these calls.
@@ -101,7 +101,7 @@ let io: SocketIOServer | null = null;
 export function initSocketService(ioInstance: SocketIOServer): void {
   io = ioInstance;
 
-  // Verify JWT on every socket connection — reject unauthenticated clients
+  // Verify JWT on every socket connection - reject unauthenticated clients
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) return next(new Error('Authentication required'));
@@ -159,7 +159,7 @@ export function emitTaskApproved(familyId: string, payload: TaskApprovedPayload)
 
 /**
  * emitTaskRejected
- * Emitted only to the child's user room — parents initiated the action.
+ * Emitted only to the child's user room - parents initiated the action.
  */
 export function emitTaskRejected(familyId: string, payload: TaskRejectedPayload): void {
   if (!ready('emitTaskRejected')) return;
@@ -177,7 +177,7 @@ export function emitPointsUpdated(familyId: string, payload: PointsUpdatedPayloa
 
 /**
  * emitLevelUp
- * Sent to the child's user room — triggers the level-up celebration UI.
+ * Sent to the child's user room - triggers the level-up celebration UI.
  */
 export function emitLevelUp(familyId: string, payload: LevelUpPayload): void {
   if (!ready('emitLevelUp')) return;
@@ -186,7 +186,7 @@ export function emitLevelUp(familyId: string, payload: LevelUpPayload): void {
 
 /**
  * emitAchievementUnlocked
- * Sent to the child's user room — triggers achievement toast/animation.
+ * Sent to the child's user room - triggers achievement toast/animation.
  */
 export function emitAchievementUnlocked(
   familyId: string,
@@ -207,7 +207,7 @@ export function emitOverlapWarning(familyId: string, payload: OverlapWarningPayl
 
 /**
  * emitNotificationNew
- * Targeted push to a specific user room — used for instant bell updates
+ * Targeted push to a specific user room - used for instant bell updates
  * (e.g. reward fulfilled, custom admin message).
  */
 export function emitNotificationNew(userId: string, payload: NotificationNewPayload): void {

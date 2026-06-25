@@ -1,5 +1,5 @@
 /**
- * rewards.ts — Backend route (updated M10 Phase 5 — Socket.io + In-app Notifications)
+ * rewards.ts - Backend route (updated M10 Phase 5 - Socket.io + In-app Notifications)
  *
  * Changes from M10 Phase 5 (this file):
  *  - POST /:id/redeem: createNotification() confirms redemption in child's bell.
@@ -19,13 +19,13 @@ import { authenticate, requireParent, familyIsolation } from '../middleware/auth
 import { validateBody } from '../middleware/validate';
 import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
 import { getRewardCapData } from '../utils/rewardCaps';
-// M8 — Audit logging for all mutating reward routes
+// M8 - Audit logging for all mutating reward routes
 import { AuditService } from '../services/AuditService';
-// M10 — Phase 4: In-app notification bell
+// M10 - Phase 4: In-app notification bell
 import { createNotification } from './notifications';
-// M10 — Phase 5: Real-time socket events
+// M10 - Phase 5: Real-time socket events
 import { SocketService } from '../services/SocketService';
-// P4 — Business logic delegated to RewardService
+// P4 - Business logic delegated to RewardService
 import { RewardService } from '../services/RewardService';
 
 export const rewardRouter = Router();
@@ -41,9 +41,9 @@ const createRewardSchema = z.object({
   pointsCost: z.number().int().min(1).max(100000),
   tier: z.enum(['small', 'medium', 'large']).optional(),
   iconUrl: z.string().url().optional(),
-  // M6 — CR-11: per-child cap
+  // M6 - CR-11: per-child cap
   maxRedemptionsPerChild: z.number().int().min(1).optional(),
-  // M6 — CR-11: household cap
+  // M6 - CR-11: household cap
   maxRedemptionsTotal: z.number().int().min(1).optional(),
   expiresAt: z.string().datetime().nullable().optional()
     .refine((v) => v === null || v === undefined || new Date(v) > new Date(), {
@@ -56,7 +56,7 @@ const updateRewardSchema = createRewardSchema.partial().extend({
   isActive: z.boolean().optional(),
 });
 
-// ─── GET /rewards — List all rewards ─────────────────────────────────────────
+// ─── GET /rewards - List all rewards ─────────────────────────────────────────
 
 rewardRouter.get('/', async (req, res, next) => {
   try {
@@ -110,7 +110,7 @@ rewardRouter.get('/', async (req, res, next) => {
   }
 });
 
-// ─── POST /rewards — Create a reward (parents only) ──────────────────────────
+// ─── POST /rewards - Create a reward (parents only) ──────────────────────────
 
 rewardRouter.post('/', requireParent, validateBody(createRewardSchema), async (req, res, next) => {
   try {
@@ -125,7 +125,7 @@ rewardRouter.post('/', requireParent, validateBody(createRewardSchema), async (r
       },
     });
 
-    // M8 — Audit: reward created
+    // M8 - Audit: reward created
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'CREATE',
@@ -145,7 +145,7 @@ rewardRouter.post('/', requireParent, validateBody(createRewardSchema), async (r
   }
 });
 
-// ─── GET /rewards/:id — Get a specific reward ─────────────────────────────────
+// ─── GET /rewards/:id - Get a specific reward ─────────────────────────────────
 
 rewardRouter.get('/:id', async (req, res, next) => {
   try {
@@ -192,7 +192,7 @@ rewardRouter.get('/:id', async (req, res, next) => {
   }
 });
 
-// ─── PUT /rewards/:id — Update a reward (parents only) ───────────────────────
+// ─── PUT /rewards/:id - Update a reward (parents only) ───────────────────────
 
 rewardRouter.put('/:id', requireParent, validateBody(updateRewardSchema), async (req, res, next) => {
   try {
@@ -218,7 +218,7 @@ rewardRouter.put('/:id', requireParent, validateBody(updateRewardSchema), async 
       },
     });
 
-    // M8 — Audit: reward updated
+    // M8 - Audit: reward updated
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'UPDATE',
@@ -238,7 +238,7 @@ rewardRouter.put('/:id', requireParent, validateBody(updateRewardSchema), async 
   }
 });
 
-// ─── DELETE /rewards/:id — Soft delete (parents only) ────────────────────────
+// ─── DELETE /rewards/:id - Soft delete (parents only) ────────────────────────
 
 rewardRouter.delete('/:id', requireParent, async (req, res, next) => {
   try {
@@ -259,7 +259,7 @@ rewardRouter.delete('/:id', requireParent, async (req, res, next) => {
       data: { deletedAt: new Date() },
     });
 
-    // M8 — Audit: reward soft-deleted
+    // M8 - Audit: reward soft-deleted
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'DELETE',
@@ -279,7 +279,7 @@ rewardRouter.delete('/:id', requireParent, async (req, res, next) => {
   }
 });
 
-// ─── POST /rewards/:id/redeem — Redeem a reward (children only) ──────────────
+// ─── POST /rewards/:id/redeem - Redeem a reward (children only) ──────────────
 
 rewardRouter.post('/:id/redeem', async (req, res, next) => {
   try {
@@ -298,7 +298,7 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
   }
 });
 
-// ─── GET /rewards/redemptions/history — Redemption history ───────────────────
+// ─── GET /rewards/redemptions/history - Redemption history ───────────────────
 
 rewardRouter.get('/redemptions/history', async (req, res, next) => {
   try {
@@ -330,7 +330,7 @@ rewardRouter.get('/redemptions/history', async (req, res, next) => {
   }
 });
 
-// ─── PUT /rewards/redemptions/:id/fulfill — Mark as fulfilled (parents only) ──
+// ─── PUT /rewards/redemptions/:id/fulfill - Mark as fulfilled (parents only) ──
 
 rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, next) => {
   try {
@@ -356,7 +356,7 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
       },
     });
 
-    // M8 — Audit: redemption fulfilled by parent
+    // M8 - Audit: redemption fulfilled by parent
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'FULFILL',
@@ -367,7 +367,7 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
       metadata: { childId: redemption.childId, rewardId: redemption.rewardId },
     });
 
-    // M10 — Phase 4: Notify the child their reward was fulfilled
+    // M10 - Phase 4: Notify the child their reward was fulfilled
     createNotification({
       userId: redemption.childId,
       notificationType: 'reward_fulfilled',
@@ -378,7 +378,7 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
       referenceId: req.params.id,
     }).catch(() => {}); // non-fatal
 
-    // M10 — Phase 5: Socket event → child's bell updates instantly without polling
+    // M10 - Phase 5: Socket event → child's bell updates instantly without polling
     SocketService.emitNotificationNew(redemption.childId, {
       notificationType: 'reward_fulfilled',
       title: '✅ Reward Delivered!',
@@ -396,7 +396,7 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
   }
 });
 
-// ─── PUT /rewards/redemptions/:id/cancel — Cancel a redemption ───────────────
+// ─── PUT /rewards/redemptions/:id/cancel - Cancel a redemption ───────────────
 
 rewardRouter.put('/redemptions/:id/cancel', async (req, res, next) => {
   try {
@@ -447,7 +447,7 @@ rewardRouter.put('/redemptions/:id/cancel', async (req, res, next) => {
       });
     });
 
-    // M8 — Audit: redemption cancelled
+    // M8 - Audit: redemption cancelled
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'CANCEL',

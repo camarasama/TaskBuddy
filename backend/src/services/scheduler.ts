@@ -1,5 +1,5 @@
 /**
- * scheduler.ts — M6 (first creation)
+ * scheduler.ts - M6 (first creation)
  *
  * Central cron scheduler for TaskBuddy backend.
  * Call initScheduler() once from index.ts after the DB connection is ready.
@@ -19,7 +19,7 @@ import { prisma } from './database';
 import { createNotification } from '../routes/notifications';
 import { EmailService } from './email';
 
-// Reminder thresholds in minutes — checked every 5 min
+// Reminder thresholds in minutes - checked every 5 min
 const REMINDER_THRESHOLDS: Array<{ label: string; minutes: number }> = [
   { label: '24h',    minutes: 1440 },
   { label: '12h',    minutes:  720 },
@@ -127,7 +127,7 @@ export function initScheduler(): void {
         }
       }
 
-      // (2) 24h expiry warning — only for assignments not yet warned
+      // (2) 24h expiry warning - only for assignments not yet warned
       const expiringAssignments = await prisma.taskAssignment.findMany({
         where: {
           status: { in: ['pending', 'in_progress'] },
@@ -222,7 +222,7 @@ export function initScheduler(): void {
           message: `"${a.task.title}" is due in ${label}.`,
         });
 
-        // Email reminder — notify parent(s) too
+        // Email reminder - notify parent(s) too
         await EmailService.sendToFamilyParents({
           familyId: a.task.familyId,
           triggerType: 'task_expiring',
@@ -252,7 +252,7 @@ export function initScheduler(): void {
   }, { timezone: 'UTC' });
 
   console.log('[Scheduler] Cron jobs registered:');
-  console.log('  00:05 UTC — Reward expiry & sold-out deactivation (M6)');
-  console.log('  0 * * * * — Due-date enforcement: expire/warn/archive (hourly)');
-  console.log('  */5  UTC — Task expiry reminders: 24h/12h/6h/3h/1h/30min/15min/5min');
+  console.log('  00:05 UTC - Reward expiry & sold-out deactivation (M6)');
+  console.log('  0 * * * * - Due-date enforcement: expire/warn/archive (hourly)');
+  console.log('  */5  UTC - Task expiry reminders: 24h/12h/6h/3h/1h/30min/15min/5min');
 }

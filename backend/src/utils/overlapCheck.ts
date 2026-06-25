@@ -1,7 +1,7 @@
 // backend/src/utils/overlapCheck.ts
 // CR-09: Detects schedule conflicts for a child's task assignments on a given day.
 // Called by POST /tasks (create) and PUT /tasks/:id (update).
-// Returns warnings[] — HTTP 200, not a hard block. Frontend shows a dismissible modal.
+// Returns warnings[] - HTTP 200, not a hard block. Frontend shows a dismissible modal.
 
 import { prisma } from '../services/database';
 

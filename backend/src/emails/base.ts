@@ -1,9 +1,9 @@
 /**
- * emails/base.ts — M9 Email Notifications
+ * emails/base.ts - M9 Email Notifications
  *
  * Provides:
- *  - baseLayout(content, title?) — wraps inner HTML in the branded shell
- *  - renderTemplate(triggerType, data) — dispatches to the correct template
+ *  - baseLayout(content, title?) - wraps inner HTML in the branded shell
+ *  - renderTemplate(triggerType, data) - dispatches to the correct template
  *
  * All per-trigger template files export a single function:
  *   export function buildXxx(data: XxxData): string

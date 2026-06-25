@@ -79,7 +79,7 @@ export class AuthService {
         },
       });
 
-      // Create parent user — first parent is always the primary parent (M4: isPrimaryParent)
+      // Create parent user - first parent is always the primary parent (M4: isPrimaryParent)
       const user = await tx.user.create({
         data: {
           familyId: family.id,
@@ -519,9 +519,9 @@ export class AuthService {
 
     return { accessToken, refreshToken, expiresIn };
   }
-  // M8 — Create an admin account. Called from POST /auth/admin/register after
+  // M8 - Create an admin account. Called from POST /auth/admin/register after
   // the ADMIN_INVITE_CODE gate has been validated in the route handler.
-  // Admin users have no familyId — they operate across all families and are
+  // Admin users have no familyId - they operate across all families and are
   // skipped by the familyIsolation middleware.
   async registerAdmin(data: {
     email: string;
@@ -542,7 +542,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // familyId is nullable after the M8 migration — admin users have no family.
+    // familyId is nullable after the M8 migration - admin users have no family.
     // The familyIsolation middleware skips users whose role is 'admin'.
     const user = await prisma.user.create({
       data: {
@@ -553,7 +553,7 @@ export class AuthService {
         role:            'admin',
         isActive:        true,
         isPrimaryParent: false,
-        // familyId intentionally omitted — nullable in schema after M8 migration
+        // familyId intentionally omitted - nullable in schema after M8 migration
       },
       select: {
         id:        true,
@@ -565,7 +565,7 @@ export class AuthService {
     });
 
     // Return with explicit familyId: null so callers (audit log, etc.)
-    // have a typed value — admin users genuinely have no family.
+    // have a typed value - admin users genuinely have no family.
     return { user: { ...user, familyId: null } };
   }
 

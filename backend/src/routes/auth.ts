@@ -1,9 +1,9 @@
 /**
- * routes/auth.ts — Updated M9 (Email Notifications)
+ * routes/auth.ts - Updated M9 (Email Notifications)
  *
  * Changes from M8:
  *  - POST /auth/register: calls EmailService.send('welcome', ...) after successful
- *    family + parent creation. Fire-and-forget — email failure never blocks registration.
+ *    family + parent creation. Fire-and-forget - email failure never blocks registration.
  *  - POST /auth/accept-invite: calls EmailService.send('co_parent_invite_accepted', ...)
  *    to notify all existing family parents that a new co-parent has joined.
  *    The actual co-parent invite email is sent by InviteService (invite.ts), not here.
@@ -25,9 +25,9 @@ import { prisma } from '../services/database';
 import { ConflictError, NotFoundError } from '../middleware/errorHandler';
 import { validateBody } from '../middleware/validate';
 import { VALIDATION } from '@taskbuddy/shared';
-// M8 — Audit logging for auth events
+// M8 - Audit logging for auth events
 import { AuditService } from '../services/AuditService';
-// M9 — Email notifications
+// M9 - Email notifications
 import { EmailService } from '../services/email';
 
 export const authRouter = Router();
@@ -37,7 +37,7 @@ export const authRouter = Router();
 // ============================================
 
 /**
- * M7 — CR-02: registerSchema includes dateOfBirth (required) and
+ * M7 - CR-02: registerSchema includes dateOfBirth (required) and
  * phoneNumber (optional E.164). Unchanged from M7/M8.
  */
 const registerSchema = z.object({
@@ -112,7 +112,7 @@ const acceptInviteSchema = z.object({
 });
 
 /**
- * M8 — Admin registration schema.
+ * M8 - Admin registration schema.
  * inviteCode must match the ADMIN_INVITE_CODE environment variable.
  */
 const adminRegisterSchema = z.object({
@@ -144,7 +144,7 @@ function getCookieOptions(isChild = false) {
 }
 
 /**
- * M7 — CR-02: Masks a phone number to show only the last 4 digits.
+ * M7 - CR-02: Masks a phone number to show only the last 4 digits.
  * e.g. "+233201234567" → "••••••••4567"
  */
 function maskPhoneNumber(phone: string | null | undefined): string | null {
@@ -164,7 +164,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
   try {
     const result = await authService.register(req.body);
 
-    // M8 — Audit: capture family + parent creation
+    // M8 - Audit: capture family + parent creation
     await AuditService.logAction({
       actorId: result.user.id,
       action: 'REGISTER',
@@ -188,7 +188,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const verifyUrl = `${frontendUrl}/verify-email?token=${verifyToken}`;
 
-    // Welcome email — CTA links directly to the verification URL
+    // Welcome email - CTA links directly to the verification URL
     EmailService.send({
       triggerType: 'welcome',
       toEmail: result.user.email!,
@@ -232,7 +232,7 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
   try {
     const result = await authService.login(req.body);
 
-    // M8 — Audit: parent login event
+    // M8 - Audit: parent login event
     await AuditService.logAction({
       actorId: result.user.id,
       action: 'LOGIN',
@@ -258,7 +258,7 @@ authRouter.post('/child/login', validateBody(childLoginSchema), async (req, res,
   try {
     const result = await authService.childLogin(req.body);
 
-    // M8 — Audit: child login event
+    // M8 - Audit: child login event
     await AuditService.logAction({
       actorId: result.user.id,
       action: 'LOGIN',
@@ -284,7 +284,7 @@ authRouter.post('/child/pin/setup', authenticate, validateBody(setupPinSchema), 
   try {
     await authService.setupPin(req.body.childId, req.body.pin, req.user!.userId);
 
-    // M8 — Audit: PIN setup by parent
+    // M8 - Audit: PIN setup by parent
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'UPDATE',
@@ -295,7 +295,7 @@ authRouter.post('/child/pin/setup', authenticate, validateBody(setupPinSchema), 
       metadata: { event: 'pin_setup' },
     });
 
-    // M9 — fire-and-forget PIN reset notification email
+    // M9 - fire-and-forget PIN reset notification email
     prisma.user.findUnique({
       where: { id: req.body.childId },
       select: { id: true, email: true, firstName: true, familyId: true },
@@ -334,7 +334,7 @@ authRouter.post('/family/regenerate-code', authenticate, async (req, res, next) 
       req.user!.userId
     );
 
-    // M8 — Audit: family code regenerated
+    // M8 - Audit: family code regenerated
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'UPDATE',
@@ -355,7 +355,7 @@ authRouter.post('/family/regenerate-code', authenticate, async (req, res, next) 
 });
 
 // GET /auth/invite-preview?token=... - Fetch family/inviter info before showing the form
-// Public endpoint — used by the /invite/accept page before the form is rendered.
+// Public endpoint - used by the /invite/accept page before the form is rendered.
 authRouter.get('/invite-preview', async (req, res, next) => {
   try {
     const token = req.query.token as string;
@@ -382,7 +382,7 @@ authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, 
   try {
     const result = await inviteService.acceptInvite(req.body);
 
-    // M8 — Audit: co-parent joined family
+    // M8 - Audit: co-parent joined family
     await AuditService.logAction({
       actorId: result.user.id,
       action: 'INVITE_ACCEPTED',
@@ -393,7 +393,7 @@ authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, 
       metadata: { email: result.user.email },
     });
 
-    // M9 — Welcome email for the new co-parent (fire-and-forget)
+    // M9 - Welcome email for the new co-parent (fire-and-forget)
     EmailService.send({
       triggerType: 'welcome',
       toEmail: result.user.email!,
@@ -479,7 +479,7 @@ authRouter.post('/verify-email', async (req, res, next) => {
 // Rate limiter: max 3 resends per hour keyed by email address
 const resendRateLimit = new Map<string, { count: number; resetAt: number }>();
 
-// POST /auth/resend-verification — no auth required (works from email link in fresh session)
+// POST /auth/resend-verification - no auth required (works from email link in fresh session)
 // Accepts { email } in body OR uses req.user.userId if the user is already logged in.
 authRouter.post('/resend-verification', async (req, res, next) => {
   try {
@@ -487,7 +487,7 @@ authRouter.post('/resend-verification', async (req, res, next) => {
     let user: { id: string; email: string | null; firstName: string; emailVerifiedAt: Date | null; familyId: string | null } | null = null;
 
     if (req.headers.authorization) {
-      // Try to authenticate silently — ignore errors (token may have expired)
+      // Try to authenticate silently - ignore errors (token may have expired)
       try {
         const jwt = await import('jsonwebtoken');
         const token = req.headers.authorization.split(' ')[1];
@@ -569,7 +569,7 @@ authRouter.put('/password', authenticate, validateBody(changePasswordSchema), as
   try {
     await authService.changePassword(req.user!.userId, req.body.currentPassword, req.body.newPassword);
 
-    // M8 — Audit: password changed
+    // M8 - Audit: password changed
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'UPDATE',
@@ -590,7 +590,7 @@ authRouter.put('/password', authenticate, validateBody(changePasswordSchema), as
 });
 
 // GET /auth/me - Get current user
-// M7 — CR-02: Returns dateOfBirth and phoneNumber masked to last 4 digits.
+// M7 - CR-02: Returns dateOfBirth and phoneNumber masked to last 4 digits.
 authRouter.get('/me', authenticate, async (req, res, next) => {
   try {
     const user = await authService.getCurrentUser(req.user!.userId);
@@ -655,7 +655,7 @@ authRouter.post(
 );
 
 // ============================================
-// M8 — ADMIN REGISTRATION
+// M8 - ADMIN REGISTRATION
 // ============================================
 
 /**
@@ -679,7 +679,7 @@ authRouter.post('/admin/register', validateBody(adminRegisterSchema), async (req
       });
     }
 
-    // Gate 2: submitted code must match — use timing-safe comparison to prevent timing attacks
+    // Gate 2: submitted code must match - use timing-safe comparison to prevent timing attacks
     const inviteBuffer = Buffer.from(inviteCode);
     const validBuffer  = Buffer.from(validCode);
     const codeMatches =
@@ -695,7 +695,7 @@ authRouter.post('/admin/register', validateBody(adminRegisterSchema), async (req
     // Create the admin user (no family, no child profile)
     const result = await authService.registerAdmin({ email, password, firstName, lastName });
 
-    // M8 — Audit: admin account created
+    // M8 - Audit: admin account created
     await AuditService.logAction({
       actorId: result.user.id,
       action: 'REGISTER',

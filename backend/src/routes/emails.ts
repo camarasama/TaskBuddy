@@ -1,12 +1,12 @@
 /**
- * routes/emails.ts — M9
+ * routes/emails.ts - M9
  * Admin-only endpoints for the email log viewer and manual resend.
  *
  * Mounted at: /admin/emails  (see routes/index.ts)
  * Auth: requireAuth + requireAdmin middleware on all routes
  *
- * GET  /admin/emails         — paginated email_logs with filters
- * POST /admin/emails/:id/resend — re-send a failed email using its logged data
+ * GET  /admin/emails         - paginated email_logs with filters
+ * POST /admin/emails/:id/resend - re-send a failed email using its logged data
  */
 
 import crypto from 'crypto';
@@ -25,13 +25,13 @@ router.use(authenticate, requireAdmin);
 
 /**
  * Query params:
- *  status       — 'sent' | 'failed' | 'bounced'
- *  triggerType  — any EmailTriggerType
- *  familyId     — filter by family
- *  from         — ISO date string (createdAt >=)
- *  to           — ISO date string (createdAt <=)
- *  page         — page number (default 1)
- *  limit        — page size (default 50, max 200)
+ *  status       - 'sent' | 'failed' | 'bounced'
+ *  triggerType  - any EmailTriggerType
+ *  familyId     - filter by family
+ *  from         - ISO date string (createdAt >=)
+ *  to           - ISO date string (createdAt <=)
+ *  page         - page number (default 1)
+ *  limit        - page size (default 50, max 200)
  */
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {

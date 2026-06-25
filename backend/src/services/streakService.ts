@@ -1,10 +1,10 @@
 /**
- * streakService.ts — Updated M7 (CR-06)
+ * streakService.ts - Updated M7 (CR-06)
  *
  * Changes from M7:
  *  - evaluateStreak now checks if the new streak count hits a milestone
  *    (7, 14, 30, 60, 100 days). If so, it awards bonus Points via a
- *    milestone_bonus PointsLedger entry. No XP is awarded for streaks —
+ *    milestone_bonus PointsLedger entry. No XP is awarded for streaks -
  *    only spendable Points.
  *
  * Original BUG-06 logic (grace period from FamilySettings) is unchanged.
@@ -25,7 +25,7 @@ import { emitStreakMilestone } from './SocketService';
  * using hardcoded values. The grace period allows a streak to survive if the
  * child completes a task within N hours after midnight of the missed day.
  *
- * M7 — CR-06: After updating the streak, checks if the new streak count
+ * M7 - CR-06: After updating the streak, checks if the new streak count
  * matches a milestone (7/14/30/60/100 days). If it does, creates a
  * milestone_bonus PointsLedger entry and increments pointsBalance.
  *
@@ -76,7 +76,7 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
   let newStreak = childProfile.currentStreakDays;
 
   if (!lastActivity) {
-    // First ever task completion — start streak
+    // First ever task completion - start streak
     newStreak = 1;
   } else {
     const lastActivityMidnight = new Date(lastActivity);
@@ -87,15 +87,15 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
     );
 
     if (daysSinceLast === 0) {
-      // Already active today — streak unchanged (already incremented this day)
+      // Already active today - streak unchanged (already incremented this day)
     } else if (daysSinceLast === 1) {
-      // Active yesterday, active today — extend streak
+      // Active yesterday, active today - extend streak
       newStreak += 1;
     } else if (daysSinceLast === 2 && gracePeriodHours > 0 && now <= graceDeadline) {
-      // Missed yesterday but within the grace window today — extend streak
+      // Missed yesterday but within the grace window today - extend streak
       newStreak += 1;
     } else {
-      // Gap too large — streak resets
+      // Gap too large - streak resets
       newStreak = 1;
     }
   }
@@ -111,8 +111,8 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
     },
   });
 
-  // M7 — CR-06: Check if newStreak hits a milestone.
-  // Only award the bonus once — if daysSinceLast === 0 (already active today)
+  // M7 - CR-06: Check if newStreak hits a milestone.
+  // Only award the bonus once - if daysSinceLast === 0 (already active today)
   // then newStreak did not change so we will not double-award.
   // The milestone check is against the NEW streak value after the update above.
   const isMilestone = (STREAK_MILESTONE_DAYS as readonly number[]).includes(newStreak);
@@ -136,7 +136,7 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
           data: { pointsBalance: newBalance },
         });
 
-        // Create milestone_bonus ledger entry — Points only, no XP
+        // Create milestone_bonus ledger entry - Points only, no XP
         await prisma.pointsLedger.create({
           data: {
             childId,
@@ -149,7 +149,7 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
           },
         });
 
-        // P1 — Real-time: push streak:milestone to child's user room
+        // P1 - Real-time: push streak:milestone to child's user room
         emitStreakMilestone(childId, { childId, streakCount: newStreak, bonusPoints });
       }
     }
@@ -191,7 +191,7 @@ export async function isStreakAtRisk(childId: string, familyId: string): Promise
   const completedToday = lastActivityMidnight.getTime() === todayMidnight.getTime();
   if (completedToday) return false;
 
-  // If within grace window, the streak is not yet lost — but still "at risk"
+  // If within grace window, the streak is not yet lost - but still "at risk"
   const graceDeadline = new Date(todayMidnight);
   graceDeadline.setHours(gracePeriodHours, 0, 0, 0);
 

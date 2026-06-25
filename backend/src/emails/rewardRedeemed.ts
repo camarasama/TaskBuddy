@@ -1,5 +1,5 @@
 /**
- * emails/rewardRedeemed.ts — M9
+ * emails/rewardRedeemed.ts - M9
  * Sent to ALL parents when a child redeems a reward.
  * triggerType: 'reward_redeemed'
  * templateData: { childName, rewardName, pointsSpent, newBalance, redemptionId }

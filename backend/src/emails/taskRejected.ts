@@ -1,5 +1,5 @@
 /**
- * emails/taskRejected.ts — M9
+ * emails/taskRejected.ts - M9
  * Sent to ALL parents when a task submission is rejected.
  * triggerType: 'task_rejected'
  * templateData: { childName, taskTitle, rejectionReason }

@@ -12,12 +12,12 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authenticate } from './middleware/auth';
 import { apiRouter } from './routes';
 import { initScheduler } from './services/scheduler';
-// M8 — Admin router mounted at /api/v1/admin
+// M8 - Admin router mounted at /api/v1/admin
 import { adminRouter } from './routes/admin';
 import { initRecurringScheduler } from './services/RecurringScheduler';
 import { startExpiryEmailCron } from './jobs/expiryEmailCron';
 import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
-// M10 — Phase 4/5: Reports, Notifications and real-time socket
+// M10 - Phase 4/5: Reports, Notifications and real-time socket
 import { reportsRouter } from './routes/reports';
 import { notificationsRouter } from './routes/notifications';
 import { initSocketService } from './services/SocketService';
@@ -34,7 +34,7 @@ const httpServer = createServer(app);
 const allowedNgrokUrls = (process.env.ALLOWED_NGROK_URL || '')
   .split(',').map((o) => o.trim()).filter(Boolean);
 
-// M10 — Phase 5: Socket.io server — attached to same HTTP server so it shares the port
+// M10 - Phase 5: Socket.io server - attached to same HTTP server so it shares the port
 const io = new SocketIOServer(httpServer, {
   cors: {
     origin: (origin, callback) => {
@@ -116,7 +116,7 @@ if (config.env !== 'test') {
   app.use(morgan(config.env === 'production' ? 'combined' : 'dev'));
 }
 
-// Serve uploaded files — no auth required (paths use random UUIDs, not guessable)
+// Serve uploaded files - no auth required (paths use random UUIDs, not guessable)
 app.get('/uploads/*', (req: express.Request, res: express.Response) => {
   const uploadBase = path.resolve(__dirname, '../uploads');
   const filePath = path.resolve(uploadBase, (req.params as any)[0]);
@@ -140,9 +140,9 @@ app.use('/api/v1/auth/admin/register', authLimiter);
 
 // API routes
 app.use('/api/v1', apiRouter);
-// M8 — Admin API routes (role-protected inside the router itself)
+// M8 - Admin API routes (role-protected inside the router itself)
 app.use('/api/v1/admin', adminRouter);
-// M10 — Phase 4: Reports (parent + admin) and in-app notifications
+// M10 - Phase 4: Reports (parent + admin) and in-app notifications
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 
@@ -154,10 +154,10 @@ app.use(errorHandler);
 const PORT = config.port;
 
 initScheduler();
-initRecurringScheduler(); // M8 — midnight recurring task generation
+initRecurringScheduler(); // M8 - midnight recurring task generation
 startExpiryEmailCron();
 startStreakAtRiskCron();
-initSocketService(io); // M10 — Phase 5: wire socket emit helper
+initSocketService(io); // M10 - Phase 5: wire socket emit helper
 
 seedGames().catch(console.error);
 
