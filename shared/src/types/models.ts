@@ -1,5 +1,5 @@
 /**
- * models.ts — Shared types (updated M7)
+ * models.ts - Shared types (updated M7)
  *
  * Changes from M7 (CR-06):
  *  - TransactionType: added 'milestone_bonus' value
@@ -16,7 +16,7 @@ export type TaskStatus = 'active' | 'paused' | 'archived';
 export type AssignmentStatus = 'pending' | 'in_progress' | 'completed' | 'approved' | 'rejected';
 
 /**
- * TransactionType — M7 update
+ * TransactionType - M7 update
  * 'milestone_bonus' is awarded as Points-only (never XP) when:
  *  - A child levels up: bonus = newLevel × 5 Points
  *  - A child hits a streak milestone: 7/14/30/60/100 days
@@ -47,7 +47,7 @@ export interface Family extends BaseModel {
 }
 
 // User (parent or child)
-// M7 — CR-02: dateOfBirth and phoneNumber added for parent registration
+// M7 - CR-02: dateOfBirth and phoneNumber added for parent registration
 export interface User extends BaseModel {
   familyId: string;
   email?: string | null;
@@ -67,7 +67,7 @@ export interface User extends BaseModel {
 }
 
 // Child profile with gamification data
-// M7 — CR-06: totalXpEarned added — lifetime XP accumulator that drives level calculation.
+// M7 - CR-06: totalXpEarned added - lifetime XP accumulator that drives level calculation.
 // It is NEVER decremented. experiencePoints is the within-level bar (resets each level-up).
 export interface ChildProfile extends BaseModel {
   userId: string;
@@ -82,7 +82,7 @@ export interface ChildProfile extends BaseModel {
   level: number;
   // XP within current level (resets on level-up, used for the level bar display)
   experiencePoints: number;
-  // M7: Lifetime XP earned — drives level calculation, never spent, never reset
+  // M7: Lifetime XP earned - drives level calculation, never spent, never reset
   totalXpEarned: number;
 }
 
@@ -161,7 +161,7 @@ export interface Reward extends BaseModel {
   iconUrl?: string | null;
   isActive: boolean;
   maxRedemptionsPerChild?: number | null;
-  // M6 — CR-11: household-level redemption cap
+  // M6 - CR-11: household-level redemption cap
   maxRedemptionsTotal?: number | null;
   expiresAt?: Date | null;
   isCollaborative: boolean;
@@ -171,15 +171,15 @@ export interface Reward extends BaseModel {
 /**
  * RewardWithCapData
  *
- * What the API actually returns — Reward fields plus the computed cap fields
+ * What the API actually returns - Reward fields plus the computed cap fields
  * appended by getRewardCapData(). Use this type in frontend components.
  *
  * Fields explained:
- *  totalRedemptionsUsed  — total non-cancelled redemptions across the household
- *  remainingTotal        — how many household claims are left (null = no cap)
- *  remainingForChild     — how many claims this child has left (null = no cap)
- *  isExpired             — true when expiresAt is set and in the past
- *  isSoldOut             — true when totalRedemptionsUsed >= maxRedemptionsTotal
+ *  totalRedemptionsUsed  - total non-cancelled redemptions across the household
+ *  remainingTotal        - how many household claims are left (null = no cap)
+ *  remainingForChild     - how many claims this child has left (null = no cap)
+ *  isExpired             - true when expiresAt is set and in the past
+ *  isSoldOut             - true when totalRedemptionsUsed >= maxRedemptionsTotal
  */
 export interface RewardWithCapData extends Reward {
   totalRedemptionsUsed: number;
@@ -240,7 +240,7 @@ export interface FamilySettings extends BaseModel {
 }
 
 /**
- * LevelUpResult — returned by the approval endpoint when a child levels up.
+ * LevelUpResult - returned by the approval endpoint when a child levels up.
  * Used by the frontend to trigger a celebration modal/animation.
  */
 export interface LevelUpResult {
