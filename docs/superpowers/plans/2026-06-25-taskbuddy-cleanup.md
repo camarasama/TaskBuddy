@@ -78,17 +78,20 @@ ls -1 .mcp.json CLAUDE.md skills-lock.json agentdb.rvf ruvector.db 2>&1
 ```
 Expected: all five legit files listed, then `junk clear`, then `pdf clear`.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: No commit (deletions were untracked)**
 
-The junk and PDF are untracked/gitignored, so nothing is staged by their deletion. Record the cleanup with an empty-tree-safe note only if there is something to stage; otherwise skip the commit for this task. Run:
+The junk files and `Chapter_04.pdf` were untracked/gitignored, so deleting them
+stages nothing and there is NOTHING to commit for this task. Do NOT run
+`git add -A` here: this repo has a dirty working tree (105 tracked `.next/`
+build artifacts and other pre-existing churn) that `-A` would wrongly sweep into
+the commit. Simply confirm and move on. Run:
 ```bash
 cd "C:/Users/CamaraSama/Projects/TaskBuddy"
-git add -A && git status --short
-git diff --cached --quiet || git commit -m "chore: remove root junk files and academic thesis chapter
-
-Co-Authored-By: claude-flow <ruv@ruv.net>"
+git status --short | grep -vE "frontend/.next/|backend/tsconfig.tsbuildinfo|frontend/tsconfig.tsbuildinfo" | head
+echo "Task 1 deletions were untracked - no commit needed"
 ```
-Expected: either a commit is created, or (if nothing was tracked) `git status --short` shows no staged changes and no commit is made.
+Expected: no junk/PDF entries appear (they were never tracked); the only listed
+changes are the pre-existing build-artifact churn. No commit is made.
 
 ---
 
@@ -587,17 +590,17 @@ npm run build
 ```
 Expected: both workspaces build successfully.
 
-- [ ] **Step 4: Final commit if anything is outstanding**
+- [ ] **Step 4: Confirm the cleanup commit series (no blanket add)**
 
-Run:
+Do NOT run `git add -A` (it would sweep the pre-existing `.next/` build-artifact
+churn). Each prior task already committed its own scoped files. Just verify the
+series. Run:
 ```bash
 cd "C:/Users/CamaraSama/Projects/TaskBuddy"
-git add -A && git diff --cached --quiet || git commit -m "chore: final cleanup pass verification
-
-Co-Authored-By: claude-flow <ruv@ruv.net>"
 git log --oneline -8
 ```
-Expected: clean tree; recent commits show the cleanup series.
+Expected: recent commits show the cleanup series (LICENSE, PRIVACY, TERMS,
+README rebrand, backend em dashes, frontend em dashes).
 
 ---
 
