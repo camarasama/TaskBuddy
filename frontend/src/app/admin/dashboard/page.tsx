@@ -1,11 +1,11 @@
 /**
- * app/admin/dashboard/page.tsx — M8
+ * app/admin/dashboard/page.tsx - M8
  *
  * Platform overview page. The first thing an admin sees after login.
  * Shows five key health stats fetched from GET /admin/overview:
  *   - Total families registered
  *   - Total users (all roles)
- *   - DAU — distinct logins in the last 7 days
+ *   - DAU - distinct logins in the last 7 days
  *   - Pending approvals across all families (completed assignments awaiting review)
  *   - New family registrations this week
  *

@@ -1,5 +1,5 @@
 /**
- * app/admin/audit-log/page.tsx — M8
+ * app/admin/audit-log/page.tsx - M8
  *
  * Audit log viewer. Paginated table showing all system mutations with filters
  * for actor, action type, resource type, family, and date range.
@@ -300,7 +300,7 @@ export default function AdminAuditLogPage() {
                         >
                           {JSON.stringify(log.metadata)}
                         </span>
-                      ) : '—'}
+                      ) : '-'}
                     </td>
                   </tr>
                 ))

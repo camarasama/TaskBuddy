@@ -1,6 +1,6 @@
 'use client';
 /**
- * ExpiryOverdueReport — R-07
+ * ExpiryOverdueReport - R-07
  * Auth-fixed exports (CSV + PDF). Uses downloadExport() with Bearer token.
  */
 
@@ -60,7 +60,7 @@ export default function ExpiryOverdueReport({ childId, startDate, endDate }: Pro
         </div>
       )}
       {report.rows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-green-600 font-medium">✓ No overdue tasks — great work!</div>
+        <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-green-600 font-medium">✓ No overdue tasks - great work!</div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Child', 'Task', 'Tag', 'Due Date', 'Status', 'Days Past Due'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>

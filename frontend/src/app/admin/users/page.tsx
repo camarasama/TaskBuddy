@@ -1,5 +1,5 @@
 /**
- * app/admin/users/page.tsx — M8
+ * app/admin/users/page.tsx - M8
  *
  * Cross-family user search. Searches firstName, lastName, email, and username.
  * Each row shows the user's name, role, family, last login, and a
@@ -185,10 +185,10 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-600">
-                    {user.family?.familyName || <span className="text-slate-300">—</span>}
+                    {user.family?.familyName || <span className="text-slate-300">-</span>}
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs">
-                    {user.email || user.username || '—'}
+                    {user.email || user.username || '-'}
                   </td>
                   <td className="px-4 py-3 text-slate-400 text-xs">
                     {user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never'}

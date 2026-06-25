@@ -62,14 +62,14 @@ export function ChildLayout({ children }: ChildLayoutProps) {
   );
 }
 
-// ── Inner layout — lives inside SocketProvider so can call useSocket() ────────
+// ── Inner layout - lives inside SocketProvider so can call useSocket() ────────
 
 function ChildLayoutInner({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const { socket } = useSocket();
   const pathname = usePathname();
 
-  // M10 — Phase 6: Live points balance — updated via socket 'points:updated'
+  // M10 - Phase 6: Live points balance - updated via socket 'points:updated'
   // Initialised from user profile; refreshed without a page reload.
   const initialPoints = (user as any)?.childProfile?.pointsBalance ?? (user as any)?.profile?.pointsBalance ?? 0;
   const [livePoints, setLivePoints] = useState<number>(initialPoints);
@@ -146,7 +146,7 @@ function ChildLayoutInner({ children }: { children: ReactNode }) {
                 <span>⭐</span>
                 <span>{formatPoints(points)}</span>
               </div>
-              {/* Notification Bell — M10 Phase 5 */}
+              {/* Notification Bell - M10 Phase 5 */}
               <NotificationBell />
             </div>
           </div>

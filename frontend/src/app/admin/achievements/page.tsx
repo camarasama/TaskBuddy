@@ -1,5 +1,5 @@
 /**
- * app/admin/achievements/page.tsx — M8
+ * app/admin/achievements/page.tsx - M8
  *
  * Global achievement management. Admin can create, edit, and delete
  * system achievements that apply across all families.

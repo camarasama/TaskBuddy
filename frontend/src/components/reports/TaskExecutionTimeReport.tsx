@@ -1,6 +1,6 @@
 'use client';
 /**
- * TaskExecutionTimeReport — R-11
+ * TaskExecutionTimeReport - R-11
  * Visualises task execution time: actual vs estimated, per-child avg,
  * per-difficulty avg, and flags anomalous completions.
  */
@@ -229,14 +229,14 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-gray-500">{r.estimatedMinutes ? `${r.estimatedMinutes}m` : '—'}</td>
+                    <td className="px-4 py-2 text-gray-500">{r.estimatedMinutes ? `${r.estimatedMinutes}m` : '-'}</td>
                     <td className="px-4 py-2 font-medium">{fmt(r.actualMinutes)}</td>
                     <td className="px-4 py-2">
                       {r.ratio !== null ? (
                         <span className={`text-xs font-semibold ${r.anomaly ? 'text-amber-600' : 'text-green-600'}`}>
                           {Math.round(r.ratio * 100)}%
                         </span>
-                      ) : '—'}
+                      ) : '-'}
                     </td>
                     <td className="px-4 py-2">
                       {r.anomaly && (

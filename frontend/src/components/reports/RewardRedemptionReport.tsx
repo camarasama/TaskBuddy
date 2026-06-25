@@ -1,6 +1,6 @@
 'use client';
 /**
- * RewardRedemptionReport — R-03
+ * RewardRedemptionReport - R-03
  * Auth-fixed exports (CSV + PDF). Uses downloadExport() with Bearer token.
  */
 
@@ -79,9 +79,9 @@ export default function RewardRedemptionReport({ childId, startDate, endDate }: 
         <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Date', 'Child', 'Reward', 'Tier', 'Points', 'Status', 'Fulfilled'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-gray-50">{report.rows.slice(0, 50).map((r, i) => (
             <tr key={i} className="hover:bg-gray-50/50">
-              <td className="px-3 py-2 text-gray-600">{formatDate(r.date)}</td><td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td><td className="px-3 py-2 text-gray-600">{r.rewardName}</td><td className="px-3 py-2 text-gray-500 capitalize">{r.rewardTier ?? '—'}</td><td className="px-3 py-2 text-red-500 font-medium">{r.pointsSpent}</td>
+              <td className="px-3 py-2 text-gray-600">{formatDate(r.date)}</td><td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td><td className="px-3 py-2 text-gray-600">{r.rewardName}</td><td className="px-3 py-2 text-gray-500 capitalize">{r.rewardTier ?? '-'}</td><td className="px-3 py-2 text-red-500 font-medium">{r.pointsSpent}</td>
               <td className="px-3 py-2"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: `${STATUS_COLORS[r.status] ?? '#94a3b8'}20`, color: STATUS_COLORS[r.status] ?? '#64748b' }}>{r.status}</span></td>
-              <td className="px-3 py-2 text-gray-500">{r.fulfilledAt ? formatDate(r.fulfilledAt) : '—'}</td>
+              <td className="px-3 py-2 text-gray-500">{r.fulfilledAt ? formatDate(r.fulfilledAt) : '-'}</td>
             </tr>
           ))}</tbody>
         </table>

@@ -25,7 +25,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isParent: boolean;
   isChild: boolean;
-  // M8 — Admin role flag; used by admin route guard
+  // M8 - Admin role flag; used by admin route guard
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   childLogin: (familyCode: string, childIdentifier: string, pin: string) => Promise<void>;
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.data.user as AuthUser);
     subscribeToPush().catch(() => {}); // fire-and-forget
 
-    // M8 — Redirect admin to admin dashboard, parents to parent dashboard
+    // M8 - Redirect admin to admin dashboard, parents to parent dashboard
     if (response.data.user.role === 'admin') {
       router.push('/admin/dashboard');
     } else if (response.data.user.role === 'parent') {
@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     isParent: user?.role === 'parent',
     isChild: user?.role === 'child',
-    // M8 — Admin role flag
+    // M8 - Admin role flag
     isAdmin: user?.role === 'admin',
     login,
     childLogin,

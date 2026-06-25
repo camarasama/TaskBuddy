@@ -1,5 +1,5 @@
 /**
- * app/admin/layout.tsx — M8
+ * app/admin/layout.tsx - M8
  *
  * Next.js App Router layout segment for all /admin/* pages.
  * Wraps every admin page with AdminLayout, which provides the sidebar,

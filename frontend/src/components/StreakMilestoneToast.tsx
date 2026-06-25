@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * components/StreakMilestoneToast.tsx — M10 Phase 6
+ * components/StreakMilestoneToast.tsx - M10 Phase 6
  *
  * Celebration toast for streak milestones (7, 14, 21, 30, 60, 100 days…).
  * Fired from child/dashboard/page.tsx when the dashboard data or a socket
@@ -10,7 +10,7 @@
  * Milestone thresholds:  7 · 14 · 21 · 30 · 60 · 100 · 150 · 200 · 365
  *
  * Auto-dismisses after 6 seconds. The longer duration vs AchievementToast
- * reflects the bigger accomplishment — staying consistent for a week+ is hard.
+ * reflects the bigger accomplishment - staying consistent for a week+ is hard.
  *
  * Usage:
  *   <StreakMilestoneToast
@@ -49,13 +49,13 @@ function getMilestoneEmoji(days: number): string {
 }
 
 function getMilestoneLabel(days: number): string {
-  if (days >= 365) return 'One full year — legendary!';
-  if (days >= 100) return 'Triple digits — incredible!';
+  if (days >= 365) return 'One full year - legendary!';
+  if (days >= 100) return 'Triple digits - incredible!';
   if (days >= 60)  return 'Two months strong!';
-  if (days >= 30)  return 'One month — unstoppable!';
+  if (days >= 30)  return 'One month - unstoppable!';
   if (days >= 21)  return 'Three weeks of consistency!';
   if (days >= 14)  return 'Two week warrior!';
-  return 'One week streak — great start!';
+  return 'One week streak - great start!';
 }
 
 export function StreakMilestoneToast({

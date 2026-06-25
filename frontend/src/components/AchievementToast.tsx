@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * components/AchievementToast.tsx — M10 Phase 6
+ * components/AchievementToast.tsx - M10 Phase 6
  *
  * Slide-in celebration toast that fires when the socket emits
  * 'achievement:unlocked' for the current child.

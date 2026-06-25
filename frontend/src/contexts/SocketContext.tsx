@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * contexts/SocketContext.tsx — M10 Phase 5
+ * contexts/SocketContext.tsx - M10 Phase 5
  *
  * Provides a Socket.io connection to all children of <SocketProvider>.
  * Connects automatically when user is authenticated; disconnects on logout.
  *
  * Room joining (handled by SocketService.ts on the server):
- *   family:{familyId}  — family-wide events (task:approved, etc.)
- *   user:{userId}      — user-specific events (notification:new, points:updated)
+ *   family:{familyId}  - family-wide events (task:approved, etc.)
+ *   user:{userId}      - user-specific events (notification:new, points:updated)
  *
  * Usage in any component:
  *   const { socket, isConnected } = useSocket();
@@ -84,7 +84,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const token = getAccessToken();
 
     const socket = io(SOCKET_URL, {
-      // Auth payload — SocketService.ts uses this to join rooms on connection
+      // Auth payload - SocketService.ts uses this to join rooms on connection
       auth: { userId: user.id, familyId: user.familyId, token },
       transports: ['websocket', 'polling'],
       withCredentials: true,
@@ -110,7 +110,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (errorCount === 1) {
         console.warn('[Socket] WebSocket unavailable, falling back to polling:', err.message);
       }
-      // Suppress repeated errors — polling handles connectivity silently
+      // Suppress repeated errors - polling handles connectivity silently
     });
 
     socketRef.current = socket;

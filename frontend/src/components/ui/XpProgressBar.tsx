@@ -1,24 +1,24 @@
 'use client';
 
 /**
- * XpProgressBar.tsx — M7: Purple XP level progress bar component (CR-06)
+ * XpProgressBar.tsx - M7: Purple XP level progress bar component (CR-06)
  *
  * Place at: frontend/src/components/ui/XpProgressBar.tsx
  *
  * Displays the child's current level and XP progress toward the next level.
- * This is the PURPLE bar — XP only, never shows Points.
+ * This is the PURPLE bar - XP only, never shows Points.
  *
  * Key M7 rule: XP is never spent. The bar fills as XP is earned and
  * resets (visually) each time the child levels up. The level number
  * increases permanently.
  *
  * Props:
- *  level         — current level (integer, e.g. 3)
- *  currentLevelXp — XP earned within the current level (resets each level)
- *  xpToNextLevel  — XP required to reach the next level
- *  totalXpEarned  — lifetime XP (shown as subtitle, never decrements)
- *  size          — 'sm' | 'md' | 'lg' (default: 'md')
- *  showLabel     — whether to show "Level N" label (default: true)
+ *  level         - current level (integer, e.g. 3)
+ *  currentLevelXp - XP earned within the current level (resets each level)
+ *  xpToNextLevel  - XP required to reach the next level
+ *  totalXpEarned  - lifetime XP (shown as subtitle, never decrements)
+ *  size          - 'sm' | 'md' | 'lg' (default: 'md')
+ *  showLabel     - whether to show "Level N" label (default: true)
  */
 
 import { cn } from '@/lib/utils';

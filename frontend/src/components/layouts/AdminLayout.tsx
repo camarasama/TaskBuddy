@@ -1,8 +1,8 @@
 /**
- * components/layouts/AdminLayout.tsx — M8 (updated M10)
+ * components/layouts/AdminLayout.tsx - M8 (updated M10)
  *
  * Shared layout for all admin pages.
- * Reports nav item added (M10 — admin/reports page).
+ * Reports nav item added (M10 - admin/reports page).
  *
  * Sidebar links:
  *   Overview     /admin/dashboard

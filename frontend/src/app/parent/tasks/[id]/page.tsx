@@ -11,7 +11,7 @@ import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { tasksApi, familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-// M5 — overlap modal
+// M5 - overlap modal
 import {
   OverlapWarningModal,
   type OverlapWarning,
@@ -24,13 +24,13 @@ interface Task {
   description?: string;
   category?: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  // M5 — CR-01
+  // M5 - CR-01
   taskTag: 'primary' | 'secondary';
   pointsValue: number;
   xpValue: number;
   requiresPhotoEvidence: boolean;
   dueDate?: string;
-  // M5 — CR-09
+  // M5 - CR-09
   startTime?: string;
   estimatedMinutes?: number;
   status: 'active' | 'paused' | 'archived';
@@ -48,11 +48,11 @@ interface FormState {
   description: string;
   category: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  // M5 — CR-01
+  // M5 - CR-01
   taskTag: 'primary' | 'secondary';
   pointsValue: string;
   dueDate: string;
-  // M5 — CR-09
+  // M5 - CR-09
   startTime: string;
   estimatedMinutes: string;
   requiresPhotoEvidence: boolean;
@@ -72,7 +72,7 @@ const DIFFICULTY_OPTIONS: { value: FormState['difficulty']; label: string; color
 const STATUS_OPTIONS: { value: FormState['status']; label: string }[] = [
   { value: 'active', label: 'Active' },
   { value: 'paused', label: 'Paused' },
-  // 'archived' is intentionally absent — use the Archive button on the task list
+  // 'archived' is intentionally absent - use the Archive button on the task list
 ];
 
 // ── Page ────────────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ export default function EditTaskPage() {
     recurrencePattern: 'daily',
   });
 
-  // M5 — overlap warning state
+  // M5 - overlap warning state
   const [pendingWarnings, setPendingWarnings] = useState<OverlapWarning[]>([]);
   const [familyChildren, setFamilyChildren] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
   const [addingChild, setAddingChild] = useState('');
@@ -241,7 +241,7 @@ export default function EditTaskPage() {
 
       const result = response.data as { warnings?: OverlapWarning[] };
 
-      // M5 — show overlap modal if warnings come back and not yet acknowledged
+      // M5 - show overlap modal if warnings come back and not yet acknowledged
       if (!skipWarnings && result.warnings && result.warnings.length > 0) {
         setPendingWarnings(result.warnings);
         setIsSaving(false);
@@ -288,7 +288,7 @@ export default function EditTaskPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <ParentLayout>
-      {/* M5 — Overlap Warning Modal */}
+      {/* M5 - Overlap Warning Modal */}
       {pendingWarnings.length > 0 && (
         <OverlapWarningModal
           warnings={pendingWarnings}
@@ -359,7 +359,7 @@ export default function EditTaskPage() {
             />
           </div>
 
-          {/* M5 — CR-01: Task Tag */}
+          {/* M5 - CR-01: Task Tag */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-1.5">
               <Tag className="w-4 h-4" />
@@ -442,7 +442,7 @@ export default function EditTaskPage() {
             />
           </div>
 
-          {/* M5 — CR-09: Start Time */}
+          {/* M5 - CR-09: Start Time */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1.5">
               <Clock className="w-4 h-4" />
@@ -460,7 +460,7 @@ export default function EditTaskPage() {
             </p>
           </div>
 
-          {/* M5 — CR-09: Estimated Duration */}
+          {/* M5 - CR-09: Estimated Duration */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Estimated Duration <span className="text-slate-400 font-normal">(optional)</span>
@@ -557,7 +557,7 @@ export default function EditTaskPage() {
             )}
           </div>
 
-          {/* Assignments — reassignable */}
+          {/* Assignments - reassignable */}
           <div>
             <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1.5">
               <UserPlus className="w-4 h-4" /> Assigned to

@@ -2,7 +2,7 @@
 import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
- * /notifications — M10 Phase 4/5
+ * /notifications - M10 Phase 4/5
  *
  * Full-page notification inbox for both parent and child roles.
  * Shows all notifications with filter tabs, bulk actions, and pagination.

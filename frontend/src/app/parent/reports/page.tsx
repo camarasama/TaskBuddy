@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * app/parent/reports/page.tsx — M10 Phase 4 (updated)
+ * app/parent/reports/page.tsx - M10 Phase 4 (updated)
  *
- * Parent reports hub — 7 family-scoped reports.
+ * Parent reports hub - 7 family-scoped reports.
  * R-08 Audit Trail and R-09 Email Delivery are ADMIN-ONLY and removed.
  */
 
@@ -18,7 +18,7 @@ import LeaderboardReport from '@/components/reports/LeaderboardReport';
 import ExpiryOverdueReport from '@/components/reports/ExpiryOverdueReport';
 import TaskExecutionTimeReport from '@/components/reports/TaskExecutionTimeReport';
 
-// Audit Trail and Email Delivery are admin-only — not included here.
+// Audit Trail and Email Delivery are admin-only - not included here.
 const TABS = [
   { id: 'r01', label: 'Completion',  icon: '✅' },
   { id: 'r02', label: 'Points',      icon: '💰' },

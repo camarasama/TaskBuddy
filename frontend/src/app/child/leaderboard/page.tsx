@@ -52,7 +52,7 @@ export default function LeaderboardPage() {
       const res = await dashboardApi.getLeaderboard(period);
       setData((res as any).data as LeaderboardData);
     } catch {
-      // API error — leave previous data in place
+      // API error - leave previous data in place
     } finally {
       setLoading(false);
     }
@@ -133,7 +133,7 @@ export default function LeaderboardPage() {
         {/* Leaderboard content */}
         {!loading && data?.enabled && entries.length > 0 && (
           <>
-            {/* Podium — top 3 */}
+            {/* Podium - top 3 */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

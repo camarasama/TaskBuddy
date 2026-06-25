@@ -25,7 +25,7 @@ import { tasksApi, familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { cn, difficultyFromPoints, getDifficultyColor } from '@/lib/utils';
 import Link from 'next/link';
-// M5 — new components
+// M5 - new components
 import {
   OverlapWarningModal,
   type OverlapWarning,
@@ -41,10 +41,10 @@ const taskSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(200),
   description: z.string().max(1000).optional(),
   // difficulty is derived server-side from pointsValue
-  // M5 — CR-01
+  // M5 - CR-01
   taskTag: z.enum(['primary', 'secondary']),
   pointsValue: z.number().min(1).max(1000),
-  // M5 — CR-09
+  // M5 - CR-09
   startTime: z.string().optional(),
   estimatedMinutes: z.preprocess(
     (v) => (typeof v === 'number' && isNaN(v) ? undefined : v),
@@ -81,9 +81,9 @@ export default function CreateTaskPage() {
   const { error: showError, success: showSuccess } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [children, setChildren] = useState<Child[]>([]);
-  // M5 — capacity map: childId → ChildCapacity
+  // M5 - capacity map: childId → ChildCapacity
   const [capacities, setCapacities] = useState<Record<string, ChildCapacity>>({});
-  // M5 — overlap warning state
+  // M5 - overlap warning state
   const [pendingWarnings, setPendingWarnings] = useState<OverlapWarning[]>([]);
   const [pendingPayload, setPendingPayload] = useState<TaskForm | null>(null);
 
@@ -152,7 +152,7 @@ export default function CreateTaskPage() {
     // If child is at limit for the current taskTag, don't allow selection
     const cap = capacities[childId];
     if (cap && isChildAtLimit(cap, taskTag) && !current.includes(childId)) {
-      return; // blocked — button is already visually disabled
+      return; // blocked - button is already visually disabled
     }
     if (current.includes(childId)) {
       setValue('assignedTo', current.filter((id) => id !== childId));
@@ -216,7 +216,7 @@ export default function CreateTaskPage() {
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <ParentLayout>
-      {/* M5 — Overlap Warning Modal */}
+      {/* M5 - Overlap Warning Modal */}
       {pendingWarnings.length > 0 && (
         <OverlapWarningModal
           warnings={pendingWarnings}
@@ -263,7 +263,7 @@ export default function CreateTaskPage() {
             </div>
           </section>
 
-          {/* ── M5: Task Tag — Primary / Secondary ─────────────────────────── */}
+          {/* ── M5: Task Tag - Primary / Secondary ─────────────────────────── */}
           <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
             <h2 className="font-display font-bold text-lg text-slate-900 mb-1 flex items-center gap-2">
               <Tag className="w-5 h-5" />
@@ -353,7 +353,7 @@ export default function CreateTaskPage() {
               Assign To
             </h2>
             <p className="text-sm text-slate-500 mb-4">
-              Optional — you can assign children now or leave unassigned for later
+              Optional - you can assign children now or leave unassigned for later
             </p>
             {children.length === 0 ? (
               <div className="text-center py-8">
@@ -391,7 +391,7 @@ export default function CreateTaskPage() {
                         </div>
                         <span className="font-medium text-slate-900">{child.firstName}</span>
                       </div>
-                      {/* M5 — capacity badge */}
+                      {/* M5 - capacity badge */}
                       {cap && (
                         <ChildCapacityBadge
                           capacity={cap}
@@ -422,7 +422,7 @@ export default function CreateTaskPage() {
                 )}
               </div>
 
-              {/* M5 — CR-09: Start Time */}
+              {/* M5 - CR-09: Start Time */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   <Clock className="w-4 h-4 inline-block mr-1" />
@@ -437,7 +437,7 @@ export default function CreateTaskPage() {
                 </p>
               </div>
 
-              {/* M5 — CR-09: Estimated Duration */}
+              {/* M5 - CR-09: Estimated Duration */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   Estimated Duration (optional)

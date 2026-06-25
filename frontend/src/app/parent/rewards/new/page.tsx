@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * New Reward Page — updated M6 (CR-11)
+ * New Reward Page - updated M6 (CR-11)
  *
  * Added fields:
  *  - maxRedemptionsPerChild: how many times ONE child can claim this reward
@@ -34,7 +34,7 @@ export default function NewRewardPage() {
     description: '',
     pointsCost: '',
     tier: 'small' as 'small' | 'medium' | 'large',
-    // M6 — CR-11: cap fields
+    // M6 - CR-11: cap fields
     maxRedemptionsPerChild: '',
     maxRedemptionsTotal: '',
     expiresAt: '',
@@ -52,7 +52,7 @@ export default function NewRewardPage() {
         return;
       }
 
-      // Parse optional cap fields — only send if the parent filled them in
+      // Parse optional cap fields - only send if the parent filled them in
       const maxRedemptionsPerChild = formData.maxRedemptionsPerChild
         ? parseInt(formData.maxRedemptionsPerChild)
         : undefined;

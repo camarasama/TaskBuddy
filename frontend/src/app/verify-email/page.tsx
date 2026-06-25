@@ -92,7 +92,7 @@ function VerifyEmailInner() {
     );
   }
 
-  // Default: no token — show "check your inbox" screen
+  // Default: no token - show "check your inbox" screen
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 max-w-md w-full text-center">

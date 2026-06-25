@@ -1,6 +1,6 @@
 'use client';
 /**
- * EmailDeliveryReport — R-10
+ * EmailDeliveryReport - R-10
  * Auth-fixed exports (CSV + PDF). Uses downloadExport() with Bearer token.
  */
 
@@ -90,11 +90,11 @@ export default function EmailDeliveryReport({ familyId, startDate, endDate }: Pr
             <tr key={i} className="hover:bg-gray-50/50">
               <td className="px-3 py-2 text-gray-500 text-xs">{formatDate(r.date)}</td><td className="px-3 py-2 text-gray-600 text-xs">{r.triggerType.replace(/_/g, ' ')}</td>
               <td className="px-3 py-2"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: `${STATUS_COLORS[r.status]}20`, color: STATUS_COLORS[r.status] }}>{r.status}</span></td>
-              <td className="px-3 py-2 text-gray-600 text-xs">{r.toEmail}</td><td className="px-3 py-2 text-gray-500 text-xs max-w-[200px] truncate">{r.subject}</td><td className="px-3 py-2 text-gray-500 text-xs">{r.resendCount > 0 ? r.resendCount : '—'}</td>
+              <td className="px-3 py-2 text-gray-600 text-xs">{r.toEmail}</td><td className="px-3 py-2 text-gray-500 text-xs max-w-[200px] truncate">{r.subject}</td><td className="px-3 py-2 text-gray-500 text-xs">{r.resendCount > 0 ? r.resendCount : '-'}</td>
             </tr>
           ))}</tbody>
         </table>
-        {filtered.length > 50 && <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50 border-t">Showing 50 of {filtered.length} rows — export CSV for full data</div>}
+        {filtered.length > 50 && <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50 border-t">Showing 50 of {filtered.length} rows - export CSV for full data</div>}
       </div>
     </div>
   );

@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * /admin/reports — M10 Phase 4
+ * /admin/reports - M10 Phase 4
  *
  * Admin reports hub. Same 10 reports as parent hub PLUS R-08 Platform Health.
- * No family filter restriction — admin can select any family.
+ * No family filter restriction - admin can select any family.
  */
 
 import { useState } from 'react';
@@ -68,7 +68,7 @@ export default function AdminReportsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6 space-y-6">
-        {/* Admin filters — includes family ID */}
+        {/* Admin filters - includes family ID */}
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <div className="flex flex-wrap gap-3 items-end">
             <div>

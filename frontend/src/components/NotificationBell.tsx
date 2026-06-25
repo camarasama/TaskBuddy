@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * components/NotificationBell.tsx — updated M10
+ * components/NotificationBell.tsx - updated M10
  *
- * Pure UI component — all data fetching/polling/socket handling is in
+ * Pure UI component - all data fetching/polling/socket handling is in
  * NotificationContext. This component just reads from context and renders.
  *
  * Previously this component fetched on every mount, which caused double HTTP

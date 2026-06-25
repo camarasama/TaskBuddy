@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * register/page.tsx — Updated M7 (CR-02)
+ * register/page.tsx - Updated M7 (CR-02)
  *
  * Changes from M7:
  *  - Added dateOfBirth field (required, date picker)
@@ -26,7 +26,7 @@ import { ApiError } from '@/lib/api';
 const MIN_PASSWORD_LENGTH = 8;
 
 /**
- * M7 — CR-02: registerSchema updated to include dateOfBirth and phoneNumber.
+ * M7 - CR-02: registerSchema updated to include dateOfBirth and phoneNumber.
  * These mirror the backend Zod schema in auth.ts (routes).
  *
  * dateOfBirth: required. The HTML date input natively produces YYYY-MM-DD.
@@ -40,7 +40,7 @@ const registerSchema = z
     firstName: z.string().min(1, 'First name is required').max(50),
     lastName: z.string().min(1, 'Last name is required').max(50),
     email: z.string().email('Please enter a valid email'),
-    // M7 — CR-02: Required date of birth
+    // M7 - CR-02: Required date of birth
     dateOfBirth: z.string().min(1, 'Date of birth is required').regex(
       /^\d{4}-\d{2}-\d{2}$/,
       'Please select a valid date'
@@ -50,7 +50,7 @@ const registerSchema = z
       cutoff.setFullYear(cutoff.getFullYear() - 18);
       return birth <= cutoff;
     }, { message: 'You must be at least 18 years old to register' }),
-    // M7 — CR-02: Optional phone in E.164 format
+    // M7 - CR-02: Optional phone in E.164 format
     phoneNumber: z
       .string()
       .regex(
@@ -88,7 +88,7 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
     try {
-      // M7 — CR-02: Pass dateOfBirth and phoneNumber to the register function.
+      // M7 - CR-02: Pass dateOfBirth and phoneNumber to the register function.
       // phoneNumber is omitted if empty string (treat as not provided).
       await registerUser(data.familyName, {
         firstName: data.firstName,
@@ -110,7 +110,7 @@ export default function RegisterPage() {
     }
   };
 
-  // M7 — CR-02: Calculate max date for DOB picker (must be at least 18 years old)
+  // M7 - CR-02: Calculate max date for DOB picker (must be at least 18 years old)
   const maxDobDate = new Date();
   maxDobDate.setFullYear(maxDobDate.getFullYear() - 18);
   const maxDobString = maxDobDate.toISOString().split('T')[0];
@@ -210,7 +210,7 @@ export default function RegisterPage() {
                 />
               </div>
 
-              {/* M7 — CR-02: Date of Birth (required) */}
+              {/* M7 - CR-02: Date of Birth (required) */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Date of Birth <span className="text-red-500">*</span>
@@ -227,7 +227,7 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* M7 — CR-02: Phone Number (optional) */}
+              {/* M7 - CR-02: Phone Number (optional) */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Phone Number{' '}

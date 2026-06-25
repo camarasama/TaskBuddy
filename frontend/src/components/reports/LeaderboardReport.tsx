@@ -1,6 +1,6 @@
 'use client';
 /**
- * LeaderboardReport — R-06
+ * LeaderboardReport - R-06
  * Auth-fixed exports (CSV + PDF). Uses downloadExport() with Bearer token.
  */
 

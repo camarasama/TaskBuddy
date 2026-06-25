@@ -324,7 +324,7 @@ export default function EditTaskPage() {
             <span className="text-sm font-medium text-slate-700">Require photo evidence</span>
           </label>
 
-          {/* Assigned children — read-only info, not editable here */}
+          {/* Assigned children - read-only info, not editable here */}
           {task.assignments && task.assignments.length > 0 && (
             <div>
               <p className="text-sm font-medium text-slate-700 mb-2">Assigned to</p>

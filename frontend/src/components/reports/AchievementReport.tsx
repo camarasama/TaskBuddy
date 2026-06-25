@@ -1,6 +1,6 @@
 'use client';
 /**
- * AchievementReport — R-05
+ * AchievementReport - R-05
  * Auth-fixed exports (CSV + PDF). Uses downloadExport() with Bearer token.
  */
 
@@ -62,7 +62,7 @@ export default function AchievementReport({ childId, startDate, endDate }: { chi
         <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Child', 'Level', 'XP', 'Total XP', 'Achievements', 'Latest'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-gray-50">{report.rows.map((r) => (
             <tr key={r.childId} className="hover:bg-gray-50/50">
-              <td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td><td className="px-3 py-2"><span className="font-bold text-amber-500">Lv {r.currentLevel}</span></td><td className="px-3 py-2 text-gray-600">{r.experiencePoints}</td><td className="px-3 py-2 text-gray-600">{r.totalXpEarned}</td><td className="px-3 py-2 text-gray-700">{r.achievementsUnlocked}</td><td className="px-3 py-2 text-gray-500 text-xs">{r.latestAchievementName ?? '—'}</td>
+              <td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td><td className="px-3 py-2"><span className="font-bold text-amber-500">Lv {r.currentLevel}</span></td><td className="px-3 py-2 text-gray-600">{r.experiencePoints}</td><td className="px-3 py-2 text-gray-600">{r.totalXpEarned}</td><td className="px-3 py-2 text-gray-700">{r.achievementsUnlocked}</td><td className="px-3 py-2 text-gray-500 text-xs">{r.latestAchievementName ?? '-'}</td>
             </tr>
           ))}</tbody>
         </table>

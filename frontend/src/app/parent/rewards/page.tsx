@@ -2,7 +2,7 @@
 import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
- * Parent Rewards Page — updated M6 (CR-11)
+ * Parent Rewards Page - updated M6 (CR-11)
  *
  * Changes from M6:
  *  - Reward interface updated: added maxRedemptionsTotal and computed cap fields
@@ -393,7 +393,7 @@ function RedemptionCard({
             {redemption.child?.firstName || 'Child'} redeemed {redemption.reward.name}
           </p>
           <p className="text-sm text-slate-500">
-            {formatDate(redemption.createdAt)} — {formatPoints(redemption.reward.pointsCost)} pts
+            {formatDate(redemption.createdAt)} - {formatPoints(redemption.reward.pointsCost)} pts
           </p>
         </div>
 

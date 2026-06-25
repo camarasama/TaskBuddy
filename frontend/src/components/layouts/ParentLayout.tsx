@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * components/layouts/ParentLayout.tsx — Updated M10 Phase 5/6
+ * components/layouts/ParentLayout.tsx - Updated M10 Phase 5/6
  *
  * Changes from original:
  *  - Split into outer ParentLayout (auth guard) + inner ParentLayoutInner (UI)
@@ -51,7 +51,7 @@ const navItems = [
   { href: '/parent/settings',   icon: Settings,   label: 'Settings'   },
 ];
 
-// ─── Outer shell — auth guard only, no UI ─────────────────────────────────────
+// ─── Outer shell - auth guard only, no UI ─────────────────────────────────────
 
 export function ParentLayout({ children }: ParentLayoutProps) {
   const { isParent, isLoading } = useAuth();
@@ -80,7 +80,7 @@ export function ParentLayout({ children }: ParentLayoutProps) {
   );
 }
 
-// ─── Inner layout — lives inside SocketProvider ───────────────────────────────
+// ─── Inner layout - lives inside SocketProvider ───────────────────────────────
 
 function EmailVerificationBanner() {
   const [show, setShow] = useState(false);
@@ -113,7 +113,7 @@ function EmailVerificationBanner() {
         ⚠️ Please verify your email address to unlock all features.
       </span>
       {resent ? (
-        <span className="text-success-700 font-medium">Email sent — check your inbox.</span>
+        <span className="text-success-700 font-medium">Email sent - check your inbox.</span>
       ) : (
         <button
           onClick={handleResend}
@@ -149,7 +149,7 @@ function ParentLayoutInner({ children }: { children: ReactNode }) {
                 TaskBuddy
               </span>
             </div>
-            {/* Bell — visible on desktop sidebar */}
+            {/* Bell - visible on desktop sidebar */}
             <NotificationBell />
           </div>
 
@@ -207,7 +207,7 @@ function ParentLayoutInner({ children }: { children: ReactNode }) {
 
           {/* Bell + Hamburger */}
           <div className="flex items-center gap-1">
-            {/* Bell — visible on mobile header */}
+            {/* Bell - visible on mobile header */}
             <NotificationBell />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

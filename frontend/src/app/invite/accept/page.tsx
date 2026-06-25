@@ -168,7 +168,7 @@ function AcceptInviteInner() {
       const json = await res.json();
 
       if (!res.ok) {
-        // Show inline — easier to read than a toast for longer error messages
+        // Show inline - easier to read than a toast for longer error messages
         setSubmitError(json?.error?.message || 'Failed to accept invitation. Please try again.');
         return;
       }
@@ -260,7 +260,7 @@ function AcceptInviteInner() {
                 {' '}to join as co-parent.
               </div>
 
-              {/* Inline submit error — more readable than a toast for longer messages */}
+              {/* Inline submit error - more readable than a toast for longer messages */}
               {submitError && (
                 <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50 border border-red-200 mb-4">
                   <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />

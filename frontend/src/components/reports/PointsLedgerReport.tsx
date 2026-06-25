@@ -1,6 +1,6 @@
 'use client';
 /**
- * PointsLedgerReport — R-02
+ * PointsLedgerReport - R-02
  * Auth-fixed exports (CSV + PDF). Uses downloadExport() with Bearer token.
  */
 
@@ -84,11 +84,11 @@ export default function PointsLedgerReport({ childId, startDate, endDate }: Prop
               <td className="px-3 py-2 text-gray-600">{formatDate(r.date)}</td><td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td>
               <td className="px-3 py-2"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">{r.transactionType}</span></td>
               <td className={`px-3 py-2 font-medium ${r.pointsAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{r.pointsAmount >= 0 ? '+' : ''}{r.pointsAmount}</td>
-              <td className="px-3 py-2 text-gray-700">{r.balanceAfter}</td><td className="px-3 py-2 text-gray-500 max-w-[200px] truncate">{r.description ?? '—'}</td>
+              <td className="px-3 py-2 text-gray-700">{r.balanceAfter}</td><td className="px-3 py-2 text-gray-500 max-w-[200px] truncate">{r.description ?? '-'}</td>
             </tr>
           ))}</tbody>
         </table>
-        {report.rows.length > 50 && <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50 border-t">Showing 50 of {report.rows.length} rows — export CSV for full data</div>}
+        {report.rows.length > 50 && <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50 border-t">Showing 50 of {report.rows.length} rows - export CSV for full data</div>}
       </div>
     </div>
   );

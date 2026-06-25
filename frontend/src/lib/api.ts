@@ -45,7 +45,7 @@ export function getToken(): string | null {
   return accessToken;
 }
 
-// Backward-compat aliases — clears both stores when token is null
+// Backward-compat aliases - clears both stores when token is null
 export function setAccessToken(token: string | null): void {
   setToken(token);
 }
@@ -297,7 +297,7 @@ export const familyApi = {
       body: JSON.stringify(data),
     }),
 
-  // M5 — CR-10: Get task capacity for children (used by parent create/edit forms)
+  // M5 - CR-10: Get task capacity for children (used by parent create/edit forms)
   getChildCapacities: (childIds: string[]) =>
     request<ApiResponse<{ capacities: Record<string, unknown> }>>('/families/children/capacities', {
       method: 'POST',
@@ -383,7 +383,7 @@ export const tasksApi = {
       body: JSON.stringify(data),
     }),
 
-  // M5 — CR-10: Child self-assigns a secondary task
+  // M5 - CR-10: Child self-assigns a secondary task
   selfAssign: (taskId: string) =>
     request<ApiResponse<{ assignment: unknown }>>('/tasks/assignments/self-assign', {
       method: 'POST',
@@ -433,7 +433,7 @@ export const tasksApi = {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    // Do NOT set Content-Type — browser sets it with boundary for FormData
+    // Do NOT set Content-Type - browser sets it with boundary for FormData
     const response = await fetch(url, {
       method: 'POST',
       headers,
@@ -537,7 +537,7 @@ export const achievementsApi = {
 };
 
 // ============================================
-// M8 — Admin API
+// M8 - Admin API
 // ============================================
 
 export const adminApi = {
@@ -660,7 +660,7 @@ export const adminApi = {
 };
 
 // ============================================
-// M9 — Email Log API (admin only)
+// M9 - Email Log API (admin only)
 // ============================================
 
 export const emailsApi = {
@@ -711,7 +711,7 @@ export const emailsApi = {
     }),
 };
 // ============================================
-// M10 — Reports API (Phase 4)
+// M10 - Reports API (Phase 4)
 // ============================================
 
 type ReportParams = {
@@ -784,7 +784,7 @@ export const reportsApi = {
 };
 
 // ============================================
-// M10 — Notifications API (Phase 5)
+// M10 - Notifications API (Phase 5)
 // ============================================
 
 export type NotificationItem = {

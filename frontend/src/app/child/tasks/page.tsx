@@ -2,7 +2,7 @@
 import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
- * app/child/tasks/page.tsx — updated (Bug fix: rejected task resubmission)
+ * app/child/tasks/page.tsx - updated (Bug fix: rejected task resubmission)
  *
  * Changes from previous version:
  *  - Added "Returned" tab that shows rejected assignments
@@ -92,7 +92,7 @@ export default function ChildTasksPage() {
       ]);
 
       const assignmentsData = assignmentsRes.data as { assignments: TaskAssignment[] };
-      // Filter out assignments whose task has been archived — child can't act on them
+      // Filter out assignments whose task has been archived - child can't act on them
       const visibleAssignments = assignmentsData.assignments.filter(
         (a) => a.task.status !== 'archived'
       );
@@ -183,7 +183,7 @@ export default function ChildTasksPage() {
   };
 
   // ── Resubmit a rejected task ──────────────────────────────────────────────
-  // Calls the same complete endpoint — parent must approve again.
+  // Calls the same complete endpoint - parent must approve again.
 
   const handleResubmit = async (assignment: TaskAssignment) => {
     if (assignment.task.requiresPhotoEvidence) {
@@ -567,7 +567,7 @@ function CompletedTaskCard({ assignment }: { assignment: TaskAssignment }) {
   );
 }
 
-// ── Returned Task Card (rejected — now visible + resubmittable) ───────────────
+// ── Returned Task Card (rejected - now visible + resubmittable) ───────────────
 
 function ReturnedTaskCard({
   assignment,

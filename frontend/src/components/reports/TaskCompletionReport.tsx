@@ -1,6 +1,6 @@
 'use client';
 /**
- * TaskCompletionReport — R-01
+ * TaskCompletionReport - R-01
  * Auth-fixed exports (CSV + PDF). Uses downloadExport() with Bearer token.
  */
 
@@ -87,11 +87,11 @@ export default function TaskCompletionReport({ childId, startDate, endDate }: Pr
             <tr key={i} className="hover:bg-gray-50/50">
               <td className="px-3 py-2 text-gray-600">{formatDate(r.date)}</td><td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td><td className="px-3 py-2 text-gray-600 max-w-[180px] truncate">{r.taskTitle}</td>
               <td className="px-3 py-2"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.taskTag === 'primary' ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'}`}>{r.taskTag}</span></td>
-              <td className="px-3 py-2 text-gray-600 capitalize">{r.difficulty ?? '—'}</td><td className="px-3 py-2 text-gray-700">{r.pointsAwarded}</td><td className="px-3 py-2 text-gray-700">{r.xpAwarded}</td><td className="px-3 py-2 text-gray-500">{r.approvedAt ? '✓' : '—'}</td>
+              <td className="px-3 py-2 text-gray-600 capitalize">{r.difficulty ?? '-'}</td><td className="px-3 py-2 text-gray-700">{r.pointsAwarded}</td><td className="px-3 py-2 text-gray-700">{r.xpAwarded}</td><td className="px-3 py-2 text-gray-500">{r.approvedAt ? '✓' : '-'}</td>
             </tr>
           ))}</tbody>
         </table>
-        {report.rows.length > 50 && <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50 border-t">Showing 50 of {report.rows.length} rows — export CSV for full data</div>}
+        {report.rows.length > 50 && <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50 border-t">Showing 50 of {report.rows.length} rows - export CSV for full data</div>}
       </div>
     </div>
   );

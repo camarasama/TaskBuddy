@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * app/parent/dashboard/page.tsx — Updated M10 Phase 6 (Real-time Socket)
+ * app/parent/dashboard/page.tsx - Updated M10 Phase 6 (Real-time Socket)
  *
  * Changes from M10 Phase 5:
  *  - socket.on('task:approved') → live decrement of pendingApprovals badge +
@@ -30,7 +30,7 @@ import { useToast } from '@/components/ui/Toast';
 import { cn, getInitials, formatPoints } from '@/lib/utils';
 import Link from 'next/link';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
-// M10 — Phase 6: Real-time socket updates
+// M10 - Phase 6: Real-time socket updates
 import { useSocket } from '@/contexts/SocketContext';
 
 interface ChildSummary {
@@ -142,7 +142,7 @@ export default function ParentDashboardPage() {
     loadDashboard();
   }, [showError]);
 
-  // M10 — Phase 6: Real-time socket updates — parent receives family-room events
+  // M10 - Phase 6: Real-time socket updates - parent receives family-room events
   const { socket } = useSocket();
 
   useEffect(() => {
@@ -217,7 +217,7 @@ export default function ParentDashboardPage() {
             value={data.family.memberCount}
             color="primary"
           />
-          {/* M10 — Phase 6: pendingApprovals now updates live via socket */}
+          {/* M10 - Phase 6: pendingApprovals now updates live via socket */}
           <StatCard
             icon={Clock}
             label="Pending Approvals"
@@ -419,12 +419,12 @@ function ChildCard({ child }: { child: ChildSummary }) {
             <p className="text-lg font-bold text-slate-900">{tasksCompletedToday}</p>
             <p className="text-xs text-slate-500">Today</p>
           </div>
-          {/* M10 — Phase 6: totalPoints updates live via points:updated socket event */}
+          {/* M10 - Phase 6: totalPoints updates live via points:updated socket event */}
           <div className="bg-gold-50 rounded-lg p-2">
             <p className="text-lg font-bold text-gold-600">{formatPoints(child.totalPoints)}</p>
             <p className="text-xs text-slate-500">Points</p>
           </div>
-          {/* M10 — Phase 6: tasksPendingApproval decrements live via task:approved event */}
+          {/* M10 - Phase 6: tasksPendingApproval decrements live via task:approved event */}
           <div className="bg-warning-50 rounded-lg p-2">
             <p className="text-lg font-bold text-warning-600">{tasksPendingApproval}</p>
             <p className="text-xs text-slate-500">Pending</p>

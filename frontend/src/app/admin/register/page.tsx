@@ -1,8 +1,8 @@
 /**
- * app/admin/register/page.tsx — M8
+ * app/admin/register/page.tsx - M8
  *
  * Admin registration page. Accessible at /admin/register.
- * Does NOT require an existing admin session — the gate is the ADMIN_INVITE_CODE
+ * Does NOT require an existing admin session - the gate is the ADMIN_INVITE_CODE
  * env var that must be matched. After successful registration the admin is NOT
  * auto-logged in; they are redirected to /login with a success message.
  *

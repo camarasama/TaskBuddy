@@ -1,5 +1,5 @@
 /**
- * app/admin/families/[id]/page.tsx — M8
+ * app/admin/families/[id]/page.tsx - M8
  *
  * Read-only detail view for a specific family. Shows:
  *  - Family metadata (name, code, status, created date)
@@ -59,7 +59,7 @@ export default function AdminFamilyDetailPage({ params }: { params: Promise<{ id
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Resolve params — Next.js 15 makes params a Promise in some configurations
+  // Resolve params - Next.js 15 makes params a Promise in some configurations
   useEffect(() => {
     Promise.resolve(params).then((resolved) => {
       setFamilyId(resolved.id);
@@ -245,13 +245,13 @@ function MemberSection({
                   )}
                 </td>
                 {!showChildStats && (
-                  <td className="px-5 py-2.5 text-slate-500">{m.email || '—'}</td>
+                  <td className="px-5 py-2.5 text-slate-500">{m.email || '-'}</td>
                 )}
                 {showChildStats && (
                   <>
-                    <td className="px-5 py-2.5 text-slate-600">Lv {m.childProfile?.level ?? '—'}</td>
-                    <td className="px-5 py-2.5 text-slate-600">{m.childProfile?.pointsBalance?.toLocaleString() ?? '—'}</td>
-                    <td className="px-5 py-2.5 text-slate-600">{m.childProfile?.totalTasksCompleted ?? '—'}</td>
+                    <td className="px-5 py-2.5 text-slate-600">Lv {m.childProfile?.level ?? '-'}</td>
+                    <td className="px-5 py-2.5 text-slate-600">{m.childProfile?.pointsBalance?.toLocaleString() ?? '-'}</td>
+                    <td className="px-5 py-2.5 text-slate-600">{m.childProfile?.totalTasksCompleted ?? '-'}</td>
                   </>
                 )}
                 <td className="px-5 py-2.5 text-slate-400 text-xs">

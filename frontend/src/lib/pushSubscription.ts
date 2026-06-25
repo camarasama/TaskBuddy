@@ -23,6 +23,6 @@ export async function subscribeToPush(): Promise<void> {
       body: JSON.stringify({ endpoint: sub.endpoint, keys: { p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')!))), auth: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')!))) } }),
     });
   } catch {
-    // Push permission denied or not supported — non-fatal
+    // Push permission denied or not supported - non-fatal
   }
 }

@@ -2,7 +2,7 @@
 import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
- * app/admin/emails/page.tsx — M9
+ * app/admin/emails/page.tsx - M9
  *
  * Admin email log viewer.
  * Shows all email_log records with status badges, filters, and a resend button
@@ -323,7 +323,7 @@ export default function AdminEmailsPage() {
                       </td>
                     </tr>
 
-                    {/* Expanded row — error details */}
+                    {/* Expanded row - error details */}
                     {expandedRow === log.id && (
                       <tr key={`${log.id}-expand`} className="bg-indigo-50">
                         <td colSpan={6} className="px-4 py-3">

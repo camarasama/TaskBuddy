@@ -61,7 +61,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setUnreadCount(res.unreadCount);
       fetchedOnce.current = true;
     } catch {
-      // Non-fatal — degrade silently
+      // Non-fatal - degrade silently
     }
   }, []);
 
@@ -118,7 +118,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     if (!isConnected) {
-      // Socket is down — poll every 60 s as fallback
+      // Socket is down - poll every 60 s as fallback
       pollTimer.current = setInterval(refresh, 60_000);
     }
 

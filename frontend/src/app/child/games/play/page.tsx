@@ -65,7 +65,7 @@ function QuizPageInner() {
         setCurrentQ((c) => c + 1);
         setSelected(null);
       } else {
-        // All answered — submit
+        // All answered - submit
         setState('submitting');
         gamesApi.submitSession(sessionId, newAnswers)
           .then((res) => {

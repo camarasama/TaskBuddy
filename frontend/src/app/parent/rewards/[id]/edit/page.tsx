@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Edit Reward Page — updated M6 (CR-11)
+ * Edit Reward Page - updated M6 (CR-11)
  *
  * Added fields (pre-populated from existing reward data):
  *  - maxRedemptionsPerChild: per-child claim limit
@@ -62,7 +62,7 @@ export default function EditRewardPage() {
     pointsCost: '',
     tier: 'small',
     isActive: true,
-    // M6 — CR-11: cap fields
+    // M6 - CR-11: cap fields
     maxRedemptionsPerChild: '',
     maxRedemptionsTotal: '',
     expiresAt: '',

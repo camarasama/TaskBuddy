@@ -74,7 +74,7 @@ export default function ChildLoginPage() {
 
     setIsLoading(true);
     try {
-      // Pass familyCode (uppercased) — the backend resolves it to a familyId
+      // Pass familyCode (uppercased) - the backend resolves it to a familyId
       await childLogin(familyCode.toUpperCase().trim(), childName, pinToUse);
       // Save on successful login so next visit skips straight to PIN
       saveCredentials(familyCode.toUpperCase().trim(), childName);
@@ -222,7 +222,7 @@ export default function ChildLoginPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
             >
-              {/* Welcome Back Banner — shows the readable family code, not a UUID */}
+              {/* Welcome Back Banner - shows the readable family code, not a UUID */}
               <div className="bg-xp-50 rounded-xl p-3 mb-6">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">

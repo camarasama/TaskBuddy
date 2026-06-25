@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * LevelUpCelebration.tsx — M7: Level-up celebration modal (CR-06)
+ * LevelUpCelebration.tsx - M7: Level-up celebration modal (CR-06)
  *
  * Place at: frontend/src/components/LevelUpCelebration.tsx
  *
@@ -12,10 +12,10 @@
  * responsible for tracking whether to show this and calling onClose().
  *
  * Props:
- *  isOpen          — whether the modal is visible
- *  onClose         — callback to dismiss the modal
- *  newLevel        — the level the child just reached
- *  bonusPoints     — bonus Points awarded for levelling up (level × 5)
+ *  isOpen          - whether the modal is visible
+ *  onClose         - callback to dismiss the modal
+ *  newLevel        - the level the child just reached
+ *  bonusPoints     - bonus Points awarded for levelling up (level × 5)
  */
 
 import { motion, AnimatePresence } from 'framer-motion';

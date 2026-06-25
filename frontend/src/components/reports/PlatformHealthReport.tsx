@@ -1,6 +1,6 @@
 'use client';
 /**
- * PlatformHealthReport — R-08
+ * PlatformHealthReport - R-08
  * Auth-fixed exports (CSV + PDF). Uses downloadExport() with Bearer token.
  */
 

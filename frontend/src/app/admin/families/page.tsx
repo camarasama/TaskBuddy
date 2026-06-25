@@ -1,5 +1,5 @@
 /**
- * app/admin/families/page.tsx — M8
+ * app/admin/families/page.tsx - M8
  *
  * Paginated list of all families with search and suspend/reactivate controls.
  * Each row shows family name, member count, suspension status, created date,
@@ -175,7 +175,7 @@ export default function AdminFamiliesPage() {
                     {family.familyName}
                   </td>
                   <td className="px-4 py-3 text-slate-500 font-mono text-xs">
-                    {family.familyCode || '—'}
+                    {family.familyCode || '-'}
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {family._count.users}

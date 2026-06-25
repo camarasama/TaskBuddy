@@ -1,6 +1,6 @@
 'use client';
 /**
- * EngagementStreakReport — R-04
+ * EngagementStreakReport - R-04
  * Auth-fixed exports (CSV + PDF). Uses downloadExport() with Bearer token.
  */
 

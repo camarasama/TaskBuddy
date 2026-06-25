@@ -2,7 +2,7 @@
 import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
- * parent/settings/page.tsx — Updated M9 (Email Notifications)
+ * parent/settings/page.tsx - Updated M9 (Email Notifications)
  *
  * Changes from M8:
  *  - NotificationPreferences interface and state added to track the 10 email
@@ -66,7 +66,7 @@ interface FamilySettingsData {
 }
 
 /**
- * M9 — Mirrors the notificationPreferences JSON keys in FamilySettings.
+ * M9 - Mirrors the notificationPreferences JSON keys in FamilySettings.
  * All default to true (all emails on). The parent can toggle each off
  * individually via the new "Email Notifications" section below.
  */
@@ -83,7 +83,7 @@ interface NotificationPreferences {
   co_parent_invite: boolean;
 }
 
-// Default: all notifications on — matches the schema default JSON
+// Default: all notifications on - matches the schema default JSON
 const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   task_submitted: true,
   task_approved: true,
@@ -142,7 +142,7 @@ export default function ParentSettingsPage() {
     streakGracePeriodHours: 4,
   });
 
-  // M9 — Notification preference toggles
+  // M9 - Notification preference toggles
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(
     DEFAULT_NOTIFICATION_PREFS
   );
@@ -162,7 +162,7 @@ export default function ParentSettingsPage() {
       setParents(p || []);
       setPendingInvites(pi || []);
     } catch {
-      // Non-fatal — section just won't show
+      // Non-fatal - section just won't show
     }
   }, []);
 
@@ -191,7 +191,7 @@ export default function ParentSettingsPage() {
           streakGracePeriodHours: settingsData.streakGracePeriodHours ?? 4,
         });
 
-        // M9 — Merge persisted prefs over the default so any new keys added in
+        // M9 - Merge persisted prefs over the default so any new keys added in
         // future schema updates still default to true for existing families.
         if (settingsData.notificationPreferences) {
           setNotificationPrefs({
@@ -220,7 +220,7 @@ export default function ParentSettingsPage() {
     try {
       await Promise.all([
         familyApi.updateFamily({ familyName }),
-        // M9 — Include notificationPreferences in the settings payload
+        // M9 - Include notificationPreferences in the settings payload
         familyApi.updateSettings({
           ...familySettings,
           notificationPreferences: notificationPrefs,
@@ -331,7 +331,7 @@ export default function ParentSettingsPage() {
               onChange={(e) => setFamilyName(e.target.value)}
             />
 
-            {/* Family Code — readable format, copy + regenerate */}
+            {/* Family Code - readable format, copy + regenerate */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Family Code
@@ -557,7 +557,7 @@ export default function ParentSettingsPage() {
           </div>
           <p className="text-sm text-slate-500 mb-5 ml-[52px]">
             Choose which emails are sent to all parents in your family. Turning off a
-            notification here stops it for everyone — co-parents included.
+            notification here stops it for everyone - co-parents included.
           </p>
 
           <div className="space-y-3">

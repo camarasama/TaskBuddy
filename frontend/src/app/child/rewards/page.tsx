@@ -2,7 +2,7 @@
 import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
- * Child Rewards Page — updated M6 (CR-11)
+ * Child Rewards Page - updated M6 (CR-11)
  *
  * Changes from M6:
  *  - Reward interface updated: added cap fields (maxRedemptionsTotal, expiresAt,
@@ -46,7 +46,7 @@ interface Reward {
   maxRedemptionsPerChild?: number | null;
   maxRedemptionsTotal?: number | null;
   expiresAt?: string | null;
-  // Computed cap fields (M6) — returned by GET /rewards for child callers
+  // Computed cap fields (M6) - returned by GET /rewards for child callers
   remainingForChild: number | null;
   isExpired: boolean;
   isSoldOut: boolean;
@@ -258,7 +258,7 @@ export default function ChildRewardsPage() {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * getExpiryLabel — same helper used on the parent page
+ * getExpiryLabel - same helper used on the parent page
  * Returns "Expires in Xd Yh", "Expires in Zm", or "Expired"
  */
 function getExpiryLabel(expiresAt: string): string {

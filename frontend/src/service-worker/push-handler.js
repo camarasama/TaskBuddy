@@ -1,4 +1,4 @@
-// Push notification handlers — merged into sw.js by next-pwa in production
+// Push notification handlers - merged into sw.js by next-pwa in production
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;

@@ -2,18 +2,18 @@
 import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 /**
- * child/dashboard/page.tsx — Updated M10 Phase 6 (Real-time Socket Engagement)
+ * child/dashboard/page.tsx - Updated M10 Phase 6 (Real-time Socket Engagement)
  *
  * Changes from M7 (everything else is unchanged from the original):
  *  - ChildDashboardData.profile: added optional totalXpEarned field
  *  - XP bar now uses totalXpEarned (not experiencePoints alone) for level calc
  *  - Added a gold "Points" balance card displayed alongside the existing XP card
- *  - Added LevelUpCelebration modal — fires when API returns a pending levelUp
+ *  - Added LevelUpCelebration modal - fires when API returns a pending levelUp
  *  - Imported XpProgressBar and LevelUpCelebration components
  *
  * M7 display rules (CR-06):
- *  - Points (gold)  = spendable currency for rewards — shown as a separate balance card
- *  - XP    (purple) = level progression, NEVER spent — existing XP bar preserved
+ *  - Points (gold)  = spendable currency for rewards - shown as a separate balance card
+ *  - XP    (purple) = level progression, NEVER spent - existing XP bar preserved
  *  - Redeeming a reward only decrements Points, never XP
  */
 
@@ -36,10 +36,10 @@ import { cn, formatPoints, getDifficultyColor, levelFromXp } from '@/lib/utils';
 import Link from 'next/link';
 import { ChildLayout } from '@/components/layouts/ChildLayout';
 import { useSocket } from '@/contexts/SocketContext';
-// M7 — CR-06: New components for dual currency display and level-up celebration
+// M7 - CR-06: New components for dual currency display and level-up celebration
 import { XpProgressBar } from '@/components/ui/XpProgressBar';
 import { LevelUpCelebration } from '@/components/LevelUpCelebration';
-// M10 — Phase 6: Real-time engagement toasts
+// M10 - Phase 6: Real-time engagement toasts
 import { AchievementToast } from '@/components/AchievementToast';
 import { StreakMilestoneToast, isStreakMilestone } from '@/components/StreakMilestoneToast';
 
@@ -71,7 +71,7 @@ interface ChildDashboardData {
   profile: {
     level: number;
     experiencePoints: number;
-    // M7 — CR-06: totalXpEarned is the lifetime XP accumulator that drives
+    // M7 - CR-06: totalXpEarned is the lifetime XP accumulator that drives
     // level calculation. NEVER decremented. experiencePoints is the within-level
     // bar value. Falls back to experiencePoints if API not yet updated.
     totalXpEarned?: number;
@@ -114,26 +114,26 @@ export default function ChildDashboardPage() {
   const [data, setData] = useState<ChildDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // M7 — CR-06: Level-up celebration state (also updated via socket in M10)
+  // M7 - CR-06: Level-up celebration state (also updated via socket in M10)
   const [levelUpState, setLevelUpState] = useState<{
     show: boolean;
     newLevel: number;
     bonusPoints: number;
   }>({ show: false, newLevel: 1, bonusPoints: 0 });
 
-  // M10 — Phase 6: Real-time socket state
+  // M10 - Phase 6: Real-time socket state
   const { socket } = useSocket();
 
-  // Live points balance — socket pushes updates when tasks are approved or rewards redeemed
+  // Live points balance - socket pushes updates when tasks are approved or rewards redeemed
   const [livePoints, setLivePoints] = useState<number | null>(null);
 
-  // Achievement toast — fires when server emits achievement:unlocked
+  // Achievement toast - fires when server emits achievement:unlocked
   const [achievementToast, setAchievementToast] = useState<{
     show: boolean;
     achievementName: string;
   }>({ show: false, achievementName: '' });
 
-  // Streak milestone toast — fires when streak reaches a milestone (7, 14, 30, 60, 100…)
+  // Streak milestone toast - fires when streak reaches a milestone (7, 14, 30, 60, 100…)
   const [streakToast, setStreakToast] = useState<{
     show: boolean;
     streakDays: number;
@@ -154,7 +154,7 @@ export default function ChildDashboardPage() {
 
         setData(apiData);
 
-        // M7 — CR-06: Show celebration if a level-up happened since last load
+        // M7 - CR-06: Show celebration if a level-up happened since last load
         if (apiData.levelUp?.leveledUp) {
           setLevelUpState({
             show: true,
@@ -163,7 +163,7 @@ export default function ChildDashboardPage() {
           });
         }
 
-        // M10 — Phase 6: Show streak milestone toast on first load if applicable
+        // M10 - Phase 6: Show streak milestone toast on first load if applicable
         const streak = apiData.streak?.current ?? apiData.profile?.currentStreakDays ?? 0;
         if (streak > 0 && isStreakMilestone(streak)) {
           setStreakToast({ show: true, streakDays: streak });
@@ -190,11 +190,11 @@ export default function ChildDashboardPage() {
     }).catch(() => {});
   });
 
-  // M10 — Phase 6: Real-time socket event handlers
+  // M10 - Phase 6: Real-time socket event handlers
   useEffect(() => {
     if (!socket) return;
 
-    // points:updated — live balance when parent approves task or child redeems reward
+    // points:updated - live balance when parent approves task or child redeems reward
     const handlePoints = (payload: { childId: string; newBalance: number }) => {
       const myId = (user as any)?.id;
       if (myId && payload.childId !== myId) return; // guard: only my events
@@ -209,21 +209,21 @@ export default function ChildDashboardPage() {
       });
     };
 
-    // level:up — show the celebration modal in real-time (without page refresh)
+    // level:up - show the celebration modal in real-time (without page refresh)
     const handleLevelUp = (payload: { childId: string; newLevel: number; bonusPoints: number }) => {
       const myId = (user as any)?.id;
       if (myId && payload.childId !== myId) return;
       setLevelUpState({ show: true, newLevel: payload.newLevel, bonusPoints: payload.bonusPoints });
     };
 
-    // achievement:unlocked — show achievement toast
+    // achievement:unlocked - show achievement toast
     const handleAchievement = (payload: { childId: string; achievementName: string }) => {
       const myId = (user as any)?.id;
       if (myId && payload.childId !== myId) return;
       setAchievementToast({ show: true, achievementName: payload.achievementName });
     };
 
-    // task:approved — refresh task statuses so the progress ring updates
+    // task:approved - refresh task statuses so the progress ring updates
     const handleTaskApproved = (payload: { childId: string; pointsAwarded: number }) => {
       const myId = (user as any)?.id;
       if (myId && payload.childId !== myId) return;
@@ -282,12 +282,12 @@ export default function ChildDashboardPage() {
     nextReward: undefined,
   };
 
-  // M7 — CR-06: Use totalXpEarned for level calculation if available.
+  // M7 - CR-06: Use totalXpEarned for level calculation if available.
   const totalXp = dashboardData.profile.totalXpEarned ?? dashboardData.profile.experiencePoints ?? 0;
   const { level, currentXp, nextLevelXp } = levelFromXp(totalXp);
   const xpProgress = (currentXp / nextLevelXp) * 100;
 
-  // M10 — Phase 6: Use live socket balance if available, fall back to API data
+  // M10 - Phase 6: Use live socket balance if available, fall back to API data
   const displayPoints = livePoints !== null ? livePoints : (dashboardData.profile.pointsBalance ?? 0);
 
   const streakDays = dashboardData.profile.currentStreakDays ?? dashboardData.streak?.current ?? 0;
@@ -299,7 +299,7 @@ export default function ChildDashboardPage() {
 
   return (
     <ChildLayout>
-      {/* M7 — CR-06: Level-up celebration modal */}
+      {/* M7 - CR-06: Level-up celebration modal */}
       <LevelUpCelebration
         isOpen={levelUpState.show}
         onClose={() => setLevelUpState((s) => ({ ...s, show: false }))}
@@ -307,14 +307,14 @@ export default function ChildDashboardPage() {
         bonusPoints={levelUpState.bonusPoints}
       />
 
-      {/* M10 — Phase 6: Achievement unlocked toast */}
+      {/* M10 - Phase 6: Achievement unlocked toast */}
       <AchievementToast
         show={achievementToast.show}
         achievementName={achievementToast.achievementName}
         onDismiss={() => setAchievementToast((s) => ({ ...s, show: false }))}
       />
 
-      {/* M10 — Phase 6: Streak milestone toast */}
+      {/* M10 - Phase 6: Streak milestone toast */}
       <StreakMilestoneToast
         show={streakToast.show}
         streakDays={streakToast.streakDays}
@@ -341,8 +341,8 @@ export default function ChildDashboardPage() {
 
         {/* ── M7: Dual Currency Row ──────────────────────────────────────────
           Two side-by-side cards replace the old single-currency display:
-            Left  — Gold Points card  (spendable, used for rewards)
-            Right — Purple XP card   (level progression, never spent)
+            Left  - Gold Points card  (spendable, used for rewards)
+            Right - Purple XP card   (level progression, never spent)
           The larger level card below is kept and now clearly labels
           its value as "Total XP" to distinguish it from Points.
         */}
@@ -394,7 +394,7 @@ export default function ChildDashboardPage() {
           </motion.div>
         </div>
 
-        {/* Level Progress Card (original — preserved, now labelled "Total XP") */}
+        {/* Level Progress Card (original - preserved, now labelled "Total XP") */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -412,7 +412,7 @@ export default function ChildDashboardPage() {
               </div>
             </div>
             <div className="text-right">
-              {/* M7 — CR-06: "Total XP" label makes clear this is NOT spendable Points */}
+              {/* M7 - CR-06: "Total XP" label makes clear this is NOT spendable Points */}
               <p className="text-xp-100">Total XP</p>
               <p className="font-bold text-xl">{totalXp.toLocaleString()}</p>
             </div>
