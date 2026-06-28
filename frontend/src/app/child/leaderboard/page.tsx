@@ -15,11 +15,18 @@ interface LeaderboardEntry {
   childId: string;
   childName: string;
   avatarUrl: string | null;
+  gender?: string | null;
   weeklyPoints: number;
   weeklyTasks: number;
   currentStreak: number;
   score: number;
   rank: number;
+}
+
+function childEmoji(entry: LeaderboardEntry): string {
+  if (entry.gender === 'male')   return '👦';
+  if (entry.gender === 'female') return '👧';
+  return '🧒';
 }
 
 interface LeaderboardData {
@@ -155,7 +162,7 @@ export default function LeaderboardPage() {
                       isMe ? 'ring-2 ring-xp-500 ring-offset-1' : ''
                     )}
                   >
-                    <div className="text-3xl mb-1">🧒</div>
+                    <div className="text-3xl mb-1">{childEmoji(entry)}</div>
                     <div className="text-xl">{MEDAL[PODIUM_MEDAL_IDX[slotIdx]]}</div>
                     <div className={cn(
                       'font-bold text-sm mt-1 truncate',
@@ -201,7 +208,7 @@ export default function LeaderboardPage() {
 
                       {/* Avatar */}
                       <div className="w-9 h-9 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-lg shrink-0">
-                        🧒
+                        {childEmoji(entry)}
                       </div>
 
                       {/* Name + stats */}

@@ -454,6 +454,7 @@ dashboardRouter.get('/leaderboard', async (req, res, next) => {
           childId: child.id,
           childName: child.firstName,
           avatarUrl: child.avatarUrl,
+          gender: child.gender ?? null,
           weeklyPoints: pointsResult._sum.pointsAmount || 0,
           weeklyTasks: tasksCompleted,
           currentStreak: child.childProfile?.currentStreakDays || 0,

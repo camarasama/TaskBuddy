@@ -51,6 +51,7 @@ export interface Family extends BaseModel {
 export interface User extends BaseModel {
   familyId: string;
   email?: string | null;
+  emailVerifiedAt?: Date | null;
   username?: string | null;
   role: UserRole;
   firstName: string;

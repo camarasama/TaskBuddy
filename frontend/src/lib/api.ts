@@ -452,6 +452,11 @@ export const tasksApi = {
       method: 'PUT',
       body: JSON.stringify({ approved, feedback, bonusPoints }),
     }),
+
+  resetAssignment: (assignmentId: string) =>
+    request<ApiResponse<{ assignment: unknown }>>(`/tasks/assignments/${assignmentId}/reset`, {
+      method: 'PUT',
+    }),
 };
 
 // Rewards API

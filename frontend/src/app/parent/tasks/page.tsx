@@ -19,13 +19,14 @@ import {
   FileText,
   Archive,
   RotateCcw,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { tasksApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { cn, getDifficultyColor, getStatusColor, formatDate } from '@/lib/utils';
+import { cn, getDifficultyColor, getStatusColor, formatDate, formatDateTime } from '@/lib/utils';
 import Link from 'next/link';
 
 interface Task {
@@ -35,6 +36,7 @@ interface Task {
   difficulty: string;
   pointsValue: number;
   status: string;
+  dueDate?: string;
   assignments?: TaskAssignment[];
   createdAt: string;
 }
@@ -362,6 +364,12 @@ function TaskCard({ task, onArchive }: { task: Task; onArchive: (id: string) => 
                 <span className={cn('badge', getStatusColor(task.status))}>
                   {task.status.replace('_', ' ')}
                 </span>
+                {task.dueDate && (
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {formatDateTime(task.dueDate)}
+                  </span>
+                )}
                 {assignedCount > 0 && (
                   <span className="text-slate-500">
                     {completedCount}/{assignedCount} completed

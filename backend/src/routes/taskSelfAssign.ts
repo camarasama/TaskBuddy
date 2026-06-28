@@ -48,16 +48,18 @@ taskSelfAssignRouter.post(
           status: 'active',
           deletedAt: null,
         },
-        include: { assignments: { select: { childId: true } } },
+        include: { assignments: { select: { childId: true, status: true } } },
       });
 
       if (!task) {
         throw new NotFoundError('Task not found or is not available.');
       }
 
-      // Guard: claim cap - reject if maxClaimsTotal reached
+      // Guard: claim cap - reject if maxClaimsTotal reached.
+      // Expired assignments don't count: an expired slot reopens for others.
       if (task.maxClaimsTotal != null) {
-        const uniqueClaimers = new Set(task.assignments.map((a) => a.childId)).size;
+        const activeAssignments = task.assignments.filter((a) => a.status !== 'expired');
+        const uniqueClaimers = new Set(activeAssignments.map((a) => a.childId)).size;
         if (uniqueClaimers >= task.maxClaimsTotal) {
           throw new ConflictError(
             `This task has reached its maximum of ${task.maxClaimsTotal} claim${task.maxClaimsTotal > 1 ? 's' : ''}.`,

@@ -56,6 +56,10 @@ export function getInitials(firstName?: string | null, lastName?: string | null)
   return first || last ? `${first}${last}` : '?';
 }
 
+export function formatLabel(value: string): string {
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function difficultyFromPoints(points: number): 'easy' | 'medium' | 'hard' {
   if (points <= 15) return 'easy';
   if (points <= 30) return 'medium';

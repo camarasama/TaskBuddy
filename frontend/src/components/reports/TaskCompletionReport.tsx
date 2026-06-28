@@ -8,7 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { reportsApi } from '@/lib/api';
 import { downloadExport } from '@/lib/downloadExport';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatLabel } from '@/lib/utils';
 
 interface TaskCompletionRow { date: string; childId: string; childName: string; taskTitle: string; taskTag: string; difficulty: string | null; pointsAwarded: number; xpAwarded: number; completedAt: string; approvedAt: string | null; }
 interface Report { rows: TaskCompletionRow[]; summary: { totalCompleted: number; totalApproved: number; primaryCount: number; secondaryCount: number; byDifficulty: Record<string, number>; byChild: Record<string, number> } }
@@ -86,7 +86,7 @@ export default function TaskCompletionReport({ childId, startDate, endDate }: Pr
           <tbody className="divide-y divide-gray-50">{report.rows.slice(0, 50).map((r, i) => (
             <tr key={i} className="hover:bg-gray-50/50">
               <td className="px-3 py-2 text-gray-600">{formatDate(r.date)}</td><td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td><td className="px-3 py-2 text-gray-600 max-w-[180px] truncate">{r.taskTitle}</td>
-              <td className="px-3 py-2"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.taskTag === 'primary' ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'}`}>{r.taskTag}</span></td>
+              <td className="px-3 py-2"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.taskTag === 'primary' ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'}`}>{formatLabel(r.taskTag)}</span></td>
               <td className="px-3 py-2 text-gray-600 capitalize">{r.difficulty ?? '-'}</td><td className="px-3 py-2 text-gray-700">{r.pointsAwarded}</td><td className="px-3 py-2 text-gray-700">{r.xpAwarded}</td><td className="px-3 py-2 text-gray-500">{r.approvedAt ? '✓' : '-'}</td>
             </tr>
           ))}</tbody>

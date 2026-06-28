@@ -108,10 +108,9 @@ export function initScheduler(): void {
         }
         if (!a.task.isRecurring) {
           taskIdsToRecheck.add(a.task.id);
-        } else {
-          // Recurring: delete the expired assignment so the task shows as unassigned in the pool
-          await prisma.taskAssignment.delete({ where: { id: a.id } });
         }
+        // Recurring: leave the assignment as 'expired'. RecurringScheduler reads
+        // expired assignments to know which children to re-assign the next day.
       }
 
       // Archive non-recurring tasks that have no remaining active assignments
@@ -152,10 +151,13 @@ export function initScheduler(): void {
         });
       }
 
-      // (3) Archive unassigned tasks past due date
+      // (3) Archive unassigned non-recurring tasks past due date.
+      // Recurring tasks are intentionally excluded — they stay active so the
+      // nightly RecurringScheduler can keep generating daily instances.
       await prisma.task.updateMany({
         where: {
           status: 'active',
+          isRecurring: false,
           dueDate: { lt: now },
           assignments: { none: {} },
         },

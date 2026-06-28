@@ -8,7 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, Cell } from 'recharts';
 import { reportsApi } from '@/lib/api';
 import { downloadExport } from '@/lib/downloadExport';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatLabel } from '@/lib/utils';
 
 interface LedgerRow { date: string; childName: string; transactionType: string; pointsAmount: number; balanceAfter: number; referenceType: string | null; description: string | null; }
 interface Report { rows: LedgerRow[]; summary: { totalPointsEarned: number; totalPointsSpent: number; totalXpEvents: number; byType: Record<string, number>; byChild: Record<string, { earned: number; spent: number }> } }
@@ -70,7 +70,7 @@ export default function PointsLedgerReport({ childId, startDate, endDate }: Prop
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">By Transaction Type</h3>
-          <ResponsiveContainer width="100%" height={180}><BarChart data={typeData} layout="vertical"><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" /><XAxis type="number" tick={{ fontSize: 11 }} /><YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="value" radius={[0, 4, 4, 0]} name="Count">{typeData.map((d) => <Cell key={d.name} fill={TYPE_COLORS[d.name] ?? '#94a3b8'} />)}</Bar></BarChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={180}><BarChart data={typeData} layout="vertical"><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" /><XAxis type="number" tick={{ fontSize: 11 }} /><YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} tickFormatter={(v) => formatLabel(v)} /><Tooltip formatter={(val, name) => [val, formatLabel(String(name))]} /><Bar dataKey="value" radius={[0, 4, 4, 0]} name="Count">{typeData.map((d) => <Cell key={d.name} fill={TYPE_COLORS[d.name] ?? '#94a3b8'} />)}</Bar></BarChart></ResponsiveContainer>
         </div>
       </div>
       <div className="flex gap-3">
@@ -82,7 +82,7 @@ export default function PointsLedgerReport({ childId, startDate, endDate }: Prop
           <tbody className="divide-y divide-gray-50">{report.rows.slice(0, 50).map((r, i) => (
             <tr key={i} className="hover:bg-gray-50/50">
               <td className="px-3 py-2 text-gray-600">{formatDate(r.date)}</td><td className="px-3 py-2 font-medium text-gray-800">{r.childName}</td>
-              <td className="px-3 py-2"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">{r.transactionType}</span></td>
+              <td className="px-3 py-2"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">{formatLabel(r.transactionType)}</span></td>
               <td className={`px-3 py-2 font-medium ${r.pointsAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{r.pointsAmount >= 0 ? '+' : ''}{r.pointsAmount}</td>
               <td className="px-3 py-2 text-gray-700">{r.balanceAfter}</td><td className="px-3 py-2 text-gray-500 max-w-[200px] truncate">{r.description ?? '-'}</td>
             </tr>
