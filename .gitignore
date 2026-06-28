@@ -10,4 +10,17 @@ uploads/
 *.log
 do_not_upload/
 frontend/public/sw.js
-frontend/public/workbox-*.js*.tsbuildinfo
+frontend/public/workbox-*.js
+frontend/public/worker-*.js
+*.tsbuildinfo
+
+# Local AI tooling / memory (carried manually via USB, not via git) - mirrors GNFS
+.mcp.json
+.swarm/
+.claude/
+.claude-flow/
+.agents/
+ruvector.db
+**/ruvector.db
+agentdb.rvf
+agentdb.rvf.lock
