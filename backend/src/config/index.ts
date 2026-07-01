@@ -45,9 +45,7 @@ export function validateConfig(): void {
   if (config.env === 'test') return;
 
   const required = ['JWT_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL', 'ADMIN_INVITE_CODE'];
-  if (config.env === 'production') {
-    required.push('REDIS_URL');
-  }
+  // No Redis at launch (single instance); the Redis URL is optional and defaults to localhost.
 
   const missing = required.filter(key => !process.env[key]);
   if (missing.length > 0) {
