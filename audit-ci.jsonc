@@ -1,0 +1,54 @@
+// audit-ci configuration for TaskBuddy CI (task A6).
+//
+// Runs `npm audit` and FAILS the build on any advisory at moderate severity or
+// above that is NOT in the allowlist below. This turns `npm audit` into a
+// meaningful gate (it catches NEW vulnerabilities) instead of permanent red
+// noise from known dev/build-only advisories.
+//
+// Usage in CI (add to .github/workflows/ci.yml after the build step):
+//   - name: Security audit (allowlisted)
+//     run: npx --yes audit-ci@^7 --config ./audit-ci.jsonc
+//
+// The allowlist mirrors the "Accepted" dependency findings (DEP-02..DEP-06) in
+// .do_not_upload/security_assessment.md. DEP-02..DEP-05 are dev/build/test only
+// and not reachable in the running service. DEP-01 (nodemailer runtime advisory,
+// GHSA-p6gq-j5cr-w38f) was FIXED (nodemailer@^9), NOT allowlisted — if it ever
+// regresses, CI must fail. DEP-06 (GHSA-8988, otel baggage) is a RUNTIME advisory
+// that IS allowlisted as a time-boxed, owner-approved risk acceptance because no
+// compatible fix exists yet (details by its allowlist entry below).
+//
+// RE-TRIAGE: remove an entry here when a non-downgrade patch lands upstream, or
+// when an advisory escalates to critical / moves into the runtime path. Keep
+// this file and security_assessment.md (§ Dependency Audit) in sync.
+{
+  // Fail on moderate, high, and critical advisories (anything not allowlisted).
+  "moderate": true,
+
+  "allowlist": [
+    // DEP-02 — serialize-javascript RCE, via workbox-build -> next-pwa@5 (PWA BUILD only).
+    "GHSA-5c6j-r48x-rmvq",
+
+    // DEP-03 — postcss XSS, vendored inside next (CSS BUILD only).
+    "GHSA-qx2v-qp2m-jg93",
+
+    // DEP-04 — minimatch ReDoS x3, via @typescript-eslint -> eslint-config-next@14 (LINT only).
+    "GHSA-3ppc-4f35-3m26",
+    "GHSA-7r86-cg39-jmmj",
+    "GHSA-23c5-xmqv-rm74",
+
+    // DEP-05 — js-yaml DoS, via @istanbuljs/load-nyc-config -> jest@29 (TEST only).
+    "GHSA-h67p-54hq-rp68",
+
+    // DEP-06 — @opentelemetry/core: unbounded memory allocation in W3C Baggage propagation
+    // (moderate, CVSS 5.3, CWE-770). RUNTIME advisory, transitive via
+    // @sentry/node@9.47.1 -> bundled @opentelemetry/* -> @opentelemetry/core@1.30.1 (A4).
+    // NO COMPATIBLE FIX: the patch is only in @opentelemetry/core >= 2.8.0 (a major bump);
+    // Sentry 9.47.1 pins otel core ^1.30.1 across its 1.x SDK packages, and there is no 1.x
+    // backport, so forcing 2.8.0 would break Sentry's runtime.
+    // ACCEPTED RISK (owner-approved 2026-07-01), mitigated by: Node's default 16KB
+    // max-http-header-size bounding the `baggage` header, Cloudflare in front, global rate
+    // limiting, and tracesSampleRate=0. RE-TRIAGE: remove when @sentry/node depends on
+    // @opentelemetry/core >= 2.8.0. See security_assessment.md § Dependency Audit.
+    "GHSA-8988-4f7v-96qf"
+  ]
+}
