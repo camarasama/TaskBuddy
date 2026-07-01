@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../services/database';
 import { authenticate, requireParent, requireChild, familyIsolation } from '../middleware/auth';
 import { NotFoundError } from '../middleware/errorHandler';
-import { isStreakAtRisk } from '../services/StreakService';
+import { isStreakAtRisk } from '../services/streakService';
 
 export const dashboardRouter = Router();
 

@@ -2,7 +2,7 @@ import { prisma } from './database';
 import { GAMIFICATION_M7 } from '../utils/gamification';
 import { checkAndApplyLevelUp } from './levelService';
 import { checkAndUnlockAchievements } from './achievements';
-import { evaluateStreak } from './StreakService';
+import { evaluateStreak } from './streakService';
 import { AuditService } from './AuditService';
 import { EmailService } from './email';
 import { SocketService } from './SocketService';
