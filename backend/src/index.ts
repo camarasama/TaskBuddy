@@ -1,4 +1,6 @@
+import './instrument';
 import express from 'express';
+import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -154,6 +156,7 @@ app.use('/api/v1/notifications', notificationsRouter);
 
 // Error handling
 app.use(notFoundHandler);
+Sentry.setupExpressErrorHandler(app); // captures errors, then delegates to errorHandler
 app.use(errorHandler);
 
 // Start server
