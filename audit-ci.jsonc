@@ -1,0 +1,41 @@
+// audit-ci configuration for TaskBuddy CI (task A6).
+//
+// Runs `npm audit` and FAILS the build on any advisory at moderate severity or
+// above that is NOT in the allowlist below. This turns `npm audit` into a
+// meaningful gate (it catches NEW vulnerabilities) instead of permanent red
+// noise from known dev/build-only advisories.
+//
+// Usage in CI (add to .github/workflows/ci.yml after the build step):
+//   - name: Security audit (allowlisted)
+//     run: npx --yes audit-ci@^7 --config ./audit-ci.jsonc
+//
+// The allowlist mirrors the "Accepted" dependency findings (DEP-02..DEP-05) in
+// .do_not_upload/security_assessment.md. Every entry there is dev/build/test
+// only and not reachable in the running service. The one production-runtime
+// advisory (DEP-01, nodemailer GHSA-p6gq-j5cr-w38f) was FIXED by upgrading to
+// nodemailer@^9 and is therefore deliberately NOT allowlisted — if it ever
+// regresses, CI must fail.
+//
+// RE-TRIAGE: remove an entry here when a non-downgrade patch lands upstream, or
+// when an advisory escalates to critical / moves into the runtime path. Keep
+// this file and security_assessment.md (§ Dependency Audit) in sync.
+{
+  // Fail on moderate, high, and critical advisories (anything not allowlisted).
+  "moderate": true,
+
+  "allowlist": [
+    // DEP-02 — serialize-javascript RCE, via workbox-build -> next-pwa@5 (PWA BUILD only).
+    "GHSA-5c6j-r48x-rmvq",
+
+    // DEP-03 — postcss XSS, vendored inside next (CSS BUILD only).
+    "GHSA-qx2v-qp2m-jg93",
+
+    // DEP-04 — minimatch ReDoS x3, via @typescript-eslint -> eslint-config-next@14 (LINT only).
+    "GHSA-3ppc-4f35-3m26",
+    "GHSA-7r86-cg39-jmmj",
+    "GHSA-23c5-xmqv-rm74",
+
+    // DEP-05 — js-yaml DoS, via @istanbuljs/load-nyc-config -> jest@29 (TEST only).
+    "GHSA-h67p-54hq-rp68"
+  ]
+}
