@@ -8,6 +8,7 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 import { config, validateConfig } from './config';
+import { prisma } from './services/database';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authenticate } from './middleware/auth';
 import { apiRouter } from './routes';
@@ -127,9 +128,14 @@ app.get('/uploads/*', (req: express.Request, res: express.Response) => {
   res.sendFile(filePath);
 });
 
-// Health check
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+// Health check - readiness probe: verifies the DB is reachable (used by UptimeRobot + Railway)
+app.get('/health', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'ok', db: 'up' });
+  } catch {
+    res.status(503).json({ status: 'error', db: 'down' });
+  }
 });
 
 // Global and auth-specific rate limiters
@@ -153,16 +159,46 @@ app.use(errorHandler);
 // Start server
 const PORT = config.port;
 
-initScheduler();
-initRecurringScheduler(); // M8 - midnight recurring task generation
-startExpiryEmailCron();
-startStreakAtRiskCron();
-initSocketService(io); // M10 - Phase 5: wire socket emit helper
+// Graceful shutdown: stop accepting new connections, close socket.io, disconnect Prisma.
+// Intervals from the schedulers/crons die with the process on exit.
+let shuttingDown = false;
+function gracefulShutdown(signal: string): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`\n${signal} received - shutting down gracefully...`);
 
-seedGames().catch(console.error);
+  // Force-exit if the graceful close hangs (e.g. a stuck keep-alive connection).
+  const forceExit = setTimeout(() => {
+    console.error('Graceful shutdown timed out after 10s - forcing exit.');
+    process.exit(1);
+  }, 10_000);
+  forceExit.unref();
 
-httpServer.listen(PORT, () => {
-  console.log(`
+  httpServer.close(async () => {
+    try {
+      io.close();
+      await prisma.$disconnect();
+      console.log('Cleanup complete - exiting.');
+      process.exit(0);
+    } catch (err) {
+      console.error('Error during shutdown cleanup:', err);
+      process.exit(1);
+    }
+  });
+}
+
+// Only boot the server + background work outside of tests (tests import `app` directly).
+if (config.env !== 'test') {
+  initScheduler();
+  initRecurringScheduler(); // M8 - midnight recurring task generation
+  startExpiryEmailCron();
+  startStreakAtRiskCron();
+  initSocketService(io); // M10 - Phase 5: wire socket emit helper
+
+  seedGames().catch(console.error);
+
+  httpServer.listen(PORT, () => {
+    console.log(`
 🚀 TaskBuddy API Server
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🌍 Environment: ${config.env}
@@ -173,6 +209,10 @@ httpServer.listen(PORT, () => {
 🔓 CORS:        ${allowedOrigins.join(', ')} ${config.env !== 'production' ? '+ ngrok tunnels' : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   `);
-});
+  });
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}
 
 export { app, httpServer };
