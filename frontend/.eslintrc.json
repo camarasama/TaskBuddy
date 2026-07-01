@@ -1,5 +1,11 @@
 {
   "root": true,
   "extends": "next/core-web-vitals",
-  "ignorePatterns": ["node_modules/", ".next/", "public/", "next-env.d.ts"]
+  "ignorePatterns": ["node_modules/", ".next/", "public/", "next-env.d.ts", "jest.config.js"],
+  "overrides": [
+    {
+      "files": ["tests/**/*.ts", "tests/**/*.tsx"],
+      "env": { "jest": true }
+    }
+  ]
 }
