@@ -31,6 +31,12 @@ validateConfig();
 
 // Create Express app
 const app = express();
+// Behind nginx (production): trust the first proxy hop so req.ip / X-Forwarded-For
+// and req.protocol are the real client values, not the proxy's. Required for
+// express-rate-limit to key on the actual client IP rather than 127.0.0.1.
+if (config.env === 'production') {
+  app.set('trust proxy', 1);
+}
 const httpServer = createServer(app);
 
 // Explicitly allowlisted ngrok URLs (comma-separated ALLOWED_NGROK_URL env var)
