@@ -102,6 +102,28 @@ sudo certbot --nginx -d app.gettaskbuddy.com
 ("Network is unreachable"). Fixed persistently by preferring IPv4 in `/etc/gai.conf`:
 `precedence ::ffff:0:0/96  100`.
 
+## Backups
+
+Nightly Postgres backup to a **separate private** R2 bucket (`taskbuddy-backups` — never
+`taskbuddy-uploads`, which is public via the CDN). Server-side encrypted at rest by R2;
+14-day retention with automatic pruning.
+
+- `scripts/backup-db.sh` — `pg_dump` (peer auth) → gzip → upload → prune.
+- `scripts/backup-r2-upload.mjs` — R2 upload + retention pruning (uses the app's AWS SDK).
+- `deploy/systemd/taskbuddy-backup.{service,timer}` — nightly run at 02:30 UTC (`Persistent=true`).
+- Credentials for the backups bucket live in `/opt/taskbuddy/backup.env` (chmod 600, root-owned,
+  never committed) — a token scoped to `taskbuddy-backups` only.
+
+Install / operate:
+```bash
+sudo cp deploy/systemd/taskbuddy-backup.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now taskbuddy-backup.timer
+sudo systemctl start taskbuddy-backup.service     # run one now
+systemctl list-timers taskbuddy-backup.timer      # next scheduled run
+```
+Restore (into a scratch DB to verify): `gunzip -c taskbuddy-<ts>.sql.gz | psql <target-db>`.
+
 ## Gotchas
 
 - **Coexists with GNFS** (node on `:3001`, DB `gnfs`, its own nginx vhosts). TaskBuddy uses
@@ -113,7 +135,6 @@ sudo certbot --nginx -d app.gettaskbuddy.com
 
 ## Pending / TODO
 
-- Postgres nightly backup → offsite/R2 (data safety) — **not yet configured**.
 - UptimeRobot monitors on `/health` and `app.gettaskbuddy.com`.
 - Marketing page on the apex `gettaskbuddy.com` (currently a placeholder).
 - Rotate any secret that passed through a chat/transcript before public launch.
