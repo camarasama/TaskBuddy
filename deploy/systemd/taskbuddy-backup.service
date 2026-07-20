@@ -2,6 +2,9 @@
 Description=TaskBuddy nightly Postgres backup to Cloudflare R2
 After=network-online.target postgresql.service
 Wants=network-online.target
+# Email an alert (with the journal tail) if the backup fails. Instantiates
+# taskbuddy-backup-notify@taskbuddy-backup.service.service (%n = this unit's name).
+OnFailure=taskbuddy-backup-notify@%n.service
 
 [Service]
 Type=oneshot
