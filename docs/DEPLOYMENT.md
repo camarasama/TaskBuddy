@@ -149,6 +149,27 @@ sudo systemd-run --unit=tb-backup-test --property=OnFailure=taskbuddy-backup-not
 sudo journalctl -u 'taskbuddy-backup-notify@*' -n 20 --no-pager   # "alert sent to …"
 ```
 
+## Monitoring
+
+Two failure surfaces are watched; both alert by email.
+
+**1. Backups** — `taskbuddy-backup.service` emails on failure via the `OnFailure=` handler above.
+
+**2. Liveness / health** — external [UptimeRobot](https://uptimerobot.com) monitors (5-min interval,
+email alert contact), so an outage pages us even if the whole VPS is down (nothing on-box can):
+
+| Monitor | Type | Target | Alert condition |
+|---------|------|--------|-----------------|
+| API health | Keyword | `https://api.gettaskbuddy.com/health` | keyword `"db":"up"` **absent** |
+| Frontend | HTTP(s) | `https://app.gettaskbuddy.com` | non-2xx |
+
+The `/health` endpoint (`backend/src/index.ts`) returns `200 {"status":"ok","db":"up"}` when the DB is
+reachable and `503 {"status":"error","db":"down"}` otherwise — the keyword monitor catches both a 503
+and any 200 that lost the keyword. Verify manually:
+```bash
+curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
+```
+
 ## Gotchas
 
 - **Coexists with GNFS** (node on `:3001`, DB `gnfs`, its own nginx vhosts). TaskBuddy uses
@@ -160,7 +181,6 @@ sudo journalctl -u 'taskbuddy-backup-notify@*' -n 20 --no-pager   # "alert sent 
 
 ## Pending / TODO
 
-- UptimeRobot monitors on `/health` and `app.gettaskbuddy.com`.
 - Marketing page on the apex `gettaskbuddy.com` (currently a placeholder).
 - Rotate any secret that passed through a chat/transcript before public launch.
 - Bump the VPS to Node 22 LTS before Jan 2027 (AWS SDK v3 will require it).
