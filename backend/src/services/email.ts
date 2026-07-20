@@ -84,11 +84,18 @@ function createTransport() {
   });
 }
 
-// Gmail requires the "from" address to exactly match the authenticated SMTP_USER.
-// This helper builds a safe from address that won't be rejected.
+// Build a "from" address the SMTP provider will accept.
+// Transactional providers that authenticate with an API-key style username
+// (ZeptoMail "emailapikey", SendGrid "apikey", SES access keys) let you send from
+// any verified domain address, so use SMTP_FROM as-is. Only Gmail-style providers,
+// where the username IS the sending email, require the from to match SMTP_USER.
 function buildFromAddress(): string {
   const user = process.env.SMTP_USER || '';
   const smtpFrom = process.env.SMTP_FROM || '';
+  // API-key username (not an email) → provider authorises the domain, not the user.
+  if (!user.includes('@')) {
+    return smtpFrom || user;
+  }
   const fromEmailMatch = smtpFrom.match(/<([^>]+)>/);
   const fromEmail = fromEmailMatch ? fromEmailMatch[1] : smtpFrom;
   if (fromEmail && fromEmail.toLowerCase() === user.toLowerCase()) {
