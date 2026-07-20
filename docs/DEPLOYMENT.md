@@ -114,15 +114,40 @@ Nightly Postgres backup to a **separate private** R2 bucket (`taskbuddy-backups`
 - Credentials for the backups bucket live in `/opt/taskbuddy/backup.env` (chmod 600, root-owned,
   never committed) — a token scoped to `taskbuddy-backups` only.
 
+`backup.env` contract (all read by the systemd units, never committed):
+```
+R2_ACCOUNT_ID=          R2_ACCESS_KEY_ID=       R2_SECRET_ACCESS_KEY=
+R2_BACKUP_BUCKET=taskbuddy-backups   RETENTION_DAYS=14        # optional (defaults shown)
+# Failure alerts (see below) — reuse the same SMTP provider as the app (ZeptoMail):
+SMTP_HOST=  SMTP_PORT=465  SMTP_USER=  SMTP_PASS=  SMTP_FROM='TaskBuddy <alerts@…>'
+ALERT_EMAIL=you@example.com
+```
+
 Install / operate:
 ```bash
 sudo cp deploy/systemd/taskbuddy-backup.* /etc/systemd/system/
+sudo cp 'deploy/systemd/taskbuddy-backup-notify@.service' /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now taskbuddy-backup.timer
 sudo systemctl start taskbuddy-backup.service     # run one now
 systemctl list-timers taskbuddy-backup.timer      # next scheduled run
 ```
 Restore (into a scratch DB to verify): `gunzip -c taskbuddy-<ts>.sql.gz | psql <target-db>`.
+
+### Failure alerts (email)
+
+If a backup run fails, `taskbuddy-backup.service` has `OnFailure=taskbuddy-backup-notify@%n.service`,
+which runs `scripts/notify-failure.mjs` to email `ALERT_EMAIL` the failure plus the unit's journal
+tail (via the app's nodemailer + the `SMTP_*` keys in `backup.env`). A successful backup sends nothing.
+
+Test it without breaking anything (point the backup at a bogus DB so it fails once):
+```bash
+sudo systemd-run --unit=tb-backup-test --property=OnFailure=taskbuddy-backup-notify@tb-backup-test.service \
+  --property=EnvironmentFile=/opt/taskbuddy/backup.env --property=Environment=DB_NAME=does_not_exist \
+  /opt/taskbuddy/app/scripts/backup-db.sh
+# → backup fails on pg_dump, OnFailure fires, you get an email. Then check:
+sudo journalctl -u 'taskbuddy-backup-notify@*' -n 20 --no-pager   # "alert sent to …"
+```
 
 ## Gotchas
 

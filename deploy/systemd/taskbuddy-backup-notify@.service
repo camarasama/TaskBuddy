@@ -1,0 +1,11 @@
+[Unit]
+Description=Email alert when %i fails
+# Templated OnFailure handler: %i is the failed unit's name (e.g. taskbuddy-backup.service).
+# Wired up via `OnFailure=taskbuddy-backup-notify@%n.service` in the units it guards.
+
+[Service]
+Type=oneshot
+# SMTP_* + ALERT_EMAIL live alongside the backup creds (chmod 600, root-owned, never committed).
+EnvironmentFile=/opt/taskbuddy/backup.env
+# Runs as root so it can read the journal for %i and the root-owned backup.env.
+ExecStart=/usr/bin/env node /opt/taskbuddy/app/scripts/notify-failure.mjs %i
