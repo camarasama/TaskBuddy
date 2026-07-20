@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the TaskBuddy Postgres backup nightly
+
+[Timer]
+# 02:30 UTC every night. Persistent=true runs a missed backup after downtime.
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

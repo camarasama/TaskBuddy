@@ -1,0 +1,11 @@
+[Unit]
+Description=TaskBuddy nightly Postgres backup to Cloudflare R2
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Credentials for the private backups bucket (never committed). chmod 600, root-owned.
+EnvironmentFile=/opt/taskbuddy/backup.env
+ExecStart=/opt/taskbuddy/app/scripts/backup-db.sh
+# Runs as root so it can pg_dump via the postgres peer account and read backup.env.
