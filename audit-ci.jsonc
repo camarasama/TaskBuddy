@@ -36,8 +36,9 @@
     "GHSA-7r86-cg39-jmmj",
     "GHSA-23c5-xmqv-rm74",
 
-    // DEP-05 — js-yaml DoS, via @istanbuljs/load-nyc-config -> jest@29 (TEST only).
-    "GHSA-h67p-54hq-rp68",
+    // DEP-05 (js-yaml DoS, GHSA-h67p-54hq-rp68) REMOVED 2026-07-21 — the advisory no longer
+    // appears in `npm audit`, so the entry was dead. A dead entry is not harmless: it would
+    // silently suppress the same advisory if a future dependency reintroduced it.
 
     // DEP-06 — @opentelemetry/core: unbounded memory allocation in W3C Baggage propagation
     // (moderate, CVSS 5.3, CWE-770). RUNTIME advisory, transitive via
