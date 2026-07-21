@@ -38,6 +38,36 @@ sudo systemctl restart taskbuddy-backend
 sudo journalctl -u taskbuddy-backend -n 100 --no-pager
 ```
 
+### Node runtime (Node 22, side-by-side)
+
+TaskBuddy runs on **Node 22 LTS installed at `/opt/nodejs/22`** (isolated prefix, deliberately **not**
+on any `PATH`). The box's system `/usr/bin/node` stays **v20** because GNFS shares it — never upgrade
+that in place. Only the TaskBuddy units point at Node 22, via systemd **drop-ins** (base units untouched):
+
+- `/etc/systemd/system/taskbuddy-backend.service.d/node22.conf` — overrides `ExecStart` to
+  `/opt/nodejs/22/bin/node dist/index.js`.
+- `/etc/systemd/system/taskbuddy-frontend.service.d/node22.conf` — sets
+  `Environment=PATH=/opt/nodejs/22/bin:/usr/local/bin:/usr/bin:/bin` so `next`'s `#!/usr/bin/env node`
+  shebang resolves Node 22.
+
+Install a new Node 22 patch (or first-time), then rebuild native modules (bcrypt/sharp are ABI-sensitive):
+```bash
+# fetch latest v22 into /opt/nodejs (arch-aware), repoint the /opt/nodejs/22 symlink:
+ARCH=$(uname -m); case "$ARCH" in x86_64) NA=x64;; aarch64) NA=arm64;; esac
+TARBALL=$(curl -fsSL https://nodejs.org/dist/latest-v22.x/ | grep -oE "node-v22\.[0-9]+\.[0-9]+-linux-${NA}\.tar\.xz" | head -1)
+sudo mkdir -p /opt/nodejs && curl -fsSL "https://nodejs.org/dist/latest-v22.x/${TARBALL}" -o "/tmp/${TARBALL}"
+sudo tar -xJf "/tmp/${TARBALL}" -C /opt/nodejs && sudo ln -sfn "/opt/nodejs/${TARBALL%.tar.xz}" /opt/nodejs/22
+
+sudo systemctl stop taskbuddy-frontend taskbuddy-backend
+cd /opt/taskbuddy/app
+sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm ci
+sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm run build
+sudo -u taskbuddy /opt/nodejs/22/bin/node -e "require('bcrypt'); require('sharp'); console.log('native OK')"
+sudo systemctl start taskbuddy-backend taskbuddy-frontend
+```
+**Rollback to system Node 20:** `sudo rm -f /etc/systemd/system/taskbuddy-*.service.d/node22.conf && sudo systemctl daemon-reload`,
+then `sudo -u taskbuddy npm ci && npm run build` (now under `/usr/bin/node`) and restart both units.
+
 ## Filesystem layout
 
 ```
@@ -182,17 +212,9 @@ curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 ## Pending / TODO
 
 - **Verify the Node 22 cutover end-to-end** (2026-07-21 the VPS was moved to Node 22 —
-  see below): log in (exercises `bcrypt`) and upload an avatar (exercises `sharp`) against
-  the live app, and confirm the GNFS service is still `active` (find its real unit name via
-  `systemctl list-units --type=service | grep -i gnfs`).
-- **Document the Node 22 upgrade in this runbook**: Node 22 LTS is installed side-by-side at
-  `/opt/nodejs/22` (isolated prefix, NOT on PATH — `/usr/bin/node` stays v20 for GNFS). Only
-  the TaskBuddy units point at it, via systemd drop-ins:
-  `/etc/systemd/system/taskbuddy-backend.service.d/node22.conf` (overrides `ExecStart` to
-  `/opt/nodejs/22/bin/node dist/index.js`) and `…taskbuddy-frontend.service.d/node22.conf`
-  (sets `PATH=/opt/nodejs/22/bin:…` so `next`'s `env node` resolves 22). Rollback = delete the
-  drop-ins, `daemon-reload`, `npm ci && npm run build` under `/usr/bin/node`, restart. Fold
-  this into the Services/Environment sections properly.
+  see the *Node runtime* section): log in (exercises `bcrypt`) and upload an avatar (exercises
+  `sharp`) against the live app, and confirm the GNFS service is still `active` (find its real
+  unit name via `systemctl list-units --type=service | grep -i gnfs`).
 - **Backup restore-test**: download the latest dump from the `taskbuddy-backups` R2 bucket and
   restore it into a scratch DB to prove recoverability (an untested backup is not a backup).
 - Marketing page on the apex `gettaskbuddy.com` (currently a placeholder).
