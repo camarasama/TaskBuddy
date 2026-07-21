@@ -181,6 +181,21 @@ curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 
 ## Pending / TODO
 
+- **Verify the Node 22 cutover end-to-end** (2026-07-21 the VPS was moved to Node 22 —
+  see below): log in (exercises `bcrypt`) and upload an avatar (exercises `sharp`) against
+  the live app, and confirm the GNFS service is still `active` (find its real unit name via
+  `systemctl list-units --type=service | grep -i gnfs`).
+- **Document the Node 22 upgrade in this runbook**: Node 22 LTS is installed side-by-side at
+  `/opt/nodejs/22` (isolated prefix, NOT on PATH — `/usr/bin/node` stays v20 for GNFS). Only
+  the TaskBuddy units point at it, via systemd drop-ins:
+  `/etc/systemd/system/taskbuddy-backend.service.d/node22.conf` (overrides `ExecStart` to
+  `/opt/nodejs/22/bin/node dist/index.js`) and `…taskbuddy-frontend.service.d/node22.conf`
+  (sets `PATH=/opt/nodejs/22/bin:…` so `next`'s `env node` resolves 22). Rollback = delete the
+  drop-ins, `daemon-reload`, `npm ci && npm run build` under `/usr/bin/node`, restart. Fold
+  this into the Services/Environment sections properly.
+- **Backup restore-test**: download the latest dump from the `taskbuddy-backups` R2 bucket and
+  restore it into a scratch DB to prove recoverability (an untested backup is not a backup).
 - Marketing page on the apex `gettaskbuddy.com` (currently a placeholder).
-- Rotate any secret that passed through a chat/transcript before public launch.
-- Bump the VPS to Node 22 LTS before Jan 2027 (AWS SDK v3 will require it).
+
+Done (2026-07-21): secret rotation (JWT/admin-code/DB password/SMTP/uploads token), Node 22 LTS
+install + cutover, prod DB role confirmed least-privilege (`taskbuddy_app`, all role flags = f).
