@@ -158,9 +158,22 @@ Next.js app on `app.`. Source in `marketing/src`, built to `marketing/dist` (git
 ```bash
 cd /opt/taskbuddy/app
 sudo -u taskbuddy git pull
+sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm ci          # see note below
 sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm run build:marketing
 sudo mkdir -p /var/www/taskbuddy-marketing
 sudo rsync -a --delete marketing/dist/ /var/www/taskbuddy-marketing/
+```
+
+`npm ci` is needed whenever `package-lock.json` moved — the build imports `marked`, a
+**devDependency**, so a deploy that skips it fails with `ERR_MODULE_NOT_FOUND: Cannot find
+package 'marked'` (this happened on the first marketing deploy). Skip it only when the pull
+touched no lockfile. Note `npm ci` deletes and reinstalls `node_modules` while the backend and
+frontend are running out of it, so check them afterwards:
+
+```bash
+curl -s https://api.gettaskbuddy.com/health          # {"status":"ok","db":"up"}
+curl -s -o /dev/null -w '%{http_code}\n' https://app.gettaskbuddy.com
+sudo systemctl restart taskbuddy-backend taskbuddy-frontend   # only if either misbehaves
 ```
 
 No restart needed — nginx serves the files directly. First-time vhost install:
