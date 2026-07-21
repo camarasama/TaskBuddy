@@ -16,6 +16,7 @@
 #   APP_DIR=/opt/taskbuddy/app
 #   BACKUP_KEY=                     # specific backup to test; default = most recent
 #   KEEP=0                          # 1 keeps the scratch DB for inspection
+#   SKIP_DISK_CHECK=0               # 1 bypasses the free-space preflight (see below)
 #
 set -euo pipefail
 
@@ -46,6 +47,31 @@ cleanup() {
 trap cleanup EXIT
 
 DUMP="$TMP/backup.sql.gz"
+
+# --- 0. Preflight: is there room to restore a second copy of the database? -------------------
+# The scratch DB is a full copy, so this briefly doubles the footprint. Postgres is shared with
+# GNFS on this box — filling the data volume would take down both apps, so refuse rather than
+# risk it. Override with SKIP_DISK_CHECK=1 if you know better.
+human_mb() { echo "$(( $1 / 1024 ))MB"; }
+
+DATA_DIR=$(runuser -u postgres -- psql -tAX -c "SHOW data_directory;")
+DB_KB=$(runuser -u postgres -- psql -tAX -c "SELECT pg_database_size('$DB_NAME') / 1024;")
+FREE_KB=$(df -Pk "$DATA_DIR" | awk 'NR==2 {print $4}')
+NEED_KB=$(( DB_KB * 13 / 10 ))   # restored copy + 30% headroom for WAL and index build
+
+echo "==> preflight: database $(human_mb "$DB_KB"), free on $DATA_DIR $(human_mb "$FREE_KB"), need ~$(human_mb "$NEED_KB")"
+if [ "${SKIP_DISK_CHECK:-0}" != "1" ] && [ "$FREE_KB" -lt "$NEED_KB" ]; then
+  echo "REFUSING: not enough free space to restore a second copy." >&2
+  echo "  Postgres shares this volume with GNFS; filling it would take down both apps." >&2
+  echo "  Free up space, or re-run with SKIP_DISK_CHECK=1 if you are certain." >&2
+  exit 1
+fi
+
+# The compressed dump also lands in $TMP, which may be a different filesystem.
+TMP_FREE_KB=$(df -Pk "$TMP" | awk 'NR==2 {print $4}')
+if [ "$TMP_FREE_KB" -lt "$DB_KB" ]; then
+  echo "WARNING: only $(human_mb "$TMP_FREE_KB") free on $TMP — the dump may not fit." >&2
+fi
 
 # --- 1. Fetch the latest backup from R2 -----------------------------------------------------
 echo "==> downloading latest backup from R2"
@@ -94,12 +120,36 @@ MIGRATIONS=$(psql_scratch "SELECT count(*) FROM _prisma_migrations WHERE finishe
 check "applied migrations" "$MIGRATIONS" "> 0" '[ "$MIGRATIONS" -gt 0 ]'
 
 # Compare against production so a truncated dump is caught rather than passing on ">0".
-PROD_USERS=$(runuser -u postgres -- psql -tAX -d "$DB_NAME" -c "SELECT count(*) FROM users;" 2>/dev/null || echo "?")
-if [ "$PROD_USERS" != "?" ]; then
-  DRIFT=$(( PROD_USERS - USERS ))
-  [ "$DRIFT" -lt 0 ] && DRIFT=$(( -DRIFT ))
-  check "users vs prod ($PROD_USERS live)" "$USERS restored" "within 5" '[ "$DRIFT" -le 5 ]'
+# Comparing raw totals would drift as real users sign up after the backup was taken, so compare
+# against production *as of the backup's own timestamp* — that number should not move.
+BACKUP_TS=""
+if [ -f "$DUMP.key" ]; then
+  # Keys look like taskbuddy-20260721T023000Z.sql.gz
+  RAW_TS=$(sed -n 's/^taskbuddy-\([0-9]\{8\}T[0-9]\{6\}Z\)\.sql\.gz$/\1/p' "$DUMP.key")
+  if [ -n "$RAW_TS" ]; then
+    BACKUP_TS="${RAW_TS:0:4}-${RAW_TS:4:2}-${RAW_TS:6:2} ${RAW_TS:9:2}:${RAW_TS:11:2}:${RAW_TS:13:2}+00"
+  fi
 fi
+
+if [ -n "$BACKUP_TS" ]; then
+  PROD_AT_BACKUP=$(runuser -u postgres -- psql -tAX -d "$DB_NAME" \
+    -c "SELECT count(*) FROM users WHERE created_at <= timestamptz '$BACKUP_TS';" 2>/dev/null || echo "?")
+  if [ "$PROD_AT_BACKUP" != "?" ]; then
+    # Exact match expected. Rows hard-deleted since the backup would lower the live side, so
+    # allow the live count to be *below* the restored count, but never above — that direction
+    # means the dump is missing rows it should have had.
+    check "users vs prod at backup time" "$USERS restored / $PROD_AT_BACKUP live" \
+      "restored >= live-at-backup" '[ "$USERS" -ge "$PROD_AT_BACKUP" ]'
+    if [ "$USERS" -gt "$PROD_AT_BACKUP" ]; then
+      echo "        note: $(( USERS - PROD_AT_BACKUP )) row(s) hard-deleted since the backup"
+    fi
+  fi
+else
+  echo "  skip  users vs prod                   (could not parse backup timestamp)"
+fi
+
+PROD_NOW=$(runuser -u postgres -- psql -tAX -d "$DB_NAME" -c "SELECT count(*) FROM users;" 2>/dev/null || echo "?")
+[ "$PROD_NOW" != "?" ] && echo "        (production now: $PROD_NOW users; backup: $USERS)"
 
 echo
 if [ "$FAILED" = "0" ]; then

@@ -59,3 +59,7 @@ await fs.promises.writeFile(DEST_FILE, res.Body);
 const { size } = await fs.promises.stat(DEST_FILE);
 console.log(`downloaded ${key} -> ${DEST_FILE} (${size} bytes)`);
 if (size === 0) { console.error('Downloaded file is empty.'); process.exit(1); }
+
+// Record which backup this was, so the restore test can compare the restored data against
+// production *as of that moment* rather than against a moving target.
+await fs.promises.writeFile(`${DEST_FILE}.key`, key);
