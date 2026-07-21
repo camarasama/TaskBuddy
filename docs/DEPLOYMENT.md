@@ -338,19 +338,23 @@ curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 - **Node 22 — native modules verified**, see *Node 22 verification* below. Still worth doing once
   through the UI: a real parent login and a real avatar upload, to cover the full request path
   (multer limits, R2 credentials, CDN URL) rather than just the bindings.
-- **Dependency CVEs**: `npx @claude-flow/cli@latest security scan` reports 0 critical / 11 high,
-  all in dependencies (`@typescript-eslint`, `minimatch` ReDoS, `@sentry/node`, `@opentelemetry`).
-- **Marketing site**: landing page built and ready (see *Marketing site* above). Outstanding:
-  repoint apex + `www` DNS from the GoDaddy placeholder to the VPS, install the vhost, issue TLS.
 - **Legal pages blocked on legal review**: `PRIVACY.md` / `TERMS.md` are unreviewed drafts, so
   `/privacy` and `/terms` are withheld by the build. App stores will want those URLs.
+- **Certificate renewal never exercised** for the apex — `sudo certbot renew --dry-run`.
+  Current cert expires 2026-10-19.
+- **Retire the GoDaddy placeholder** now that the apex is served from the VPS, and drop the stale
+  `_domainconnect` CNAME it left in Cloudflare.
+- Optional maintenance: `eslint-config-next` 14 → 16 would clear the three minimatch allowlist
+  entries (DEP-04). Lint-only risk, two majors of config churn — maintenance, not security.
 
 Done (2026-07-21): secret rotation (JWT/admin-code/DB password/SMTP/uploads token), Node 22 LTS
 install + cutover, prod DB role confirmed least-privilege (`taskbuddy_app`, all role flags = f),
 login lockout hardening (PRs #10/#12) deployed with the first production schema migration,
 **backup restore-test** — first run against the live backups proved them recoverable (23 tables,
 exact row match vs production as of the backup's timestamp, bcrypt hashes intact), backup + notify
-units moved onto Node 22.
+units moved onto Node 22, dependency re-triage (body-parser DoS patched, dead js-yaml allowlist
+entry removed, fast-uri host confusion GHSA-4c8g-83qw-93j6 patched), and the **apex marketing site
+live on TLS** (Let's Encrypt, `gettaskbuddy.com` + `www`, expires 2026-10-19).
 
 ## Node 22 verification (2026-07-21)
 
