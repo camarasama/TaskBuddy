@@ -29,6 +29,19 @@ else
   [ -n "$NODE_BIN" ] || { echo "No node found (tried /opt/nodejs/22/bin/node and PATH)" >&2; exit 1; }
 fi
 
+# Fail with a readable message rather than a bare non-zero exit. `runuser` in particular lives in
+# /usr/sbin, which root's default PATH includes but a hand-written Environment=PATH easily drops —
+# that exact mistake broke this unit once, and the journal said only "control process exited".
+MISSING=""
+for c in runuser gzip mktemp date; do
+  command -v "$c" >/dev/null 2>&1 || MISSING="$MISSING $c"
+done
+if [ -n "$MISSING" ]; then
+  echo "Required command(s) not found on PATH:$MISSING" >&2
+  echo "PATH=$PATH" >&2
+  exit 1
+fi
+
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 KEY="taskbuddy-${TS}.sql.gz"
 TMP="$(mktemp -d)"

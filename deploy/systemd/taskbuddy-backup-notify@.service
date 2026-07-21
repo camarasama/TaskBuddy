@@ -9,6 +9,7 @@ Type=oneshot
 EnvironmentFile=/opt/taskbuddy/backup.env
 # Prefer the side-by-side Node 22; root's default PATH resolves /usr/bin/node (v20, GNFS's).
 # If /opt/nodejs/22 is absent (e.g. rolled back), `env node` falls through to /usr/bin.
-Environment=PATH=/opt/nodejs/22/bin:/usr/local/bin:/usr/bin:/bin
+# Keep the sbin directories — root's default PATH includes them and tools live there.
+Environment=PATH=/opt/nodejs/22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Runs as root so it can read the journal for %i and the root-owned backup.env.
 ExecStart=/usr/bin/env node /opt/taskbuddy/app/scripts/notify-failure.mjs %i
