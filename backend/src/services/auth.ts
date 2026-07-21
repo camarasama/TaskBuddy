@@ -14,6 +14,11 @@ import { generateFamilyCode } from '../utils/familyCode';
 
 const SALT_ROUNDS = 12;
 
+// Compared against when no child matches, so an unknown identifier costs the same bcrypt work
+// as a real one. Must be a *valid* cost-SALT_ROUNDS hash (of a discarded random value) — a
+// malformed placeholder can be rejected early, which reintroduces the timing signal.
+const DUMMY_PIN_HASH = '$2b$12$EyVh6/LfhPIbYirhFUUBsOgDr0YQGNrAuZ/EgL6CrOBsrhfRRLtY2';
+
 export interface RegisterInput {
   familyName: string;
   parent: {
@@ -211,9 +216,12 @@ export class AuthService {
       throw new UnauthorizedError('Account is temporarily locked');
     }
 
-    // Always run bcrypt to prevent timing-based enumeration
-    const pinHash = user?.childProfile?.pinHash ?? '$2b$12$invalidhashpadding00000000000000000000000000000000000000';
-    const isValid = !!(user?.childProfile) && await bcrypt.compare(pin, pinHash);
+    // Always run bcrypt to prevent timing-based enumeration. The compare must happen
+    // unconditionally — short-circuiting on a missing user returns measurably faster and
+    // leaks which (familyCode, childIdentifier) pairs exist.
+    const pinHash = user?.childProfile?.pinHash ?? DUMMY_PIN_HASH;
+    const pinMatches = await bcrypt.compare(pin, pinHash);
+    const isValid = !!(user?.childProfile) && pinMatches;
 
     if (!user || !user.childProfile || !isValid) {
       if (user) {
