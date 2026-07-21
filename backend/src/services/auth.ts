@@ -19,6 +19,24 @@ const SALT_ROUNDS = 12;
 // malformed placeholder can be rejected early, which reintroduces the timing signal.
 const DUMMY_PIN_HASH = '$2b$12$EyVh6/LfhPIbYirhFUUBsOgDr0YQGNrAuZ/EgL6CrOBsrhfRRLtY2';
 
+// Child PINs are 4 digits, so an unthrottled account is brute-forceable and *some* lockout is
+// required. But locking on the first failure let anyone who knew a family code and a child's
+// first name keep that child permanently locked out with one request every 15 minutes. So:
+// tolerate the first few failures (children mistype), then back off steeply.
+const PIN_LOCKOUT_THRESHOLD = 4;
+const PIN_LOCKOUT_BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000];
+
+// Consecutive-failure counts decay, so a child who fumbles their PIN a few times months apart
+// is not treated as an attacker mid-run.
+const PIN_ATTEMPT_DECAY_MS = 60 * 60_000;
+
+/** Lock duration for the nth consecutive failed PIN attempt; 0 means "do not lock yet". */
+function pinLockoutMs(attempts: number): number {
+  if (attempts <= PIN_LOCKOUT_THRESHOLD) return 0;
+  const step = attempts - PIN_LOCKOUT_THRESHOLD - 1;
+  return PIN_LOCKOUT_BACKOFF_MS[Math.min(step, PIN_LOCKOUT_BACKOFF_MS.length - 1)];
+}
+
 export interface RegisterInput {
   familyName: string;
   parent: {
@@ -225,19 +243,35 @@ export class AuthService {
 
     if (!user || !user.childProfile || !isValid) {
       if (user) {
-        // Lock the account for 15 minutes on any failed PIN attempt
+        // Count the failure, and only lock once the attempts look like guessing rather
+        // than a child fat-fingering their PIN. See PIN_LOCKOUT_BACKOFF_MS.
+        const now = Date.now();
+        const stale =
+          !user.lastFailedPinAt || now - user.lastFailedPinAt.getTime() > PIN_ATTEMPT_DECAY_MS;
+        const attempts = stale ? 1 : user.failedPinAttempts + 1;
+        const lockMs = pinLockoutMs(attempts);
+
         await prisma.user.update({
           where: { id: user.id },
-          data: { lockedUntil: new Date(Date.now() + 15 * 60_000) },
+          data: {
+            failedPinAttempts: attempts,
+            lastFailedPinAt: new Date(now),
+            ...(lockMs > 0 ? { lockedUntil: new Date(now + lockMs) } : {}),
+          },
         });
       }
       throw new UnauthorizedError('Invalid credentials');
     }
 
-    // Clear lockout and record successful login
+    // Clear lockout + failure count, and record successful login
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date(), lockedUntil: null },
+      data: {
+        lastLoginAt: new Date(),
+        lockedUntil: null,
+        failedPinAttempts: 0,
+        lastFailedPinAt: null,
+      },
     });
 
     // Generate tokens with child-specific expiry (90d refresh, 24h access)

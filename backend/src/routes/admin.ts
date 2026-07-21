@@ -506,7 +506,9 @@ adminRouter.post('/users/:id/force-reset', async (req, res, next) => {
       where: { id: req.params.id },
       data: {
         passwordHash: null,
-        lockedUntil: null,   // Clear any login lock
+        lockedUntil: null,        // Clear any login lock
+        failedPinAttempts: 0,     // ...and the backoff counter behind it
+        lastFailedPinAt: null,
         isActive: true,
       },
     });
