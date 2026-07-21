@@ -181,10 +181,9 @@ curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 
 ## Pending / TODO
 
-- **Verify the Node 22 cutover end-to-end** (2026-07-21 the VPS was moved to Node 22 —
-  see below): log in (exercises `bcrypt`) and upload an avatar (exercises `sharp`) against
-  the live app, and confirm the GNFS service is still `active` (find its real unit name via
-  `systemctl list-units --type=service | grep -i gnfs`).
+- **Node 22 cutover — native modules verified 2026-07-21** (see "Node 22 verification" below).
+  Still worth doing once through the UI: a real parent login and a real avatar upload, to cover
+  the full request path (multer limits, R2 credentials, CDN URL) rather than just the bindings.
 - **Document the Node 22 upgrade in this runbook**: Node 22 LTS is installed side-by-side at
   `/opt/nodejs/22` (isolated prefix, NOT on PATH — `/usr/bin/node` stays v20 for GNFS). Only
   the TaskBuddy units point at it, via systemd drop-ins:
@@ -199,3 +198,35 @@ curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 
 Done (2026-07-21): secret rotation (JWT/admin-code/DB password/SMTP/uploads token), Node 22 LTS
 install + cutover, prod DB role confirmed least-privilege (`taskbuddy_app`, all role flags = f).
+
+## Node 22 verification (2026-07-21)
+
+The cutover risk is native modules (`bcrypt`, `sharp`) failing to load against a new ABI. Both were
+exercised directly under the Node 22 binary, in the deployed `backend/` tree:
+
+```bash
+cd /opt/taskbuddy/app/backend
+/opt/nodejs/22/bin/node -e 'require("bcrypt").hash("x",12).then(h=>require("bcrypt").compare("x",h)).then(console.log)'
+/opt/nodejs/22/bin/node -e 'const s=require("sharp");console.log(s.versions.vips)'
+```
+
+Results — backend runs `/opt/nodejs/22/bin/node dist/index.js` (confirmed via `/proc/<pid>/cmdline`):
+
+| Check | Result |
+|-------|--------|
+| Node (TaskBuddy units) | v22.23.1 |
+| Node (`/usr/bin/node`, GNFS) | v20.20.2 — untouched |
+| `bcrypt` hash + compare | passes (match true, mismatch false) |
+| `sharp` 0.34.5 / libvips 8.17.3 | 300×300 `fit:cover` thumbnail produced |
+| `/health` | `{"status":"ok","db":"up"}` |
+| Frontend | HTTP 200 |
+| GNFS (`pm2-gnfs.service`) | active, serving on `:3001`, **0 restarts, up since 2026-07-08** |
+
+GNFS's zero restarts across the 07-21 cutover is the evidence it was never disturbed. The frontend
+unit carries no `ExecStart` override — it inherits Node 22 purely through
+`Environment=PATH=/opt/nodejs/22/bin:…` and `next`'s `#!/usr/bin/env node` shebang; both units were
+restarted at 00:27:05, after the drop-ins were written at 00:23:14, so the drop-ins are in effect.
+
+Note: a bogus-credential login is **not** a valid `bcrypt` test — `AuthService.login` returns 401
+before the compare when the email is unknown (`backend/src/services/auth.ts:134`). And never probe
+child PINs: any failed attempt locks that child's account for 15 minutes (`auth.ts:219`).
