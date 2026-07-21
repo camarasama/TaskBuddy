@@ -20,7 +20,8 @@
     "db:seed": "npm -w backend run db:seed",
     "db:studio": "npm -w backend run db:studio",
     "db:generate": "npm -w backend run db:generate",
-    "postinstall": "npm -w backend run db:generate"
+    "postinstall": "npm -w backend run db:generate",
+    "build:marketing": "node marketing/build.mjs"
   },
   "workspaces": [
     "backend",
@@ -29,6 +30,7 @@
   ],
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "marked": "^18.0.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-is": "^18.2.0"
