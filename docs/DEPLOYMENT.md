@@ -109,17 +109,46 @@ The `.env` files are `chmod 600` owned by `taskbuddy`, so run manual scripts tha
 
 ## Deploy / update
 
+Run npm under Node 22 (`PATH=/opt/nodejs/22/bin:$PATH`) — see the Node runtime section. Without it
+these commands run under `/usr/bin/node` v20 and can rebuild native modules against the wrong ABI.
+
 ```bash
 cd /opt/taskbuddy/app
+export N22=/opt/nodejs/22/bin                # Node 22, matching the systemd drop-ins
+
 sudo -u taskbuddy git pull
-sudo -u taskbuddy npm ci                    # only if dependencies changed
-sudo -u taskbuddy npm run build:backend     # after backend changes
-sudo -u taskbuddy npm run build:frontend    # after frontend changes OR any NEXT_PUBLIC_* change
+sudo -u taskbuddy env PATH=$N22:$PATH npm ci                 # only if package-lock.json moved
+
+# --- if prisma/schema.prisma changed, BOTH of these, in this order, BEFORE any restart ---
+sudo -u taskbuddy env PATH=$N22:$PATH npm -w backend run db:migrate:prod
+sudo -u taskbuddy env PATH=$N22:$PATH npm run db:generate
+
+sudo -u taskbuddy env PATH=$N22:$PATH npm run build:backend  # after backend changes
+sudo -u taskbuddy env PATH=$N22:$PATH npm run build:frontend # after frontend changes OR any NEXT_PUBLIC_* change
 sudo systemctl restart taskbuddy-backend
 sudo systemctl restart taskbuddy-frontend
 ```
 
+**Two ordering traps around schema changes** — both bite at request time, not deploy time, so the
+deploy looks clean and the app breaks for real users:
+
+1. **Migrate before restarting.** Reversed, the new code queries columns that do not exist yet.
+2. **`db:generate` is not part of `build:backend`.** Only the root `npm run build` chains it
+   (`db:generate && build:backend && build:frontend`), so building the backend alone leaves the
+   generated Prisma client blind to new columns. Run it explicitly, or use the full `npm run build`.
+
+Take a fresh backup before any migration: `sudo systemctl start taskbuddy-backup.service`.
+
 Health check: `curl -s https://api.gettaskbuddy.com/health` → `{"status":"ok","db":"up"}`.
+
+`/health` only pings the DB — it does **not** prove a migration applied, since it never touches
+`users`. To verify new columns are really live, attempt a login with a bogus email: Prisma's
+`findUnique` selects every scalar column, so a missing one errors even when no row matches.
+`401` = schema is good; `500` = the migration did not apply.
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.gettaskbuddy.com/api/v1/auth/login \
+  -H 'Content-Type: application/json' -d '{"email":"nobody@example.invalid","password":"x"}'
+```
 
 ## TLS
 
@@ -211,16 +240,18 @@ curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 
 ## Pending / TODO
 
-- **Verify the Node 22 cutover end-to-end** (2026-07-21 the VPS was moved to Node 22 —
-  see the *Node runtime* section): log in (exercises `bcrypt`) and upload an avatar (exercises
-  `sharp`) against the live app, and confirm the GNFS service is still `active` (find its real
-  unit name via `systemctl list-units --type=service | grep -i gnfs`).
+- **Node 22 — native modules verified**, see *Node 22 verification* below. Still worth doing once
+  through the UI: a real parent login and a real avatar upload, to cover the full request path
+  (multer limits, R2 credentials, CDN URL) rather than just the bindings.
 - **Backup restore-test**: download the latest dump from the `taskbuddy-backups` R2 bucket and
   restore it into a scratch DB to prove recoverability (an untested backup is not a backup).
+- **Dependency CVEs**: `npx @claude-flow/cli@latest security scan` reports 0 critical / 11 high,
+  all in dependencies (`@typescript-eslint`, `minimatch` ReDoS, `@sentry/node`, `@opentelemetry`).
 - Marketing page on the apex `gettaskbuddy.com` (currently a placeholder).
 
 Done (2026-07-21): secret rotation (JWT/admin-code/DB password/SMTP/uploads token), Node 22 LTS
-install + cutover, prod DB role confirmed least-privilege (`taskbuddy_app`, all role flags = f).
+install + cutover, prod DB role confirmed least-privilege (`taskbuddy_app`, all role flags = f),
+login lockout hardening (PRs #10/#12) deployed with the first production schema migration.
 
 ## Node 22 verification (2026-07-21)
 
