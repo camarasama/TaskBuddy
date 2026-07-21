@@ -8,7 +8,17 @@
 # resolves to the live database name.
 #
 # Run as root (needs peer auth as the postgres OS user + the root-owned backup.env):
-#   sudo env $(grep -v '^#' /opt/taskbuddy/backup.env | xargs) /opt/taskbuddy/app/scripts/backup-restore-test.sh
+#
+#   sudo bash -c "set -a; . /opt/taskbuddy/backup.env; set +a; \
+#     export TMPDIR=/var/tmp; exec /opt/taskbuddy/app/scripts/backup-restore-test.sh"
+#
+# Source the env file, do NOT do `env $(... | xargs)` — that word-splits any value containing a
+# space (SMTP_FROM) and passes the fragments to env as commands. Values with spaces must also be
+# quoted in backup.env itself: systemd's EnvironmentFile parser tolerates them unquoted, but the
+# shell does not, and an unquoted one silently drops every variable defined after it.
+#
+# TMPDIR is set because /tmp is tmpfs (RAM) on this box, shared with GNFS — a large dump there
+# is memory pressure on a 4GB VPS. /var/tmp is disk-backed.
 #
 # Optional env (defaults shown):
 #   DB_NAME=taskbuddy               # production DB, used only as a guard + for comparison
@@ -37,6 +47,10 @@ esac
 
 psql_scratch() { runuser -u postgres -- psql -tAX -d "$SCRATCH_DB" -c "$1"; }
 
+# /tmp is tmpfs (RAM) on this box and shared with GNFS, so default the dump to disk-backed
+# /var/tmp. An explicit TMPDIR still wins.
+: "${TMPDIR:=/var/tmp}"
+export TMPDIR
 TMP="$(mktemp -d)"
 cleanup() {
   rm -rf "$TMP"
@@ -112,10 +126,6 @@ check "families rows" "$FAMILIES" "> 0" '[ "$FAMILIES" -gt 0 ]'
 HASHES=$(psql_scratch "SELECT count(*) FROM users WHERE password_hash LIKE '\$2%';")
 check "bcrypt password hashes" "$HASHES" "> 0" '[ "$HASHES" -gt 0 ]'
 
-# Schema currency: the backup should carry the latest migration, not a stale schema.
-LOCKOUT_COL=$(psql_scratch "SELECT count(*) FROM information_schema.columns WHERE table_name='users' AND column_name='failed_login_attempts';")
-check "latest migration present" "$LOCKOUT_COL" "= 1" '[ "$LOCKOUT_COL" = "1" ]'
-
 MIGRATIONS=$(psql_scratch "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL;")
 check "applied migrations" "$MIGRATIONS" "> 0" '[ "$MIGRATIONS" -gt 0 ]'
 
@@ -150,6 +160,29 @@ fi
 
 PROD_NOW=$(runuser -u postgres -- psql -tAX -d "$DB_NAME" -c "SELECT count(*) FROM users;" 2>/dev/null || echo "?")
 [ "$PROD_NOW" != "?" ] && echo "        (production now: $PROD_NOW users; backup: $USERS)"
+
+# Schema currency, measured against the backup's own timestamp rather than a hardcoded column.
+# A dump must contain every migration that had already been applied when it was taken. Migrations
+# applied *after* that point are legitimately absent — a backup taken minutes before a deploy is
+# correct, not corrupt — so that case is reported, not failed.
+if [ -n "$BACKUP_TS" ]; then
+  PROD_MIG_AT_BACKUP=$(runuser -u postgres -- psql -tAX -d "$DB_NAME" \
+    -c "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL AND finished_at <= timestamptz '$BACKUP_TS';" 2>/dev/null || echo "?")
+  if [ "$PROD_MIG_AT_BACKUP" != "?" ]; then
+    check "migrations vs prod at backup time" "$MIGRATIONS restored / $PROD_MIG_AT_BACKUP live" \
+      "restored >= live-at-backup" '[ "$MIGRATIONS" -ge "$PROD_MIG_AT_BACKUP" ]'
+  fi
+
+  PROD_MIG_NOW=$(runuser -u postgres -- psql -tAX -d "$DB_NAME" \
+    -c "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL;" 2>/dev/null || echo "?")
+  if [ "$PROD_MIG_NOW" != "?" ] && [ "$PROD_MIG_NOW" -gt "$MIGRATIONS" ]; then
+    echo "        note: production has $(( PROD_MIG_NOW - MIGRATIONS )) migration(s) applied after this"
+    echo "              backup was taken — expected if it predates a recent deploy. The next"
+    echo "              scheduled backup should pick them up."
+    runuser -u postgres -- psql -tAX -d "$DB_NAME" \
+      -c "SELECT '              missing: ' || migration_name FROM _prisma_migrations WHERE finished_at > timestamptz '$BACKUP_TS' ORDER BY finished_at;" 2>/dev/null || true
+  fi
+fi
 
 echo
 if [ "$FAILED" = "0" ]; then
