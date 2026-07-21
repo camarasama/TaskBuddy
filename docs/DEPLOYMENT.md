@@ -191,7 +191,33 @@ sudo systemctl enable --now taskbuddy-backup.timer
 sudo systemctl start taskbuddy-backup.service     # run one now
 systemctl list-timers taskbuddy-backup.timer      # next scheduled run
 ```
-Restore (into a scratch DB to verify): `gunzip -c taskbuddy-<ts>.sql.gz | psql <target-db>`.
+Manual restore: `gunzip -c taskbuddy-<ts>.sql.gz | psql <target-db>`.
+
+### Restore testing
+
+An untested backup is not a backup. `scripts/backup-restore-test.sh` downloads the latest dump,
+restores it into a throwaway database, checks the contents, and drops the scratch DB again.
+Production is never written to — it refuses to run unless the scratch name contains `restore_test`.
+
+```bash
+sudo bash -c "set -a; . /opt/taskbuddy/backup.env; set +a; \
+  exec /opt/taskbuddy/app/scripts/backup-restore-test.sh"
+```
+
+Checks: table count, non-empty `users`/`families`, bcrypt hashes surviving the round-trip, and
+row + migration counts compared against production **as of the backup's own timestamp** (a fixed
+number, unlike live totals which drift as users sign up). `KEEP=1` retains the scratch DB.
+
+It also preflights free space — the scratch restore is a full second copy, and Postgres shares
+this volume with GNFS — and refuses rather than risk filling the disk. `SKIP_DISK_CHECK=1` overrides.
+
+Re-run it after any migration: a dump predating a deploy legitimately lacks that deploy's
+migration, and the script reports exactly which ones are missing rather than failing.
+
+**Quote any value containing spaces in `backup.env`.** systemd's `EnvironmentFile` parser tolerates
+`SMTP_FROM=TaskBuddy <alerts@…>` unquoted, but sourcing it in a shell does not — the `<` is read as
+a redirect, and *every variable defined after that line is silently dropped*. Use
+`SMTP_FROM='TaskBuddy <alerts@…>'`.
 
 ### Failure alerts (email)
 
@@ -243,15 +269,19 @@ curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 - **Node 22 — native modules verified**, see *Node 22 verification* below. Still worth doing once
   through the UI: a real parent login and a real avatar upload, to cover the full request path
   (multer limits, R2 credentials, CDN URL) rather than just the bindings.
-- **Backup restore-test**: download the latest dump from the `taskbuddy-backups` R2 bucket and
-  restore it into a scratch DB to prove recoverability (an untested backup is not a backup).
+- **Backup job runs on Node 20, not 22.** `backup-db.sh` invokes bare `node` and systemd runs it as
+  root, so it picks up `/usr/bin/node` (v20, GNFS's) rather than `/opt/nodejs/22`. The AWS SDK warns
+  it will require `node >=22` for releases after January 2027. Fix with a `PATH=` or absolute
+  `ExecStart` in `taskbuddy-backup.service`, mirroring the app units' drop-ins.
 - **Dependency CVEs**: `npx @claude-flow/cli@latest security scan` reports 0 critical / 11 high,
   all in dependencies (`@typescript-eslint`, `minimatch` ReDoS, `@sentry/node`, `@opentelemetry`).
 - Marketing page on the apex `gettaskbuddy.com` (currently a placeholder).
 
 Done (2026-07-21): secret rotation (JWT/admin-code/DB password/SMTP/uploads token), Node 22 LTS
 install + cutover, prod DB role confirmed least-privilege (`taskbuddy_app`, all role flags = f),
-login lockout hardening (PRs #10/#12) deployed with the first production schema migration.
+login lockout hardening (PRs #10/#12) deployed with the first production schema migration,
+**backup restore-test** — first run against the live backups proved them recoverable (23 tables,
+exact row match vs production as of the backup's timestamp, bcrypt hashes intact).
 
 ## Node 22 verification (2026-07-21)
 
