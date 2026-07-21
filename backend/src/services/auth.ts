@@ -19,6 +19,48 @@ const SALT_ROUNDS = 12;
 // malformed placeholder can be rejected early, which reintroduces the timing signal.
 const DUMMY_PIN_HASH = '$2b$12$EyVh6/LfhPIbYirhFUUBsOgDr0YQGNrAuZ/EgL6CrOBsrhfRRLtY2';
 
+// Credentials here are weak by design (child PINs are 4 digits), so an unthrottled account is
+// brute-forceable and *some* lockout is required. But locking on the first failure let anyone
+// who knew a family code and a child's first name keep that child permanently locked out with
+// one request every 15 minutes. So: tolerate the first few failures (people mistype), then
+// back off steeply.
+const LOGIN_LOCKOUT_THRESHOLD = 4;
+const LOGIN_LOCKOUT_BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000];
+
+// Consecutive-failure counts decay, so someone who fumbles their credentials a few times
+// months apart is not treated as an attacker mid-run.
+const LOGIN_ATTEMPT_DECAY_MS = 60 * 60_000;
+
+/** Lock duration for the nth consecutive failed login; 0 means "do not lock yet". */
+function loginLockoutMs(attempts: number): number {
+  if (attempts <= LOGIN_LOCKOUT_THRESHOLD) return 0;
+  const step = attempts - LOGIN_LOCKOUT_THRESHOLD - 1;
+  return LOGIN_LOCKOUT_BACKOFF_MS[Math.min(step, LOGIN_LOCKOUT_BACKOFF_MS.length - 1)];
+}
+
+type LockoutState = { id: string; failedLoginAttempts: number; lastFailedLoginAt: Date | null };
+
+/** Record a failed login, locking the account once failures pass the threshold. */
+async function recordFailedLogin(user: LockoutState): Promise<void> {
+  const now = Date.now();
+  const stale =
+    !user.lastFailedLoginAt || now - user.lastFailedLoginAt.getTime() > LOGIN_ATTEMPT_DECAY_MS;
+  const attempts = stale ? 1 : user.failedLoginAttempts + 1;
+  const lockMs = loginLockoutMs(attempts);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      failedLoginAttempts: attempts,
+      lastFailedLoginAt: new Date(now),
+      ...(lockMs > 0 ? { lockedUntil: new Date(now + lockMs) } : {}),
+    },
+  });
+}
+
+/** Fields cleared on a successful login, so a lock never outlives the credentials proving it. */
+const CLEAR_LOCKOUT = { lockedUntil: null, failedLoginAttempts: 0, lastFailedLoginAt: null };
+
 export interface RegisterInput {
   familyName: string;
   parent: {
@@ -148,13 +190,16 @@ export class AuthService {
     // Verify password
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
+      // Without this the lockedUntil check above was dead code — nothing ever set it for
+      // parents, so password guessing was bounded only by the per-IP authLimiter.
+      await recordFailedLogin(user);
       throw new UnauthorizedError('Invalid email or password');
     }
 
-    // Update last login
+    // Update last login, clearing any accumulated failures
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { lastLoginAt: new Date(), ...CLEAR_LOCKOUT },
     });
 
     // Generate tokens (parent uses standard expiry)
@@ -225,19 +270,17 @@ export class AuthService {
 
     if (!user || !user.childProfile || !isValid) {
       if (user) {
-        // Lock the account for 15 minutes on any failed PIN attempt
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { lockedUntil: new Date(Date.now() + 15 * 60_000) },
-        });
+        // Count the failure, and only lock once the attempts look like guessing rather
+        // than a child fat-fingering their PIN. See LOGIN_LOCKOUT_BACKOFF_MS.
+        await recordFailedLogin(user);
       }
       throw new UnauthorizedError('Invalid credentials');
     }
 
-    // Clear lockout and record successful login
+    // Clear lockout + failure count, and record successful login
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date(), lockedUntil: null },
+      data: { lastLoginAt: new Date(), ...CLEAR_LOCKOUT },
     });
 
     // Generate tokens with child-specific expiry (90d refresh, 24h access)
