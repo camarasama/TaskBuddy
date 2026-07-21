@@ -10,5 +10,8 @@ OnFailure=taskbuddy-backup-notify@%n.service
 Type=oneshot
 # Credentials for the private backups bucket (never committed). chmod 600, root-owned.
 EnvironmentFile=/opt/taskbuddy/backup.env
+# Prefer the side-by-side Node 22 (the script also resolves it explicitly; this covers anything
+# else on PATH). Root's default PATH would otherwise pick /usr/bin/node — v20, shared with GNFS.
+Environment=PATH=/opt/nodejs/22/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/opt/taskbuddy/app/scripts/backup-db.sh
 # Runs as root so it can pg_dump via the postgres peer account and read backup.env.
