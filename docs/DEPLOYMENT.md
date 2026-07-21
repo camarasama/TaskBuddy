@@ -191,6 +191,23 @@ sudo systemctl enable --now taskbuddy-backup.timer
 sudo systemctl start taskbuddy-backup.service     # run one now
 systemctl list-timers taskbuddy-backup.timer      # next scheduled run
 ```
+
+The units under `deploy/systemd/` are **copies** — a `git pull` that changes them has no effect
+until they are re-copied and reloaded:
+```bash
+sudo cp /opt/taskbuddy/app/deploy/systemd/taskbuddy-backup.* /etc/systemd/system/
+sudo cp '/opt/taskbuddy/app/deploy/systemd/taskbuddy-backup-notify@.service' /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+**Node version:** these run as root, whose PATH resolves `/usr/bin/node` (v20, shared with GNFS).
+The scripts resolve `/opt/nodejs/22/bin/node` explicitly and the units set `PATH` to prefer it, so
+the backup path runs on Node 22 — the AWS SDK requires `node >=22` for releases after January 2027.
+Both degrade to PATH's `node` if `/opt/nodejs/22` is absent (e.g. after a rollback). Verify with:
+```bash
+sudo journalctl -u taskbuddy-backup.service -n 30 --no-pager | grep -i "NodeVersionSupportWarning" \
+  && echo "still on Node 20" || echo "no version warning — running Node 22"
+```
 Manual restore: `gunzip -c taskbuddy-<ts>.sql.gz | psql <target-db>`.
 
 ### Restore testing
@@ -269,10 +286,6 @@ curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 - **Node 22 — native modules verified**, see *Node 22 verification* below. Still worth doing once
   through the UI: a real parent login and a real avatar upload, to cover the full request path
   (multer limits, R2 credentials, CDN URL) rather than just the bindings.
-- **Backup job runs on Node 20, not 22.** `backup-db.sh` invokes bare `node` and systemd runs it as
-  root, so it picks up `/usr/bin/node` (v20, GNFS's) rather than `/opt/nodejs/22`. The AWS SDK warns
-  it will require `node >=22` for releases after January 2027. Fix with a `PATH=` or absolute
-  `ExecStart` in `taskbuddy-backup.service`, mirroring the app units' drop-ins.
 - **Dependency CVEs**: `npx @claude-flow/cli@latest security scan` reports 0 critical / 11 high,
   all in dependencies (`@typescript-eslint`, `minimatch` ReDoS, `@sentry/node`, `@opentelemetry`).
 - Marketing page on the apex `gettaskbuddy.com` (currently a placeholder).
@@ -281,7 +294,8 @@ Done (2026-07-21): secret rotation (JWT/admin-code/DB password/SMTP/uploads toke
 install + cutover, prod DB role confirmed least-privilege (`taskbuddy_app`, all role flags = f),
 login lockout hardening (PRs #10/#12) deployed with the first production schema migration,
 **backup restore-test** — first run against the live backups proved them recoverable (23 tables,
-exact row match vs production as of the backup's timestamp, bcrypt hashes intact).
+exact row match vs production as of the backup's timestamp, bcrypt hashes intact), backup + notify
+units moved onto Node 22.
 
 ## Node 22 verification (2026-07-21)
 
