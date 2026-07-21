@@ -150,6 +150,45 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.gettaskbuddy.com/ap
   -H 'Content-Type: application/json' -d '{"email":"nobody@example.invalid","password":"x"}'
 ```
 
+## Marketing site (apex)
+
+`gettaskbuddy.com` serves a **static** marketing site — no application server, separate from the
+Next.js app on `app.`. Source in `marketing/src`, built to `marketing/dist` (gitignored).
+
+```bash
+cd /opt/taskbuddy/app
+sudo -u taskbuddy git pull
+sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm run build:marketing
+sudo mkdir -p /var/www/taskbuddy-marketing
+sudo rsync -a --delete marketing/dist/ /var/www/taskbuddy-marketing/
+```
+
+No restart needed — nginx serves the files directly. First-time vhost install:
+
+```bash
+sudo cp deploy/nginx/gettaskbuddy.com.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/gettaskbuddy.com.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d gettaskbuddy.com -d www.gettaskbuddy.com
+```
+
+**DNS:** the apex and `www` must point at the VPS (`54.37.18.27`) as **grey-cloud** A records in
+Cloudflare, matching `api.`/`app.`. They currently resolve to Cloudflare-proxied IPs fronting a
+GoDaddy Website Builder placeholder — that must be repointed before certbot can issue, and the
+GoDaddy site can then be retired.
+
+### Legal pages are gated on purpose
+
+`marketing/build.mjs` generates `/privacy` and `/terms` from `PRIVACY.md` and `TERMS.md`, but
+**refuses while either still contains its `DRAFT TEMPLATE` warning**. Both currently say they are
+not legal advice and need a lawyer's review before publication, because TaskBuddy is directed at
+children and falls under COPPA, GDPR/GDPR-K and the UK Children's Code — publishing them would
+present unreviewed drafts to parents as binding policy.
+
+The gate is not a flag to flip. Replace the drafts with reviewed text and the pages build
+themselves, with footer links added automatically; until then nothing links to a 404. The build
+prints what it withheld on every run.
+
 ## TLS
 
 Per-subdomain via Certbot's nginx plugin:
@@ -288,7 +327,10 @@ curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
   (multer limits, R2 credentials, CDN URL) rather than just the bindings.
 - **Dependency CVEs**: `npx @claude-flow/cli@latest security scan` reports 0 critical / 11 high,
   all in dependencies (`@typescript-eslint`, `minimatch` ReDoS, `@sentry/node`, `@opentelemetry`).
-- Marketing page on the apex `gettaskbuddy.com` (currently a placeholder).
+- **Marketing site**: landing page built and ready (see *Marketing site* above). Outstanding:
+  repoint apex + `www` DNS from the GoDaddy placeholder to the VPS, install the vhost, issue TLS.
+- **Legal pages blocked on legal review**: `PRIVACY.md` / `TERMS.md` are unreviewed drafts, so
+  `/privacy` and `/terms` are withheld by the build. App stores will want those URLs.
 
 Done (2026-07-21): secret rotation (JWT/admin-code/DB password/SMTP/uploads token), Node 22 LTS
 install + cutover, prod DB role confirmed least-privilege (`taskbuddy_app`, all role flags = f),
