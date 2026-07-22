@@ -19,6 +19,8 @@ import { z } from 'zod';
 import { authService } from '../services/auth';
 import { inviteService } from '../services/invite';
 import { SessionService } from '../services/SessionService';
+import { jwtVerifyOptions } from '../utils/jwt';
+import { hashToken } from '../utils/tokens';
 import { authenticate, requireParent } from '../middleware/auth';
 import { uploadPhoto } from '../middleware/upload';
 import { uploadFile } from '../services/storage';
@@ -209,7 +211,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
     await prisma.user.update({
       where: { id: result.user.id },
       data: {
-        emailVerificationToken: verifyToken,
+        emailVerificationToken: hashToken(verifyToken), // stored hashed; raw token goes in the link
         emailVerificationExpiresAt: verifyExpiry,
       },
     });
@@ -485,8 +487,10 @@ authRouter.post('/verify-email', async (req, res, next) => {
     const { token } = req.body as { token?: string };
     if (!token) throw new NotFoundError('Verification token is required');
 
+    // Dual-read: hashed form for tokens minted after this shipped, raw for any still-valid
+    // pre-existing token (they expire within 24h, so the raw branch is dead within a day).
     const user = await prisma.user.findFirst({
-      where: { emailVerificationToken: token },
+      where: { emailVerificationToken: { in: [hashToken(token), token] } },
       select: { id: true, emailVerificationExpiresAt: true, emailVerifiedAt: true },
     });
 
@@ -528,7 +532,7 @@ authRouter.post('/resend-verification', async (req, res, next) => {
       try {
         const jwt = await import('jsonwebtoken');
         const token = req.headers.authorization.split(' ')[1];
-        const payload = jwt.default.verify(token, config.jwt.secret) as { userId: string };
+        const payload = jwt.default.verify(token, config.jwt.secret, jwtVerifyOptions) as { userId: string };
         user = await prisma.user.findUnique({
           where: { id: payload.userId },
           select: { id: true, email: true, firstName: true, emailVerifiedAt: true, familyId: true },
@@ -566,7 +570,7 @@ authRouter.post('/resend-verification', async (req, res, next) => {
     const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await prisma.user.update({
       where: { id: user.id },
-      data: { emailVerificationToken: verifyToken, emailVerificationExpiresAt: verifyExpiry },
+      data: { emailVerificationToken: hashToken(verifyToken), emailVerificationExpiresAt: verifyExpiry },
     });
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';

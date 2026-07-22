@@ -5,6 +5,7 @@ import { prisma } from './database';
 import { config } from '../config';
 import { SessionService, type SessionContext } from './SessionService';
 import { AuditService } from './AuditService';
+import { jwtVerifyOptions, jwtSignOptions } from '../utils/jwt';
 import {
   UnauthorizedError,
   NotFoundError,
@@ -245,25 +246,26 @@ export class AuthService {
       select: { id: true },
     });
 
-    if (!family) {
-      throw new NotFoundError('Family not found. Check your family code and try again.');
-    }
-
-    // Find child by resolved familyId and identifier (firstName or username)
-    const user = await prisma.user.findFirst({
-      where: {
-        familyId: family.id,
-        role: 'child',
-        deletedAt: null,
-        OR: [
-          { firstName: { equals: childIdentifier, mode: 'insensitive' } },
-          { username: { equals: childIdentifier, mode: 'insensitive' } },
-        ],
-      },
-      include: {
-        childProfile: true,
-      },
-    });
+    // Only look up the child when the family exists; an unknown family code falls through to the
+    // same dummy compare and the same generic error below. A distinct "Family not found" reply
+    // (F-10d) revealed which family codes are real, both by its message and by returning before
+    // the bcrypt work.
+    const user = family
+      ? await prisma.user.findFirst({
+          where: {
+            familyId: family.id,
+            role: 'child',
+            deletedAt: null,
+            OR: [
+              { firstName: { equals: childIdentifier, mode: 'insensitive' } },
+              { username: { equals: childIdentifier, mode: 'insensitive' } },
+            ],
+          },
+          include: {
+            childProfile: true,
+          },
+        })
+      : null;
 
     // Check lockout before expensive bcrypt call
     if (user && user.lockedUntil && user.lockedUntil > new Date()) {
@@ -271,13 +273,13 @@ export class AuthService {
     }
 
     // Always run bcrypt to prevent timing-based enumeration. The compare must happen
-    // unconditionally — short-circuiting on a missing user returns measurably faster and
+    // unconditionally — short-circuiting on a missing family/user returns measurably faster and
     // leaks which (familyCode, childIdentifier) pairs exist.
     const pinHash = user?.childProfile?.pinHash ?? DUMMY_PIN_HASH;
     const pinMatches = await bcrypt.compare(pin, pinHash);
-    const isValid = !!(user?.childProfile) && pinMatches;
+    const isValid = !!(family && user?.childProfile) && pinMatches;
 
-    if (!user || !user.childProfile || !isValid) {
+    if (!family || !user || !user.childProfile || !isValid) {
       if (user) {
         // Count the failure, and only lock once the attempts look like guessing rather
         // than a child fat-fingering their PIN. See LOGIN_LOCKOUT_BACKOFF_MS.
@@ -551,7 +553,7 @@ export class AuthService {
   // Refresh access token
   async refreshToken(refreshToken: string, _ctx: SessionContext = {}) {
     try {
-      const payload = jwt.verify(refreshToken, config.jwt.refreshSecret) as TokenPayload & { type: string };
+      const payload = jwt.verify(refreshToken, config.jwt.refreshSecret, jwtVerifyOptions) as TokenPayload & { type: string };
 
       if (payload.type !== 'refresh') {
         throw new UnauthorizedError('Invalid refresh token');
@@ -635,6 +637,7 @@ export class AuthService {
     const jti = crypto.randomUUID();
 
     const accessToken = jwt.sign(payload, config.jwt.secret, {
+      ...jwtSignOptions,
       expiresIn: config.jwt.expiresIn as any,
       jwtid: jti,
     });
@@ -642,7 +645,7 @@ export class AuthService {
     const refreshToken = jwt.sign(
       { ...payload, type: 'refresh' },
       config.jwt.refreshSecret,
-      { expiresIn: config.jwt.refreshExpiresIn as any, jwtid: jti }
+      { ...jwtSignOptions, expiresIn: config.jwt.refreshExpiresIn as any, jwtid: jti }
     );
 
     const decoded = jwt.decode(accessToken) as { exp: number };
@@ -659,6 +662,7 @@ export class AuthService {
     const jti = crypto.randomUUID();
 
     const accessToken = jwt.sign(payload, config.jwt.secret, {
+      ...jwtSignOptions,
       expiresIn: childAccessExpiry,
       jwtid: jti,
     });
@@ -666,7 +670,7 @@ export class AuthService {
     const refreshToken = jwt.sign(
       { ...payload, type: 'refresh' },
       config.jwt.refreshSecret,
-      { expiresIn: childRefreshExpiry, jwtid: jti }
+      { ...jwtSignOptions, expiresIn: childRefreshExpiry, jwtid: jti }
     );
 
     const decoded = jwt.decode(accessToken) as { exp: number };
