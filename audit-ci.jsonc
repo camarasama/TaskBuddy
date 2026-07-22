@@ -13,7 +13,12 @@
 // .do_not_upload/security_assessment.md. DEP-02..DEP-05 are dev/build/test only
 // and not reachable in the running service. DEP-01 (nodemailer runtime advisory,
 // GHSA-p6gq-j5cr-w38f) was FIXED (nodemailer@^9), NOT allowlisted — if it ever
-// regresses, CI must fail. DEP-06 (GHSA-8988, otel baggage) is a RUNTIME advisory
+// regresses, CI must fail. DEP-07 (sharp <0.35 inherited libvips CVEs,
+// GHSA-f88m-g3jw-g9cj, high) was likewise FIXED, NOT allowlisted: sharp bumped to
+// ^0.35.3 in backend + frontend, with a root `overrides.sharp` so next's optional copy
+// collapses to the patched version too. sharp decodes untrusted child-uploaded evidence
+// photos (backend/src/services/storage.ts) — runtime-reachable, so it must be patched,
+// never ignored. DEP-06 (GHSA-8988, otel baggage) is a RUNTIME advisory
 // that IS allowlisted as a time-boxed, owner-approved risk acceptance because no
 // compatible fix exists yet (details by its allowlist entry below).
 //
