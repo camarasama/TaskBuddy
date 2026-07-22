@@ -32,6 +32,21 @@ import { EmailService } from '../services/email';
 
 export const authRouter = Router();
 
+/**
+ * The refresh token is delivered to browsers ONLY as an HttpOnly cookie (set via res.cookie
+ * alongside each of these responses). Strip it from the JSON body so it never reaches
+ * JS-readable storage, where XSS could exfiltrate a long-lived credential (F-2).
+ *
+ * TODO(mobile): native clients cannot use cookies transparently. When the Capacitor app lands,
+ * add a dedicated token-delivery endpoint (e.g. POST /auth/token with an explicit client
+ * assertion) rather than re-adding refresh tokens to these browser-facing bodies.
+ */
+function withoutRefreshToken<T extends { refreshToken?: string }>(tokens: T): Omit<T, 'refreshToken'> {
+  const safe = { ...tokens };
+  delete (safe as { refreshToken?: string }).refreshToken;
+  return safe;
+}
+
 // ============================================
 // VALIDATION SCHEMAS
 // ============================================
@@ -220,7 +235,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
 
     res.status(201).json({
       success: true,
-      data: result,
+      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
     });
   } catch (error) {
     next(error);
@@ -246,7 +261,7 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
 
     res.json({
       success: true,
-      data: result,
+      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
     });
   } catch (error) {
     next(error);
@@ -272,7 +287,7 @@ authRouter.post('/child/login', validateBody(childLoginSchema), async (req, res,
 
     res.json({
       success: true,
-      data: result,
+      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
     });
   } catch (error) {
     next(error);
@@ -412,7 +427,7 @@ authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, 
 
     res.status(201).json({
       success: true,
-      data: result,
+      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
     });
   } catch (error) {
     next(error);
@@ -433,7 +448,7 @@ authRouter.post('/refresh', validateBody(refreshSchema), async (req, res, next) 
 
     res.json({
       success: true,
-      data: { tokens },
+      data: { tokens: withoutRefreshToken(tokens) },
     });
   } catch (error) {
     next(error);
