@@ -19,6 +19,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from './database';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../middleware/errorHandler';
 import { authService } from './auth';
+import { SessionService, type SessionContext } from './SessionService';
 // M9 - Replaces the inline nodemailer call that was here in M4-M8
 import { EmailService } from './email';
 
@@ -156,7 +157,7 @@ export class InviteService {
   }
 
   // POST /auth/accept-invite
-  async acceptInvite(input: AcceptInviteInput) {
+  async acceptInvite(input: AcceptInviteInput, ctx: SessionContext = {}) {
     const { token, firstName, lastName, password, dateOfBirth, phone, gender } = input;
 
     // 1. Look up the invitation
@@ -240,6 +241,7 @@ export class InviteService {
       familyId: result.familyId,
       role: result.role,
     });
+    await SessionService.create(result.id, tokens.refreshToken, { ...ctx, isChild: false });
 
     const { passwordHash: _, ...userWithoutPassword } = result;
 

@@ -1,7 +1,9 @@
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from './database';
 import { config } from '../config';
+import { SessionService, type SessionContext } from './SessionService';
 import {
   UnauthorizedError,
   NotFoundError,
@@ -98,7 +100,7 @@ export interface AddChildInput {
 
 export class AuthService {
   // Register a new family with parent account
-  async register(input: RegisterInput) {
+  async register(input: RegisterInput, ctx: SessionContext = {}) {
     const { familyName, parent } = input;
 
     // Check if email already exists
@@ -154,6 +156,7 @@ export class AuthService {
       familyId: result.family.id,
       role: result.user.role,
     });
+    await SessionService.create(result.user.id, tokens.refreshToken, { ...ctx, isChild: false });
 
     // Remove sensitive data
     const { passwordHash: _, ...userWithoutPassword } = result.user;
@@ -166,7 +169,7 @@ export class AuthService {
   }
 
   // Parent login with email/password
-  async login(input: LoginInput) {
+  async login(input: LoginInput, ctx: SessionContext = {}) {
     const { email, password } = input;
 
     // Find user by email
@@ -209,6 +212,7 @@ export class AuthService {
       role: user.role,
       ageGroup: user.childProfile?.ageGroup || undefined,
     });
+    await SessionService.create(user.id, tokens.refreshToken, { ...ctx, isChild: false });
 
     // Remove sensitive data
     const { passwordHash: _, ...userWithoutPassword } = user;
@@ -221,7 +225,7 @@ export class AuthService {
   }
 
   // Child login with family code (ADJECTIVE-ANIMAL-NNNN) and PIN
-  async childLogin(input: ChildLoginInput) {
+  async childLogin(input: ChildLoginInput, ctx: SessionContext = {}) {
     const { familyCode, childIdentifier, pin } = input;
 
     // Resolve family by memorable code (case-insensitive)
@@ -290,6 +294,7 @@ export class AuthService {
       role: user.role,
       ageGroup: user.childProfile.ageGroup || undefined,
     });
+    await SessionService.create(user.id, tokens.refreshToken, { ...ctx, isChild: true });
 
     // Remove sensitive data
     const { passwordHash: _, ...userWithoutPassword } = user;
@@ -428,6 +433,10 @@ export class AuthService {
       where: { userId: childId },
       data: { pinHash },
     });
+
+    // A new/changed PIN invalidates the child's existing sessions, so a device that knew the old
+    // PIN (or a lingering token) cannot keep acting as the child after a parent resets it.
+    await SessionService.revokeAllForUser(childId, 'pin_reset');
   }
 
   // Change password for parent user
@@ -456,10 +465,14 @@ export class AuthService {
       where: { id: userId },
       data: { passwordHash },
     });
+
+    // Changing the password kills every existing session - a stolen refresh token must not
+    // outlive the credential the user just rotated.
+    await SessionService.revokeAllForUser(userId, 'password_change');
   }
 
   // Refresh access token
-  async refreshToken(refreshToken: string) {
+  async refreshToken(refreshToken: string, _ctx: SessionContext = {}) {
     try {
       const payload = jwt.verify(refreshToken, config.jwt.refreshSecret) as TokenPayload & { type: string };
 
@@ -478,21 +491,27 @@ export class AuthService {
       }
 
       // Use child-specific expiry for child tokens, standard for parents
-      if (user.role === 'child') {
-        return this.generateChildTokens({
-          userId: user.id,
-          familyId: user.familyId!,
-          role: user.role,
-          ageGroup: user.childProfile?.ageGroup || undefined,
-        });
-      }
+      const newTokens = user.role === 'child'
+        ? this.generateChildTokens({
+            userId: user.id,
+            familyId: user.familyId!,
+            role: user.role,
+            ageGroup: user.childProfile?.ageGroup || undefined,
+          })
+        : this.generateTokens({
+            userId: user.id,
+            familyId: user.familyId!,
+            role: user.role,
+            ageGroup: user.childProfile?.ageGroup || undefined,
+          });
 
-      return this.generateTokens({
-        userId: user.id,
-        familyId: user.familyId!,
-        role: user.role,
-        ageGroup: user.childProfile?.ageGroup || undefined,
-      });
+      // Rotate the server-side session: revoke the presented token and register the new one.
+      // Throws 401 on reuse of a spent token (killing the whole chain), on absolute expiry, or
+      // when no session matches - the last case being every token minted before this deployed,
+      // which is the intended one-time forced re-login.
+      await SessionService.rotate(refreshToken, newTokens.refreshToken);
+
+      return newTokens;
     } catch (error) {
       if (error instanceof jwt.TokenExpiredError) {
         throw new UnauthorizedError('Refresh token expired');
@@ -534,14 +553,19 @@ export class AuthService {
   // can generate tokens for the newly created co-parent without coupling the two
   // services via inheritance. The method does not expose any secrets directly.
   generateTokens(payload: Omit<TokenPayload, 'iat' | 'exp'>) {
+    // Both tokens share one jti, which is also the RefreshSession row id - it links an access
+    // token (and any audit row) back to the exact session that issued it.
+    const jti = crypto.randomUUID();
+
     const accessToken = jwt.sign(payload, config.jwt.secret, {
       expiresIn: config.jwt.expiresIn as any,
+      jwtid: jti,
     });
 
     const refreshToken = jwt.sign(
       { ...payload, type: 'refresh' },
       config.jwt.refreshSecret,
-      { expiresIn: config.jwt.refreshExpiresIn as any }
+      { expiresIn: config.jwt.refreshExpiresIn as any, jwtid: jti }
     );
 
     const decoded = jwt.decode(accessToken) as { exp: number };
@@ -555,14 +579,17 @@ export class AuthService {
     const childAccessExpiry = (process.env.JWT_CHILD_ACCESS_EXPIRES_IN || '24h') as any;
     const childRefreshExpiry = (process.env.JWT_CHILD_REFRESH_EXPIRES_IN || '90d') as any;
 
+    const jti = crypto.randomUUID();
+
     const accessToken = jwt.sign(payload, config.jwt.secret, {
       expiresIn: childAccessExpiry,
+      jwtid: jti,
     });
 
     const refreshToken = jwt.sign(
       { ...payload, type: 'refresh' },
       config.jwt.refreshSecret,
-      { expiresIn: childRefreshExpiry }
+      { expiresIn: childRefreshExpiry, jwtid: jti }
     );
 
     const decoded = jwt.decode(accessToken) as { exp: number };
