@@ -37,6 +37,9 @@ export const config = {
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
     bucketName: process.env.R2_BUCKET_NAME || 'taskbuddy-uploads',
     publicUrl: process.env.R2_PUBLIC_URL || '',
+    // Private bucket for child evidence photos - never public, served only via short-lived
+    // presigned GET URLs to authenticated, family-scoped requests (F-4).
+    evidenceBucket: process.env.R2_EVIDENCE_BUCKET || 'taskbuddy-evidence',
   },
 } as const;
 

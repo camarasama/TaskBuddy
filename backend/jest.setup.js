@@ -6,3 +6,7 @@
 process.env.JWT_SECRET ||= 'test-jwt-secret-0000000000000000000000000000';
 process.env.JWT_REFRESH_SECRET ||= 'test-jwt-refresh-secret-000000000000000000000';
 process.env.ADMIN_INVITE_CODE ||= 'test-admin-invite-code';
+// Dummy R2 creds so presigned-URL generation (local HMAC, no network) works in tests.
+process.env.R2_ACCOUNT_ID ||= 'test-account';
+process.env.R2_ACCESS_KEY_ID ||= 'a'.repeat(32);
+process.env.R2_SECRET_ACCESS_KEY ||= 'test-secret-access-key';
