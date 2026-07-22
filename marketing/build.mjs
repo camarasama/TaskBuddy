@@ -38,12 +38,16 @@ function layout({ title, body }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title} — TaskBuddy</title>
 <meta name="theme-color" content="#0ea5e9">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 <header>
   <div class="wrap nav">
-    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">✓</span> TaskBuddy</a>
+    <a class="brand" href="/"><img class="brand-mark" src="/apple-touch-icon.png" width="34" height="34" alt="" aria-hidden="true"> TaskBuddy</a>
     <nav class="nav-actions">
       <a class="btn btn-primary" href="https://app.gettaskbuddy.com">Get started</a>
     </nav>
@@ -65,11 +69,23 @@ ${body}
 fs.rmSync(DIST, { recursive: true, force: true });
 fs.mkdirSync(DIST, { recursive: true });
 
-// --- always: the landing page + stylesheet -------------------------------------------------
-for (const file of ['index.html', 'styles.css']) {
+// --- always: the landing page, stylesheet + brand assets -----------------------------------
+// Static assets are copied verbatim. The favicon set and apple-touch icon are the TaskBuddy
+// logo; android-chrome-512 doubles as the og:image referenced by index.html.
+const STATIC = [
+  'index.html',
+  'styles.css',
+  'favicon.ico',
+  'favicon-16x16.png',
+  'favicon-32x32.png',
+  'apple-touch-icon.png',
+  'android-chrome-192x192.png',
+  'android-chrome-512x512.png',
+];
+for (const file of STATIC) {
   fs.copyFileSync(path.join(SRC, file), path.join(DIST, file));
 }
-const built = ['index.html', 'styles.css'];
+const built = [...STATIC];
 
 // --- conditionally: legal pages, once the drafts are replaced -------------------------------
 const publishable = [];
