@@ -26,6 +26,11 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+      - name: Test
+        # Jest suites for backend + frontend. All specs mock Prisma / external services, so no
+        # database or network is required. This gates the auth/security tests (session rotation,
+        # refresh-token body leak, login lockout) that previously ran only locally.
+        run: npm test
       - name: Security audit (allowlisted)
         # Fails on NEW moderate+ advisories; known dev/build-only ones are
         # allowlisted in ./audit-ci.jsonc (see security_assessment.md § Dependency Audit).
