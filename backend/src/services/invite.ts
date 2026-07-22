@@ -20,6 +20,7 @@ import { prisma } from './database';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../middleware/errorHandler';
 import { authService } from './auth';
 import { SessionService, type SessionContext } from './SessionService';
+import { hashToken } from '../utils/tokens';
 // M9 - Replaces the inline nodemailer call that was here in M4-M8
 import { EmailService } from './email';
 
@@ -98,7 +99,7 @@ export class InviteService {
         familyId,
         invitedByUserId,
         email: email.toLowerCase(),
-        token,
+        token: hashToken(token), // stored hashed; the raw token only lives in the emailed link
         expiresAt,
       },
     });
@@ -160,9 +161,10 @@ export class InviteService {
   async acceptInvite(input: AcceptInviteInput, ctx: SessionContext = {}) {
     const { token, firstName, lastName, password, dateOfBirth, phone, gender } = input;
 
-    // 1. Look up the invitation
-    const invitation = await prisma.familyInvitation.findUnique({
-      where: { token },
+    // 1. Look up the invitation. Dual-read: the hashed form for tokens issued after this shipped,
+    // the raw form for any invite still in flight from before (they expire within days).
+    const invitation = await prisma.familyInvitation.findFirst({
+      where: { token: { in: [hashToken(token), token] } },
       include: { family: true, invitedBy: true },
     });
 
@@ -328,8 +330,8 @@ export class InviteService {
   // GET /auth/invite-preview?token=... - public, no auth required
   // Returns just enough info to render the accept page (family name, inviter name, email)
   async getInvitePreview(token: string) {
-    const invitation = await prisma.familyInvitation.findUnique({
-      where: { token },
+    const invitation = await prisma.familyInvitation.findFirst({
+      where: { token: { in: [hashToken(token), token] } },
       include: {
         family: { select: { familyName: true } },
         invitedBy: { select: { firstName: true, lastName: true } },

@@ -15,6 +15,7 @@ import { prisma } from '../services/database';
 import { EmailService, EmailTriggerType } from '../services/email';
 import { authenticate, requireAdmin } from '../middleware/auth';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler';
+import { hashToken } from '../utils/tokens';
 
 const router = Router();
 
@@ -140,7 +141,7 @@ router.post('/:id/resend', async (req: Request, res: Response, next: NextFunctio
         if (log.toUserId) {
           await prisma.user.update({
             where: { id: log.toUserId },
-            data: { emailVerificationToken: newToken, emailVerificationExpiresAt: expiry },
+            data: { emailVerificationToken: hashToken(newToken), emailVerificationExpiresAt: expiry },
           });
         }
         templateData = {

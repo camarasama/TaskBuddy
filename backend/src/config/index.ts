@@ -51,4 +51,13 @@ export function validateConfig(): void {
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
+
+  // HS256 security rests entirely on secret entropy. Refuse to boot on a short/weak signing key
+  // rather than run with tokens an attacker could feasibly brute-force.
+  for (const key of ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const) {
+    const bytes = Buffer.byteLength(process.env[key] || '', 'utf8');
+    if (bytes < 32) {
+      throw new Error(`${key} must be at least 32 bytes (got ${bytes}) for HS256 signing security`);
+    }
+  }
 }

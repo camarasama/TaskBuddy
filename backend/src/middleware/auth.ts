@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { UnauthorizedError, ForbiddenError, AppError } from './errorHandler';
+import { jwtVerifyOptions } from '../utils/jwt';
 import type { UserRole } from '@taskbuddy/shared';
 // M8 - needed to check if a family is suspended before allowing access
 import { prisma } from '../services/database';
@@ -29,19 +30,16 @@ export interface TokenPayload {
 // Verify JWT token
 export function authenticate(req: Request, _res: Response, next: NextFunction): void {
   try {
-    // Get token from header or cookie
-    let token = req.headers.authorization?.split(' ')[1];
-
-    if (!token && req.cookies?.accessToken) {
-      token = req.cookies.accessToken;
-    }
+    // Access tokens are sent in the Authorization header only. (The refresh token is the sole
+    // cookie; there was a dead `accessToken` cookie fallback here that nothing ever set.)
+    const token = req.headers.authorization?.split(' ')[1];
 
     if (!token) {
       throw new UnauthorizedError('No authentication token provided');
     }
 
-    // Verify token
-    const payload = jwt.verify(token, config.jwt.secret) as TokenPayload;
+    // Verify token - algorithm + issuer + audience pinned (see utils/jwt).
+    const payload = jwt.verify(token, config.jwt.secret, jwtVerifyOptions) as TokenPayload;
 
     // Attach user info to request
     req.user = payload;
@@ -62,14 +60,10 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
 // Optional authentication (doesn't fail if no token)
 export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
   try {
-    let token = req.headers.authorization?.split(' ')[1];
-
-    if (!token && req.cookies?.accessToken) {
-      token = req.cookies.accessToken;
-    }
+    const token = req.headers.authorization?.split(' ')[1];
 
     if (token) {
-      const payload = jwt.verify(token, config.jwt.secret) as TokenPayload;
+      const payload = jwt.verify(token, config.jwt.secret, jwtVerifyOptions) as TokenPayload;
       req.user = payload;
       req.familyId = payload.familyId;
     }

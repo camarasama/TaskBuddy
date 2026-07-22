@@ -24,6 +24,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
+import { jwtVerifyOptions } from '../utils/jwt';
 import type { TokenPayload } from '../middleware/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ export function initSocketService(ioInstance: SocketIOServer): void {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) return next(new Error('Authentication required'));
     try {
-      const payload = jwt.verify(token, config.jwt.secret) as TokenPayload;
+      const payload = jwt.verify(token, config.jwt.secret, jwtVerifyOptions) as TokenPayload;
       (socket as any).user = payload;
       next();
     } catch {
