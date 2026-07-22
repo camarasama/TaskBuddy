@@ -139,6 +139,23 @@ deploy looks clean and the app breaks for real users:
 
 Take a fresh backup before any migration: `sudo systemctl start taskbuddy-backup.service`.
 
+**Pre-flight: JWT secret strength (hard boot gate).** The backend refuses to start if `JWT_SECRET`
+or `JWT_REFRESH_SECRET` is under 32 bytes (`validateConfig`). If you rotate a secret, check the new
+value's length *before* restarting, or the service will fail to come back up:
+```bash
+cd /opt/taskbuddy/app
+sudo -u taskbuddy env PATH=$N22:$PATH node -e "require('dotenv').config({path:'backend/.env'});const b=s=>Buffer.byteLength(process.env[s]||'','utf8');console.log('JWT_SECRET',b('JWT_SECRET'),'| JWT_REFRESH_SECRET',b('JWT_REFRESH_SECRET'))"
+# both must be >= 32
+```
+If the backend won't boot after a deploy, this is the first thing to check:
+`journalctl -u taskbuddy-backend -n 30` → "must be at least 32 bytes".
+
+**Auth-hardening deploys force a one-time re-login.** Changes to the refresh-session store or the
+JWT issuer/audience/algorithm pinning invalidate every token minted before the deploy: the first
+`/auth/refresh` returns 401 and the client sends the user to log in once (parents by password,
+children by PIN). This is expected — **tell the family testers before deploying**, and if several
+such changes are pending, deploy them together so it is a single re-login event, not several.
+
 Health check: `curl -s https://api.gettaskbuddy.com/health` → `{"status":"ok","db":"up"}`.
 
 `/health` only pings the DB — it does **not** prove a migration applied, since it never touches
