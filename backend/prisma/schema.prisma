@@ -84,6 +84,7 @@ model User {
   emailLogs             EmailLog[]          @relation("ReceivedEmails")
   pushSubscriptions     PushSubscription[]
   gameSessions          GameSession[]
+  refreshSessions       RefreshSession[]
 
   @@index([familyId])
   @@index([email])
@@ -662,6 +663,32 @@ model GameSession {
   @@index([gameDefinitionId])
   @@index([status])
   @@map("game_sessions")
+}
+
+// One row per issued refresh token. Enables rotation (each refresh mints a new row in the same
+// chain and revokes the old one), reuse detection (a replayed/rotated token kills its whole
+// chain), and revocation (logout, password change/reset, admin action, child PIN reset). The
+// raw JWT is never stored — only its sha256, and the row id is the token's jti claim.
+model RefreshSession {
+  id                String    @id                                   // = the jwt `jti` claim
+  userId            String    @map("user_id")
+  tokenHash         String    @unique @map("token_hash")            // sha256 hex of the refresh JWT
+  chainId           String    @map("chain_id")                     // rotation family; constant across rotations
+  expiresAt         DateTime  @map("expires_at")                   // natural expiry (mirrors the JWT exp)
+  absoluteExpiresAt DateTime  @map("absolute_expires_at")          // hard cap for the whole chain
+  revokedAt         DateTime? @map("revoked_at")
+  revokedReason     String?   @map("revoked_reason")               // logout|rotated|reuse|expired|password_change|admin|pin_reset
+  replacedById      String?   @map("replaced_by_id")
+  createdByIp       String?   @map("created_by_ip")
+  userAgent         String?   @map("user_agent")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([chainId])
+  @@index([expiresAt])
+  @@map("refresh_sessions")
 }
 
 // ============================================

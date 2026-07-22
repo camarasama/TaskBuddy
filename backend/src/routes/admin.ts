@@ -31,6 +31,7 @@ import { authenticate, requireAdmin } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { NotFoundError } from '../middleware/errorHandler';
 import { AuditService } from '../services/AuditService';
+import { SessionService } from '../services/SessionService';
 
 export const adminRouter = Router();
 
@@ -512,6 +513,10 @@ adminRouter.post('/users/:id/force-reset', async (req, res, next) => {
         isActive: true,
       },
     });
+
+    // Kill every live session for the target - a force-reset must not leave a stolen refresh
+    // token working. (The full reset-email flow lands in Phase 2.)
+    await SessionService.revokeAllForUser(req.params.id, 'admin');
 
     // Audit: admin force-reset a user's password
     await AuditService.logAction({

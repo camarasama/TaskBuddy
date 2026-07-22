@@ -5,6 +5,9 @@ jest.mock('../src/services/database', () => ({
   prisma: {
     family: { findFirst: jest.fn() },
     user: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    // A successful login now records a RefreshSession (F-1). This suite only cares about the
+    // lockout path, so the write just needs to resolve.
+    refreshSession: { create: jest.fn().mockResolvedValue({}) },
   },
 }));
 

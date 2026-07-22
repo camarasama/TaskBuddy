@@ -18,6 +18,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { authService } from '../services/auth';
 import { inviteService } from '../services/invite';
+import { SessionService } from '../services/SessionService';
 import { authenticate, requireParent } from '../middleware/auth';
 import { uploadPhoto } from '../middleware/upload';
 import { uploadFile } from '../services/storage';
@@ -177,7 +178,10 @@ function maskPhoneNumber(phone: string | null | undefined): string | null {
 // POST /auth/register - Register new family
 authRouter.post('/register', validateBody(registerSchema), async (req, res, next) => {
   try {
-    const result = await authService.register(req.body);
+    const result = await authService.register(req.body, {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     // M8 - Audit: capture family + parent creation
     await AuditService.logAction({
@@ -245,7 +249,10 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
 // POST /auth/login - Login (parent)
 authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
   try {
-    const result = await authService.login(req.body);
+    const result = await authService.login(req.body, {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     // M8 - Audit: parent login event
     await AuditService.logAction({
@@ -271,7 +278,10 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
 // POST /auth/child/login - Child login with family code + PIN
 authRouter.post('/child/login', validateBody(childLoginSchema), async (req, res, next) => {
   try {
-    const result = await authService.childLogin(req.body);
+    const result = await authService.childLogin(req.body, {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     // M8 - Audit: child login event
     await AuditService.logAction({
@@ -395,7 +405,10 @@ authRouter.get('/invite-preview', async (req, res, next) => {
 // POST /auth/accept-invite - Co-parent accepts an invitation link (M4)
 authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, res, next) => {
   try {
-    const result = await inviteService.acceptInvite(req.body);
+    const result = await inviteService.acceptInvite(req.body, {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     // M8 - Audit: co-parent joined family
     await AuditService.logAction({
@@ -570,7 +583,13 @@ authRouter.post('/resend-verification', async (req, res, next) => {
 });
 
 // POST /auth/logout - Logout
-authRouter.post('/logout', (_req, res) => {
+authRouter.post('/logout', async (req, res) => {
+  // Revoke the server-side session so the refresh token is dead even if it was captured. Logout
+  // must always succeed, so an unknown/absent token is a no-op rather than an error.
+  await SessionService.revokeByToken(req.cookies?.refreshToken, 'logout').catch((err) =>
+    console.error('[auth/logout] session revoke failed (non-fatal):', err?.message)
+  );
+
   res.clearCookie('refreshToken', getCookieOptions());
 
   res.json({

@@ -21,6 +21,7 @@ export interface TokenPayload {
   familyId: string;
   role: UserRole;
   ageGroup?: string;
+  jti?: string; // session id: links an access token back to its RefreshSession row
   iat?: number;
   exp?: number;
 }

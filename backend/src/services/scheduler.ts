@@ -15,6 +15,7 @@
 
 import cron from 'node-cron';
 import { RewardService } from './RewardService';
+import { SessionService } from './SessionService';
 import { prisma } from './database';
 import { createNotification } from '../routes/notifications';
 import { EmailService } from './email';
@@ -54,6 +55,18 @@ export function initScheduler(): void {
       await RewardService.runNightlyExpiry();
     } catch (error) {
       console.error('[Scheduler] Error in nightly reward cleanup:', error);
+    }
+  }, { timezone: 'UTC' });
+
+  // ─── Nightly refresh-session sweep (03:15 UTC) ────────────────────────────
+  // Delete refresh-session rows well past their natural expiry. Revoked/rotated rows are kept
+  // for a window (reuse detection + audit) then purged here so the table does not grow forever.
+  cron.schedule('15 3 * * *', async () => {
+    try {
+      const removed = await SessionService.sweepExpired();
+      if (removed > 0) console.log(`[Scheduler] Swept ${removed} expired refresh session(s)`);
+    } catch (error) {
+      console.error('[Scheduler] Error in refresh-session sweep:', error);
     }
   }, { timezone: 'UTC' });
 
