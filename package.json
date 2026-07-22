@@ -40,5 +40,8 @@
   },
   "dependencies": {
     "autoskills": "^0.2.3"
+  },
+  "overrides": {
+    "sharp": "^0.35.3"
   }
 }
