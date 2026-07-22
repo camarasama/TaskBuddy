@@ -71,9 +71,10 @@ export interface LoginResponse {
   tokens: AuthTokens;
 }
 
+// Client-visible tokens. The refresh token is intentionally NOT here: it is delivered only as an
+// HttpOnly cookie (see backend routes/auth.ts) so it never reaches JS-readable storage (F-2).
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
   expiresIn: number;
 }
 
