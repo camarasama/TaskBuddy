@@ -109,6 +109,15 @@ const refreshSchema = z.object({
   refreshToken: z.string().optional(),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(VALIDATION.PASSWORD.MIN_LENGTH),
+});
+
 const acceptInviteSchema = z.object({
   token: z.string().min(1),
   firstName: z.string().min(1).max(50),
@@ -577,6 +586,76 @@ authRouter.post('/resend-verification', async (req, res, next) => {
     );
 
     res.json({ success: true, data: { message: 'Verification email sent' } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Rate limiter: max 3 password-reset requests per hour keyed by email address. Checked before
+// the account lookup and returning the same generic response on exceed, so it protects a real
+// inbox from flooding without ever revealing whether an account exists.
+const forgotPasswordRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+function isForgotPasswordRateLimited(email: string): boolean {
+  const now = Date.now();
+  const limit = forgotPasswordRateLimit.get(email);
+  if (limit && now < limit.resetAt) {
+    if (limit.count >= 3) return true;
+    limit.count++;
+    return false;
+  }
+  forgotPasswordRateLimit.set(email, { count: 1, resetAt: now + 60 * 60 * 1000 });
+  return false;
+}
+
+// POST /auth/forgot-password - Request a password reset link (parents only)
+authRouter.post('/forgot-password', validateBody(forgotPasswordSchema), async (req, res, next) => {
+  // Always the same 200 response, whether or not the email maps to an account (anti-enumeration).
+  const genericOk = () =>
+    res.json({
+      success: true,
+      data: { message: 'If an account exists for that email, a password reset link has been sent.' },
+    });
+
+  try {
+    const email = (req.body.email as string).toLowerCase();
+    if (isForgotPasswordRateLimited(email)) return genericOk();
+
+    const result = await authService.createPasswordResetToken(email);
+    if (!result) return genericOk();
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    EmailService.send({
+      triggerType: 'password_reset',
+      toEmail: result.user.email,
+      toUserId: result.user.id,
+      familyId: result.user.familyId!,
+      subject: 'Reset your TaskBuddy password',
+      templateData: {
+        firstName: result.user.firstName,
+        resetUrl: `${frontendUrl}/reset-password?token=${result.token}`,
+        expiryHours: 1,
+      },
+      // Security email - never gated by notification preferences.
+      skipPreferenceCheck: true,
+    }).catch((err) =>
+      console.error('[auth/forgot-password] Email failed (non-fatal):', err?.message)
+    );
+
+    return genericOk();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /auth/reset-password - Complete a password reset with the emailed token
+authRouter.post('/reset-password', validateBody(resetPasswordSchema), async (req, res, next) => {
+  try {
+    await authService.resetPassword(req.body.token, req.body.newPassword, { ip: req.ip });
+    res.json({
+      success: true,
+      data: { message: 'Password reset successfully. Please log in with your new password.' },
+    });
   } catch (error) {
     next(error);
   }

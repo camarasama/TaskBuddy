@@ -30,8 +30,10 @@ import { prisma } from '../services/database';
 import { authenticate, requireAdmin } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { NotFoundError } from '../middleware/errorHandler';
+import crypto from 'crypto';
 import { AuditService } from '../services/AuditService';
 import { SessionService } from '../services/SessionService';
+import { EmailService } from '../services/email';
 
 export const adminRouter = Router();
 
@@ -485,38 +487,62 @@ adminRouter.get('/users/:id', async (req, res, next) => {
 
 /**
  * Force-reset a user's password.
- * For now this marks the user's account so that the next login attempt will
- * require a password reset. In M9 this will also send a reset email.
  *
- * Implementation: sets passwordHash to null (so existing password no longer
- * works) and isActive to true (in case the account was locked). The user
- * must register a new password via the reset flow.
+ * Sends the user the same secure reset link the self-service flow uses (24h expiry for
+ * admin-initiated resets) and revokes their sessions. By default the current password KEEPS
+ * WORKING until the reset completes, so a support action does not lock a parent out of their
+ * account for a bug or a mistaken click. Pass `{ invalidateNow: true }` to also null the password
+ * immediately - use that only when the account is believed compromised.
  */
 adminRouter.post('/users/:id/force-reset', async (req, res, next) => {
   try {
+    const invalidateNow = req.body?.invalidateNow === true;
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
-      select: { id: true, email: true, firstName: true, lastName: true },
+      select: { id: true, email: true, firstName: true, lastName: true, familyId: true },
     });
 
     if (!user) throw new NotFoundError('User not found');
 
-    // Nullify the password hash so their current credentials stop working.
-    // When M9 email is live, this is also where we'll call EmailService.sendPasswordReset().
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     await prisma.user.update({
       where: { id: req.params.id },
       data: {
-        passwordHash: null,
+        passwordResetTokenHash: tokenHash,
+        passwordResetExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h for admin resets
         lockedUntil: null,          // Clear any login lock
         failedLoginAttempts: 0,     // ...and the backoff counter behind it
         lastFailedLoginAt: null,
         isActive: true,
+        // Only nullify the working password when the account is believed compromised.
+        ...(invalidateNow ? { passwordHash: null } : {}),
       },
     });
 
     // Kill every live session for the target - a force-reset must not leave a stolen refresh
-    // token working. (The full reset-email flow lands in Phase 2.)
+    // token working.
     await SessionService.revokeAllForUser(req.params.id, 'admin');
+
+    // Email the reset link so the user can self-serve a new password.
+    if (user.email) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      EmailService.send({
+        triggerType: 'password_reset',
+        toEmail: user.email,
+        toUserId: user.id,
+        familyId: user.familyId!,
+        subject: 'Reset your TaskBuddy password',
+        templateData: {
+          firstName: user.firstName,
+          resetUrl: `${frontendUrl}/reset-password?token=${token}`,
+          expiryHours: 24,
+        },
+        skipPreferenceCheck: true,
+      }).catch((err) =>
+        console.error('[admin/force-reset] Email failed (non-fatal):', err?.message)
+      );
+    }
 
     // Audit: admin force-reset a user's password
     await AuditService.logAction({
@@ -526,13 +552,19 @@ adminRouter.post('/users/:id/force-reset', async (req, res, next) => {
       resourceId: req.params.id,
       familyId: null,
       ipAddress: req.ip,
-      metadata: { targetEmail: user.email, targetName: `${user.firstName} ${user.lastName}` },
+      metadata: {
+        targetEmail: user.email,
+        targetName: `${user.firstName} ${user.lastName}`,
+        invalidateNow,
+      },
     });
 
     res.json({
       success: true,
       data: {
-        message: `Password reset initiated for ${user.firstName} ${user.lastName}. They must set a new password on next login.`,
+        message: `Password reset email sent to ${user.firstName} ${user.lastName}.${
+          invalidateNow ? ' Their current password has been disabled.' : ''
+        }`,
       },
     });
   } catch (error) {

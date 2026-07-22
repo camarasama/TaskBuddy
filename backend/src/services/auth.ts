@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from './database';
 import { config } from '../config';
 import { SessionService, type SessionContext } from './SessionService';
+import { AuditService } from './AuditService';
 import {
   UnauthorizedError,
   NotFoundError,
@@ -15,6 +16,10 @@ import { getAgeGroup } from '@taskbuddy/shared';
 import { generateFamilyCode } from '../utils/familyCode';
 
 const SALT_ROUNDS = 12;
+
+// Password-reset links are single-use and short-lived: a leaked reset email should not remain
+// actionable for long.
+const PASSWORD_RESET_TTL_MS = 60 * 60_000; // 1 hour
 
 // Compared against when no child matches, so an unknown identifier costs the same bcrypt work
 // as a real one. Must be a *valid* cost-SALT_ROUNDS hash (of a discarded random value) — a
@@ -469,6 +474,78 @@ export class AuthService {
     // Changing the password kills every existing session - a stolen refresh token must not
     // outlive the credential the user just rotated.
     await SessionService.revokeAllForUser(userId, 'password_change');
+  }
+
+  /**
+   * Issue a password-reset token for a parent, storing only its sha256 with a short expiry.
+   * Returns the raw token + recipient for the caller to email, or null when there is no active
+   * parent for that email - the caller returns the same generic response either way so the
+   * endpoint never reveals whether an account exists.
+   */
+  async createPasswordResetToken(
+    email: string,
+  ): Promise<{ user: { id: string; email: string; firstName: string; familyId: string | null }; token: string } | null> {
+    const user = await prisma.user.findFirst({
+      where: { email: email.toLowerCase(), role: 'parent', isActive: true, deletedAt: null },
+      select: { id: true, email: true, firstName: true, familyId: true },
+    });
+    if (!user?.email) return null;
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetTokenHash: tokenHash,
+        passwordResetExpiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+      },
+    });
+
+    return { user: { ...user, email: user.email }, token };
+  }
+
+  /**
+   * Complete a password reset: validate the token, set the new password, clear the reset fields
+   * and any lockout, and revoke every existing session. Deliberately does not auto-login - the
+   * user proves the new password by signing in with it.
+   */
+  async resetPassword(token: string, newPassword: string, ctx: { ip?: string } = {}): Promise<void> {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await prisma.user.findFirst({
+      where: { passwordResetTokenHash: tokenHash, deletedAt: null },
+      select: { id: true, role: true, familyId: true, passwordResetExpiresAt: true },
+    });
+
+    // One message for every failure (unknown / expired / non-parent) so nothing is leaked.
+    if (
+      !user ||
+      user.role !== 'parent' ||
+      !user.passwordResetExpiresAt ||
+      user.passwordResetExpiresAt < new Date()
+    ) {
+      throw new UnauthorizedError('Invalid or expired reset token');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordResetTokenHash: null,
+        passwordResetExpiresAt: null,
+        ...CLEAR_LOCKOUT,
+      },
+    });
+
+    await SessionService.revokeAllForUser(user.id, 'password_change');
+    await AuditService.logAction({
+      actorId: user.id,
+      action: 'PASSWORD_RESET',
+      resourceType: 'user',
+      resourceId: user.id,
+      familyId: user.familyId,
+      ipAddress: ctx.ip,
+    });
   }
 
   // Refresh access token

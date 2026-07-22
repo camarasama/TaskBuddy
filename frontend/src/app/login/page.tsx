@@ -106,6 +106,15 @@ export default function LoginPage() {
                   {...register('password')}
                 />
               </div>
+
+              <div className="text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             <Button type="submit" fullWidth size="lg" loading={isLoading}>

@@ -62,6 +62,8 @@ model User {
   emailVerifiedAt             DateTime? @map("email_verified_at")
   emailVerificationToken      String?   @unique @map("email_verification_token")
   emailVerificationExpiresAt  DateTime? @map("email_verification_expires_at")
+  passwordResetTokenHash      String?   @map("password_reset_token_hash")
+  passwordResetExpiresAt      DateTime? @map("password_reset_expires_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
