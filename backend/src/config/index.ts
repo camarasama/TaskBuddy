@@ -26,6 +26,14 @@ export const config = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
 
+  mfa: {
+    // AES-256-GCM key for encrypting admin TOTP secrets at rest (F-9). Any string; a 32-byte hex
+    // value is recommended. Setup/verify fail loudly if this is unset.
+    encryptionKey: process.env.MFA_ENCRYPTION_KEY || '',
+    // Hard-require admin MFA once every admin has enrolled. Default off = grace period.
+    required: process.env.ADMIN_MFA_REQUIRED === 'true',
+  },
+
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
     maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),

@@ -36,7 +36,8 @@ export type EmailTriggerType =
   | 'co_parent_invite'
   | 'child_welcome'
   | 'child_profile_updated'
-  | 'child_locked';
+  | 'child_locked'
+  | 'admin_created';
 
 // ─── Input types ─────────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ export interface SendEmailInput {
   triggerType: EmailTriggerType;
   toEmail: string;
   toUserId: string | null;   // null for pre-registration recipients (invitees)
-  familyId: string;
+  familyId: string | null;   // null for admin-scoped emails (admins have no family)
   subject: string;
   templateData: Record<string, any>;
   referenceType?: string;    // e.g. 'task_assignment', 'reward_redemption'
@@ -114,9 +115,11 @@ function buildFromAddress(): string {
  * Defaults to true if the preferences key is absent (safe default = opt-in).
  */
 async function isNotificationEnabled(
-  familyId: string,
+  familyId: string | null,
   triggerType: EmailTriggerType,
 ): Promise<boolean> {
+  if (!familyId) return true; // admin-scoped email (no family) → not preference-gated
+
   const settings = await prisma.familySettings.findUnique({
     where: { familyId },
     select: { notificationPreferences: true },
@@ -275,7 +278,7 @@ export class EmailService {
 interface LogEmailInput {
   toEmail: string;
   toUserId: string | null;
-  familyId: string;
+  familyId: string | null;
   triggerType: EmailTriggerType;
   subject: string;
   status: 'sent' | 'failed';

@@ -27,6 +27,7 @@ import { buildCoParentInvite } from './coParentInvite';
 import { buildEmailVerification } from './emailVerification';
 import { buildPasswordReset } from './passwordReset';
 import { buildChildAccountLocked } from './childAccountLocked';
+import { buildAdminCreated } from './adminCreated';
 
 // ─── Branding constants ───────────────────────────────────────────────────────
 
@@ -172,6 +173,8 @@ export async function renderTemplate(
       return buildCoParentInvite(data as any);
     case 'child_locked':
       return buildChildAccountLocked(data as any);
+    case 'admin_created':
+      return buildAdminCreated(data as any);
     default:
       throw new Error(`[renderTemplate] Unknown triggerType: ${triggerType}`);
   }

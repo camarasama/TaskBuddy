@@ -20,3 +20,26 @@ export const jwtSignOptions: jwt.SignOptions = {
   issuer: JWT_ISSUER,
   audience: JWT_AUDIENCE,
 };
+
+// F-9: the MFA challenge token bridges "password verified" → "TOTP verified". It carries a distinct
+// audience so it is NOT accepted by authenticate() (which pins audience=taskbuddy) — a stolen mfaToken
+// cannot be used as a session token, only exchanged at POST /auth/mfa.
+export const JWT_MFA_AUDIENCE = 'taskbuddy-mfa';
+
+export function signMfaToken(userId: string, secret: string): string {
+  return jwt.sign({ userId, mfa: 'pending' }, secret, {
+    algorithm: 'HS256',
+    issuer: JWT_ISSUER,
+    audience: JWT_MFA_AUDIENCE,
+    expiresIn: '5m',
+  });
+}
+
+export function verifyMfaToken(token: string, secret: string): { userId: string } {
+  const payload = jwt.verify(token, secret, {
+    algorithms: ['HS256'],
+    issuer: JWT_ISSUER,
+    audience: JWT_MFA_AUDIENCE,
+  }) as { userId: string };
+  return payload;
+}

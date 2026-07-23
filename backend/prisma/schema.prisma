@@ -64,6 +64,8 @@ model User {
   emailVerificationExpiresAt  DateTime? @map("email_verification_expires_at")
   passwordResetTokenHash      String?   @map("password_reset_token_hash")
   passwordResetExpiresAt      DateTime? @map("password_reset_expires_at")
+  mfaSecret                   String?   @map("mfa_secret")        // F-9: AES-256-GCM encrypted TOTP secret (admins)
+  mfaEnabledAt                DateTime? @map("mfa_enabled_at")    // set once the first valid code is verified
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
