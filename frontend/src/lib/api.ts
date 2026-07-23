@@ -407,6 +407,13 @@ export const familyApi = {
       body: JSON.stringify(data),
     }),
 
+  // FR-10: a child sets their own avatar emoji. Scoped to the caller's own profile server-side.
+  setMyAvatarEmoji: (avatarEmoji: string | null) =>
+    request<ApiResponse<{ profile: { userId: string; avatarEmoji: string | null } }>>(
+      '/families/me/my-avatar',
+      { method: 'PUT', body: JSON.stringify({ avatarEmoji }) },
+    ),
+
   updateChild: (childId: string, data: unknown) =>
     request<ApiResponse<unknown>>(`/families/me/children/${childId}`, {
       method: 'PUT',

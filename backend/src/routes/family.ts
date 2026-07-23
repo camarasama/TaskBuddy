@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
-import { CONSENT_VERSIONS } from '@taskbuddy/shared';
+import { CONSENT_VERSIONS, AVATAR_EMOJIS } from '@taskbuddy/shared';
 import { prisma } from '../services/database';
 import { authService } from '../services/auth';
 import { inviteService } from '../services/invite';
-import { authenticate, requireParent, familyIsolation } from '../middleware/auth';
+import { authenticate, requireParent, requireChild, familyIsolation } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
 // M5 - import capacity utility
@@ -43,6 +43,19 @@ const updateChildSchema = z.object({
   lastName: z.string().min(1).max(50).optional(),
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/).optional(),
   avatarUrl: z.string().url().optional(),
+  // FR-10: the schema has carried avatarEmoji since M10 but this endpoint never accepted it, so
+  // there was no way to set it. Constrained to a short string (an emoji can be several code
+  // points — flags and ZWJ sequences are long) and validated against the picker's own list so a
+  // child cannot store arbitrary text where the UI expects a glyph.
+  avatarEmoji: z
+    .string()
+    .min(1)
+    .max(16)
+    .refine((v) => (AVATAR_EMOJIS as readonly string[]).includes(v), {
+      message: 'Not an allowed avatar emoji',
+    })
+    .nullable()
+    .optional(),
   gender: z.enum(['boy', 'girl']).optional(),
 });
 
@@ -424,6 +437,31 @@ familyRouter.get('/me/children/:id', async (req, res, next) => {
   }
 });
 
+/**
+ * PUT /families/me/my-avatar — a child sets their own avatar emoji (FR-10).
+ *
+ * The parent-facing PUT /me/children/:id is requireParent, so a child cannot use it. This route is
+ * scoped to the caller's own profile: it takes no id, deriving the child from the token, so it
+ * cannot be pointed at a sibling.
+ */
+familyRouter.put(
+  '/me/my-avatar',
+  requireChild,
+  validateBody(z.object({ avatarEmoji: updateChildSchema.shape.avatarEmoji })),
+  async (req, res, next) => {
+    try {
+      const profile = await prisma.childProfile.update({
+        where: { userId: req.user!.userId },
+        data: { avatarEmoji: req.body.avatarEmoji ?? null },
+        select: { userId: true, avatarEmoji: true },
+      });
+      res.json({ success: true, data: { profile } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 // PUT /families/me/children/:id - Update a child
 familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSchema), async (req, res, next) => {
   try {
@@ -448,6 +486,11 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
         username: req.body.username?.toLowerCase(),
         avatarUrl: req.body.avatarUrl,
         ...(req.body.gender !== undefined ? { gender: req.body.gender } : {}),
+        // avatarEmoji lives on ChildProfile, not User — nested update, and only when supplied so
+        // an unrelated PUT never clears the child's chosen avatar.
+        ...(req.body.avatarEmoji !== undefined
+          ? { childProfile: { update: { avatarEmoji: req.body.avatarEmoji } } }
+          : {}),
       },
       include: {
         childProfile: true,
