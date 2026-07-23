@@ -3,7 +3,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi, setToken, setAccessToken, getAccessToken } from '@/lib/api';
+import { authApi, setToken, setAccessToken, getAccessToken, bootstrapSession } from '@/lib/api';
 import { subscribeToPush } from '@/lib/pushSubscription';
 
 interface AuthUser {
@@ -55,10 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load user on mount
   useEffect(() => {
     const loadUser = async () => {
-      const token = getAccessToken();
-      if (!token) {
-        setIsLoading(false);
-        return;
+      if (!getAccessToken()) {
+        // No in-memory/stored token. Parent/admin tokens are memory-only (F-5), so on a hard
+        // navigation re-mint from the httpOnly refresh cookie before deciding we're logged out.
+        const bootstrapped = await bootstrapSession();
+        if (!bootstrapped) {
+          setIsLoading(false);
+          return;
+        }
       }
 
       try {
