@@ -33,8 +33,14 @@
     // DEP-02 — serialize-javascript RCE, via workbox-build -> next-pwa@5 (PWA BUILD only).
     "GHSA-5c6j-r48x-rmvq",
 
-    // DEP-03 — postcss XSS, vendored inside next (CSS BUILD only).
-    "GHSA-qx2v-qp2m-jg93",
+    // DEP-03 (postcss XSS, GHSA-qx2v-qp2m-jg93) REMOVED 2026-07-23 — FIXED, not allowlisted.
+    // postcss bumped to ^8.5.22 in frontend + a root `overrides.postcss` so next's vendored copy
+    // collapses to the patched version too. The bump was forced by GHSA-6g55-p6wh-862q (high,
+    // CVSS 7.5: arbitrary file read / info disclosure via an attacker-controlled sourceMappingURL
+    // in a CSS comment, range <=8.5.11), published after this repo's last green run on main.
+    // npm's own "fix" for it was next@9.3.3 — a multi-major DOWNGRADE — so the override is the
+    // correct route. 8.5.22 clears both advisories, which is why the old XSS entry goes with it:
+    // per the note above, a dead allowlist entry is not harmless.
 
     // DEP-04 — minimatch ReDoS x3, via @typescript-eslint -> eslint-config-next@14 (LINT only).
     "GHSA-3ppc-4f35-3m26",
