@@ -180,12 +180,44 @@ async function request<T>(
   return data;
 }
 
+// ─── CSRF (FR-02) ────────────────────────────────────────────────────────────
+// /auth/refresh and /auth/logout are the only endpoints that authenticate from the ambient
+// refreshToken cookie, so they are the only ones needing a CSRF proof. The server issues a
+// readable `csrfToken` cookie alongside every refresh cookie; we echo it back in a header.
+
+export function readCsrfCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)csrfToken=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * Return the CSRF token, fetching one if this client holds a session cookie but no CSRF cookie —
+ * which is exactly the state of every session that predates this feature shipping.
+ */
+async function ensureCsrfToken(): Promise<string | null> {
+  const existing = readCsrfCookie();
+  if (existing) return existing;
+  try {
+    const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: 'include' });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return body?.data?.csrfToken ?? readCsrfCookie();
+  } catch {
+    return null;
+  }
+}
+
 // Token refresh
 async function refreshToken(): Promise<boolean> {
   try {
+    const csrf = await ensureCsrfToken();
     const response = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+      },
       credentials: 'include',
       body: JSON.stringify({}),
     });
@@ -279,10 +311,14 @@ export const authApi = {
       body: JSON.stringify({ token, newPassword }),
     }),
 
-  logout: () =>
-    request<ApiResponse<{ message: string }>>('/auth/logout', {
+  // Cookie-authenticated (FR-02) → must carry the CSRF proof.
+  logout: async () => {
+    const csrf = await ensureCsrfToken();
+    return request<ApiResponse<{ message: string }>>('/auth/logout', {
       method: 'POST',
-    }),
+      headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+    });
+  },
 
   me: () =>
     request<ApiResponse<{ user: LoginResponse['user'] }>>('/auth/me'),
