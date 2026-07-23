@@ -684,6 +684,7 @@ model RefreshSession {
   replacedById      String?   @map("replaced_by_id")
   createdByIp       String?   @map("created_by_ip")
   userAgent         String?   @map("user_agent")
+  deviceId          String?   @map("device_id")                   // F-10g: opaque client device id, traceability only
   createdAt         DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -42,6 +42,7 @@ export interface SessionContext {
   ip?: string;
   userAgent?: string;
   isChild?: boolean;
+  deviceId?: string; // F-10g: opaque client-supplied device id, stored for traceability only
 }
 
 function sha256(value: string): string {
@@ -81,6 +82,7 @@ export const SessionService = {
         absoluteExpiresAt: new Date(now + (ctx.isChild ? CHILD_ABSOLUTE_MS : PARENT_ABSOLUTE_MS)),
         createdByIp: ctx.ip ?? null,
         userAgent: ctx.userAgent ?? null,
+        deviceId: ctx.deviceId ?? null,
       },
     });
   },
@@ -143,6 +145,7 @@ export const SessionService = {
             absoluteExpiresAt: existing.absoluteExpiresAt,
             createdByIp: existing.createdByIp,
             userAgent: existing.userAgent,
+            deviceId: existing.deviceId, // carry the device id across rotations in the chain
           },
         });
       });
