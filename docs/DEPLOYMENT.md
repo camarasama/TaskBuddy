@@ -353,6 +353,45 @@ and any 200 that lost the keyword. Verify manually:
 curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 ```
 
+## Log retention (journald) — F-10f
+
+`morgan('combined')` writes an access line per request to stdout, which systemd captures into
+journald. **Those lines contain client IP addresses, which are personal data under GDPR**, so their
+retention is a privacy commitment, not just an ops setting — `PRIVACY.md` §6.3 states **30 days**.
+
+**Current state: journald runs on stock defaults** — `/etc/systemd/journald.conf` has no
+uncommented settings. Defaults are **size**-bounded (`SystemMaxUse` ≈ 10% of the filesystem, capped
+at 4 GB) with **no time limit**, so entries survive until disk pressure rotates them out. On a
+low-traffic box that can be far longer than 30 days, which would put the deployment out of step with
+the published policy.
+
+**Required setting** (owner, needs sudo):
+
+```bash
+sudo mkdir -p /etc/systemd/journald.conf.d
+sudo tee /etc/systemd/journald.conf.d/taskbuddy-retention.conf >/dev/null <<'EOF'
+# Bound personal data (request IPs from morgan access logs) to the retention period
+# published in PRIVACY.md section 6.3. See docs/DEPLOYMENT.md "Log retention".
+[Journal]
+MaxRetentionSec=30day
+EOF
+sudo systemctl restart systemd-journald
+```
+
+A drop-in is used rather than editing `journald.conf` so the setting survives package upgrades and
+stays visibly ours. Note it is **host-wide** — it also caps GNFS's logs on this shared box; 30 days
+is well beyond what either service needs for debugging.
+
+Verify:
+
+```bash
+systemctl show systemd-journald -p Environment >/dev/null; journalctl --disk-usage
+journalctl -u taskbuddy-backend --no-pager -o short-iso | head -1   # oldest retained entry
+```
+
+If the published retention figure in `PRIVACY.md` §6.3 ever changes, change it here too — they are
+a pair.
+
 ## Gotchas
 
 - **Coexists with GNFS** (node on `:3001`, DB `gnfs`, its own nginx vhosts). TaskBuddy uses
