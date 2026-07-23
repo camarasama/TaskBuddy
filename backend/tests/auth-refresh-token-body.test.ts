@@ -89,9 +89,13 @@ describe('auth routes deliver the refresh token by cookie only, never in the bod
   it('POST /refresh', async () => {
     jest.spyOn(authService, 'refreshToken').mockResolvedValue(TOKENS as never);
 
+    // FR-02: a cookie-driven refresh now also needs a matching CSRF header. Without one this is
+    // 403 by design — that case is covered in csrf.test.ts.
+    const csrf = 'e'.repeat(64);
     const res = await request(app)
       .post('/api/v1/auth/refresh')
-      .set('Cookie', ['refreshToken=some-old-cookie-token'])
+      .set('Cookie', ['refreshToken=some-old-cookie-token', `csrfToken=${csrf}`])
+      .set('X-CSRF-Token', csrf)
       .send({});
 
     expect(res.status).toBe(200);

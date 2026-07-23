@@ -22,6 +22,7 @@ import { SessionService } from '../services/SessionService';
 import { jwtVerifyOptions, signMfaToken, verifyMfaToken } from '../utils/jwt';
 import { hashToken } from '../utils/tokens';
 import { authenticate, requireParent, requireAdmin } from '../middleware/auth';
+import { requireCsrf, issueCsrfCookie, clearCsrfCookie } from '../middleware/csrf';
 import { uploadPhoto } from '../middleware/upload';
 import { uploadFile } from '../services/storage';
 import { prisma } from '../services/database';
@@ -265,6 +266,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
     );
 
     res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
+    issueCsrfCookie(res);
 
     res.status(201).json({
       success: true,
@@ -301,6 +303,7 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
     });
 
     res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
+    issueCsrfCookie(res);
 
     res.json({
       success: true,
@@ -370,6 +373,7 @@ authRouter.post('/mfa/challenge', validateBody(mfaChallengeSchema), async (req, 
       metadata: { mfa: true },
     });
     res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
+    issueCsrfCookie(res);
     res.json({
       success: true,
       data: { ...result, tokens: withoutRefreshToken(result.tokens) },
@@ -398,6 +402,7 @@ authRouter.post('/child/login', validateBody(childLoginSchema), async (req, res,
     });
 
     res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions(true));
+    issueCsrfCookie(res);
 
     res.json({
       success: true,
@@ -541,6 +546,7 @@ authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, 
     );
 
     res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
+    issueCsrfCookie(res);
 
     res.status(201).json({
       success: true,
@@ -552,7 +558,16 @@ authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, 
 });
 
 // POST /auth/refresh - Refresh access token
-authRouter.post('/refresh', validateBody(refreshSchema), async (req, res, next) => {
+// GET /auth/csrf-token - issue (or re-issue) the double-submit CSRF token.
+// Public and safe: the token authorises nothing on its own — it is only meaningful when paired
+// with the caller's own refresh cookie. Clients call this when they hold a session cookie but no
+// csrfToken cookie, e.g. a session that predates this feature shipping.
+authRouter.get('/csrf-token', (_req, res) => {
+  const csrfToken = issueCsrfCookie(res);
+  res.json({ success: true, data: { csrfToken } });
+});
+
+authRouter.post('/refresh', requireCsrf, validateBody(refreshSchema), async (req, res, next) => {
   try {
     const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
@@ -562,6 +577,7 @@ authRouter.post('/refresh', validateBody(refreshSchema), async (req, res, next) 
     const isChild = decoded?.role === 'child';
 
     res.cookie('refreshToken', tokens.refreshToken, getCookieOptions(isChild));
+    issueCsrfCookie(res);
 
     res.json({
       success: true,
@@ -771,7 +787,7 @@ authRouter.post('/reset-password', validateBody(resetPasswordSchema), async (req
 });
 
 // POST /auth/logout - Logout
-authRouter.post('/logout', async (req, res) => {
+authRouter.post('/logout', requireCsrf, async (req, res) => {
   // Revoke the server-side session so the refresh token is dead even if it was captured. Logout
   // must always succeed, so an unknown/absent token is a no-op rather than an error.
   await SessionService.revokeByToken(req.cookies?.refreshToken, 'logout').catch((err) =>
@@ -779,6 +795,7 @@ authRouter.post('/logout', async (req, res) => {
   );
 
   res.clearCookie('refreshToken', getCookieOptions());
+  clearCsrfCookie(res);
 
   res.json({
     success: true,
