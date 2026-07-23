@@ -132,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setToken(response.data.tokens.accessToken, response.data.user.role);
     setUser(response.data.user as AuthUser);
+    subscribeToPush().catch(() => {}); // fire-and-forget, as on the parent/admin paths
     router.push('/child/dashboard');
   }, [router]);
 

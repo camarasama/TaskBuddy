@@ -866,6 +866,24 @@ export const notificationsApi = {
   getUnreadCount: () =>
     request<{ count: number }>('/notifications/unread-count'),
 
+  /**
+   * Push subscribe/unsubscribe go through `request` like everything else so they inherit the
+   * single source of truth for the access token. They used to call `fetch` directly and read
+   * `localStorage.accessToken`, which is empty for parent/admin sessions (memory-only since the
+   * F-5 storage policy above) — so every parent push subscription silently 401'd.
+   */
+  subscribePush: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    request<{ subscribed: boolean }>('/notifications/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(sub),
+    }),
+
+  unsubscribePush: (endpoint: string) =>
+    request<{ unsubscribed: boolean }>('/notifications/push/unsubscribe', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint }),
+    }),
+
   markRead: (id: string) =>
     request<{ notification: NotificationItem; unreadCount: number }>(`/notifications/${id}/read`, {
       method: 'PUT',
