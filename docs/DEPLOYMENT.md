@@ -125,17 +125,29 @@ sudo -u taskbuddy env PATH=$N22:$PATH npm run db:generate
 
 sudo -u taskbuddy env PATH=$N22:$PATH npm run build:backend  # after backend changes
 sudo -u taskbuddy env PATH=$N22:$PATH npm run build:frontend # after frontend changes OR any NEXT_PUBLIC_* change
+
+# --- one-off DATA-migration scripts (if the deploy ships any) — AFTER migrate:prod AND after the ---
+# --- build, BEFORE restart. They query the new columns and run from compiled dist/. Idempotent.  ---
+# e.g. F-4 private evidence:
+# sudo -u taskbuddy env PATH=$N22:$PATH node backend/dist/scripts/migrate-evidence-private.js
+
 sudo systemctl restart taskbuddy-backend
 sudo systemctl restart taskbuddy-frontend
 ```
 
-**Two ordering traps around schema changes** — both bite at request time, not deploy time, so the
+**Three ordering traps around schema changes** — all bite at request time, not deploy time, so the
 deploy looks clean and the app breaks for real users:
 
 1. **Migrate before restarting.** Reversed, the new code queries columns that do not exist yet.
 2. **`db:generate` is not part of `build:backend`.** Only the root `npm run build` chains it
    (`db:generate && build:backend && build:frontend`), so building the backend alone leaves the
    generated Prisma client blind to new columns. Run it explicitly, or use the full `npm run build`.
+3. **One-off DATA-migration scripts run last (after `migrate:prod` + build), not first.** A script
+   like `backend/dist/scripts/migrate-evidence-private.js` reads the columns the schema migration
+   adds and runs from compiled `dist/` — so it needs BOTH `db:migrate:prod` and the build to have
+   happened. Run before `migrate:prod` it dies with `P2022: column … does not exist` (this bit the
+   F-4 evidence migration on 2026-07-23). These scripts are written idempotent, so a failed early
+   run is safe to re-run once ordered correctly.
 
 Take a fresh backup before any migration: `sudo systemctl start taskbuddy-backup.service`.
 
