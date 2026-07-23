@@ -19,13 +19,13 @@ import { z } from 'zod';
 import { authService } from '../services/auth';
 import { inviteService } from '../services/invite';
 import { SessionService } from '../services/SessionService';
-import { jwtVerifyOptions } from '../utils/jwt';
+import { jwtVerifyOptions, signMfaToken, verifyMfaToken } from '../utils/jwt';
 import { hashToken } from '../utils/tokens';
-import { authenticate, requireParent } from '../middleware/auth';
+import { authenticate, requireParent, requireAdmin } from '../middleware/auth';
 import { uploadPhoto } from '../middleware/upload';
 import { uploadFile } from '../services/storage';
 import { prisma } from '../services/database';
-import { ConflictError, NotFoundError } from '../middleware/errorHandler';
+import { ConflictError, NotFoundError, UnauthorizedError } from '../middleware/errorHandler';
 import { validateBody } from '../middleware/validate';
 import { VALIDATION } from '@taskbuddy/shared';
 // M8 - Audit logging for auth events
@@ -265,6 +265,13 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
       userAgent: req.headers['user-agent'],
     });
 
+    // F-9: MFA-enrolled admin — password was correct but no session is issued yet. Hand back a
+    // short-lived challenge token; the client finishes at POST /auth/mfa/challenge with a TOTP code.
+    if ('mfaRequired' in result) {
+      const mfaToken = signMfaToken(result.user.id, config.jwt.secret);
+      return res.json({ success: true, data: { mfaRequired: true, mfaToken } });
+    }
+
     // M8 - Audit: parent login event
     await AuditService.logAction({
       actorId: result.user.id,
@@ -277,6 +284,74 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
 
     res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
 
+    res.json({
+      success: true,
+      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Admin MFA (F-9) ─────────────────────────────────────────────────────────
+
+const mfaCodeSchema = z.object({ code: z.string().min(6).max(10) });
+const mfaChallengeSchema = z.object({
+  mfaToken: z.string().min(10),
+  code: z.string().min(6).max(10),
+});
+
+// POST /auth/mfa/setup - begin enrollment; returns an otpauth:// URL for the authenticator app.
+authRouter.post('/mfa/setup', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { otpauthUrl } = await authService.setupMfa(req.user!.userId);
+    res.json({ success: true, data: { otpauthUrl } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /auth/mfa/enable - confirm enrollment with the first code; enables MFA on the account.
+authRouter.post('/mfa/enable', authenticate, requireAdmin, validateBody(mfaCodeSchema), async (req, res, next) => {
+  try {
+    await authService.confirmMfa(req.user!.userId, req.body.code);
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'MFA_ENABLED',
+      resourceType: 'user',
+      resourceId: req.user!.userId,
+      familyId: null,
+      ipAddress: req.ip,
+    });
+    res.json({ success: true, data: { message: 'MFA enabled.' } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /auth/mfa/challenge - finish an MFA login: exchange the challenge token + TOTP code for a session.
+authRouter.post('/mfa/challenge', validateBody(mfaChallengeSchema), async (req, res, next) => {
+  try {
+    let userId: string;
+    try {
+      ({ userId } = verifyMfaToken(req.body.mfaToken, config.jwt.secret));
+    } catch {
+      throw new UnauthorizedError('MFA session expired. Please log in again.');
+    }
+    const result = await authService.verifyMfaAndLogin(userId, req.body.code, {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+    await AuditService.logAction({
+      actorId: result.user.id,
+      action: 'LOGIN',
+      resourceType: 'user',
+      resourceId: result.user.id,
+      familyId: result.user.familyId,
+      ipAddress: req.ip,
+      metadata: { mfa: true },
+    });
+    res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
     res.json({
       success: true,
       data: { ...result, tokens: withoutRefreshToken(result.tokens) },
@@ -810,19 +885,60 @@ authRouter.post('/admin/register', validateBody(adminRegisterSchema), async (req
       });
     }
 
+    // Gate 3 (F-9 invite hardening): once ANY admin exists, the static invite code alone is not
+    // enough — an existing admin must be signed in to create another. The very first admin is still
+    // bootstrapped by the invite code alone.
+    const adminCount = await prisma.user.count({ where: { role: 'admin', deletedAt: null } });
+    if (adminCount > 0) {
+      const bearer = req.headers.authorization?.split(' ')[1];
+      let requester: { role?: string } | null = null;
+      try {
+        requester = bearer ? (jwt.verify(bearer, config.jwt.secret, jwtVerifyOptions) as { role?: string }) : null;
+      } catch {
+        requester = null;
+      }
+      if (!requester || requester.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          error: { message: 'An existing admin must be signed in to create another admin.' },
+        });
+      }
+    }
+
     // Create the admin user (no family, no child profile)
     const result = await authService.registerAdmin({ email, password, firstName, lastName });
 
     // M8 - Audit: admin account created
     await AuditService.logAction({
       actorId: result.user.id,
-      action: 'REGISTER',
+      action: 'ADMIN_CREATED',
       resourceType: 'user',
       resourceId: result.user.id,
       familyId: null,
       ipAddress: req.ip,
       metadata: { email: result.user.email, role: 'admin' },
     });
+
+    // F-9: notify every existing admin that a new admin was created (high-privilege event).
+    const otherAdmins = await prisma.user.findMany({
+      where: { role: 'admin', deletedAt: null, isActive: true, id: { not: result.user.id } },
+      select: { email: true, firstName: true },
+    });
+    await Promise.allSettled(
+      otherAdmins
+        .filter((a) => a.email)
+        .map((a) =>
+          EmailService.send({
+            triggerType: 'admin_created',
+            toEmail: a.email as string,
+            toUserId: null,
+            familyId: null,
+            subject: 'A new TaskBuddy admin account was created',
+            templateData: { adminFirstName: a.firstName, newAdminEmail: result.user.email },
+            skipPreferenceCheck: true,
+          }).catch(() => {}),
+        ),
+    );
 
     res.status(201).json({
       success: true,

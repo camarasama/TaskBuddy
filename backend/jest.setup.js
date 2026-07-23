@@ -10,3 +10,5 @@ process.env.ADMIN_INVITE_CODE ||= 'test-admin-invite-code';
 process.env.R2_ACCOUNT_ID ||= 'test-account';
 process.env.R2_ACCESS_KEY_ID ||= 'a'.repeat(32);
 process.env.R2_SECRET_ACCESS_KEY ||= 'test-secret-access-key';
+// Dummy AES key so admin-MFA secret encryption works in tests (local crypto, no network).
+process.env.MFA_ENCRYPTION_KEY ||= 'test-mfa-encryption-key-000000000000000000';

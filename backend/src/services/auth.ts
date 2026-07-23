@@ -7,6 +7,7 @@ import { SessionService, type SessionContext } from './SessionService';
 import { AuditService } from './AuditService';
 import { EmailService } from './email';
 import { jwtVerifyOptions, jwtSignOptions } from '../utils/jwt';
+import { encryptSecret, decryptSecret, generateMfaSecret, mfaKeyUri, verifyMfaCode } from '../utils/mfa';
 import {
   UnauthorizedError,
   NotFoundError,
@@ -250,7 +251,19 @@ export class AuthService {
       data: { lastLoginAt: new Date(), ...CLEAR_LOCKOUT },
     });
 
-    // Generate tokens (parent uses standard expiry)
+    // F-9: an admin who has enrolled in MFA must clear a TOTP challenge before receiving any session.
+    // Return an mfaRequired signal (NO tokens, NO RefreshSession); the route mints a short-lived mfa
+    // challenge token and the client finishes at POST /auth/mfa.
+    if (user.role === 'admin' && user.mfaEnabledAt) {
+      const { passwordHash: _p, mfaSecret: _s, ...safe } = user;
+      return { mfaRequired: true as const, user: safe };
+    }
+
+    return this.issueSession(user, ctx);
+  }
+
+  /** Mint tokens + create the refresh session for an already-authenticated user. */
+  private async issueSession(user: any, ctx: SessionContext) {
     const tokens = this.generateTokens({
       userId: user.id,
       familyId: user.familyId!,
@@ -258,15 +271,49 @@ export class AuthService {
       ageGroup: user.childProfile?.ageGroup || undefined,
     });
     await SessionService.create(user.id, tokens.refreshToken, { ...ctx, isChild: false });
+    const { passwordHash: _, mfaSecret: _s, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword, profile: user.childProfile, tokens };
+  }
 
-    // Remove sensitive data
-    const { passwordHash: _, ...userWithoutPassword } = user;
+  /** Begin MFA enrollment: generate + store an encrypted (not-yet-enabled) secret, return the URI. */
+  async setupMfa(userId: string): Promise<{ otpauthUrl: string }> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'admin') throw new UnauthorizedError('Admins only');
+    const secret = generateMfaSecret();
+    await prisma.user.update({
+      where: { id: userId },
+      data: { mfaSecret: encryptSecret(secret), mfaEnabledAt: null }, // stays disabled until verified
+    });
+    return { otpauthUrl: mfaKeyUri(user.email ?? user.id, secret) };
+  }
 
-    return {
-      user: userWithoutPassword,
-      profile: user.childProfile,
-      tokens,
-    };
+  /** Finish MFA enrollment: verify the first code, then mark MFA enabled. */
+  async confirmMfa(userId: string, code: string): Promise<void> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.mfaSecret) throw new ValidationError('Start MFA setup first');
+    if (!verifyMfaCode(decryptSecret(user.mfaSecret), code)) {
+      throw new UnauthorizedError('Invalid authentication code');
+    }
+    await prisma.user.update({ where: { id: userId }, data: { mfaEnabledAt: new Date() } });
+  }
+
+  /**
+   * Complete an admin MFA login: verify the TOTP code against the stored secret and, on success,
+   * issue a real session. Throws UnauthorizedError on any failure.
+   */
+  async verifyMfaAndLogin(userId: string, code: string, ctx: SessionContext = {}) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { family: true, childProfile: true },
+    });
+    if (!user || user.role !== 'admin' || !user.mfaEnabledAt || !user.mfaSecret) {
+      throw new UnauthorizedError('MFA is not enabled for this account');
+    }
+    if (!verifyMfaCode(decryptSecret(user.mfaSecret), code)) {
+      throw new UnauthorizedError('Invalid authentication code');
+    }
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    return this.issueSession(user, ctx);
   }
 
   // Child login with family code (ADJECTIVE-ANIMAL-NNNN) and PIN
