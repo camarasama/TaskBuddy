@@ -514,4 +514,119 @@ export class TaskService {
       return { assignment: updated };
     }
   }
+
+  /**
+   * Revoke a previously APPROVED assignment and claw the points back (FR-03).
+   *
+   * The roadmap assumed this already existed ("points rolled back on re-reject"). It did not:
+   * approveAssignment only ever matches `status: 'completed'`, so an approved assignment could
+   * never be re-rejected and there was no rollback path to test.
+   *
+   * Decisions, because this one has real consequences for a child:
+   *
+   *  - The reversal is a NEW negative ledger row, never an update or delete of the original. The
+   *    ledger is append-only and `balance == sum(entries)` is the invariant the tests pin; mutating
+   *    history to make the arithmetic tidy would break exactly the property that makes the ledger
+   *    trustworthy.
+   *  - The balance MAY go negative, when the child has already spent the points. That is the honest
+   *    outcome: clamping at zero would silently let them keep value that was withdrawn, and would
+   *    break `balance == sum(entries)`. Redemption already checks affordability, so a negative
+   *    balance blocks further spending until it is earned back rather than corrupting anything.
+   *  - XP and totals are reversed too, but the child's LEVEL is left alone. De-levelling a child
+   *    for a parent's correction is punitive and would cascade through achievements and level-up
+   *    bonuses already granted.
+   */
+  static async revokeApproval(params: {
+    assignmentId: string;
+    familyId: string;
+    parentId: string;
+    reason?: string;
+    ipAddress?: string;
+  }) {
+    const { assignmentId, familyId, parentId, reason, ipAddress } = params;
+
+    const assignment = await prisma.taskAssignment.findFirst({
+      where: { id: assignmentId, status: 'approved', task: { familyId, deletedAt: null } },
+      include: { task: true, child: { include: { childProfile: true } } },
+    });
+
+    if (!assignment) throw new NotFoundError('Approved assignment not found');
+
+    const profile = assignment.child.childProfile!;
+    const points = assignment.pointsAwarded ?? 0;
+    const xp = assignment.xpAwarded ?? 0;
+    const newBalance = profile.pointsBalance - points;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedAssignment = await tx.taskAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          status: 'rejected',
+          rejectionReason: reason ?? 'Approval revoked by parent',
+          approvedAt: null,
+          approvedBy: null,
+          pointsAwarded: 0,
+          xpAwarded: 0,
+        },
+      });
+
+      await tx.childProfile.update({
+        where: { userId: assignment.childId },
+        data: {
+          pointsBalance: newBalance,
+          totalPointsEarned: { decrement: points },
+          totalTasksCompleted: { decrement: 1 },
+          experiencePoints: { decrement: xp },
+          totalXpEarned: { decrement: xp },
+        },
+      });
+
+      await tx.pointsLedger.create({
+        data: {
+          childId: assignment.childId,
+          transactionType: 'adjustment',
+          pointsAmount: -points,
+          balanceAfter: newBalance,
+          referenceType: 'task_completion',
+          referenceId: assignment.id,
+          description: `Approval revoked: ${assignment.task.title}`,
+          createdBy: parentId,
+          breakdown: { points: -points, xp: -xp },
+        },
+      });
+
+      return { assignment: updatedAssignment, pointsReversed: points, xpReversed: xp, newBalance };
+    });
+
+    await AuditService.logAction({
+      actorId: parentId,
+      action: 'REVOKE_APPROVAL',
+      resourceType: 'task_assignment',
+      resourceId: assignmentId,
+      familyId,
+      ipAddress,
+      metadata: {
+        childId: assignment.childId,
+        taskId: assignment.taskId,
+        pointsReversed: points,
+        xpReversed: xp,
+        newBalance,
+        wentNegative: newBalance < 0,
+        reason: reason ?? null,
+      },
+    });
+
+    createNotification({
+      userId: assignment.childId,
+      notificationType: 'task_rejected',
+      title: 'A task approval was changed',
+      message: `"${assignment.task.title}" was un-approved and ${points} pts were removed.${reason ? ` Reason: ${reason}` : ''}`,
+      actionUrl: '/child/tasks',
+      referenceType: 'task_assignment',
+      referenceId: assignment.id,
+    }).catch(() => {});
+
+    return result;
+  }
+
 }

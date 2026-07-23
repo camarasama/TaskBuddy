@@ -694,6 +694,30 @@ taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTa
   }
 });
 
+// PUT /tasks/assignments/:id/revoke-approval - Undo an approval and claw the points back (FR-03).
+// Separate from /approve on purpose: /approve only ever matches a `completed` assignment, and
+// conflating "judge a submission" with "reverse a judgement already made" in one endpoint would
+// make it easy to reverse an approval by accident.
+taskRouter.put(
+  '/assignments/:id/revoke-approval',
+  requireParent,
+  validateBody(z.object({ reason: z.string().min(1).max(500).optional() })),
+  async (req, res, next) => {
+    try {
+      const result = await TaskService.revokeApproval({
+        assignmentId: req.params.id,
+        familyId: req.familyId!,
+        parentId: req.user!.userId,
+        reason: req.body.reason,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 // PUT /tasks/assignments/:id/reset - Reset a completed/approved assignment back to pending
 taskRouter.put('/assignments/:id/reset', requireParent, async (req, res, next) => {
   try {
