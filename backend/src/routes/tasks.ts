@@ -32,6 +32,7 @@ import { z } from 'zod';
 import { prisma } from '../services/database';
 import { authenticate, requireParent, requireAuth, familyIsolation } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validate';
+import { toSkipTake, buildMeta } from '../utils/pagination';
 import { NotFoundError, ForbiddenError, ConflictError } from '../middleware/errorHandler';
 import { difficultyFromPoints } from '@taskbuddy/shared';
 import { uploadPhoto } from '../middleware/upload';
@@ -152,7 +153,11 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
       };
     }
 
+    const { skip, take, page, limit } = toSkipTake(req.query);
+    const total = await prisma.task.count({ where });
     const tasks = await prisma.task.findMany({
+      skip,
+      take,
       where,
       include: {
         creator: {
@@ -216,13 +221,13 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
 
       return res.json({
         success: true,
-        data: { tasks: tasksWithFlags, hasPendingPrimaries },
+        data: { tasks: tasksWithFlags, hasPendingPrimaries, pagination: buildMeta(total, page, limit) },
       });
     }
 
     res.json({
       success: true,
-      data: { tasks },
+      data: { tasks, pagination: buildMeta(total, page, limit) },
     });
   } catch (error) {
     next(error);
@@ -524,7 +529,11 @@ taskRouter.get('/assignments/me', async (req, res, next) => {
       deletedAt: null,
     };
 
+    const { skip, take, page, limit } = toSkipTake(req.query);
+    const total = await prisma.taskAssignment.count({ where });
     const assignments = await prisma.taskAssignment.findMany({
+      skip,
+      take,
       where,
       include: {
         task: true,
@@ -545,7 +554,7 @@ taskRouter.get('/assignments/me', async (req, res, next) => {
 
     res.json({
       success: true,
-      data: { assignments },
+      data: { assignments, pagination: buildMeta(total, page, limit) },
     });
   } catch (error) {
     next(error);
@@ -719,7 +728,15 @@ taskRouter.put('/assignments/:id/reset', requireParent, async (req, res, next) =
 // GET /tasks/assignments/pending - Get pending approvals (parents only)
 taskRouter.get('/assignments/pending', requireParent, async (req, res, next) => {
   try {
+    const pendingWhere = {
+      status: 'completed' as const,
+      task: { familyId: req.familyId, deletedAt: null },
+    };
+    const { skip, take, page, limit } = toSkipTake(req.query);
+    const total = await prisma.taskAssignment.count({ where: pendingWhere });
     const assignments = await prisma.taskAssignment.findMany({
+      skip,
+      take,
       where: {
         status: 'completed',
         task: {
@@ -743,7 +760,7 @@ taskRouter.get('/assignments/pending', requireParent, async (req, res, next) => 
 
     res.json({
       success: true,
-      data: { assignments },
+      data: { assignments, pagination: buildMeta(total, page, limit) },
     });
   } catch (error) {
     next(error);
