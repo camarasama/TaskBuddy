@@ -151,6 +151,20 @@ describe('withEvidenceUrls() presigns on read (F-4)', () => {
     expect(out.thumbnailUrl).toContain('_thumb.jpg');
   });
 
+  it('presigns for 5 minutes — the short life IS the access control (F-4)', async () => {
+    // Without this, a regression lengthening or dropping the TTL would pass CI silently, and a
+    // leaked evidence URL would go back to being long-lived — the exact F-4 failure mode.
+    process.env.STORAGE_PROVIDER = 'r2';
+    const row = { fileKey: 'evidence/x.jpg', thumbnailKey: null, fileUrl: '', thumbnailUrl: '' };
+    await withEvidenceUrls(row);
+
+    expect(signMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ expiresIn: 300 }),
+    );
+  });
+
   it('falls back to the file URL when there is no thumbnail key', async () => {
     process.env.STORAGE_PROVIDER = 'r2';
     const row = { fileKey: 'evidence/x.jpg', thumbnailKey: null, fileUrl: '', thumbnailUrl: '' };
