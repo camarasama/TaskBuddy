@@ -657,10 +657,10 @@ authRouter.post('/verify-email', async (req, res, next) => {
     const { token } = req.body as { token?: string };
     if (!token) throw new NotFoundError('Verification token is required');
 
-    // Dual-read: hashed form for tokens minted after this shipped, raw for any still-valid
-    // pre-existing token (they expire within 24h, so the raw branch is dead within a day).
+    // Hashed lookup only (F-7). The transitional raw-token branch was removed once every
+    // pre-hashing token had expired — see the dual-read window note in docs/DEPLOYMENT.md.
     const user = await prisma.user.findFirst({
-      where: { emailVerificationToken: { in: [hashToken(token), token] } },
+      where: { emailVerificationToken: hashToken(token) },
       select: { id: true, emailVerificationExpiresAt: true, emailVerifiedAt: true },
     });
 
