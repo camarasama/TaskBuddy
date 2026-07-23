@@ -125,6 +125,13 @@ export const NOTIFICATION_TYPES = {
   SECURITY_ALERT: 'security_alert',
 } as const;
 
+// Consent document versions recorded on the CONSENT audit event (GDPR-K).
+// Bump when the ToS or Privacy Policy materially changes so re-consent can be required.
+export const CONSENT_VERSIONS = {
+  tos: '1.0',
+  privacy: '1.0',
+} as const;
+
 // Age groups
 export const AGE_GROUPS = {
   YOUNGER: '10-12',

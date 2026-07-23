@@ -27,7 +27,7 @@ import { uploadFile } from '../services/storage';
 import { prisma } from '../services/database';
 import { ConflictError, NotFoundError, UnauthorizedError } from '../middleware/errorHandler';
 import { validateBody } from '../middleware/validate';
-import { VALIDATION } from '@taskbuddy/shared';
+import { VALIDATION, CONSENT_VERSIONS } from '@taskbuddy/shared';
 // M8 - Audit logging for auth events
 import { AuditService } from '../services/AuditService';
 // M9 - Email notifications
@@ -203,6 +203,17 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
       familyId: result.user.familyId,
       ipAddress: req.ip,
       metadata: { email: result.user.email, familyName: req.body.familyName },
+    });
+
+    // GDPR-K: record the parent's consent to the current ToS + Privacy Policy at registration.
+    await AuditService.logAction({
+      actorId: result.user.id,
+      action: 'CONSENT',
+      resourceType: 'user',
+      resourceId: result.user.id,
+      familyId: result.user.familyId,
+      ipAddress: req.ip,
+      metadata: { tosVersion: CONSENT_VERSIONS.tos, privacyVersion: CONSENT_VERSIONS.privacy, context: 'register' },
     });
 
     // Generate verification token first so both emails can include it

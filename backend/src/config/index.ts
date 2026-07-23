@@ -34,6 +34,14 @@ export const config = {
     required: process.env.ADMIN_MFA_REQUIRED === 'true',
   },
 
+  retention: {
+    // GDPR-K hard-delete. DISABLED by default: the retention job only logs what it *would* purge
+    // until this is explicitly turned on. Flip to true once verified against real soft-deleted data.
+    purgeEnabled: process.env.RETENTION_PURGE_ENABLED === 'true',
+    // Days a soft-deleted family/user is kept before hard deletion.
+    days: parseInt(process.env.RETENTION_DAYS || '30', 10),
+  },
+
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
     maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),

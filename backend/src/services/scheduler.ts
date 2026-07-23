@@ -16,6 +16,7 @@
 import cron from 'node-cron';
 import { RewardService } from './RewardService';
 import { SessionService } from './SessionService';
+import { RetentionService } from './RetentionService';
 import { prisma } from './database';
 import { createNotification } from '../routes/notifications';
 import { EmailService } from './email';
@@ -67,6 +68,17 @@ export function initScheduler(): void {
       if (removed > 0) console.log(`[Scheduler] Swept ${removed} expired refresh session(s)`);
     } catch (error) {
       console.error('[Scheduler] Error in refresh-session sweep:', error);
+    }
+  }, { timezone: 'UTC' });
+
+  // ─── Daily GDPR-K retention purge (04:00 UTC) ─────────────────────────────
+  // Hard-deletes families soft-deleted longer than the retention window. No-op (logs only) unless
+  // RETENTION_PURGE_ENABLED=true, so it is safe to run from day one.
+  cron.schedule('0 4 * * *', async () => {
+    try {
+      await RetentionService.runRetention();
+    } catch (error) {
+      console.error('[Scheduler] Error in retention purge:', error);
     }
   }, { timezone: 'UTC' });
 
