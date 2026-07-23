@@ -152,3 +152,19 @@ export function getAgeGroup(birthDate: Date): '10-12' | '13-16' | null {
   if (age >= 13 && age <= 16) return '13-16';
   return null;
 }
+
+/**
+ * FR-10: the avatar emoji a child can pick for themselves.
+ *
+ * Deliberately a fixed allow-list rather than free text. The field is child-controlled and shown to
+ * the whole family, so an open string would be a small user-generated-content surface on an app for
+ * 10-16 year olds. Backend validation and the picker grid both read this constant, so they cannot
+ * drift apart.
+ */
+export const AVATAR_EMOJIS = [
+  '🦊', '🐼', '🐨', '🦁', '🐯', '🐸', '🐵', '🦄',
+  '🐙', '🦖', '🦋', '🐬', '🦉', '🐢', '🐝', '🦜',
+  '⚽', '🎨', '🎸', '🚀', '⭐', '🌈', '🔥', '🍕',
+] as const;
+
+export type AvatarEmoji = (typeof AVATAR_EMOJIS)[number];
