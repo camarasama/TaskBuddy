@@ -37,6 +37,63 @@ describe('CSP + security headers (F-5, Phase 4)', () => {
   });
 });
 
+describe('CSP connect-src carries the Sentry ingest origin (OI-2 prep)', () => {
+  const config = require('../next.config.js');
+  const original = process.env.NEXT_PUBLIC_SENTRY_DSN;
+
+  const cspWithDsn = async (dsn: string | undefined) => {
+    if (dsn === undefined) delete process.env.NEXT_PUBLIC_SENTRY_DSN;
+    else process.env.NEXT_PUBLIC_SENTRY_DSN = dsn;
+    const rules = await config.headers();
+    const map: Record<string, string> = Object.fromEntries(
+      rules[0].headers.map((h: { key: string; value: string }) => [h.key, h.value]),
+    );
+    return map['Content-Security-Policy-Report-Only'];
+  };
+
+  const connectSrcOf = (csp: string) =>
+    csp.split('; ').find((d) => d.startsWith('connect-src')) as string;
+
+  afterAll(() => {
+    if (original === undefined) delete process.env.NEXT_PUBLIC_SENTRY_DSN;
+    else process.env.NEXT_PUBLIC_SENTRY_DSN = original;
+  });
+
+  it('adds the ingest origin to connect-src when a DSN is configured', async () => {
+    const csp = await cspWithDsn('https://abc123publickey@o4507.ingest.sentry.io/4508');
+    expect(connectSrcOf(csp)).toContain('https://o4507.ingest.sentry.io');
+  });
+
+  it('never leaks the DSN public key or path into the header', async () => {
+    const csp = await cspWithDsn('https://abc123publickey@o4507.ingest.sentry.io/4508');
+    expect(csp).not.toContain('abc123publickey');
+    expect(csp).not.toContain('/4508');
+  });
+
+  it('adds nothing when Sentry is disabled (DSN unset)', async () => {
+    const csp = await cspWithDsn(undefined);
+    expect(connectSrcOf(csp)).toBe(
+      "connect-src 'self' https://api.gettaskbuddy.com wss://api.gettaskbuddy.com",
+    );
+  });
+
+  it('adds nothing for an unparseable or non-https DSN rather than poisoning connect-src', async () => {
+    for (const bad of ['not-a-url', 'http://o1.ingest.sentry.io/2', '']) {
+      const csp = await cspWithDsn(bad);
+      expect(connectSrcOf(csp)).toBe(
+        "connect-src 'self' https://api.gettaskbuddy.com wss://api.gettaskbuddy.com",
+      );
+    }
+  });
+
+  it('is still Report-Only — the OI-2 enforce flip is deliberately NOT taken here', async () => {
+    const rules = await config.headers();
+    const keys = rules[0].headers.map((h: { key: string }) => h.key);
+    expect(keys).toContain('Content-Security-Policy-Report-Only');
+    expect(keys).not.toContain('Content-Security-Policy');
+  });
+});
+
 describe('access-token storage policy (F-5): parent/admin memory-only, child persisted', () => {
   beforeEach(() => {
     (global as unknown as { window: object }).window = {};
