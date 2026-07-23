@@ -39,6 +39,9 @@ interface AuthContextType {
     gender?: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
+  // Soft-logout for children: clears the session but KEEPS the saved family code + name, then
+  // routes to the child login (which resumes at the PIN step). Used by the inactivity guard.
+  softLogout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -144,6 +147,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router]);
 
+  // Soft-logout: end the session but preserve the child's saved credentials (family code + name in
+  // localStorage) so re-entry needs only the PIN. Full `logout()` sends them home; this keeps them
+  // on the child login flow.
+  const softLogout = useCallback(async () => {
+    try {
+      await authApi.logout();
+    } finally {
+      setAccessToken(null);
+      setUser(null);
+      router.push('/child/login');
+    }
+  }, [router]);
+
   const refreshUser = useCallback(async () => {
     try {
       const response = await authApi.me();
@@ -169,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     childLogin,
     register,
     logout,
+    softLogout,
     refreshUser,
   };
 
