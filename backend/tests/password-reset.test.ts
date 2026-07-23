@@ -23,6 +23,12 @@ jest.mock('../src/services/AuditService', () => ({
 jest.mock('../src/services/email', () => ({
   EmailService: { send: jest.fn().mockResolvedValue(undefined) },
 }));
+// The reset route also runs the HIBP breached-password check, which is a live network call.
+// Stubbed to "not breached" so these tests assert length validation only, and so the suite does
+// not depend on outbound network access in CI. HIBP behaviour has its own tests.
+jest.mock('../src/utils/passwordBreach', () => ({
+  isPasswordBreached: jest.fn().mockResolvedValue(false),
+}));
 
 import { app } from '../src/index';
 import { authService } from '../src/services/auth';
@@ -109,6 +115,25 @@ describe('AuthService.resetPassword', () => {
     findUser.mockResolvedValue({ id: 'c1', role: 'child', familyId: 'f1', passwordResetExpiresAt: futureExpiry() });
     await expect(authService.resetPassword('t', 'NewPassw0rd!')).rejects.toThrow(/invalid or expired/i);
     expect(updateUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /auth/reset-password enforces the 10-character floor (F-10i)', () => {
+  // Proves the constant is actually wired into the route schema, not merely defined.
+  it('rejects a 9-character new password', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/reset-password')
+      .send({ token: 'a'.repeat(64), newPassword: 'Short123!' }); // 9 chars
+    expect(res.status).toBe(400);
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it('accepts a 10-character new password (length is not what blocks it)', async () => {
+    findUser.mockResolvedValue(null); // unknown token → 404, i.e. it got past validation
+    const res = await request(app)
+      .post('/api/v1/auth/reset-password')
+      .send({ token: 'a'.repeat(64), newPassword: 'Short123!!' }); // 10 chars
+    expect(res.status).not.toBe(400);
   });
 });
 

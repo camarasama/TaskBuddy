@@ -1,7 +1,27 @@
 import crypto from 'crypto';
+import { VALIDATION } from '@taskbuddy/shared';
 import { pruneExpired } from '../src/utils/rateLimitSweep';
 import { socketTtlMs } from '../src/utils/socketTtl';
 import { isPasswordBreached } from '../src/utils/passwordBreach';
+
+describe('password length floors are pinned (F-10i)', () => {
+  // Two constants exist on purpose: raising the floor for everyone would have locked out every
+  // parent holding a valid 8- or 9-character password. Neither value was pinned by a test, so a
+  // refactor collapsing them — in either direction — was silent. It is not silent now.
+  it('keeps the legacy floor at 8 for existing passwords / login', () => {
+    expect(VALIDATION.PASSWORD.MIN_LENGTH).toBe(8);
+  });
+
+  it('requires 10 characters for NEW passwords (register, change, reset)', () => {
+    expect(VALIDATION.PASSWORD.NEW_MIN_LENGTH).toBe(10);
+  });
+
+  it('never lets the new-password floor slip below the legacy one', () => {
+    expect(VALIDATION.PASSWORD.NEW_MIN_LENGTH).toBeGreaterThanOrEqual(
+      VALIDATION.PASSWORD.MIN_LENGTH,
+    );
+  });
+});
 
 describe('pruneExpired — rate-limit map sweep (F-10)', () => {
   it('drops entries past their reset and keeps live ones, returning the count removed', () => {

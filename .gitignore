@@ -13,6 +13,15 @@ frontend/public/workbox-*.js
 frontend/public/worker-*.js
 *.tsbuildinfo
 
+# Compiled output must never live beside its source. shared/ used to emit in place, and the
+# resulting .d.ts got committed and then drifted -- api.d.ts still declared AuthTokens.refreshToken
+# long after F-2 removed it. tsc now emits to shared/dist (gitignored above); these patterns stop
+# a stale in-place build from being committed again.
+shared/src/**/*.js
+shared/src/**/*.js.map
+shared/src/**/*.d.ts
+shared/src/**/*.d.ts.map
+
 # Local AI tooling / memory (carried manually via USB, not via git) - mirrors GNFS
 .mcp.json
 .swarm/
