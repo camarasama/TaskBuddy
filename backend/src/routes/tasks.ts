@@ -39,7 +39,7 @@ import { uploadPhoto } from '../middleware/upload';
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
 import { getTaskOverlaps } from '../utils/overlapCheck';
 // BUG FIX: Use StorageService (memoryStorage buffer) instead of old disk-path approach
-import { uploadFile } from '../services/storage';
+import { uploadFile, withEvidenceUrls, withEvidenceUrlsList } from '../services/storage';
 // M8 - Audit logging for all mutating task routes
 import { AuditService } from '../services/AuditService';
 // P4 - Business logic delegated to TaskService
@@ -278,6 +278,11 @@ taskRouter.get('/:id', async (req, res, next) => {
 
     if (!task) {
       throw new NotFoundError('Task not found');
+    }
+
+    // Attach short-lived presigned URLs to each assignment's evidence (private on R2).
+    for (const a of task.assignments) {
+      a.evidence = await withEvidenceUrlsList(a.evidence);
     }
 
     res.json({
@@ -534,6 +539,10 @@ taskRouter.get('/assignments/me', async (req, res, next) => {
       ],
     });
 
+    for (const a of assignments) {
+      a.evidence = await withEvidenceUrlsList(a.evidence);
+    }
+
     res.json({
       success: true,
       data: { assignments },
@@ -624,6 +633,7 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
       req.file.originalname,
       req.file.mimetype,
       apiBaseUrl,
+      { kind: 'evidence' },
     );
 
     const evidence = await prisma.taskEvidence.create({
@@ -632,19 +642,23 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
         evidenceType: 'photo',
         fileUrl: uploadResult.fileUrl,
         fileKey: uploadResult.fileKey,
+        thumbnailKey: uploadResult.thumbnailKey,
         thumbnailUrl: uploadResult.thumbnailUrl,
         fileSizeBytes: uploadResult.fileSizeBytes,
         mimeType: uploadResult.mimeType,
       },
     });
 
+    // Serve back presigned URLs (the stored evidence URLs are empty on R2 - the objects are private).
+    const signed = await withEvidenceUrls(evidence);
+
     res.json({
       success: true,
       data: {
         evidence: {
           id: evidence.id,
-          fileUrl: evidence.fileUrl,
-          thumbnailUrl: evidence.thumbnailUrl,
+          fileUrl: signed.fileUrl,
+          thumbnailUrl: signed.thumbnailUrl,
           mimeType: evidence.mimeType,
         },
       },
@@ -722,6 +736,10 @@ taskRouter.get('/assignments/pending', requireParent, async (req, res, next) => 
       },
       orderBy: { completedAt: 'asc' },
     });
+
+    for (const a of assignments) {
+      a.evidence = await withEvidenceUrlsList(a.evidence);
+    }
 
     res.json({
       success: true,

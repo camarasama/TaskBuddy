@@ -9,28 +9,24 @@ import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { ApiError } from '@/lib/api';
-
-const STORAGE_KEY_FAMILY_CODE = 'taskbuddy_child_familyCode';
-const STORAGE_KEY_NAME = 'taskbuddy_child_name';
+import {
+  readCredentials,
+  saveCredentials as persistCredentials,
+  clearCredentials as wipeCredentials,
+  clearChildName,
+} from '@/lib/childSession';
 
 function getSavedCredentials(): { familyCode: string; childName: string } | null {
   if (typeof window === 'undefined') return null;
-  const familyCode = localStorage.getItem(STORAGE_KEY_FAMILY_CODE);
-  const childName = localStorage.getItem(STORAGE_KEY_NAME);
-  if (familyCode && childName) {
-    return { familyCode, childName };
-  }
-  return null;
+  return readCredentials(localStorage);
 }
 
 function saveCredentials(familyCode: string, childName: string) {
-  localStorage.setItem(STORAGE_KEY_FAMILY_CODE, familyCode);
-  localStorage.setItem(STORAGE_KEY_NAME, childName);
+  persistCredentials(localStorage, familyCode, childName);
 }
 
 function clearCredentials() {
-  localStorage.removeItem(STORAGE_KEY_FAMILY_CODE);
-  localStorage.removeItem(STORAGE_KEY_NAME);
+  wipeCredentials(localStorage);
 }
 
 export default function ChildLoginPage() {
@@ -110,6 +106,14 @@ export default function ChildLoginPage() {
     setFamilyCode('');
     setChildName('');
     setStep('family');
+  };
+
+  // Switch to a different child of the SAME family: keep the family code, forget only the name.
+  const handleSwitchChild = () => {
+    clearChildName(localStorage);
+    setPin('');
+    setChildName('');
+    setStep('name');
   };
 
   return (
@@ -319,14 +323,22 @@ export default function ChildLoginPage() {
                 autoFocus
               />
 
-              <div className="mt-6 flex justify-center">
+              <div className="mt-6 flex flex-col items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSwitchChild}
+                >
+                  Switch child
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={handleChangeIdentity}
                 >
-                  Not you? Change account
+                  Not your family? Start over
                 </Button>
               </div>
 

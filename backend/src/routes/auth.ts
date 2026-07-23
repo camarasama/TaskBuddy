@@ -763,6 +763,7 @@ authRouter.post(
         req.file.originalname,
         req.file.mimetype,
         config.apiUrl,
+        { kind: 'avatar' }, // avatars stay public (parent-chosen, low sensitivity)
       );
       res.json({ success: true, data: { url: result.thumbnailUrl } });
     } catch (error) {

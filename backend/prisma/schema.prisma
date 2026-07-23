@@ -240,6 +240,7 @@ model TaskEvidence {
   evidenceType     EvidenceType
   fileUrl          String?          @map("file_url")
   fileKey          String?          @map("file_key")
+  thumbnailKey     String?          @map("thumbnail_key")
   fileSizeBytes    Int?             @map("file_size_bytes")
   mimeType         String?          @map("mime_type")
   thumbnailUrl     String?          @map("thumbnail_url")

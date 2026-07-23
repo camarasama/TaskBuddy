@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIdleLogout } from '@/hooks/useIdleLogout';
 import { SocketProvider, useSocket } from '@/contexts/SocketContext';
 import NotificationBell from '@/components/NotificationBell';
 import { NotificationProvider } from '@/contexts/NotificationContext';
@@ -65,9 +66,12 @@ export function ChildLayout({ children }: ChildLayoutProps) {
 // ── Inner layout - lives inside SocketProvider so can call useSocket() ────────
 
 function ChildLayoutInner({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, softLogout } = useAuth();
   const { socket } = useSocket();
   const pathname = usePathname();
+
+  // After 10 min idle or 10 min backgrounded, soft-logout the child → PIN to resume.
+  useIdleLogout(softLogout, true);
 
   // M10 - Phase 6: Live points balance - updated via socket 'points:updated'
   // Initialised from user profile; refreshed without a page reload.

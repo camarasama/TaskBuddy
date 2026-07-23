@@ -35,7 +35,8 @@ export type EmailTriggerType =
   | 'streak_at_risk'
   | 'co_parent_invite'
   | 'child_welcome'
-  | 'child_profile_updated';
+  | 'child_profile_updated'
+  | 'child_locked';
 
 // ─── Input types ─────────────────────────────────────────────────────────────
 

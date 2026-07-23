@@ -26,6 +26,7 @@ import { buildStreakAtRisk } from './streakAtRisk';
 import { buildCoParentInvite } from './coParentInvite';
 import { buildEmailVerification } from './emailVerification';
 import { buildPasswordReset } from './passwordReset';
+import { buildChildAccountLocked } from './childAccountLocked';
 
 // ─── Branding constants ───────────────────────────────────────────────────────
 
@@ -169,6 +170,8 @@ export async function renderTemplate(
       return buildStreakAtRisk(data as any);
     case 'co_parent_invite':
       return buildCoParentInvite(data as any);
+    case 'child_locked':
+      return buildChildAccountLocked(data as any);
     default:
       throw new Error(`[renderTemplate] Unknown triggerType: ${triggerType}`);
   }

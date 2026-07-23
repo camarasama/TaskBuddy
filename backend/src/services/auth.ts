@@ -5,6 +5,7 @@ import { prisma } from './database';
 import { config } from '../config';
 import { SessionService, type SessionContext } from './SessionService';
 import { AuditService } from './AuditService';
+import { EmailService } from './email';
 import { jwtVerifyOptions, jwtSignOptions } from '../utils/jwt';
 import {
   UnauthorizedError,
@@ -46,7 +47,38 @@ function loginLockoutMs(attempts: number): number {
   return LOGIN_LOCKOUT_BACKOFF_MS[Math.min(step, LOGIN_LOCKOUT_BACKOFF_MS.length - 1)];
 }
 
-type LockoutState = { id: string; failedLoginAttempts: number; lastFailedLoginAt: Date | null };
+type LockoutState = {
+  id: string;
+  failedLoginAttempts: number;
+  lastFailedLoginAt: Date | null;
+  // Optional context, used only to alert parents when a child account locks (F-8).
+  role?: string;
+  familyId?: string | null;
+  firstName?: string;
+};
+
+/**
+ * Email the family's parents that a child account was just locked (F-8). Fire-and-forget: a mail
+ * failure must never break or delay the login response, so callers do not await this.
+ */
+async function notifyParentsOfChildLock(
+  familyId: string,
+  childName: string,
+  lockMs: number,
+): Promise<void> {
+  const lockMinutes = Math.max(1, Math.round(lockMs / 60_000));
+  try {
+    await EmailService.sendToFamilyParents({
+      familyId,
+      triggerType: 'child_locked',
+      subjectBuilder: () => `${childName}'s TaskBuddy account was temporarily locked`,
+      templateData: { parentFirstName: 'there', childName, lockMinutes },
+      referenceType: 'child_lockout',
+    });
+  } catch (err) {
+    console.error('[auth] child-lock parent notification failed:', (err as Error)?.message);
+  }
+}
 
 /** Record a failed login, locking the account once failures pass the threshold. */
 async function recordFailedLogin(user: LockoutState): Promise<void> {
@@ -64,6 +96,13 @@ async function recordFailedLogin(user: LockoutState): Promise<void> {
       ...(lockMs > 0 ? { lockedUntil: new Date(now + lockMs) } : {}),
     },
   });
+
+  // Alert parents only on the transition into a locked state (the first attempt past the
+  // threshold), and only for children — not on every subsequent failure while already locked.
+  const justLocked = attempts === LOGIN_LOCKOUT_THRESHOLD + 1;
+  if (justLocked && user.role === 'child' && user.familyId) {
+    void notifyParentsOfChildLock(user.familyId, user.firstName ?? 'Your child', lockMs);
+  }
 }
 
 /** Fields cleared on a successful login, so a lock never outlives the credentials proving it. */
