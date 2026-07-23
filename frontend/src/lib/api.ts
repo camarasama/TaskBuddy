@@ -16,33 +16,49 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 // Token management
 let accessToken: string | null = null;
+// Remembers the active role within a session so a refresh (which carries no role) persists correctly.
+let currentRole: string | undefined;
 
-// Role-aware storage: parent/admin → sessionStorage (cleared on tab close)
-//                     child        → localStorage  (persists across tabs)
+// F-5 (Phase 4) storage policy:
+//   parent/admin → MEMORY ONLY (never written to web storage; re-minted from the httpOnly refresh
+//                  cookie on hard navigation — see AuthContext bootstrap). Shrinks XSS token theft.
+//   child        → localStorage (persists across tabs) — unchanged for now.
 export function setToken(token: string | null, role?: string): void {
   accessToken = token;
+  if (role) currentRole = role;
   if (typeof window === 'undefined') return;
-  if (token) {
-    if (role === 'parent' || role === 'admin') {
-      sessionStorage.setItem('accessToken', token);
-      localStorage.removeItem('accessToken');
-    } else {
-      localStorage.setItem('accessToken', token);
-      sessionStorage.removeItem('accessToken');
-    }
-  } else {
+
+  if (!token) {
+    currentRole = undefined;
+    localStorage.removeItem('accessToken');
     sessionStorage.removeItem('accessToken');
+    return;
+  }
+
+  const effectiveRole = role ?? currentRole;
+  if (effectiveRole === 'child') {
+    localStorage.setItem('accessToken', token);
+  } else {
+    // parent/admin (or role not yet known → default to non-persisted): memory only.
     localStorage.removeItem('accessToken');
   }
+  sessionStorage.removeItem('accessToken'); // sessionStorage is no longer used for tokens
 }
 
 export function getToken(): string | null {
   if (!accessToken && typeof window !== 'undefined') {
-    accessToken =
-      sessionStorage.getItem('accessToken') ??
-      localStorage.getItem('accessToken');
+    // Only the child token is ever persisted now; parent/admin bootstrap via the refresh cookie.
+    accessToken = localStorage.getItem('accessToken');
   }
   return accessToken;
+}
+
+/**
+ * Re-mint an access token from the httpOnly refresh cookie. Used by AuthContext on a hard navigation
+ * when there is no in-memory token (parent/admin tokens are memory-only). Returns true on success.
+ */
+export async function bootstrapSession(): Promise<boolean> {
+  return refreshToken();
 }
 
 // Backward-compat aliases - clears both stores when token is null
