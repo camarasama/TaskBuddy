@@ -22,7 +22,9 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const { login, completeMfaChallenge } = useAuth();
   const { error: showError } = useToast();
 
   const {
@@ -36,13 +38,30 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password);
+      const result = await login(data.email, data.password);
+      if (result?.mfaRequired) {
+        setMfaToken(result.mfaToken); // switch to the TOTP challenge step
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         showError(err.message);
       } else {
         showError('Failed to sign in. Please try again.');
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mfaCode.length < 6 || !mfaToken) return;
+    setIsLoading(true);
+    try {
+      await completeMfaChallenge(mfaToken, mfaCode);
+    } catch (err) {
+      setMfaCode('');
+      showError(err instanceof ApiError ? err.message : 'Verification failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -76,6 +95,43 @@ export default function LoginPage() {
             </span>
           </div>
 
+          {mfaToken ? (
+            <>
+              <h1 className="font-display text-2xl font-bold text-slate-900 text-center mb-2">
+                Two-step verification
+              </h1>
+              <p className="text-slate-600 text-center mb-8">
+                Enter the 6-digit code from your authenticator app
+              </p>
+
+              <form onSubmit={handleMfaSubmit} className="space-y-6">
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="123456"
+                    className="pl-12 text-center text-lg tracking-[0.4em]"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    autoFocus
+                  />
+                </div>
+                <Button type="submit" fullWidth size="lg" loading={isLoading} disabled={mfaCode.length < 6}>
+                  Verify
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => { setMfaToken(null); setMfaCode(''); }}
+                  className="block w-full text-center text-sm text-slate-500 hover:text-slate-700"
+                >
+                  Back to sign in
+                </button>
+              </form>
+            </>
+          ) : (
+          <>
           <h1 className="font-display text-2xl font-bold text-slate-900 text-center mb-2">
             Welcome Back!
           </h1>
@@ -142,6 +198,8 @@ export default function LoginPage() {
               Are you a child? Log in with your PIN
             </Link>
           </div>
+          </>
+          )}
         </div>
       </motion.div>
     </div>

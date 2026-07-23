@@ -27,7 +27,9 @@ interface AuthContextType {
   isChild: boolean;
   // M8 - Admin role flag; used by admin route guard
   isAdmin: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  // Returns { mfaRequired, mfaToken } when the admin must complete a TOTP challenge; otherwise void.
+  login: (email: string, password: string) => Promise<{ mfaRequired: true; mfaToken: string } | void>;
+  completeMfaChallenge: (mfaToken: string, code: string) => Promise<void>;
   childLogin: (familyCode: string, childIdentifier: string, pin: string) => Promise<void>;
   register: (familyName: string, parent: {
     firstName: string;
@@ -84,24 +86,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, []);
 
+  const redirectByRole = useCallback((role: string) => {
+    if (role === 'admin') router.push('/admin/dashboard');
+    else if (role === 'parent') router.push('/parent/dashboard');
+    else router.push('/child/dashboard');
+  }, [router]);
+
   const login = useCallback(async (email: string, password: string) => {
     const response = await authApi.login({ email, password });
     if (!response.data) {
       throw new Error('Invalid response from server');
     }
+    // F-9: MFA-enrolled admin — hand the challenge token back to the login page; no session yet.
+    if ('mfaRequired' in response.data) {
+      const { mfaToken } = response.data as unknown as { mfaToken: string };
+      return { mfaRequired: true as const, mfaToken };
+    }
     setToken(response.data.tokens.accessToken, response.data.user.role);
     setUser(response.data.user as AuthUser);
     subscribeToPush().catch(() => {}); // fire-and-forget
+    redirectByRole(response.data.user.role);
+  }, [router, redirectByRole]);
 
-    // M8 - Redirect admin to admin dashboard, parents to parent dashboard
-    if (response.data.user.role === 'admin') {
-      router.push('/admin/dashboard');
-    } else if (response.data.user.role === 'parent') {
-      router.push('/parent/dashboard');
-    } else {
-      router.push('/child/dashboard');
+  // F-9: finish an admin MFA login by exchanging the challenge token + TOTP code for a session.
+  const completeMfaChallenge = useCallback(async (mfaToken: string, code: string) => {
+    const response = await authApi.mfaChallenge(mfaToken, code);
+    if (!response.data) {
+      throw new Error('Invalid response from server');
     }
-  }, [router]);
+    setToken(response.data.tokens.accessToken, response.data.user.role);
+    setUser(response.data.user as AuthUser);
+    subscribeToPush().catch(() => {});
+    redirectByRole(response.data.user.role);
+  }, [redirectByRole]);
 
   // FIXED: Use familyCode (not familyId) to match backend schema
   const childLogin = useCallback(async (
@@ -186,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // M8 - Admin role flag
     isAdmin: user?.role === 'admin',
     login,
+    completeMfaChallenge,
     childLogin,
     register,
     logout,

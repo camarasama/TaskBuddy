@@ -37,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Reports',      href: '/admin/reports',      icon: '📈' },
   { label: 'Audit Log',    href: '/admin/audit-log',    icon: '📋' },
   { label: 'Emails',       href: '/admin/emails',       icon: '✉️' },
+  { label: 'Security',     href: '/admin/security',     icon: '🔒' },
 ];
 
 interface AdminLayoutProps {
