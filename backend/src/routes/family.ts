@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
+import { CONSENT_VERSIONS } from '@taskbuddy/shared';
 import { prisma } from '../services/database';
 import { authService } from '../services/auth';
 import { inviteService } from '../services/invite';
@@ -80,6 +82,58 @@ familyRouter.get('/me', async (req, res, next) => {
     res.json({
       success: true,
       data: { family },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /families/me/export - GDPR data export: full JSON bundle of the family's own data (parent only).
+// Rate-limited to once per day per parent (data export can be heavy and is abuse-sensitive).
+const exportLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as { user?: { userId?: string } }).user?.userId ?? 'anonymous',
+  message: { success: false, error: { message: 'Data export is limited to once per day. Please try again tomorrow.' } },
+});
+
+familyRouter.get('/me/export', requireParent, exportLimiter, async (req, res, next) => {
+  try {
+    const familyId = req.familyId!;
+
+    const users = await prisma.user.findMany({
+      where: { familyId },
+      select: {
+        id: true, email: true, firstName: true, lastName: true, role: true,
+        dateOfBirth: true, createdAt: true,
+        childProfile: { select: { pointsBalance: true, totalXpEarned: true, currentStreakDays: true, ageGroup: true } },
+      },
+    });
+    const childIds = users.filter((u) => u.role === 'child').map((u) => u.id);
+
+    const [family, tasks, rewards, redemptions, points, achievements, evidence] = await Promise.all([
+      prisma.family.findUnique({ where: { id: familyId }, include: { settings: true } }),
+      prisma.task.findMany({ where: { familyId }, include: { assignments: true } }),
+      prisma.reward.findMany({ where: { familyId } }),
+      prisma.rewardRedemption.findMany({ where: { childId: { in: childIds } } }),
+      prisma.pointsLedger.findMany({ where: { childId: { in: childIds } } }),
+      prisma.childAchievement.findMany({ where: { childId: { in: childIds } } }),
+      // Evidence: keys only (the objects themselves are private; keys let the owner cross-reference).
+      prisma.taskEvidence.findMany({
+        where: { assignment: { task: { familyId } } },
+        select: { id: true, evidenceType: true, fileKey: true, mimeType: true, uploadedAt: true },
+      }),
+    ]);
+
+    res.setHeader('Content-Disposition', `attachment; filename="taskbuddy-export-${familyId}.json"`);
+    res.json({
+      success: true,
+      data: {
+        exportedAt: new Date().toISOString(),
+        family, users, tasks, rewards, redemptions, points, achievements, evidenceKeys: evidence,
+      },
     });
   } catch (error) {
     next(error);
@@ -291,6 +345,17 @@ familyRouter.post('/me/children', requireParent, validateBody(addChildSchema), a
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { firstName: req.body.firstName, lastName: req.body.lastName },
+    });
+
+    // GDPR-K: record the parent's consent (given on the child's behalf) at child creation.
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'CONSENT',
+      resourceType: 'child',
+      resourceId: createdChildId,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { tosVersion: CONSENT_VERSIONS.tos, privacyVersion: CONSENT_VERSIONS.privacy, context: 'child_create' },
     });
 
     // M9 - fire-and-forget child welcome email (only when email was provided)
