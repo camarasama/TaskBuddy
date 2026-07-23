@@ -15,6 +15,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../services/database';
+import { toSkipTake, buildMeta } from '../utils/pagination';
 import { authenticate, requireParent, familyIsolation } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
@@ -71,7 +72,11 @@ rewardRouter.get('/', async (req, res, next) => {
       where.isActive = true;
     }
 
+    const { skip, take, page, limit } = toSkipTake(req.query);
+    const total = await prisma.reward.count({ where });
     const rewards = await prisma.reward.findMany({
+      skip,
+      take,
       where,
       include: {
         creator: {
@@ -103,7 +108,7 @@ rewardRouter.get('/', async (req, res, next) => {
 
     res.json({
       success: true,
-      data: { rewards: rewardsWithCapData },
+      data: { rewards: rewardsWithCapData, pagination: buildMeta(total, page, limit) },
     });
   } catch (error) {
     next(error);
@@ -310,7 +315,11 @@ rewardRouter.get('/redemptions/history', async (req, res, next) => {
       where.reward = { familyId: req.familyId };
     }
 
+    const { skip, take, page, limit } = toSkipTake(req.query);
+    const total = await prisma.rewardRedemption.count({ where });
     const redemptions = await prisma.rewardRedemption.findMany({
+      skip,
+      take,
       where,
       include: {
         reward: true,
@@ -323,7 +332,7 @@ rewardRouter.get('/redemptions/history', async (req, res, next) => {
 
     res.json({
       success: true,
-      data: { redemptions },
+      data: { redemptions, pagination: buildMeta(total, page, limit) },
     });
   } catch (error) {
     next(error);

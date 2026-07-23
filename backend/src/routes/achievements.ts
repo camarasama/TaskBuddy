@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../services/database';
+import { toSkipTake, buildMeta, MAX_LIMIT } from '../utils/pagination';
 import { authenticate, requireChild, familyIsolation } from '../middleware/auth';
 
 export const achievementRouter = Router();
@@ -12,8 +13,15 @@ achievementRouter.get('/', requireChild, async (req, res, next) => {
   try {
     const childId = req.user!.userId;
 
-    // Get all achievements
+    // FR-07: paginated, but the DEFAULT limit is MAX_LIMIT rather than the usual 20. This is a
+    // fixed, seeded catalog (18 rows today) rendered as one grid — defaulting to 20 would silently
+    // truncate a child's achievements the moment a 21st is seeded. Callers can still page
+    // explicitly. The stats below are counted over the WHOLE catalog, never the page.
+    const { skip, take, page, limit } = toSkipTake({ limit: MAX_LIMIT, ...req.query });
+    const total = await prisma.achievement.count();
     const achievements = await prisma.achievement.findMany({
+      skip,
+      take,
       orderBy: [
         { category: 'asc' },
         { tier: 'asc' },
@@ -21,9 +29,11 @@ achievementRouter.get('/', requireChild, async (req, res, next) => {
       ],
     });
 
-    // Get child's unlocked achievements
+    // Get child's unlocked achievements. Includes the achievement record so the reward totals
+    // below are computed over EVERY unlocked achievement, independent of which page was requested.
     const unlockedAchievements = await prisma.childAchievement.findMany({
       where: { childId },
+      include: { achievement: { select: { pointsReward: true, xpReward: true } } },
     });
 
     const unlockedMap = new Map(
@@ -41,21 +51,25 @@ achievementRouter.get('/', requireChild, async (req, res, next) => {
       };
     });
 
-    // Summary stats
-    const totalAchievements = achievements.length;
+    // Summary stats — whole-catalog, never the current page (FR-07).
+    const totalAchievements = total;
     const unlockedCount = unlockedAchievements.length;
-    const totalPointsEarned = achievements
-      .filter((a) => unlockedMap.has(a.id))
-      .reduce((sum, a) => sum + a.pointsReward, 0);
-    const totalXpEarned = achievements
-      .filter((a) => unlockedMap.has(a.id))
-      .reduce((sum, a) => sum + a.xpReward, 0);
+    const totalPointsEarned = unlockedAchievements.reduce(
+      (sum, ua) => sum + (ua.achievement?.pointsReward ?? 0),
+      0,
+    );
+    const totalXpEarned = unlockedAchievements.reduce(
+      (sum, ua) => sum + (ua.achievement?.xpReward ?? 0),
+      0,
+    );
 
     res.json({
       success: true,
       data: {
         achievements: result,
+        pagination: buildMeta(total, page, limit),
         stats: {
+          // Counted over the whole catalog, not the current page.
           total: totalAchievements,
           unlocked: unlockedCount,
           totalPointsEarned,

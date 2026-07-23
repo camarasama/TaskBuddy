@@ -405,12 +405,28 @@ export const familyApi = {
     }),
 };
 
+
+// FR-07: every list endpoint accepts page/limit and returns a `pagination` block alongside the
+// items. Params are optional everywhere, so existing callers keep working and simply get page 1.
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+export type Paged<T> = T & { pagination: PaginationMeta };
+
+function qs(params?: Record<string, unknown>): string {
+  const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== null);
+  if (!entries.length) return '';
+  return `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()}`;
+}
+
 // Tasks API
 export const tasksApi = {
-  getAll: (params?: { status?: string; assignedTo?: string }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
-    return request<ApiResponse<{ tasks: unknown[] }>>(`/tasks${query ? `?${query}` : ''}`);
-  },
+  getAll: (params?: { status?: string; assignedTo?: string; page?: number; limit?: number }) =>
+    request<ApiResponse<Paged<{ tasks: unknown[] }>>>(`/tasks${qs(params)}`),
 
   getById: (id: string) =>
     request<ApiResponse<{ task: unknown }>>(`/tasks/${id}`),
@@ -439,11 +455,13 @@ export const tasksApi = {
       method: 'DELETE',
     }),
 
-  getMyAssignments: () =>
-    request<ApiResponse<{ assignments: unknown[] }>>('/tasks/assignments/me'),
+  getMyAssignments: (params?: { page?: number; limit?: number }) =>
+    request<ApiResponse<Paged<{ assignments: unknown[] }>>>(`/tasks/assignments/me${qs(params)}`),
 
-  getPendingApprovals: () =>
-    request<ApiResponse<{ assignments: unknown[] }>>('/tasks/assignments/pending'),
+  getPendingApprovals: (params?: { page?: number; limit?: number }) =>
+    request<ApiResponse<Paged<{ assignments: unknown[] }>>>(
+      `/tasks/assignments/pending${qs(params)}`,
+    ),
 
   unassignChild: (taskId: string, childId: string) =>
     request<ApiResponse<{ message: string }>>(`/tasks/${taskId}/assignments/${childId}`, {
@@ -505,8 +523,8 @@ export const tasksApi = {
 
 // Rewards API
 export const rewardsApi = {
-  getAll: () =>
-    request<ApiResponse<{ rewards: unknown[] }>>('/rewards'),
+  getAll: (params?: { active?: boolean; page?: number; limit?: number }) =>
+    request<ApiResponse<Paged<{ rewards: unknown[] }>>>(`/rewards${qs(params)}`),
 
   getById: (id: string) =>
     request<ApiResponse<{ reward: unknown }>>(`/rewards/${id}`),
@@ -533,8 +551,10 @@ export const rewardsApi = {
       method: 'POST',
     }),
 
-  getRedemptionHistory: () =>
-    request<ApiResponse<{ redemptions: unknown[] }>>('/rewards/redemptions/history'),
+  getRedemptionHistory: (params?: { page?: number; limit?: number }) =>
+    request<ApiResponse<Paged<{ redemptions: unknown[] }>>>(
+      `/rewards/redemptions/history${qs(params)}`,
+    ),
 
   fulfillRedemption: (redemptionId: string) =>
     request<ApiResponse<unknown>>(`/rewards/redemptions/${redemptionId}/fulfill`, {
@@ -578,8 +598,10 @@ export const dashboardApi = {
 
 // Achievements API
 export const achievementsApi = {
-  getAll: () =>
-    request<ApiResponse<{ achievements: unknown[]; stats: unknown }>>('/achievements'),
+  getAll: (params?: { page?: number; limit?: number }) =>
+    request<ApiResponse<Paged<{ achievements: unknown[]; stats: unknown }>>>(
+      `/achievements${qs(params)}`,
+    ),
 
   getUnlocked: () =>
     request<ApiResponse<{ achievements: unknown[] }>>('/achievements/unlocked'),
@@ -850,18 +872,10 @@ export type NotificationItem = {
 };
 
 export const notificationsApi = {
-  getAll: (params?: { limit?: number; unreadOnly?: boolean }) => {
-    const q = new URLSearchParams(
-      Object.fromEntries(
-        Object.entries(params ?? {})
-          .filter(([, v]) => v !== undefined)
-          .map(([k, v]) => [k, String(v)])
-      )
-    ).toString();
-    return request<{ notifications: NotificationItem[]; unreadCount: number; total: number }>(
-      `/notifications${q ? `?${q}` : ''}`
-    );
-  },
+  getAll: (params?: { limit?: number; unreadOnly?: boolean; page?: number }) =>
+    request<
+      Paged<{ notifications: NotificationItem[]; unreadCount: number; total: number }>
+    >(`/notifications${qs(params)}`),
 
   getUnreadCount: () =>
     request<{ count: number }>('/notifications/unread-count'),

@@ -14,6 +14,7 @@
 
 import { Router, Request, Response } from 'express';
 import { prisma } from '../services/database';
+import { toSkipTake, buildMeta } from '../utils/pagination';
 import { authenticate } from '../middleware/auth';
 import { emitNotificationNew } from '../services/SocketService';
 import { PushService } from '../services/PushService';
@@ -39,25 +40,30 @@ function getUser(req: Request): AuthUser {
 notificationsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { userId } = getUser(req);
-    const limit = Math.min(parseInt((req.query.limit as string) ?? '20', 10), 100);
     const unreadOnly = req.query.unreadOnly === 'true';
+    const { skip, take, page, limit } = toSkipTake(req.query);
+    const where = { userId, ...(unreadOnly ? { isRead: false } : {}) };
 
-    // Run both queries in parallel - halves DB round-trips vs sequential awaits
-    const [notifications, unreadCount] = await Promise.all([
+    // Run all three in parallel - one round-trip's latency instead of three.
+    const [notifications, unreadCount, total] = await Promise.all([
       prisma.notification.findMany({
-        where: {
-          userId,
-          ...(unreadOnly ? { isRead: false } : {}),
-        },
+        where,
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        skip,
+        take,
       }),
-      prisma.notification.count({
-        where: { userId, isRead: false },
-      }),
+      prisma.notification.count({ where: { userId, isRead: false } }),
+      // FR-07: a REAL count of matching rows. This used to report notifications.length, which
+      // always equalled the page size, so a client could never tell more pages existed.
+      prisma.notification.count({ where }),
     ]);
 
-    res.json({ notifications, unreadCount, total: notifications.length });
+    res.json({
+      notifications,
+      unreadCount,
+      total,
+      pagination: buildMeta(total, page, limit),
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch notifications', detail: String(err) });
   }
