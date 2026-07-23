@@ -87,7 +87,7 @@ describe('MFA login gate (F-9)', () => {
     const secret = authenticator.generateSecret();
     findUnique.mockResolvedValue(adminUser({ mfaEnabledAt: new Date(), mfaSecret: encryptSecret(secret) }));
 
-    const res = await request(app).post('/api/v1/auth/login').send({ email: 'admin@example.com', password: 'password1' });
+    const res = await request(app).post('/api/v1/auth/login').send({ email: 'admin@example.com', password: 'password123' });
 
     expect(res.body.data.mfaRequired).toBe(true);
     expect(res.body.data.mfaToken).toBeTruthy();
@@ -97,7 +97,7 @@ describe('MFA login gate (F-9)', () => {
 
   it('an admin WITHOUT MFA logs in normally (grace period)', async () => {
     findUnique.mockResolvedValue(adminUser({ mfaEnabledAt: null }));
-    const res = await request(app).post('/api/v1/auth/login').send({ email: 'admin@example.com', password: 'password1' });
+    const res = await request(app).post('/api/v1/auth/login').send({ email: 'admin@example.com', password: 'password123' });
     expect(res.body.data.mfaRequired).toBeUndefined();
     expect(res.body.data.tokens.accessToken).toBeTruthy();
   });
@@ -138,7 +138,7 @@ describe('MFA login gate (F-9)', () => {
 });
 
 describe('admin invite hardening (F-9)', () => {
-  const body = { email: 'new@example.com', password: 'password1', firstName: 'New', lastName: 'Admin', inviteCode: process.env.ADMIN_INVITE_CODE };
+  const body = { email: 'new@example.com', password: 'password123', firstName: 'New', lastName: 'Admin', inviteCode: process.env.ADMIN_INVITE_CODE };
 
   it('with an admin already present, the invite code alone is rejected (403)', async () => {
     count.mockResolvedValue(1);

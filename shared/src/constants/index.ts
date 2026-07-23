@@ -48,7 +48,8 @@ export const VALIDATION = {
     PATTERN: /^\d{4}$/,
   },
   PASSWORD: {
-    MIN_LENGTH: 8,
+    MIN_LENGTH: 8,          // legacy floor (existing passwords, login)
+    NEW_MIN_LENGTH: 10,     // F-10: stronger floor for NEW passwords (register/change/reset)
     CHILD_MIN_LENGTH: 6,
   },
   USERNAME: {

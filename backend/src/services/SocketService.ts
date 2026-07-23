@@ -25,6 +25,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { jwtVerifyOptions } from '../utils/jwt';
+import { socketTtlMs } from '../utils/socketTtl';
 import type { TokenPayload } from '../middleware/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -123,11 +124,21 @@ export function initSocketService(ioInstance: SocketIOServer): void {
     socket.join(`family:${familyId}`);
     socket.join(`user:${userId}`);
 
+    // F-10: a socket must not outlive the access token that authorised it. Disconnect at token
+    // expiry; the client's socket layer reconnects with a freshly refreshed token.
+    const ttl = socketTtlMs(user.exp);
+    let expiryTimer: NodeJS.Timeout | undefined;
+    if (ttl !== null) {
+      if (ttl === 0) socket.disconnect(true);
+      else expiryTimer = setTimeout(() => socket.disconnect(true), ttl);
+    }
+
     if (config.env !== 'production') {
       console.debug(`[SocketService] Client connected: socket=${socket.id}`);
     }
 
     socket.on('disconnect', (reason) => {
+      if (expiryTimer) clearTimeout(expiryTimer);
       if (config.env !== 'production') {
         console.debug(`[SocketService] Client disconnected: socket=${socket.id} reason=${reason}`);
       }

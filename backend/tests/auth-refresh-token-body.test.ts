@@ -13,6 +13,7 @@ jest.mock('../src/services/database', () => ({
 jest.mock('../src/services/AuditService', () => ({
   AuditService: { logAction: jest.fn().mockResolvedValue(undefined) },
 }));
+jest.mock('../src/utils/passwordBreach', () => ({ isPasswordBreached: jest.fn().mockResolvedValue(false) }));
 jest.mock('../src/services/email', () => ({
   EmailService: { send: jest.fn().mockResolvedValue(undefined) },
 }));
