@@ -89,9 +89,35 @@ From the parent dashboard, a parent can at any time:
 We retain personal data while the account is active. When a parent deletes a child profile or
 the family account, we perform a **hard deletion of personal data within [30] days**, after a
 short recovery window to guard against accidental deletion. Backups are rotated and expire on a
-defined schedule. Security **audit logs are retained but redacted** (personal identifiers
-removed) so we keep a security trail without keeping personal data longer than necessary. We may
-retain limited records where the law requires (e.g., tax/billing).
+defined schedule. We may retain limited records where the law requires (e.g., tax/billing).
+
+### 6.1 What the [30]-day deletion covers
+
+When the retention window closes, for that family we:
+
+- **delete the child's evidence photos** from private object storage, including thumbnails;
+- **hard-delete the family record**, which cascades to parents, child profiles, tasks,
+  assignments, evidence records, points, rewards, and achievements;
+- **redact — not delete — our security logs** (see 6.2).
+
+### 6.2 Logs we keep after deletion, and for how long
+
+Two kinds of record deliberately outlive the deletion above, because deleting them entirely
+would destroy the trail we need to investigate abuse of a child's account:
+
+| Record | What we keep | What we remove | Retained for |
+|---|---|---|---|
+| **Security audit log** | The event skeleton — what happened, when, to which record | All personal identifiers in the event detail | [Indefinitely], in redacted form |
+| **Email delivery log** | That a message of a given type was sent, and when | The recipient address (replaced with `[redacted]`) | [Indefinitely], in redacted form |
+| **Server request logs** | Request method, path, status, timing, and **IP address** | — | **[30] days** (see 6.3) |
+
+### 6.3 IP addresses in server logs
+
+Our web server records the IP address of each request, which is personal data. These logs are
+used only to operate and secure the service — diagnosing errors, and investigating abuse or
+attacks. They are held on the application server and are **not** used for profiling or
+advertising, and are not shared with third parties except as described in section 7. They are
+retained for **[30] days** and then discarded automatically.
 
 ## 7. How we share information (processors)
 
