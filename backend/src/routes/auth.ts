@@ -25,7 +25,9 @@ import { authenticate, requireParent, requireAdmin } from '../middleware/auth';
 import { uploadPhoto } from '../middleware/upload';
 import { uploadFile } from '../services/storage';
 import { prisma } from '../services/database';
-import { ConflictError, NotFoundError, UnauthorizedError } from '../middleware/errorHandler';
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../middleware/errorHandler';
+import { isPasswordBreached } from '../utils/passwordBreach';
+import { pruneExpired } from '../utils/rateLimitSweep';
 import { validateBody } from '../middleware/validate';
 import { VALIDATION, CONSENT_VERSIONS } from '@taskbuddy/shared';
 // M8 - Audit logging for auth events
@@ -64,7 +66,7 @@ const registerSchema = z.object({
     firstName: z.string().min(1).max(50),
     lastName: z.string().min(1).max(50),
     email: z.string().email(),
-    password: z.string().min(VALIDATION.PASSWORD.MIN_LENGTH),
+    password: z.string().min(VALIDATION.PASSWORD.NEW_MIN_LENGTH),
     dateOfBirth: z.string().regex(
       /^\d{4}-\d{2}-\d{2}$/,
       'Date of birth must be in YYYY-MM-DD format'
@@ -104,7 +106,7 @@ const setupPinSchema = z.object({
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(VALIDATION.PASSWORD.MIN_LENGTH),
+  newPassword: z.string().min(VALIDATION.PASSWORD.NEW_MIN_LENGTH),
 });
 
 const refreshSchema = z.object({
@@ -117,14 +119,14 @@ const forgotPasswordSchema = z.object({
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1),
-  newPassword: z.string().min(VALIDATION.PASSWORD.MIN_LENGTH),
+  newPassword: z.string().min(VALIDATION.PASSWORD.NEW_MIN_LENGTH),
 });
 
 const acceptInviteSchema = z.object({
   token: z.string().min(1),
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
-  password: z.string().min(VALIDATION.PASSWORD.MIN_LENGTH),
+  password: z.string().min(VALIDATION.PASSWORD.NEW_MIN_LENGTH),
   dateOfBirth: z.string().regex(
     /^\d{4}-\d{2}-\d{2}$/,
     'Date of birth must be in YYYY-MM-DD format'
@@ -144,7 +146,7 @@ const acceptInviteSchema = z.object({
  */
 const adminRegisterSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(VALIDATION.PASSWORD.MIN_LENGTH),
+  password: z.string().min(VALIDATION.PASSWORD.NEW_MIN_LENGTH),
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
   inviteCode: z.string().min(1),
@@ -189,6 +191,11 @@ function maskPhoneNumber(phone: string | null | undefined): string | null {
 // POST /auth/register - Register new family
 authRouter.post('/register', validateBody(registerSchema), async (req, res, next) => {
   try {
+    // F-10: reject passwords known to be breached (k-anonymity check, fail-open).
+    if (await isPasswordBreached(req.body.parent.password)) {
+      throw new ValidationError('This password has appeared in a known data breach. Please choose a different one.');
+    }
+
     const result = await authService.register(req.body, {
       ip: req.ip,
       userAgent: req.headers['user-agent'],
@@ -698,6 +705,15 @@ function isForgotPasswordRateLimited(email: string): boolean {
   return false;
 }
 
+// F-10: these anti-enumeration maps only ever grow as new emails hit them. Prune expired entries
+// hourly so they cannot leak memory. Unref'd so it never keeps the process alive; skipped under test.
+if (config.env !== 'test') {
+  setInterval(() => {
+    pruneExpired(resendRateLimit);
+    pruneExpired(forgotPasswordRateLimit);
+  }, 60 * 60 * 1000).unref();
+}
+
 // POST /auth/forgot-password - Request a password reset link (parents only)
 authRouter.post('/forgot-password', validateBody(forgotPasswordSchema), async (req, res, next) => {
   // Always the same 200 response, whether or not the email maps to an account (anti-enumeration).
@@ -741,6 +757,9 @@ authRouter.post('/forgot-password', validateBody(forgotPasswordSchema), async (r
 // POST /auth/reset-password - Complete a password reset with the emailed token
 authRouter.post('/reset-password', validateBody(resetPasswordSchema), async (req, res, next) => {
   try {
+    if (await isPasswordBreached(req.body.newPassword)) {
+      throw new ValidationError('This password has appeared in a known data breach. Please choose a different one.');
+    }
     await authService.resetPassword(req.body.token, req.body.newPassword, { ip: req.ip });
     res.json({
       success: true,
@@ -770,6 +789,9 @@ authRouter.post('/logout', async (req, res) => {
 // PUT /auth/password - Change password
 authRouter.put('/password', authenticate, validateBody(changePasswordSchema), async (req, res, next) => {
   try {
+    if (await isPasswordBreached(req.body.newPassword)) {
+      throw new ValidationError('This password has appeared in a known data breach. Please choose a different one.');
+    }
     await authService.changePassword(req.user!.userId, req.body.currentPassword, req.body.newPassword);
 
     // M8 - Audit: password changed
