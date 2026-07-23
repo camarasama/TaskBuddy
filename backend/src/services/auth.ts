@@ -340,7 +340,11 @@ export class AuthService {
       role: user.role,
       ageGroup: user.childProfile.ageGroup || undefined,
     });
-    await SessionService.create(user.id, tokens.refreshToken, { ...ctx, isChild: true });
+    await SessionService.create(user.id, tokens.refreshToken, {
+      ...ctx,
+      isChild: true,
+      deviceId: input.deviceId, // F-10g: persist the child-login device id for traceability
+    });
 
     // Remove sensitive data
     const { passwordHash: _, ...userWithoutPassword } = user;

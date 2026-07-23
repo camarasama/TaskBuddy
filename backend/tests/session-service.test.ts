@@ -110,6 +110,21 @@ describe('SessionService', () => {
     expect(days).toBeLessThan(181);
   });
 
+  it('create() persists the deviceId when given, null when absent (F-10g)', async () => {
+    await SessionService.create(USER, makeRefreshToken('jti-dev'), { isChild: false, deviceId: 'device-abc' });
+    expect(rows.get('jti-dev').deviceId).toBe('device-abc');
+
+    await SessionService.create(USER, makeRefreshToken('jti-nodev'), { isChild: false });
+    expect(rows.get('jti-nodev').deviceId).toBeNull();
+  });
+
+  it('rotate() carries the deviceId forward across the chain (F-10g)', async () => {
+    const t1 = makeRefreshToken('jti-a');
+    await SessionService.create(USER, t1, { isChild: false, deviceId: 'device-xyz' });
+    await SessionService.rotate(t1, makeRefreshToken('jti-b'));
+    expect(rows.get('jti-b').deviceId).toBe('device-xyz');
+  });
+
   it('rotate() marks the old row rotated and inserts the new one in the same chain', async () => {
     const t1 = makeRefreshToken('jti-a');
     await SessionService.create(USER, t1, { isChild: false });
