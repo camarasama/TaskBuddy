@@ -234,6 +234,22 @@ export const authApi = {
       body: JSON.stringify(data),
     }),
 
+  // F-9 admin MFA
+  mfaChallenge: (mfaToken: string, code: string) =>
+    request<ApiResponse<LoginResponse>>('/auth/mfa/challenge', {
+      method: 'POST',
+      body: JSON.stringify({ mfaToken, code }),
+    }),
+
+  mfaSetup: () =>
+    request<ApiResponse<{ otpauthUrl: string }>>('/auth/mfa/setup', { method: 'POST' }),
+
+  mfaEnable: (code: string) =>
+    request<ApiResponse<{ message: string }>>('/auth/mfa/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
   regenerateFamilyCode: () =>
     request<ApiResponse<{ familyCode: string }>>('/auth/family/regenerate-code', {
       method: 'POST',
