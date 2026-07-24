@@ -13,6 +13,24 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// FR-13: offline task completions.
+//
+// The worker cannot replay them itself — the child's access token lives in localStorage, which is
+// unreachable from here, and copying it into IndexedDB just to POST from the worker would widen
+// token exposure for no real gain. So a background sync only wakes open clients and asks them to
+// flush their queue; `useOfflineCompletions` does the actual work. Where Background Sync is
+// unsupported (everything outside Chromium), the page's `online` listener covers the same ground.
+self.addEventListener('sync', (event) => {
+  if (event.tag !== 'taskbuddy-completions') return;
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      clientList.forEach((client) =>
+        client.postMessage({ type: 'taskbuddy:flush-completions' })
+      );
+    })
+  );
+});
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.actionUrl || '/';

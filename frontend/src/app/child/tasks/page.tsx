@@ -1,5 +1,6 @@
 'use client';
 import { useDataRefresh } from '@/hooks/useDataRefresh';
+import { useOfflineCompletions } from '@/hooks/useOfflineCompletions';
 
 /**
  * app/child/tasks/page.tsx - updated (Bug fix: rejected task resubmission)
@@ -34,6 +35,8 @@ import {
   AlertCircle,
   Play,
   Calendar,
+  CloudOff,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ChildLayout } from '@/components/layouts/ChildLayout';
@@ -66,6 +69,15 @@ interface TaskAssignment {
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
 type Tab = 'active' | 'completed' | 'returned';
+
+/**
+ * FR-13. `ApiError` always carries an HTTP status, so an error without one came from the transport
+ * — `fetch` rejecting because the connection dropped. Those taps are queued rather than lost; a
+ * real server rejection is reported as a failure.
+ */
+function isTransportError(err: unknown): boolean {
+  return typeof (err as { status?: unknown } | null)?.status !== 'number';
+}
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -137,6 +149,48 @@ export default function ChildTasksPage() {
   }, [loadTasks]);
   useDataRefresh(loadTasks);
 
+  // ── FR-13: offline completion queue ───────────────────────────────────────
+
+  const {
+    isOnline,
+    queued,
+    isQueued,
+    queueCompletion: queueForLater,
+    flush: flushQueue,
+  } = useOfflineCompletions({
+    send: (entry) => tasksApi.completeAssignment(entry.assignmentId),
+    onFlushed: ({ synced, dropped }) => {
+      if (synced.length === 1) showSuccess(`"${synced[0].taskTitle}" synced! 🎉`);
+      else if (synced.length > 1) showSuccess(`${synced.length} tasks synced! 🎉`);
+      // Dropped entries were refused by the server (already submitted, expired, archived). The
+      // reloaded list below shows their real state, so this only explains why they vanished.
+      if (dropped.length) {
+        showError(
+          dropped.length === 1
+            ? `"${dropped[0].taskTitle}" couldn't be submitted — check its status.`
+            : `${dropped.length} queued tasks couldn't be submitted — check their status.`
+        );
+      }
+      loadTasks();
+    },
+  });
+
+  /**
+   * Save a completion for later. Used both when the child is already offline and when a submit
+   * fails on the transport (flaky Wi-Fi answers the click with a dead socket, not an HTTP error).
+   */
+  const saveForLater = async (assignment: TaskAssignment): Promise<boolean> => {
+    const stored = await queueForLater(assignment.id, assignment.task.title);
+    if (stored) {
+      showSuccess("Saved! We'll submit it when you're back online 📶");
+      // Optimistic: mark it awaiting approval so the card stops offering the button again.
+      setAssignments((prev) =>
+        prev.map((a) => (a.id === assignment.id ? { ...a, status: 'completed' } : a))
+      );
+    }
+    return stored;
+  };
+
   // ── Derive tab lists ──────────────────────────────────────────────────────
 
   const activeAssignments    = assignments.filter(a =>
@@ -167,7 +221,16 @@ export default function ChildTasksPage() {
 
   const handleComplete = async (assignment: TaskAssignment) => {
     if (assignment.task.requiresPhotoEvidence) {
+      // FR-13: photo evidence is online-only — the upload can't be deferred.
+      if (!isOnline) {
+        showError('Photo tasks need internet. Try again when you’re back online.');
+        return;
+      }
       setPhotoAssignment(assignment);
+      return;
+    }
+    if (!isOnline) {
+      if (!(await saveForLater(assignment))) showError('Failed to submit task');
       return;
     }
     setCompletingId(assignment.id);
@@ -177,7 +240,9 @@ export default function ChildTasksPage() {
       setTimeout(() => setShowConfetti(false), 3000);
       showSuccess('Task submitted for approval! 🎉');
       await loadTasks();
-    } catch {
+    } catch (err) {
+      // The connection died mid-request (no HTTP status) — queue it instead of losing the tap.
+      if (isTransportError(err) && (await saveForLater(assignment))) return;
       showError('Failed to submit task');
     } finally {
       setCompletingId(null);
@@ -189,7 +254,15 @@ export default function ChildTasksPage() {
 
   const handleResubmit = async (assignment: TaskAssignment) => {
     if (assignment.task.requiresPhotoEvidence) {
+      if (!isOnline) {
+        showError('Photo tasks need internet. Try again when you’re back online.');
+        return;
+      }
       setPhotoAssignment(assignment);
+      return;
+    }
+    if (!isOnline) {
+      if (!(await saveForLater(assignment))) showError('Failed to resubmit task');
       return;
     }
     setResubmittingId(assignment.id);
@@ -197,7 +270,8 @@ export default function ChildTasksPage() {
       await tasksApi.completeAssignment(assignment.id);
       showSuccess('Task resubmitted for approval!');
       await loadTasks();
-    } catch {
+    } catch (err) {
+      if (isTransportError(err) && (await saveForLater(assignment))) return;
       showError('Failed to resubmit task');
     } finally {
       setResubmittingId(null);
@@ -294,6 +368,48 @@ export default function ChildTasksPage() {
           <p className="text-slate-600 mt-1">Complete tasks to earn points and level up</p>
         </div>
 
+        {/* FR-13: offline / pending-sync status */}
+        {(!isOnline || queued.length > 0) && (
+          <div
+            role="status"
+            className={cn(
+              'flex items-start gap-2 rounded-xl border px-4 py-3 text-sm',
+              isOnline
+                ? 'bg-sky-50 border-sky-200 text-sky-800'
+                : 'bg-slate-100 border-slate-300 text-slate-700'
+            )}
+          >
+            {isOnline ? (
+              <RefreshCw className="w-4 h-4 mt-0.5 shrink-0 animate-spin" />
+            ) : (
+              <CloudOff className="w-4 h-4 mt-0.5 shrink-0" />
+            )}
+            <div className="flex-1">
+              {!isOnline && (
+                <p className="font-medium">
+                  You&apos;re offline. You can still mark tasks done — we&apos;ll send them when
+                  you&apos;re back.
+                </p>
+              )}
+              {queued.length > 0 && (
+                <p className={cn(!isOnline && 'mt-1')}>
+                  {queued.length === 1
+                    ? '1 task is waiting to sync.'
+                    : `${queued.length} tasks are waiting to sync.`}
+                </p>
+              )}
+            </div>
+            {isOnline && queued.length > 0 && (
+              <button
+                onClick={() => flushQueue()}
+                className="shrink-0 font-semibold underline underline-offset-2"
+              >
+                Retry now
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
           {(
@@ -388,7 +504,7 @@ export default function ChildTasksPage() {
                 title="No completed tasks yet" message="Complete tasks to see them here!" />
             ) : (
               completedAssignments.map((a) => (
-                <CompletedTaskCard key={a.id} assignment={a} />
+                <CompletedTaskCard key={a.id} assignment={a} isQueued={isQueued(a.id)} />
               ))
             )}
           </div>
@@ -546,26 +662,41 @@ function TaskCard({
 
 // ── Completed Task Card ───────────────────────────────────────────────────────
 
-function CompletedTaskCard({ assignment }: { assignment: TaskAssignment }) {
+function CompletedTaskCard({
+  assignment,
+  isQueued = false,
+}: {
+  assignment: TaskAssignment;
+  /** FR-13: completed offline and still waiting to reach the server. */
+  isQueued?: boolean;
+}) {
   const isApproved = assignment.status === 'approved';
 
   return (
     <div className={cn(
       'rounded-2xl p-5 border',
-      isApproved
+      isQueued
+        ? 'bg-slate-50 border-slate-300'
+        : isApproved
         ? 'bg-success-50 border-success-200'
         : 'bg-warning-50 border-warning-200'
     )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {isApproved
+          {isQueued
+            ? <CloudOff className="w-5 h-5 text-slate-500" />
+            : isApproved
             ? <CheckCircle2 className="w-5 h-5 text-success-600" />
             : <Clock className="w-5 h-5 text-warning-600" />
           }
           <div>
             <p className="font-bold text-slate-900">{assignment.task.title}</p>
             <p className="text-sm text-slate-500">
-              {isApproved ? 'Approved ✓' : 'Awaiting approval…'}
+              {isQueued
+                ? 'Waiting to sync…'
+                : isApproved
+                ? 'Approved ✓'
+                : 'Awaiting approval…'}
             </p>
           </div>
         </div>
