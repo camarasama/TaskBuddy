@@ -325,6 +325,13 @@ export const authApi = {
       body: JSON.stringify({ code }),
     }),
 
+  // FR-17: disable 2FA (parents and admins). Requires a current TOTP code.
+  mfaDisable: (code: string) =>
+    request<ApiResponse<{ message: string }>>('/auth/mfa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
   regenerateFamilyCode: () =>
     request<ApiResponse<{ familyCode: string }>>('/auth/family/regenerate-code', {
       method: 'POST',
