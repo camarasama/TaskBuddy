@@ -79,6 +79,7 @@ model User {
   createdRewards        Reward[]
   rewardRedemptions     RewardRedemption[]
   rewardContributions   RewardContribution[]
+  rewardWishlists       RewardWishlist[]
   childAchievements     ChildAchievement[]
   challengeCompletions  ChallengeCompletion[]
   notifications         Notification[]
@@ -311,6 +312,7 @@ model Reward {
   creator     User               @relation(fields: [createdBy], references: [id])
   redemptions   RewardRedemption[]
   contributions RewardContribution[]
+  wishlists     RewardWishlist[]
 
   @@index([familyId])
   @@index([isActive])
@@ -355,6 +357,22 @@ model RewardContribution {
   @@index([rewardId])
   @@index([childId])
   @@map("reward_contributions")
+}
+
+// FR-14: reward wishlist — a child stars a reward so parents can see what motivates whom.
+model RewardWishlist {
+  id        String   @id @default(uuid())
+  rewardId  String   @map("reward_id")
+  childId   String   @map("child_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  reward Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  child  User   @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([rewardId, childId])
+  @@index([rewardId])
+  @@index([childId])
+  @@map("reward_wishlists")
 }
 
 // ============================================

@@ -26,6 +26,7 @@ import {
   ShoppingCart,
   AlertTriangle,
   Users,
+  Heart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ChildLayout } from '@/components/layouts/ChildLayout';
@@ -50,6 +51,7 @@ interface Reward {
   remainingForChild: number | null;
   isExpired: boolean;
   isSoldOut: boolean;
+  wishlisted?: boolean; // FR-14
 }
 
 interface Redemption {
@@ -69,6 +71,17 @@ interface Redemption {
 export default function ChildRewardsPage() {
   const { error: showError, success: showSuccess } = useToast();
   const [rewards, setRewards] = useState<Reward[]>([]);
+  const toggleWishlist = async (reward: Reward) => {
+    const next = !reward.wishlisted;
+    setRewards((rs) => rs.map((r) => (r.id === reward.id ? { ...r, wishlisted: next } : r)));
+    try {
+      if (next) await rewardsApi.addToWishlist(reward.id);
+      else await rewardsApi.removeFromWishlist(reward.id);
+    } catch {
+      // roll back on failure
+      setRewards((rs) => rs.map((r) => (r.id === reward.id ? { ...r, wishlisted: !next } : r)));
+    }
+  };
   const [redemptions, setRedemptions] = useState<Redemption[]>([]);
   const [userPoints, setUserPoints] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -216,6 +229,7 @@ export default function ChildRewardsPage() {
                       userPoints={userPoints}
                       onRedeem={() => handleRedeem(reward)}
                       isRedeeming={redeemingId === reward.id}
+                      onToggleWishlist={() => toggleWishlist(reward)}
                     />
                   </motion.div>
                 ))}
@@ -282,11 +296,13 @@ function RewardCard({
   userPoints,
   onRedeem,
   isRedeeming,
+  onToggleWishlist,
 }: {
   reward: Reward;
   userPoints: number;
   onRedeem: () => void;
   isRedeeming: boolean;
+  onToggleWishlist: () => void;
 }) {
   const canAfford = userPoints >= reward.pointsCost;
   const progress = Math.min((userPoints / reward.pointsCost) * 100, 100);
@@ -305,12 +321,25 @@ function RewardCard({
     <motion.div
       whileTap={isRedeemable ? { scale: 0.98 } : undefined}
       className={cn(
-        'bg-white rounded-xl p-4 border transition-all',
+        'relative bg-white rounded-xl p-4 border transition-all',
         isRedeemable
           ? 'border-xp-200 hover:border-xp-400 hover:shadow-md'
           : 'border-slate-200 opacity-70'
       )}
     >
+      {/* FR-14: wishlist heart */}
+      <button
+        type="button"
+        onClick={onToggleWishlist}
+        aria-pressed={Boolean(reward.wishlisted)}
+        aria-label={reward.wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+        className="absolute top-3 right-3 p-1 rounded-full hover:bg-slate-100 transition"
+      >
+        <Heart
+          className={cn('w-5 h-5', reward.wishlisted ? 'fill-red-500 text-red-500' : 'text-slate-400')}
+        />
+      </button>
+
       {/* Icon */}
       <div className="w-14 h-14 mx-auto mb-3 rounded-xl bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center">
         <Gift className="w-7 h-7 text-white" />

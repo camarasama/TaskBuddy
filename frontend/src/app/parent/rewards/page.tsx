@@ -27,6 +27,7 @@ import {
   Trash2,
   AlertTriangle,
   Users,
+  Heart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
@@ -55,6 +56,7 @@ interface Reward {
   isExpired: boolean;
   isSoldOut: boolean;
   createdAt: Date | string;
+  wishlistCount?: number; // FR-14: how many children wished for this
 }
 
 interface Redemption {
@@ -305,6 +307,13 @@ function RewardCard({ reward, onDelete }: { reward: Reward; onDelete: () => void
 
       {/* Status badges row */}
       <div className="flex flex-wrap gap-2 mb-3">
+        {/* FR-14: how many children have this on their wishlist */}
+        {!!reward.wishlistCount && reward.wishlistCount > 0 && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">
+            <Heart className="w-3 h-3 fill-red-500 text-red-500" />
+            {reward.wishlistCount} {reward.wishlistCount === 1 ? 'wish' : 'wishes'}
+          </span>
+        )}
         {/* M6: Sold Out badge */}
         {reward.isSoldOut && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
