@@ -46,6 +46,7 @@ import { AuditService } from '../services/AuditService';
 // P4 - Business logic delegated to TaskService
 import { TaskService } from '../services/TaskService';
 import { createNotification } from './notifications';
+import { emitTaskComment } from '../services/SocketService';
 
 export const taskRouter = Router();
 
@@ -865,3 +866,83 @@ taskRouter.post('/assignments/self-assign', requireAuth, async (req, res, next) 
     next(error);
   }
 });
+
+
+// ─── Task comments (FR-11) ───────────────────────────────────────────────────
+// A short thread between a parent and the assigned child on ONE assignment. Access is limited to
+// the participants: family parents/admin, or the child the assignment belongs to. `familyIsolation`
+// already pins req.familyId; we additionally re-check the assignment is in that family AND, for a
+// child, that it is THEIR assignment — a child must not read another child's thread.
+
+async function loadParticipantAssignment(assignmentId: string, req: any) {
+  const assignment = await prisma.taskAssignment.findFirst({
+    where: { id: assignmentId, task: { familyId: req.familyId, deletedAt: null } },
+    select: { id: true, childId: true, task: { select: { familyId: true } } },
+  });
+  if (!assignment) throw new NotFoundError('Assignment not found');
+  if (req.user.role === 'child' && assignment.childId !== req.user.userId) {
+    throw new ForbiddenError('You can only see comments on your own tasks');
+  }
+  return assignment;
+}
+
+// GET /tasks/assignments/:id/comments - list the thread (oldest first).
+taskRouter.get('/assignments/:id/comments', async (req, res, next) => {
+  try {
+    await loadParticipantAssignment(req.params.id, req);
+    const comments = await prisma.taskComment.findMany({
+      where: { assignmentId: req.params.id },
+      orderBy: { createdAt: 'asc' },
+      include: { author: { select: { id: true, firstName: true, lastName: true, role: true } } },
+    });
+    res.json({ success: true, data: { comments } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const postCommentSchema = z.object({ content: z.string().trim().min(1).max(1000) });
+
+// POST /tasks/assignments/:id/comments - add a comment; broadcasts task:comment to the family.
+taskRouter.post(
+  '/assignments/:id/comments',
+  validateBody(postCommentSchema),
+  async (req, res, next) => {
+    try {
+      const assignment = await loadParticipantAssignment(req.params.id, req);
+
+      const comment = await prisma.taskComment.create({
+        data: { assignmentId: req.params.id, authorId: req.user!.userId, content: req.body.content },
+        include: { author: { select: { id: true, firstName: true, lastName: true, role: true } } },
+      });
+
+      emitTaskComment(req.familyId!, {
+        assignmentId: req.params.id,
+        comment: {
+          id: comment.id,
+          authorId: comment.authorId,
+          authorName: `${comment.author.firstName} ${comment.author.lastName}`,
+          content: comment.content,
+          createdAt: comment.createdAt.toISOString(),
+        },
+      });
+
+      // Notify the OTHER participant (the child if a parent commented; a family parent otherwise).
+      if (req.user!.role !== 'child') {
+        createNotification({
+          userId: assignment.childId,
+          notificationType: 'task_comment',
+          title: 'New comment on your task',
+          message: comment.content.slice(0, 140),
+          actionUrl: '/child/tasks',
+          referenceType: 'task_assignment',
+          referenceId: assignment.id,
+        }).catch(() => {});
+      }
+
+      res.status(201).json({ success: true, data: { comment } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);

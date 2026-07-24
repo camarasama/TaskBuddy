@@ -53,6 +53,7 @@ import type {
   GamesListResponse,
   GameSession,
   GameSubmitResult,
+  TaskComment,
 } from '@taskbuddy/shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -607,6 +608,17 @@ export const tasksApi = {
     request<ApiResponse<{ message: string }>>(`/tasks/${taskId}/assignments/${childId}`, {
       method: 'DELETE',
     }),
+
+  // FR-11: comment thread on an assignment.
+  getComments: (assignmentId: string) =>
+    request<ApiResponse<{ comments: TaskComment[] }>>(
+      `/tasks/assignments/${assignmentId}/comments`,
+    ),
+  addComment: (assignmentId: string, content: string) =>
+    request<ApiResponse<{ comment: TaskComment }>>(
+      `/tasks/assignments/${assignmentId}/comments`,
+      { method: 'POST', body: JSON.stringify({ content }) },
+    ),
 
   assignChild: (taskId: string, childId: string) =>
     request<ApiResponse<{ assignment: TaskAssignmentWithTask }>>(`/tasks/${taskId}/assign`, {

@@ -16,6 +16,7 @@ import { useDataRefresh } from '@/hooks/useDataRefresh';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { TaskCommentThread } from '@/components/tasks/TaskCommentThread';
 import {
   CheckCircle2,
   Clock,
@@ -536,6 +537,9 @@ function TaskCard({
           )}
         </Button>
       )}
+
+      {/* FR-11: comment thread with the parent */}
+      <TaskCommentThread assignmentId={assignment.id} />
     </motion.div>
   );
 }
