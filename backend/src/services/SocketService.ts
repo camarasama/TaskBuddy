@@ -90,6 +90,18 @@ export interface StreakMilestonePayload {
   bonusPoints: number;
 }
 
+// FR-11: a new comment on a task assignment.
+export interface TaskCommentPayload {
+  assignmentId: string;
+  comment: {
+    id: string;
+    authorId: string;
+    authorName: string;
+    content: string;
+    createdAt: string;
+  };
+}
+
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
 let io: SocketIOServer | null = null;
@@ -225,6 +237,15 @@ export function emitOverlapWarning(familyId: string, payload: OverlapWarningPayl
 export function emitNotificationNew(userId: string, payload: NotificationNewPayload): void {
   if (!ready('emitNotificationNew')) return;
   io!.to(`user:${userId}`).emit('notification:new', payload);
+}
+
+/**
+ * emitTaskComment (FR-11)
+ * Emitted to the family room so both the parent and the assigned child see the new comment live.
+ */
+export function emitTaskComment(familyId: string, payload: TaskCommentPayload): void {
+  if (!ready('emitTaskComment')) return;
+  io!.to(`family:${familyId}`).emit('task:comment', payload);
 }
 
 /**

@@ -355,3 +355,18 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
   updatedAt: Date;
 }
+
+// FR-11: a comment on a task assignment.
+export interface TaskComment {
+  id: string;
+  assignmentId: string;
+  authorId: string;
+  content: string;
+  createdAt: string | Date;
+  author?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+  };
+}

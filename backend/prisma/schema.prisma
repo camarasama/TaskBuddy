@@ -80,6 +80,7 @@ model User {
   rewardRedemptions     RewardRedemption[]
   rewardContributions   RewardContribution[]
   rewardWishlists       RewardWishlist[]
+  taskComments          TaskComment[]
   childAchievements     ChildAchievement[]
   challengeCompletions  ChallengeCompletion[]
   notifications         Notification[]
@@ -227,6 +228,7 @@ model TaskAssignment {
   child    User           @relation("AssignedTasks", fields: [childId], references: [id], onDelete: Cascade)
   approver User?          @relation("ApprovedAssignments", fields: [approvedBy], references: [id])
   evidence TaskEvidence[]
+  comments TaskComment[]
 
   @@unique([taskId, childId, instanceDate])
   @@index([taskId])
@@ -236,6 +238,22 @@ model TaskAssignment {
   // M9 - index for the expiry cron so it can efficiently find un-emailed assignments
   @@index([emailSentAt])
   @@map("task_assignments")
+}
+
+// FR-11: short comments between a parent and child on a specific assignment.
+model TaskComment {
+  id           String   @id @default(uuid())
+  assignmentId String   @map("assignment_id")
+  authorId     String   @map("author_id")
+  content      String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  assignment TaskAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+  @@index([authorId])
+  @@map("task_comments")
 }
 
 model TaskEvidence {

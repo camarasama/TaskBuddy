@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { TaskCommentThread } from '@/components/tasks/TaskCommentThread';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -270,6 +271,9 @@ function AssignmentCard({
             </div>
           </div>
         )}
+
+        {/* FR-11: comment thread for this assignment */}
+        <TaskCommentThread assignmentId={assignment.id} />
       </div>
     </>
   );
