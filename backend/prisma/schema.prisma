@@ -78,6 +78,7 @@ model User {
   approvedAssignments   TaskAssignment[]    @relation("ApprovedAssignments")
   createdRewards        Reward[]
   rewardRedemptions     RewardRedemption[]
+  rewardContributions   RewardContribution[]
   childAchievements     ChildAchievement[]
   challengeCompletions  ChallengeCompletion[]
   notifications         Notification[]
@@ -299,6 +300,8 @@ model Reward {
   maxRedemptionsTotal    Int?        @map("max_redemptions_total")
   expiresAt              DateTime?   @map("expires_at")
   isCollaborative        Boolean     @default(false) @map("is_collaborative")
+  // FR-09: set once the pooled contributions first reach pointsCost, so auto-fulfilment fires once.
+  collaborativeFulfilledAt DateTime? @map("collaborative_fulfilled_at")
   createdAt              DateTime    @default(now()) @map("created_at")
   updatedAt              DateTime    @updatedAt @map("updated_at")
   deletedAt              DateTime?   @map("deleted_at")
@@ -306,7 +309,8 @@ model Reward {
   // Relations
   family      Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)
   creator     User               @relation(fields: [createdBy], references: [id])
-  redemptions RewardRedemption[]
+  redemptions   RewardRedemption[]
+  contributions RewardContribution[]
 
   @@index([familyId])
   @@index([isActive])
@@ -334,6 +338,23 @@ model RewardRedemption {
   @@index([childId])
   @@index([status])
   @@map("reward_redemptions")
+}
+
+// FR-09: collaborative rewards — children pool points toward one shared reward. Each row is one
+// child's contribution; the reward auto-fulfils when the sum reaches pointsCost.
+model RewardContribution {
+  id        String   @id @default(uuid())
+  rewardId  String   @map("reward_id")
+  childId   String   @map("child_id")
+  points    Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  reward Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  child  User   @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([rewardId])
+  @@index([childId])
+  @@map("reward_contributions")
 }
 
 // ============================================

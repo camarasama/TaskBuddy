@@ -102,7 +102,25 @@ rewardRouter.get('/', async (req, res, next) => {
           expiresAt: reward.expiresAt,
           isActive: reward.isActive,
         });
-        return { ...reward, ...capData };
+
+        // FR-09: for collaborative rewards, surface the pooled progress so the shop can draw a bar.
+        let collaborative:
+          | { pooled: number; goal: number; funded: boolean }
+          | undefined;
+        if (reward.isCollaborative) {
+          const agg = await prisma.rewardContribution.aggregate({
+            where: { rewardId: reward.id },
+            _sum: { points: true },
+          });
+          const pooled = agg._sum.points ?? 0;
+          collaborative = {
+            pooled,
+            goal: reward.pointsCost,
+            funded: Boolean(reward.collaborativeFulfilledAt) || pooled >= reward.pointsCost,
+          };
+        }
+
+        return { ...reward, ...capData, collaborative };
       })
     );
 
@@ -283,6 +301,31 @@ rewardRouter.delete('/:id', requireParent, async (req, res, next) => {
     next(error);
   }
 });
+
+// ─── POST /rewards/:id/contribute - Contribute points to a collaborative reward (children) ──
+// FR-09: pooling toward a shared reward. Server caps the contribution at what's still needed and
+// auto-fulfils the reward exactly once when the pool reaches the goal.
+rewardRouter.post(
+  '/:id/contribute',
+  validateBody(z.object({ points: z.number().int().min(1).max(100000) })),
+  async (req, res, next) => {
+    try {
+      if (req.user!.role !== 'child') {
+        throw new ForbiddenError('Only children can contribute to rewards');
+      }
+      const result = await RewardService.contribute({
+        rewardId: req.params.id,
+        familyId: req.familyId!,
+        childId: req.user!.userId,
+        points: req.body.points,
+        ipAddress: req.ip,
+      });
+      res.status(201).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // ─── POST /rewards/:id/redeem - Redeem a reward (children only) ──────────────
 

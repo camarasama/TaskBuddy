@@ -179,4 +179,123 @@ export class RewardService {
       console.log(`[RewardService] Deactivated ${soldOutIds.length} sold-out reward(s)`);
     }
   }
+
+  /**
+   * FR-09 — a child contributes points toward a collaborative (pooled) reward.
+   *
+   * Debits the child's balance immediately via an append-only ledger row (consistent with how
+   * redemption spends points), records the contribution, and — when the running total first reaches
+   * pointsCost — auto-fulfils the reward for the family exactly once.
+   *
+   * Once-only fulfilment under concurrency: rather than read-then-write (which two racing
+   * contributions could both pass), we claim fulfilment with a conditional updateMany on
+   * `collaborativeFulfilledAt: null` and act only if we were the one row that flipped it.
+   */
+  static async contribute(params: {
+    rewardId: string;
+    familyId: string;
+    childId: string;
+    points: number;
+    ipAddress?: string;
+  }) {
+    const { rewardId, familyId, childId, points, ipAddress } = params;
+
+    if (points <= 0) throw new ValidationError('Contribution must be a positive number of points.');
+
+    const reward = await prisma.reward.findFirst({
+      where: { id: rewardId, familyId, deletedAt: null },
+    });
+    if (!reward) throw new NotFoundError('Reward not found');
+    if (!reward.isCollaborative) throw new ConflictError('This reward is not collaborative.');
+    if (!reward.isActive) throw new ConflictError('This reward is no longer available.');
+    if (reward.collaborativeFulfilledAt) {
+      throw new ConflictError('This reward has already been fully funded.');
+    }
+
+    const profile = await prisma.childProfile.findUnique({ where: { userId: childId } });
+    if (!profile) throw new NotFoundError('Child profile not found');
+    if (profile.pointsBalance < points) {
+      throw new ValidationError(
+        `Not enough points. You have ${profile.pointsBalance} but tried to contribute ${points}.`
+      );
+    }
+
+    // Don't let a child overshoot the goal — cap the contribution at what's still needed.
+    const priorTotal = await prisma.rewardContribution.aggregate({
+      where: { rewardId },
+      _sum: { points: true },
+    });
+    const alreadyPooled = priorTotal._sum.points ?? 0;
+    const remaining = reward.pointsCost - alreadyPooled;
+    if (remaining <= 0) throw new ConflictError('This reward has already been fully funded.');
+    const applied = Math.min(points, remaining);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const newBalance = profile.pointsBalance - applied;
+
+      await tx.rewardContribution.create({ data: { rewardId, childId, points: applied } });
+
+      await tx.childProfile.update({
+        where: { userId: childId },
+        data: { pointsBalance: newBalance },
+      });
+
+      await tx.pointsLedger.create({
+        data: {
+          childId,
+          transactionType: 'redeemed',
+          pointsAmount: -applied,
+          balanceAfter: newBalance,
+          referenceType: 'reward_contribution',
+          referenceId: rewardId,
+          description: `Contributed ${applied} to: ${reward.name}`,
+        },
+      });
+
+      const pooledNow = alreadyPooled + applied;
+      let fulfilled = false;
+      if (pooledNow >= reward.pointsCost) {
+        // Atomic claim: only the transaction that flips null → now wins the fulfilment.
+        const claim = await tx.reward.updateMany({
+          where: { id: rewardId, collaborativeFulfilledAt: null },
+          data: { collaborativeFulfilledAt: new Date() },
+        });
+        fulfilled = claim.count === 1;
+      }
+
+      return { applied, newBalance, pooledNow, fulfilled };
+    });
+
+    await AuditService.logAction({
+      actorId: childId,
+      action: result.fulfilled ? 'REWARD_FUNDED' : 'REWARD_CONTRIBUTE',
+      resourceType: 'reward',
+      resourceId: rewardId,
+      familyId,
+      ipAddress,
+      metadata: { applied: result.applied, pooled: result.pooledNow, goal: reward.pointsCost },
+    });
+
+    if (result.fulfilled) {
+      EmailService.sendToFamilyParents({
+        familyId,
+        triggerType: 'reward_redeemed',
+        subjectBuilder: () => `The family reward "${reward.name}" is fully funded!`,
+        templateData: { rewardName: reward.name, pointsCost: reward.pointsCost },
+        referenceType: 'reward',
+        referenceId: rewardId,
+      }).catch((err: { message?: string }) =>
+        console.error('[RewardService.contribute] funded email failed:', err?.message)
+      );
+    }
+
+    return {
+      applied: result.applied,
+      newBalance: result.newBalance,
+      pooled: result.pooledNow,
+      goal: reward.pointsCost,
+      fulfilled: result.fulfilled,
+    };
+  }
+
 }
