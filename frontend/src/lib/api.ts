@@ -755,6 +755,12 @@ export const rewardsApi = {
       { method: 'POST', body: JSON.stringify({ points }) },
     ),
 
+  // FR-14: toggle a reward on the caller child's wishlist (both idempotent).
+  addToWishlist: (rewardId: string) =>
+    request<ApiResponse<{ wishlisted: boolean }>>(`/rewards/${rewardId}/wishlist`, { method: 'PUT' }),
+  removeFromWishlist: (rewardId: string) =>
+    request<ApiResponse<{ wishlisted: boolean }>>(`/rewards/${rewardId}/wishlist`, { method: 'DELETE' }),
+
   getRedemptionHistory: (params?: { page?: number; limit?: number }) =>
     request<ApiResponse<Paged<{ redemptions: RewardRedemptionItem[] }>>>(
       `/rewards/redemptions/history${qs(params)}`,

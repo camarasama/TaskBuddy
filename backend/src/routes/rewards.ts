@@ -120,7 +120,21 @@ rewardRouter.get('/', async (req, res, next) => {
           };
         }
 
-        return { ...reward, ...capData, collaborative };
+        // FR-14: a child sees whether THEY wished for it; a parent/admin sees the household count.
+        let wishlisted: boolean | undefined;
+        let wishlistCount: number | undefined;
+        if (childId) {
+          wishlisted = Boolean(
+            await prisma.rewardWishlist.findUnique({
+              where: { rewardId_childId: { rewardId: reward.id, childId } },
+              select: { id: true },
+            }),
+          );
+        } else {
+          wishlistCount = await prisma.rewardWishlist.count({ where: { rewardId: reward.id } });
+        }
+
+        return { ...reward, ...capData, collaborative, wishlisted, wishlistCount };
       })
     );
 
@@ -326,6 +340,41 @@ rewardRouter.post(
     }
   },
 );
+
+// ─── Wishlist (FR-14) — children star rewards; parents see the counts ────────
+// PUT /rewards/:id/wishlist — add to the caller child's wishlist (idempotent).
+rewardRouter.put('/:id/wishlist', async (req, res, next) => {
+  try {
+    if (req.user!.role !== 'child') throw new ForbiddenError('Only children have a wishlist');
+    // Scope to the caller's family so a child cannot wish for another family's reward.
+    const reward = await prisma.reward.findFirst({
+      where: { id: req.params.id, familyId: req.familyId, deletedAt: null },
+    });
+    if (!reward) throw new NotFoundError('Reward not found');
+
+    await prisma.rewardWishlist.upsert({
+      where: { rewardId_childId: { rewardId: reward.id, childId: req.user!.userId } },
+      create: { rewardId: reward.id, childId: req.user!.userId },
+      update: {}, // already wished → no-op, so the call is idempotent
+    });
+    res.json({ success: true, data: { wishlisted: true } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /rewards/:id/wishlist — remove from the caller child's wishlist (idempotent).
+rewardRouter.delete('/:id/wishlist', async (req, res, next) => {
+  try {
+    if (req.user!.role !== 'child') throw new ForbiddenError('Only children have a wishlist');
+    await prisma.rewardWishlist.deleteMany({
+      where: { rewardId: req.params.id, childId: req.user!.userId },
+    });
+    res.json({ success: true, data: { wishlisted: false } });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ─── POST /rewards/:id/redeem - Redeem a reward (children only) ──────────────
 
