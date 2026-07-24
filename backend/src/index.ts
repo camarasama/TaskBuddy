@@ -20,6 +20,7 @@ import { adminRouter } from './routes/admin';
 import { initRecurringScheduler } from './services/RecurringScheduler';
 import { startExpiryEmailCron } from './jobs/expiryEmailCron';
 import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
+import { startDailyChallengeCron } from './jobs/dailyChallengeCron';
 // M10 - Phase 4/5: Reports, Notifications and real-time socket
 import { reportsRouter } from './routes/reports';
 import { notificationsRouter } from './routes/notifications';
@@ -202,6 +203,7 @@ if (config.env !== 'test') {
   initRecurringScheduler(); // M8 - midnight recurring task generation
   startExpiryEmailCron();
   startStreakAtRiskCron();
+  startDailyChallengeCron();
   initSocketService(io); // M10 - Phase 5: wire socket emit helper
 
   seedGames().catch(console.error);

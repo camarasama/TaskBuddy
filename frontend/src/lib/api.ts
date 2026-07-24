@@ -957,6 +957,24 @@ export const notificationsApi = {
     }),
 };
 
+export const challengesApi = {
+  // FR-08: today's challenge + this child's progress.
+  getToday: () =>
+    request<ApiResponse<{
+      challenge: { id: string; title: string; description: string | null; bonusPoints: number; target: number } | null;
+      progress: number;
+      target: number;
+      completed: boolean;
+    }>>('/challenges/today'),
+
+  // Claim the bonus. Server re-verifies eligibility; 409 CHALLENGE_NOT_MET if not yet earned.
+  complete: (id: string) =>
+    request<ApiResponse<{ awarded: number; newBalance: number; alreadyClaimed: boolean }>>(
+      `/challenges/${id}/complete`,
+      { method: 'POST' },
+    ),
+};
+
 export const gamesApi = {
   list: () =>
     request<ApiResponse<{ games: unknown[] }>>('/games'),
