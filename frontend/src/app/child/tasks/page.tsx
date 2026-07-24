@@ -34,10 +34,20 @@ import {
   AlertCircle,
   Play,
   Calendar,
+  CloudOff,
+  WifiOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ChildLayout } from '@/components/layouts/ChildLayout';
 import { tasksApi } from '@/lib/api';
+import {
+  enqueue as enqueueOffline,
+  isOnline,
+  pendingIds as offlinePendingIds,
+  startAutoFlush,
+  type OfflineAction,
+  type FlushReport,
+} from '@/lib/offlineQueue';
 import { useToast } from '@/components/ui/Toast';
 import { cn, getDifficultyColor, formatPoints, formatDate, formatDateTime } from '@/lib/utils';
 import Confetti from 'react-confetti';
@@ -83,6 +93,10 @@ export default function ChildTasksPage() {
   const [showConfetti, setShowConfetti]         = useState(false);
   const [photoAssignment, setPhotoAssignment]   = useState<TaskAssignment | null>(null);
   const [hasPendingPrimaries, setHasPendingPrimaries] = useState(false);
+  // FR-13 — offline queue. `queuedIds` drives the "Queued" badge; `offline` drives the banner and
+  // the photo-evidence fallback. Both are refreshed from the queue itself, never guessed.
+  const [queuedIds, setQueuedIds] = useState<Set<string>>(new Set());
+  const [offline, setOffline] = useState(false);
 
   // ── Load tasks ────────────────────────────────────────────────────────────
 
@@ -137,6 +151,83 @@ export default function ChildTasksPage() {
   }, [loadTasks]);
   useDataRefresh(loadTasks);
 
+  // ── FR-13: offline queue plumbing ─────────────────────────────────────────
+
+  const refreshQueued = useCallback(async () => {
+    setQueuedIds(await offlinePendingIds());
+  }, []);
+
+  /** Replays one queued action against the API, passing the timestamp captured on the device. */
+  const replay = useCallback(
+    (action: OfflineAction) =>
+      action.type === 'start'
+        ? tasksApi.startAssignment(action.assignmentId, action.clientTimestamp)
+        : tasksApi.completeAssignment(
+            action.assignmentId,
+            undefined,
+            action.payload?.note as string | undefined,
+            action.clientTimestamp
+          ),
+    []
+  );
+
+  const handleFlushReport = useCallback(
+    (report: FlushReport) => {
+      const synced = report.outcomes.filter((o) => o.result === 'synced').length;
+      // 'already-applied' is a 409: the server had it all along. Silent success, never an error.
+      const dropped = report.outcomes.filter((o) => o.result === 'dropped');
+
+      if (synced > 0) showSuccess(`Synced ${synced} offline task${synced > 1 ? 's' : ''} ✓`);
+      dropped.forEach((o) =>
+        showError(`Couldn't sync one task: ${'reason' in o ? o.reason : 'unknown error'}`)
+      );
+
+      refreshQueued();
+      loadTasks();
+    },
+    [showSuccess, showError, refreshQueued, loadTasks]
+  );
+
+  useEffect(() => {
+    refreshQueued();
+    setOffline(!isOnline());
+
+    const syncConnection = () => setOffline(!isOnline());
+    window.addEventListener('online', syncConnection);
+    window.addEventListener('offline', syncConnection);
+
+    // Drains now if we are already online, and again on every reconnect.
+    const stopAutoFlush = startAutoFlush(replay, handleFlushReport);
+
+    return () => {
+      window.removeEventListener('online', syncConnection);
+      window.removeEventListener('offline', syncConnection);
+      stopAutoFlush();
+    };
+  }, [replay, handleFlushReport, refreshQueued]);
+
+  /**
+   * Queues an action taken with no connection. Deliberately does NOT raise a network-error toast —
+   * from the child's point of view the tap worked; it is just waiting for signal.
+   */
+  const queueOffline = useCallback(
+    async (type: 'start' | 'complete', assignment: TaskAssignment, note?: string) => {
+      await enqueueOffline(type, assignment.id, note ? { note } : undefined);
+      await refreshQueued();
+      setOffline(true);
+      showSuccess(
+        type === 'start'
+          ? 'Started offline — we’ll sync it when you’re back online 📶'
+          : 'Saved offline — we’ll sync it when you’re back online 📶'
+      );
+    },
+    [refreshQueued, showSuccess]
+  );
+
+  /** A thrown value with no HTTP status is a transport failure, i.e. we are effectively offline. */
+  const isNetworkFailure = (err: unknown) =>
+    typeof (err as { status?: unknown } | null)?.status !== 'number';
+
   // ── Derive tab lists ──────────────────────────────────────────────────────
 
   const activeAssignments    = assignments.filter(a =>
@@ -153,9 +244,19 @@ export default function ChildTasksPage() {
   const handleStart = async (assignment: TaskAssignment) => {
     setStartingId(assignment.id);
     try {
+      // FR-13: known-offline never even attempts the request — no failed fetch, no error toast.
+      if (!isOnline()) {
+        await queueOffline('start', assignment);
+        return;
+      }
       await tasksApi.startAssignment(assignment.id);
       await loadTasks();
     } catch (err) {
+      // The connection can drop between the check and the request; queue rather than complain.
+      if (isNetworkFailure(err)) {
+        await queueOffline('start', assignment);
+        return;
+      }
       const message = err instanceof Error ? err.message : 'Failed to start task';
       showError(message);
     } finally {
@@ -166,18 +267,32 @@ export default function ChildTasksPage() {
   // ── Complete (submit) a task ──────────────────────────────────────────────
 
   const handleComplete = async (assignment: TaskAssignment) => {
-    if (assignment.task.requiresPhotoEvidence) {
+    // Photo evidence is online-only by design (queueing image blobs is a different problem), so
+    // offline the photo modal is skipped entirely — the card offers "complete without photo".
+    if (assignment.task.requiresPhotoEvidence && isOnline()) {
       setPhotoAssignment(assignment);
       return;
     }
     setCompletingId(assignment.id);
     try {
+      if (!isOnline()) {
+        await queueOffline(
+          'complete',
+          assignment,
+          assignment.task.requiresPhotoEvidence ? 'Completed offline — photo to follow' : undefined
+        );
+        return;
+      }
       await tasksApi.completeAssignment(assignment.id);
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3000);
       showSuccess('Task submitted for approval! 🎉');
       await loadTasks();
-    } catch {
+    } catch (err) {
+      if (isNetworkFailure(err)) {
+        await queueOffline('complete', assignment);
+        return;
+      }
       showError('Failed to submit task');
     } finally {
       setCompletingId(null);
@@ -294,6 +409,18 @@ export default function ChildTasksPage() {
           <p className="text-slate-600 mt-1">Complete tasks to earn points and level up</p>
         </div>
 
+        {/* FR-13: offline banner — sets expectations before the child taps anything */}
+        {offline && (
+          <p
+            data-testid="offline-banner"
+            className="text-sm text-slate-700 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 flex items-start gap-2"
+          >
+            <WifiOff className="w-4 h-4 mt-0.5 shrink-0 text-slate-500" />
+            You&apos;re offline. Start and Complete still work — we&apos;ll send them the moment
+            you&apos;re back online.
+          </p>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
           {(
@@ -347,6 +474,8 @@ export default function ChildTasksPage() {
                   onComplete={() => handleComplete(a)}
                   isStarting={startingId === a.id}
                   isCompleting={completingId === a.id}
+                  isQueued={queuedIds.has(a.id)}
+                  offline={offline}
                 />
               ))
             )}
@@ -435,12 +564,17 @@ function TaskCard({
   onComplete,
   isStarting,
   isCompleting,
+  isQueued = false,
+  offline = false,
 }: {
   assignment: TaskAssignment;
   onStart: () => void;
   onComplete: () => void;
   isStarting: boolean;
   isCompleting: boolean;
+  /** FR-13: this card has an action waiting in the offline queue. */
+  isQueued?: boolean;
+  offline?: boolean;
 }) {
   const isPending = assignment.status === 'pending';
   const isInProgress = assignment.status === 'in_progress';
@@ -472,6 +606,14 @@ function TaskCard({
               getDifficultyColor(assignment.task.difficulty.toUpperCase()))}>
               {assignment.task.difficulty}
             </span>
+            {isQueued && (
+              <span
+                data-testid="queued-badge"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full"
+              >
+                <CloudOff className="w-3 h-3" /> Queued
+              </span>
+            )}
           </div>
           <h3 className="font-bold text-slate-900 truncate">{assignment.task.title}</h3>
           {assignment.task.description && (
@@ -490,7 +632,14 @@ function TaskCard({
         </div>
       </div>
 
-      {isAwaitingApproval ? (
+      {isQueued ? (
+        // FR-13: the tap already landed — it is sitting in the queue. Offering the button again
+        // would only let the child double-submit the same action.
+        <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
+          <CloudOff className="w-4 h-4" />
+          Queued — will send when you&apos;re back online
+        </div>
+      ) : isAwaitingApproval ? (
         <div className="flex items-center gap-2 text-warning-700 text-sm font-medium">
           <Clock className="w-4 h-4" />
           Waiting for parent approval…
@@ -529,13 +678,22 @@ function TaskCard({
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              {assignment.task.requiresPhotoEvidence
+              {assignment.task.requiresPhotoEvidence && offline
+                // FR-13: uploads need a connection, so offline the photo path is disabled and the
+                // child is offered the explicit no-photo route rather than a dead button.
+                ? <><CheckCircle2 className="w-4 h-4" /> Complete without photo</>
+                : assignment.task.requiresPhotoEvidence
                 ? <><Camera className="w-4 h-4" /> Submit with Photo</>
                 : <><CheckCircle2 className="w-4 h-4" /> Mark Complete</>
               }
             </span>
           )}
         </Button>
+      )}
+      {assignment.task.requiresPhotoEvidence && offline && !isQueued && (
+        <p data-testid="photo-offline-note" className="mt-2 text-xs text-slate-500">
+          Photo upload needs a connection. Complete it now without a photo — you can add one later.
+        </p>
       )}
 
       {/* FR-11: comment thread with the parent */}

@@ -34,8 +34,16 @@ import { emitStreakMilestone } from './SocketService';
  *    on that calendar date OR within the grace window after midnight.
  *  - If the current streak is 0 and the child has no previous activity,
  *    this call simply starts the streak at 1.
+ *
+ * FR-13 - `asOf` (defaults to now): the moment the child actually finished the task, which for a
+ * replayed offline completion is NOT the moment this runs. Every day boundary below is derived
+ * from it, so a 23:50 completion synced at 00:10 is still credited to the 23:50 calendar day.
  */
-export async function evaluateStreak(childId: string, familyId: string): Promise<void> {
+export async function evaluateStreak(
+  childId: string,
+  familyId: string,
+  asOf: Date = new Date()
+): Promise<void> {
   // 1. Load grace period from FamilySettings (falls back to 0 if not set)
   const settings = await prisma.familySettings.findUnique({
     where: { familyId },
@@ -57,7 +65,8 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
 
   if (!childProfile) return;
 
-  const now = new Date();
+  // FR-13: "now" is the moment the work happened (asOf), not the moment this code runs.
+  const now = asOf;
   const todayMidnight = new Date(now);
   todayMidnight.setHours(0, 0, 0, 0);
 
@@ -86,8 +95,11 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
       (todayMidnight.getTime() - lastActivityMidnight.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    if (daysSinceLast === 0) {
-      // Already active today - streak unchanged (already incremented this day)
+    if (daysSinceLast <= 0) {
+      // Already active on (or after) this day - streak unchanged.
+      // FR-13: daysSinceLast < 0 means a queued action is being replayed for a day the child has
+      // already been credited for since. Treating that as a "gap" would reset a live streak, so a
+      // backdated replay is a no-op rather than a punishment.
     } else if (daysSinceLast === 1) {
       // Active yesterday, active today - extend streak
       newStreak += 1;
@@ -102,12 +114,16 @@ export async function evaluateStreak(childId: string, familyId: string): Promise
 
   const newLongest = Math.max(newStreak, childProfile.longestStreakDays);
 
+  // FR-13: never move lastActivityDate backwards. A backdated replay must not erase the record of
+  // more recent activity, or the next real completion would look like it followed a gap.
+  const newLastActivity = lastActivity && lastActivity > now ? lastActivity : now;
+
   await prisma.childProfile.update({
     where: { userId: childId },
     data: {
       currentStreakDays: newStreak,
       longestStreakDays: newLongest,
-      lastActivityDate: now,
+      lastActivityDate: newLastActivity,
     },
   });
 
