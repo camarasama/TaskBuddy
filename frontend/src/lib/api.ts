@@ -63,10 +63,15 @@ let accessToken: string | null = null;
 // Remembers the active role within a session so a refresh (which carries no role) persists correctly.
 let currentRole: string | undefined;
 
-// F-5 (Phase 4) storage policy:
-//   parent/admin → MEMORY ONLY (never written to web storage; re-minted from the httpOnly refresh
-//                  cookie on hard navigation — see AuthContext bootstrap). Shrinks XSS token theft.
-//   child        → localStorage (persists across tabs) — unchanged for now.
+// F-5 (Phase 4) storage policy — completes roadmap item F-01:
+//   ALL roles (parent/admin/child) → MEMORY ONLY. No access token is ever written to localStorage
+//   or sessionStorage; each is re-minted from its httpOnly refresh cookie on hard navigation (see
+//   AuthContext bootstrap). This shrinks the XSS token-theft surface to zero persisted tokens.
+//   Children previously kept a 90-day token in localStorage; they now use the same in-memory
+//   pattern as parent/admin, backed by the existing 90-day child refresh cookie.
+//   Deliberately NOT taken: an httpOnly access-token cookie for children. That would make the
+//   access token an ambient credential sent automatically on every request, forcing CSRF checks
+//   onto every state-changing route instead of just /auth/refresh and /auth/logout.
 export function setToken(token: string | null, role?: string): void {
   accessToken = token;
   if (role) currentRole = role;
@@ -74,26 +79,27 @@ export function setToken(token: string | null, role?: string): void {
 
   if (!token) {
     currentRole = undefined;
-    localStorage.removeItem('accessToken');
-    sessionStorage.removeItem('accessToken');
-    return;
   }
+  // No role persists an access token any more — always clear both stores.
+  localStorage.removeItem('accessToken');
+  sessionStorage.removeItem('accessToken');
+}
 
-  const effectiveRole = role ?? currentRole;
-  if (effectiveRole === 'child') {
-    localStorage.setItem('accessToken', token);
-  } else {
-    // parent/admin (or role not yet known → default to non-persisted): memory only.
-    localStorage.removeItem('accessToken');
-  }
-  sessionStorage.removeItem('accessToken'); // sessionStorage is no longer used for tokens
+/**
+ * Migration hygiene: earlier builds persisted the child access token to localStorage (90-day
+ * refresh cycle), so some already-logged-in children still have a stale value sitting there today.
+ * Nothing is ever read from web storage any more, so purge it opportunistically on token access
+ * rather than leaving it to linger indefinitely. Idempotent (removeItem on an absent key is a
+ * no-op), so it is safe to run on every call rather than tracking a one-shot flag.
+ */
+function purgeLegacyPersistedToken(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('accessToken');
+  sessionStorage.removeItem('accessToken');
 }
 
 export function getToken(): string | null {
-  if (!accessToken && typeof window !== 'undefined') {
-    // Only the child token is ever persisted now; parent/admin bootstrap via the refresh cookie.
-    accessToken = localStorage.getItem('accessToken');
-  }
+  purgeLegacyPersistedToken();
   return accessToken;
 }
 

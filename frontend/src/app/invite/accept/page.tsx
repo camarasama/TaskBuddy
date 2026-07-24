@@ -8,6 +8,7 @@ import { CheckCircle2, AlertTriangle, Loader2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
+import { setToken } from '@/lib/api';
 
 interface InvitePreview {
   familyName: string;
@@ -174,7 +175,11 @@ function AcceptInviteInner() {
       }
 
       const { tokens } = json.data;
-      localStorage.setItem('accessToken', tokens.accessToken);
+      // FR-01: route the token through setToken so it stays memory-only like every other login
+      // path. Writing it straight to localStorage here bypassed the storage policy entirely. The
+      // session survives a hard navigation because /auth/accept-invite sets the HttpOnly refresh
+      // cookie (this fetch already sends credentials), which AuthContext bootstraps from.
+      setToken(tokens.accessToken, 'parent');
       // Invite-accepted users are pre-verified; clear any stale banner flag
       sessionStorage.removeItem('emailNotVerified');
       setSuccess(true);

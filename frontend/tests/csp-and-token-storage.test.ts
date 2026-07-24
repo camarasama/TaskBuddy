@@ -94,7 +94,7 @@ describe('CSP connect-src carries the Sentry ingest origin (OI-2 prep)', () => {
   });
 });
 
-describe('access-token storage policy (F-5): parent/admin memory-only, child persisted', () => {
+describe('access-token storage policy (F-5/F-01): every role is memory-only', () => {
   beforeEach(() => {
     (global as unknown as { window: object }).window = {};
     (global as unknown as { localStorage: FakeStorage }).localStorage = new FakeStorage();
@@ -118,15 +118,18 @@ describe('access-token storage policy (F-5): parent/admin memory-only, child per
     expect(ss().getItem('accessToken')).toBeNull();
   });
 
-  it('child tokens persist to localStorage', () => {
+  it('child tokens are memory-only too (F-01: children joined the memory-only policy)', () => {
     setToken('ctok', 'child');
-    expect(ls().getItem('accessToken')).toBe('ctok');
+    expect(ls().getItem('accessToken')).toBeNull();
+    expect(ss().getItem('accessToken')).toBeNull();
   });
 
-  it('a roleless refresh keeps persisting to localStorage for a child session', () => {
+  it('a roleless refresh still does not persist for a child session', () => {
     setToken('ctok', 'child'); // remembers role=child for the session
     setToken('ctok2');         // refresh carries no role
-    expect(ls().getItem('accessToken')).toBe('ctok2');
+    expect(ls().getItem('accessToken')).toBeNull();
+    expect(ss().getItem('accessToken')).toBeNull();
+    expect(getToken()).toBe('ctok2');
   });
 
   it('a roleless refresh does NOT persist for a parent session', () => {
@@ -143,5 +146,23 @@ describe('access-token storage policy (F-5): parent/admin memory-only, child per
     // role forgotten: a subsequent roleless set must not re-persist
     setToken('x');
     expect(ls().getItem('accessToken')).toBeNull();
+  });
+
+  it('a child token is readable via getToken() from memory while absent from both storages', () => {
+    setToken('ctok3', 'child');
+    expect(getToken()).toBe('ctok3');
+    expect(ls().getItem('accessToken')).toBeNull();
+    expect(ss().getItem('accessToken')).toBeNull();
+  });
+
+  it('the legacy purge removes a pre-existing localStorage.accessToken value', () => {
+    // Simulate a pre-F-01 build that had already persisted a child token to localStorage.
+    ls().setItem('accessToken', 'stale-legacy-child-token');
+    ss().setItem('accessToken', 'stale-legacy-session-token');
+
+    // getToken() must never resurrect the stale value, and must purge it from storage.
+    expect(getToken()).toBeNull(); // in-memory accessToken is null after the beforeEach reset
+    expect(ls().getItem('accessToken')).toBeNull();
+    expect(ss().getItem('accessToken')).toBeNull();
   });
 });
