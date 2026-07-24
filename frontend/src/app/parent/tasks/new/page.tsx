@@ -216,10 +216,22 @@ export default function CreateTaskPage() {
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <ParentLayout>
-      {/* M5 - Overlap Warning Modal */}
+      {/* M5 - Overlap Warning Modal; FR-12 - visual timeline with the proposed slot overlaid */}
       {pendingWarnings.length > 0 && (
         <OverlapWarningModal
           warnings={pendingWarnings}
+          proposed={(() => {
+            const st = watch('startTime');
+            if (!st) return undefined;
+            const start = new Date(st);
+            if (isNaN(start.getTime())) return undefined;
+            const mins = Number(watch('estimatedMinutes')) || 30;
+            return {
+              title: watch('title') || 'this task',
+              startTime: start,
+              endTime: new Date(start.getTime() + mins * 60_000),
+            };
+          })()}
           onAssignAnyway={handleAssignAnyway}
           onGoBack={handleGoBack}
         />
