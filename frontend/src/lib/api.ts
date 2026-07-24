@@ -594,6 +594,13 @@ export const rewardsApi = {
       method: 'POST',
     }),
 
+  // FR-09: contribute points toward a collaborative reward.
+  contribute: (rewardId: string, points: number) =>
+    request<ApiResponse<{ applied: number; newBalance: number; pooled: number; goal: number; fulfilled: boolean }>>(
+      `/rewards/${rewardId}/contribute`,
+      { method: 'POST', body: JSON.stringify({ points }) },
+    ),
+
   getRedemptionHistory: (params?: { page?: number; limit?: number }) =>
     request<ApiResponse<Paged<{ redemptions: unknown[] }>>>(
       `/rewards/redemptions/history${qs(params)}`,
