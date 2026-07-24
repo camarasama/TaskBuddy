@@ -36,18 +36,18 @@ interface Task {
   difficulty: string;
   pointsValue: number;
   status: string;
-  dueDate?: string;
+  dueDate?: Date | string | null;
   assignments?: TaskAssignment[];
-  createdAt: string;
+  createdAt: Date | string;
 }
 
 interface TaskEvidence {
   id: string;
   evidenceType: string;
-  fileUrl?: string;
-  note?: string;
-  mimeType?: string;
-  uploadedAt: string;
+  fileUrl?: string | null;
+  note?: string | null;
+  mimeType?: string | null;
+  uploadedAt?: Date | string;
 }
 
 interface TaskAssignment {
@@ -57,7 +57,7 @@ interface TaskAssignment {
     id: string;
     firstName: string;
     lastName: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
   };
   task?: {
     id: string;
@@ -66,8 +66,8 @@ interface TaskAssignment {
     difficulty: string;
   };
   evidence?: TaskEvidence[];
-  completedAt?: string;
-  approvedAt?: string;
+  completedAt?: Date | string | null;
+  approvedAt?: Date | string | null;
 }
 
 type TabType = 'all' | 'pending' | 'completed';
@@ -476,7 +476,7 @@ function PendingApprovalCard({
                   className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 border-slate-200 hover:border-primary-400 transition-colors"
                 >
                   <img
-                    src={evidence.fileUrl}
+                    src={evidence.fileUrl || ''}
                     alt="Task evidence"
                     className="w-full h-full object-cover"
                   />

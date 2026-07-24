@@ -48,20 +48,20 @@ interface Reward {
   // Cap config
   maxRedemptionsPerChild?: number | null;
   maxRedemptionsTotal?: number | null;
-  expiresAt?: string | null;
+  expiresAt?: Date | string | null;
   // Computed cap fields returned by GET /rewards (M6)
   totalRedemptionsUsed: number;
   remainingTotal: number | null;
   isExpired: boolean;
   isSoldOut: boolean;
-  createdAt: string;
+  createdAt: Date | string;
 }
 
 interface Redemption {
   id: string;
   status: string;
-  createdAt: string;
-  fulfilledAt?: string;
+  createdAt: Date | string;
+  fulfilledAt?: Date | string | null;
   reward: {
     name: string;
     pointsCost: number;
@@ -254,8 +254,9 @@ export default function ParentRewardsPage() {
  * Returns a human-readable string for how much time is left before expiry.
  * e.g. "Expires in 2d 4h", "Expires in 30m", "Expired"
  */
-function getExpiryLabel(expiresAt: string): string {
-  const diff = new Date(expiresAt).getTime() - Date.now();
+function getExpiryLabel(expiresAt: Date | string): string {
+  const expiry = typeof expiresAt === 'string' ? new Date(expiresAt) : expiresAt;
+  const diff = expiry.getTime() - Date.now();
   if (diff <= 0) return 'Expired';
   const minutes = Math.floor(diff / 60000);
   if (minutes < 60) return `Expires in ${minutes}m`;

@@ -23,8 +23,8 @@ interface Member {
   role: string;
   isActive: boolean;
   isPrimaryParent: boolean;
-  lastLoginAt: string | null;
-  createdAt: string;
+  lastLoginAt: Date | null;
+  createdAt: Date;
   childProfile: {
     pointsBalance: number;
     level: number;
@@ -36,10 +36,10 @@ interface Member {
 interface FamilyDetail {
   id: string;
   familyName: string;
-  familyCode: string;
+  familyCode: string | null;
   isSuspended: boolean;
-  suspendedAt: string | null;
-  createdAt: string;
+  suspendedAt: Date | null;
+  createdAt: Date;
   users: Member[];
   settings: { timezone: string; language: string } | null;
   _count: { tasks: number; rewards: number };

@@ -33,12 +33,14 @@ interface Task {
   difficulty: 'easy' | 'medium' | 'hard';
   taskTag: 'primary' | 'secondary';
   pointsValue: number;
-  xpValue: number;
+  // Never actually populated by the backend (no such field on the Task model) - kept optional so
+  // the type doesn't silently claim a guarantee the API never provides.
+  xpValue?: number;
   requiresPhotoEvidence: boolean;
-  dueDate?: string;
-  startTime?: string;
-  estimatedMinutes?: number;
-  maxClaimsTotal?: number;
+  dueDate?: Date | string | null;
+  startTime?: Date | string | null;
+  estimatedMinutes?: number | null;
+  maxClaimsTotal?: number | null;
   status: 'active' | 'paused' | 'archived';
   isRecurring: boolean;
   recurrencePattern?: string;
@@ -117,8 +119,8 @@ export default function EditTaskPage() {
         difficulty:            t.difficulty,
         taskTag:               t.taskTag ?? 'primary',
         pointsValue:           String(t.pointsValue),
-        dueDate:               t.dueDate    ? t.dueDate.slice(0, 16)    : '',
-        startTime:             t.startTime  ? t.startTime.slice(0, 16)  : '',
+        dueDate:               t.dueDate    ? String(t.dueDate).slice(0, 16)    : '',
+        startTime:             t.startTime  ? String(t.startTime).slice(0, 16)  : '',
         estimatedMinutes:      t.estimatedMinutes != null ? String(t.estimatedMinutes) : '',
         maxClaimsTotal:        (t as any).maxClaimsTotal  != null ? String((t as any).maxClaimsTotal) : '',
         requiresPhotoEvidence: t.requiresPhotoEvidence,

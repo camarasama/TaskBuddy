@@ -26,7 +26,7 @@ interface Child {
   firstName: string;
   lastName: string;
   username?: string;
-  dateOfBirth: string;
+  dateOfBirth: Date | string;
   avatarUrl?: string | null;
   gender?: string | null;
   childProfile?: {
@@ -262,7 +262,7 @@ function ChildModal({
     firstName: child?.firstName || '',
     lastName: child?.lastName || '',
     username: child?.username || '',
-    dateOfBirth: child?.dateOfBirth?.split('T')[0] || '',
+    dateOfBirth: child?.dateOfBirth ? String(child.dateOfBirth).split('T')[0] : '',
     pin: '',
     avatarUrl: child?.avatarUrl || '',
     email: '',

@@ -28,8 +28,8 @@ interface Achievement {
   pointsReward: number;
   xpReward: number;
   unlocked: boolean;
-  unlockedAt?: string;
-  progressValue?: number;
+  unlockedAt?: Date | null;
+  progressValue?: number | null;
 }
 
 interface AchievementStats {

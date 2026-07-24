@@ -29,6 +29,8 @@ export type TransactionType =
   | 'adjustment'
   | 'milestone_bonus';
 
+// M5 - CR-01: primary = must-do, secondary = bonus/self-assignable
+export type TaskTag = 'primary' | 'secondary';
 export type RewardTier = 'small' | 'medium' | 'large';
 export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 export type RedemptionStatus = 'pending' | 'approved' | 'fulfilled' | 'cancelled';
@@ -111,13 +113,19 @@ export interface Task extends BaseModel {
   description?: string | null;
   category?: string | null;
   difficulty?: TaskDifficulty | null;
+  taskTag: TaskTag;
   pointsValue: number;
   dueDate?: Date | null;
+  // M5 - CR-09: optional scheduling fields for overlap detection
+  startTime?: Date | null;
+  estimatedMinutes?: number | null;
   requiresPhotoEvidence: boolean;
   isRecurring: boolean;
   recurrencePattern?: string | null;
   recurrenceConfig?: Record<string, unknown> | null;
   autoApprove: boolean;
+  // How many different children can claim this task from the pool (null = unlimited)
+  maxClaimsTotal?: number | null;
   status: TaskStatus;
   deletedAt?: Date | null;
 }
@@ -134,6 +142,10 @@ export interface TaskAssignment extends BaseModel {
   rejectionReason?: string | null;
   pointsAwarded?: number | null;
   xpAwarded?: number | null;
+  // PD - time tracking for auto-approve override
+  startedAt?: Date | null;
+  autoApproveOverridden?: boolean;
+  autoApproveOverrideReason?: string | null;
 }
 
 // Points ledger entry

@@ -20,30 +20,30 @@ import { cn, formatDate, formatDateTime } from '@/lib/utils';
 
 interface Evidence {
   id: string;
-  evidenceType: 'photo' | 'note';
-  fileUrl?: string;
-  thumbnailUrl?: string;
-  mimeType?: string;
-  note?: string;
-  uploadedAt: string;
+  evidenceType: string;
+  fileUrl?: string | null;
+  thumbnailUrl?: string | null;
+  mimeType?: string | null;
+  note?: string | null;
+  uploadedAt?: Date | string;
 }
 
 interface Assignment {
   id: string;
   status: 'pending' | 'in_progress' | 'completed' | 'approved' | 'rejected';
-  completedAt?: string;
-  approvedAt?: string;
-  approvedBy?: string;
-  rejectionReason?: string;
-  pointsAwarded?: number;
-  xpAwarded?: number;
+  completedAt?: Date | string | null;
+  approvedAt?: Date | string | null;
+  approvedBy?: string | null;
+  rejectionReason?: string | null;
+  pointsAwarded?: number | null;
+  xpAwarded?: number | null;
   child: {
     id: string;
     firstName: string;
     lastName: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
   };
-  evidence: Evidence[];
+  evidence?: Evidence[];
 }
 
 interface Task {
@@ -54,12 +54,14 @@ interface Task {
   difficulty: 'easy' | 'medium' | 'hard';
   taskTag: 'primary' | 'secondary';
   pointsValue: number;
-  xpValue: number;
+  // Never actually populated by the backend (no such field on the Task model) - kept optional so
+  // the type doesn't silently claim a guarantee the API never provides.
+  xpValue?: number;
   requiresPhotoEvidence: boolean;
-  dueDate?: string;
-  startTime?: string;
-  estimatedMinutes?: number;
-  maxClaimsTotal?: number;
+  dueDate?: Date | string | null;
+  startTime?: Date | string | null;
+  estimatedMinutes?: number | null;
+  maxClaimsTotal?: number | null;
   status: 'active' | 'paused' | 'archived';
   isRecurring: boolean;
   recurrencePattern?: string;
@@ -150,8 +152,8 @@ function AssignmentCard({
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const canReset = ['completed', 'approved', 'rejected'].includes(assignment.status);
 
-  const photoEvidence = assignment.evidence.filter((e) => e.evidenceType === 'photo');
-  const noteEvidence  = assignment.evidence.filter((e) => e.evidenceType === 'note');
+  const photoEvidence = (assignment.evidence ?? []).filter((e) => e.evidenceType === 'photo');
+  const noteEvidence  = (assignment.evidence ?? []).filter((e) => e.evidenceType === 'note');
 
   const avatar = assignment.child.avatarUrl;
   const initials = `${assignment.child.firstName[0]}${assignment.child.lastName[0]}`.toUpperCase();
@@ -403,7 +405,7 @@ export default function TaskDetailPage() {
               <Star className="w-4 h-4 text-amber-400" />
               <span>{task.pointsValue} points</span>
             </div>
-            {task.xpValue > 0 && (
+            {(task.xpValue ?? 0) > 0 && (
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <Zap className="w-4 h-4 text-violet-400" />
                 <span>{task.xpValue} XP</span>

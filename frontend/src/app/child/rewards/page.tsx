@@ -55,7 +55,9 @@ interface Reward {
 interface Redemption {
   id: string;
   status: string;
-  redeemedAt: string;
+  // Was `redeemedAt` (never populated - the backend field is `createdAt`; the value was unused
+  // by this component anyway, so this was a silent naming-drift bug rather than live behaviour).
+  createdAt: Date;
   reward: {
     name: string;
     pointsCost: number;

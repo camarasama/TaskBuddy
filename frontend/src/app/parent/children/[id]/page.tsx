@@ -41,9 +41,9 @@ interface Child {
   firstName: string;
   lastName: string;
   username?: string;
-  dateOfBirth: string;
+  dateOfBirth: Date | string;
   avatarUrl?: string;
-  createdAt: string;
+  createdAt: Date | string;
   gender?: string | null;
   childProfile?: ChildProfile;
 }
