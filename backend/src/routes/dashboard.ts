@@ -3,6 +3,7 @@ import { prisma } from '../services/database';
 import { authenticate, requireParent, requireChild, familyIsolation } from '../middleware/auth';
 import { NotFoundError } from '../middleware/errorHandler';
 import { isStreakAtRisk } from '../services/streakService';
+import { getTodayChallenge } from '../services/ChallengeService';
 
 export const dashboardRouter = Router();
 
@@ -244,38 +245,20 @@ dashboardRouter.get('/child', requireChild, async (req, res, next) => {
       take: 5,
     });
 
-    // Get daily challenge (if enabled)
-    const dailyChallenge = await prisma.dailyChallenge.findFirst({
-      where: {
-        familyId: req.familyId,
-        challengeDate: today,
-        isActive: true,
-      },
-    });
-
-    let dailyChallengeData = undefined;
-    if (dailyChallenge) {
-      const completion = await prisma.challengeCompletion.findUnique({
-        where: {
-          challengeId_childId: {
-            challengeId: dailyChallenge.id,
-            childId: req.user!.userId,
-          },
-        },
-      });
-
-      // Calculate progress based on challenge type
-      // TODO: Implement proper progress calculation
-      dailyChallengeData = {
-        id: dailyChallenge.id,
-        title: dailyChallenge.title,
-        description: dailyChallenge.description,
-        bonusPoints: dailyChallenge.bonusPoints,
-        progress: completion ? 100 : completedToday,
-        target: (dailyChallenge.criteria as any)?.taskCount || 3,
-        completed: !!completion,
-      };
-    }
+    // Get daily challenge (FR-08): real per-child progress from ChallengeService, replacing the
+    // former placeholder that reported the raw completed-today count as "progress".
+    const challengeToday = await getTodayChallenge(req.familyId!, req.user!.userId);
+    const dailyChallengeData = challengeToday.challenge
+      ? {
+          id: challengeToday.challenge.id,
+          title: challengeToday.challenge.title,
+          description: challengeToday.challenge.description,
+          bonusPoints: challengeToday.challenge.bonusPoints,
+          progress: challengeToday.progress, // tasks done today, capped at target
+          target: challengeToday.target,
+          completed: challengeToday.completed,
+        }
+      : undefined;
 
     // Get next affordable reward
     const nextReward = await prisma.reward.findFirst({

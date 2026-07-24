@@ -11,6 +11,8 @@ import { achievementRouter } from './achievements';
 import  emailRouter  from './emails';
 // PE - Mini games
 import { gamesRouter } from './games';
+// FR-08 - Daily challenges
+import { challengeRouter } from './challenges';
 
 export const apiRouter = Router();
 
@@ -27,6 +29,8 @@ apiRouter.use('/achievements', achievementRouter);
 apiRouter.use('/admin/emails', emailRouter);
 // PE - Mini games (child-only)
 apiRouter.use('/games', gamesRouter);
+// FR-08 - Daily challenges (child completes; family views)
+apiRouter.use('/challenges', challengeRouter);
 
 // API info endpoint
 apiRouter.get('/', (_req, res) => {
