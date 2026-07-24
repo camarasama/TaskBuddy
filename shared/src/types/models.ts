@@ -262,3 +262,34 @@ export interface LevelUpResult {
   newLevel: number;
   bonusPointsAwarded: number;
 }
+/**
+ * FR-18: an outbound webhook a family has registered.
+ *
+ * The signing secret is deliberately absent — it is returned exactly once, by the create call, and
+ * is never readable again (see WebhookSubscriptionCreated).
+ */
+export interface WebhookSubscription extends BaseModel {
+  familyId: string;
+  url: string;
+  events: string[];
+  description?: string | null;
+  isActive: boolean;
+  lastDeliveryAt?: Date | null;
+  lastStatus?: number | null;
+  lastError?: string | null;
+  consecutiveFailures: number;
+  disabledAt?: Date | null;
+}
+
+/** Create response. `secret` is shown once and cannot be retrieved afterwards. */
+export interface WebhookSubscriptionCreated {
+  webhook: WebhookSubscription;
+  secret: string;
+}
+
+/** Result of the "send a test ping" action. */
+export interface WebhookTestResult {
+  delivered: boolean;
+  status?: number;
+  error?: string;
+}

@@ -168,3 +168,23 @@ export const AVATAR_EMOJIS = [
 ] as const;
 
 export type AvatarEmoji = (typeof AVATAR_EMOJIS)[number];
+
+/**
+ * FR-18: the events a family can subscribe a webhook to.
+ *
+ * A fixed allow-list, like AVATAR_EMOJIS above: the backend validates against it, the settings UI
+ * renders from it, and the delivery layer dispatches on it, so the three cannot drift apart. Names
+ * are `resource.past_tense` — a shape Zapier, n8n and IFTTT all handle without translation.
+ */
+export const WEBHOOK_EVENTS = ['task.approved', 'reward.redeemed'] as const;
+
+export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
+
+/** Human labels for the event picker. */
+export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
+  'task.approved': 'Task approved',
+  'reward.redeemed': 'Reward redeemed',
+};
+
+/** Per-family cap. Webhook delivery is outbound network work done on the request path's behalf. */
+export const MAX_WEBHOOKS_PER_FAMILY = 5;

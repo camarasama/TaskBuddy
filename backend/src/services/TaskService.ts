@@ -6,6 +6,7 @@ import { evaluateStreak } from './streakService';
 import { AuditService } from './AuditService';
 import { EmailService } from './email';
 import { SocketService } from './SocketService';
+import { WebhookService } from './WebhookService';
 import { createNotification } from '../routes/notifications';
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
 import { getTaskOverlaps } from '../utils/overlapCheck';
@@ -442,6 +443,20 @@ export class TaskService {
         newBalance: result.newBalance,
         delta: result.pointsAwarded,
         reason: 'task_approved',
+      });
+
+      // FR-18: outbound webhook. Detached — a third-party endpoint must never delay or fail an
+      // approval. Carries no data the family doesn't already own.
+      WebhookService.dispatchDetached(familyId, 'task.approved', {
+        assignmentId,
+        taskId: assignment.taskId,
+        taskTitle: assignment.task.title,
+        childId: assignment.childId,
+        childName: assignment.child.firstName,
+        pointsAwarded: result.pointsAwarded,
+        xpAwarded: result.xpAwarded,
+        newBalance: result.newBalance,
+        approvedBy: parentId,
       });
 
       if (levelUpResult?.leveledUp) {

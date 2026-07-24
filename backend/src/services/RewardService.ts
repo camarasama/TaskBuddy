@@ -3,6 +3,7 @@ import { checkAndUnlockAchievements } from './achievements';
 import { AuditService } from './AuditService';
 import { EmailService } from './email';
 import { SocketService } from './SocketService';
+import { WebhookService } from './WebhookService';
 import { createNotification } from '../routes/notifications';
 import { checkRedemptionCaps, getRewardCapData } from '../utils/rewardCaps';
 import { NotFoundError, ConflictError, ValidationError } from '../middleware/errorHandler';
@@ -136,6 +137,18 @@ export class RewardService {
       newBalance: result.newBalance,
       delta: -reward.pointsCost,
       reason: 'reward_redeemed',
+    });
+
+    // FR-18: outbound webhook. Detached — a third-party endpoint must never delay or fail a
+    // redemption. Carries no data the family doesn't already own.
+    WebhookService.dispatchDetached(familyId, 'reward.redeemed', {
+      redemptionId: result.redemption.id,
+      childId,
+      childName: child?.firstName ?? null,
+      rewardId: reward.id,
+      rewardName: reward.name,
+      pointsSpent: reward.pointsCost,
+      newBalance: result.newBalance,
     });
 
     return {

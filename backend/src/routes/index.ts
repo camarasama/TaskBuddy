@@ -13,6 +13,8 @@ import  emailRouter  from './emails';
 import { gamesRouter } from './games';
 // FR-08 - Daily challenges
 import { challengeRouter } from './challenges';
+// FR-18 - Outbound webhooks (parent-managed)
+import { webhookRouter } from './webhooks';
 
 export const apiRouter = Router();
 
@@ -31,6 +33,8 @@ apiRouter.use('/admin/emails', emailRouter);
 apiRouter.use('/games', gamesRouter);
 // FR-08 - Daily challenges (child completes; family views)
 apiRouter.use('/challenges', challengeRouter);
+// FR-18 - Webhook subscriptions (parents only)
+apiRouter.use('/webhooks', webhookRouter);
 
 // API info endpoint
 apiRouter.get('/', (_req, res) => {
@@ -46,6 +50,7 @@ apiRouter.get('/', (_req, res) => {
       dashboard: '/api/v1/dashboard',
       achievements: '/api/v1/achievements',
       adminEmails: '/api/v1/admin/emails',
+      webhooks: '/api/v1/webhooks',
     },
   });
 });

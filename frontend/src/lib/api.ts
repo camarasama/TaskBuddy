@@ -54,6 +54,10 @@ import type {
   GameSession,
   GameSubmitResult,
   TaskComment,
+  WebhookSubscription,
+  WebhookSubscriptionCreated,
+  WebhookTestResult,
+  WebhookEvent,
 } from '@taskbuddy/shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -1185,4 +1189,33 @@ export const gamesApi = {
       method: 'POST',
       body: JSON.stringify({ answers }),
     }),
+};
+
+// FR-18: outbound webhooks. Parent-only; the signing secret comes back from `create` and is never
+// readable again, so callers must show it to the parent at that moment or lose it.
+export const webhooksApi = {
+  list: () =>
+    request<ApiResponse<{ webhooks: WebhookSubscription[] }>>('/webhooks'),
+
+  create: (payload: { url: string; events: WebhookEvent[]; description?: string }) =>
+    request<ApiResponse<WebhookSubscriptionCreated>>('/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  update: (
+    id: string,
+    payload: { url?: string; events?: WebhookEvent[]; description?: string | null; isActive?: boolean },
+  ) =>
+    request<ApiResponse<{ webhook: WebhookSubscription }>>(`/webhooks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  remove: (id: string) =>
+    request<ApiResponse<{ message: string }>>(`/webhooks/${id}`, { method: 'DELETE' }),
+
+  // Sends a signed `ping`. Resolves 200 even when the endpoint is broken — read `delivered`.
+  test: (id: string) =>
+    request<ApiResponse<WebhookTestResult>>(`/webhooks/${id}/test`, { method: 'POST' }),
 };

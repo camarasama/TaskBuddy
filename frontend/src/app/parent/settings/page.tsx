@@ -43,6 +43,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { InviteCoParentModal } from '@/components/InviteCoParentModal';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { TwoFactorSetup } from '@/components/security/TwoFactorSetup';
+import { WebhookSettings, WebhookSectionIcon } from '@/components/settings/WebhookSettings';
 import { getInitials, formatDate } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -689,6 +690,19 @@ export default function ParentSettingsPage() {
             initiallyEnabled={Boolean((user as { mfaEnabledAt?: string | null } | null)?.mfaEnabledAt)}
             onChange={() => { invalidateCache('/api/v1/auth'); refreshUser(); }}
           />
+        </section>
+
+        {/* ── FR-18: Webhooks ── */}
+        <section className="bg-white rounded-xl p-6 border border-slate-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
+              <WebhookSectionIcon className="w-5 h-5 text-violet-600" />
+            </div>
+            <h2 className="font-display font-bold text-lg text-slate-900">
+              Integrations &amp; Webhooks
+            </h2>
+          </div>
+          <WebhookSettings />
         </section>
 
         {/* Account Info */}

@@ -36,8 +36,40 @@ model Family {
   settings        FamilySettings?
   invitations     FamilyInvitation[]
   emailLogs       EmailLog[]
+  webhooks        WebhookSubscription[]
 
   @@map("families")
+}
+
+/// FR-18: outbound webhooks. A family registers an endpoint and TaskBuddy POSTs an HMAC-signed
+/// payload when one of the subscribed events fires (Zapier / n8n / IFTTT / home automation).
+model WebhookSubscription {
+  id          String  @id @default(uuid())
+  familyId    String  @map("family_id")
+  url         String
+  /// Subscribed event names — see WEBHOOK_EVENTS in @taskbuddy/shared.
+  events      String[]
+  /// Signing secret, encrypted at rest (AES-256-GCM). Returned in plaintext only once, at creation.
+  secret      String
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  // Delivery health — surfaced in the parent UI so a broken endpoint is visible.
+  lastDeliveryAt      DateTime? @map("last_delivery_at")
+  lastStatus          Int?      @map("last_status")
+  lastError           String?   @map("last_error")
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  /// Set when repeated failures auto-disabled the subscription.
+  disabledAt          DateTime? @map("disabled_at")
+
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@map("webhook_subscriptions")
 }
 
 model User {
