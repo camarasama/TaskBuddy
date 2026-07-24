@@ -21,7 +21,7 @@ import { inviteService } from '../services/invite';
 import { SessionService } from '../services/SessionService';
 import { jwtVerifyOptions, signMfaToken, verifyMfaToken } from '../utils/jwt';
 import { hashToken } from '../utils/tokens';
-import { authenticate, requireParent, requireAdmin } from '../middleware/auth';
+import { authenticate, requireParent } from '../middleware/auth';
 import { requireCsrf, issueCsrfCookie, clearCsrfCookie } from '../middleware/csrf';
 import { uploadPhoto } from '../middleware/upload';
 import { uploadFile } from '../services/storage';
@@ -314,7 +314,9 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
   }
 });
 
-// ─── Admin MFA (F-9) ─────────────────────────────────────────────────────────
+// ─── MFA (F-9 admins; FR-17 extends enrolment to parents) ────────────────────
+// Gated with requireParent, which is requireRole('parent','admin') — so parents and admins may
+// enrol; children (PIN auth) cannot. Admin-mandatory enforcement lives in the service layer.
 
 const mfaCodeSchema = z.object({ code: z.string().min(6).max(10) });
 const mfaChallengeSchema = z.object({
@@ -323,7 +325,7 @@ const mfaChallengeSchema = z.object({
 });
 
 // POST /auth/mfa/setup - begin enrollment; returns an otpauth:// URL for the authenticator app.
-authRouter.post('/mfa/setup', authenticate, requireAdmin, async (req, res, next) => {
+authRouter.post('/mfa/setup', authenticate, requireParent, async (req, res, next) => {
   try {
     const { otpauthUrl } = await authService.setupMfa(req.user!.userId);
     res.json({ success: true, data: { otpauthUrl } });
@@ -333,7 +335,7 @@ authRouter.post('/mfa/setup', authenticate, requireAdmin, async (req, res, next)
 });
 
 // POST /auth/mfa/enable - confirm enrollment with the first code; enables MFA on the account.
-authRouter.post('/mfa/enable', authenticate, requireAdmin, validateBody(mfaCodeSchema), async (req, res, next) => {
+authRouter.post('/mfa/enable', authenticate, requireParent, validateBody(mfaCodeSchema), async (req, res, next) => {
   try {
     await authService.confirmMfa(req.user!.userId, req.body.code);
     await AuditService.logAction({
@@ -341,10 +343,28 @@ authRouter.post('/mfa/enable', authenticate, requireAdmin, validateBody(mfaCodeS
       action: 'MFA_ENABLED',
       resourceType: 'user',
       resourceId: req.user!.userId,
-      familyId: null,
+      familyId: req.user!.familyId ?? null,
       ipAddress: req.ip,
     });
     res.json({ success: true, data: { message: 'MFA enabled.' } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /auth/mfa/disable - turn MFA off; requires a valid current TOTP code (FR-17).
+authRouter.post('/mfa/disable', authenticate, requireParent, validateBody(mfaCodeSchema), async (req, res, next) => {
+  try {
+    await authService.disableMfa(req.user!.userId, req.body.code);
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'MFA_DISABLED',
+      resourceType: 'user',
+      resourceId: req.user!.userId,
+      familyId: req.user!.familyId ?? null,
+      ipAddress: req.ip,
+    });
+    res.json({ success: true, data: { message: 'MFA disabled.' } });
   } catch (error) {
     next(error);
   }

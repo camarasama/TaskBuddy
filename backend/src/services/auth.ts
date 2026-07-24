@@ -13,6 +13,7 @@ import {
   NotFoundError,
   ConflictError,
   ValidationError,
+  ForbiddenError,
 } from '../middleware/errorHandler';
 import type { TokenPayload } from '../middleware/auth';
 import { getAgeGroup } from '@taskbuddy/shared';
@@ -251,10 +252,10 @@ export class AuthService {
       data: { lastLoginAt: new Date(), ...CLEAR_LOCKOUT },
     });
 
-    // F-9: an admin who has enrolled in MFA must clear a TOTP challenge before receiving any session.
-    // Return an mfaRequired signal (NO tokens, NO RefreshSession); the route mints a short-lived mfa
-    // challenge token and the client finishes at POST /auth/mfa.
-    if (user.role === 'admin' && user.mfaEnabledAt) {
+    // F-9 / FR-17: any MFA-enrolled account (admins since F-9, parents since FR-17) must clear a
+    // TOTP challenge before receiving a session. Children have no password login, so they never
+    // reach here; keying on mfaEnabledAt alone is therefore correct and role-agnostic.
+    if (user.mfaEnabledAt) {
       const { passwordHash: _p, mfaSecret: _s, ...safe } = user;
       return { mfaRequired: true as const, user: safe };
     }
@@ -278,7 +279,10 @@ export class AuthService {
   /** Begin MFA enrollment: generate + store an encrypted (not-yet-enabled) secret, return the URI. */
   async setupMfa(userId: string): Promise<{ otpauthUrl: string }> {
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.role !== 'admin') throw new UnauthorizedError('Admins only');
+    // FR-17: parents may enrol too. Children authenticate by PIN and cannot use TOTP.
+    if (!user || (user.role !== 'admin' && user.role !== 'parent')) {
+      throw new UnauthorizedError('Only parents and admins can enable two-factor authentication');
+    }
     const secret = generateMfaSecret();
     await prisma.user.update({
       where: { id: userId },
@@ -306,7 +310,8 @@ export class AuthService {
       where: { id: userId },
       include: { family: true, childProfile: true },
     });
-    if (!user || user.role !== 'admin' || !user.mfaEnabledAt || !user.mfaSecret) {
+    // FR-17: admins and parents both reach the challenge; children never enrol.
+    if (!user || !user.mfaEnabledAt || !user.mfaSecret) {
       throw new UnauthorizedError('MFA is not enabled for this account');
     }
     if (!verifyMfaCode(decryptSecret(user.mfaSecret), code)) {
@@ -314,6 +319,28 @@ export class AuthService {
     }
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     return this.issueSession(user, ctx);
+  }
+
+  /**
+   * Disable MFA on an account (FR-17). Requires a valid current TOTP code, so a hijacked session
+   * cannot silently strip the second factor off. An admin cannot disable while the deployment
+   * mandates admin MFA (`config.mfa.required`) — that policy is enforced here, not just in the UI.
+   */
+  async disableMfa(userId: string, code: string): Promise<void> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.mfaEnabledAt || !user.mfaSecret) {
+      throw new ValidationError('Two-factor authentication is not enabled on this account.');
+    }
+    if (user.role === 'admin' && config.mfa.required) {
+      throw new ForbiddenError('Two-factor authentication is mandatory for admins and cannot be disabled.');
+    }
+    if (!verifyMfaCode(decryptSecret(user.mfaSecret), code)) {
+      throw new UnauthorizedError('Invalid authentication code');
+    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { mfaSecret: null, mfaEnabledAt: null },
+    });
   }
 
   // Child login with family code (ADJECTIVE-ANIMAL-NNNN) and PIN
@@ -703,8 +730,9 @@ export class AuthService {
       throw new NotFoundError('User not found');
     }
 
-    // Remove sensitive data
-    const { passwordHash: _, ...userWithoutPassword } = user;
+    // Remove sensitive data. mfaSecret is the (encrypted) TOTP secret — never send it to the
+    // client; only mfaEnabledAt is kept, so the UI can show whether 2FA is on (FR-17).
+    const { passwordHash: _, mfaSecret: _mfa, ...userWithoutPassword } = user;
     let profile: Record<string, unknown> | undefined;
     if (user.childProfile) {
       const { pinHash: _pin, ...safeProfile } = user.childProfile;
