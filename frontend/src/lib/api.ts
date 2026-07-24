@@ -6,10 +6,53 @@ import type {
   LoginResponse,
   ChildLoginRequest,
   CreateTaskRequest,
+  CreateTaskResponse,
+  TaskScheduleWarning,
   UpdateTaskRequest,
   CreateRewardRequest,
   ParentDashboardResponse,
   ChildDashboardResponse,
+  PointsHistoryResponse,
+  LeaderboardResponse,
+  Family,
+  FamilySettings,
+  FamilyMember,
+  FamilyParentsResponse,
+  ChildCapacity,
+  UpdateFamilySettingsRequest,
+  UpdateChildRequest,
+  User,
+  ChildProfile,
+  Task,
+  TaskAssignment,
+  Reward,
+  RewardWithCapData,
+  RedeemRewardResponse,
+  Achievement,
+  LevelUpResult,
+  AdminStatsResponse,
+  AdminFamiliesResponse,
+  AdminFamilyDetailResponse,
+  AdminUsersResponse,
+  AdminUserDetail,
+  AdminAchievementRow,
+  AdminCreateAchievementRequest,
+  AdminUpdateAchievementRequest,
+  AdminAuditLogsResponse,
+  TaskCompletionReport,
+  PointsLedgerReport,
+  RewardRedemptionReport,
+  EngagementStreakReport,
+  AchievementReport,
+  LeaderboardReport,
+  ExpiryOverdueReport,
+  PlatformHealthReport,
+  AuditTrailReport,
+  EmailDeliveryReport,
+  TaskExecutionTimeReport,
+  GamesListResponse,
+  GameSession,
+  GameSubmitResult,
 } from '@taskbuddy/shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -336,7 +379,7 @@ export const authApi = {
     }),
 
   updateMe: (data: { avatarUrl?: string | null; gender?: string | null }) =>
-    request<ApiResponse<{ user: unknown }>>('/auth/me', {
+    request<ApiResponse<{ user: User }>>('/auth/me', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
@@ -364,31 +407,35 @@ export const authApi = {
 };
 
 // Family API
+// FamilyWithSettings mirrors what GET/PUT /families/me actually return: the Family row plus its
+// (possibly absent, for a brand-new family) settings record.
+type FamilyWithSettings = Family & { settings: FamilySettings | null };
+
 export const familyApi = {
   getFamily: () =>
-    request<ApiResponse<unknown>>('/families/me'),
+    request<ApiResponse<{ family: FamilyWithSettings }>>('/families/me'),
 
   getMembers: () =>
-    request<ApiResponse<{ members: unknown[] }>>('/families/me/members'),
+    request<ApiResponse<{ members: FamilyMember[] }>>('/families/me/members'),
 
   updateFamily: (data: { familyName: string }) =>
-    request<ApiResponse<unknown>>('/families/me', {
+    request<ApiResponse<{ family: FamilyWithSettings }>>('/families/me', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   // M5 - CR-10: Get task capacity for children (used by parent create/edit forms)
   getChildCapacities: (childIds: string[]) =>
-    request<ApiResponse<{ capacities: Record<string, unknown> }>>('/families/children/capacities', {
+    request<ApiResponse<{ capacities: Record<string, ChildCapacity> }>>('/families/children/capacities', {
       method: 'POST',
       body: JSON.stringify({ childIds }),
     }),
 
   getSettings: () =>
-    request<ApiResponse<unknown>>('/families/me/settings'),
+    request<ApiResponse<{ settings: FamilySettings }>>('/families/me/settings'),
 
-  updateSettings: (data: unknown) =>
-    request<ApiResponse<unknown>>('/families/me/settings', {
+  updateSettings: (data: UpdateFamilySettingsRequest) =>
+    request<ApiResponse<{ settings: FamilySettings }>>('/families/me/settings', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
@@ -402,7 +449,7 @@ export const familyApi = {
     email?: string;
     gender?: string;
   }) =>
-    request<ApiResponse<unknown>>('/families/me/children', {
+    request<ApiResponse<{ user: User; profile: ChildProfile }>>('/families/me/children', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -414,22 +461,22 @@ export const familyApi = {
       { method: 'PUT', body: JSON.stringify({ avatarEmoji }) },
     ),
 
-  updateChild: (childId: string, data: unknown) =>
-    request<ApiResponse<unknown>>(`/families/me/children/${childId}`, {
+  updateChild: (childId: string, data: UpdateChildRequest) =>
+    request<ApiResponse<{ child: FamilyMember }>>(`/families/me/children/${childId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   removeChild: (childId: string) =>
-    request<ApiResponse<unknown>>(`/families/me/children/${childId}`, {
+    request<ApiResponse<{ message: string }>>(`/families/me/children/${childId}`, {
       method: 'DELETE',
     }),
 
   getChild: (childId: string) =>
-    request<ApiResponse<{ child: unknown }>>(`/families/me/children/${childId}`),
+    request<ApiResponse<{ child: FamilyMember }>>(`/families/me/children/${childId}`),
 
   getParents: () =>
-    request<ApiResponse<unknown>>('/families/me/parents'),
+    request<ApiResponse<FamilyParentsResponse>>('/families/me/parents'),
 
   inviteCoParent: (email: string, relationshipType: string, relationshipOther?: string) =>
     request<ApiResponse<{ message: string }>>('/families/me/invite', {
@@ -466,43 +513,86 @@ function qs(params?: Record<string, unknown>): string {
   return `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()}`;
 }
 
+// ─── Task/assignment response shapes ───────────────────────────────────────────
+// The task routes attach a few extra relations/computed fields on top of the base Task/
+// TaskAssignment models (see backend/src/routes/tasks.ts) - modelled here as intersections so
+// existing `as { task: Task }`-style consumer casts (which only look at the base fields) stay valid.
+
+interface TaskAssignmentChild {
+  id: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string | null;
+}
+
+interface TaskEvidenceItem {
+  id: string;
+  assignmentId: string;
+  evidenceType: string;
+  fileUrl: string | null;
+  thumbnailUrl: string | null;
+  mimeType: string | null;
+  note?: string | null;
+  moderationStatus?: string;
+  uploadedAt?: Date;
+}
+
+export type TaskWithRelations = Task & {
+  creator?: { id: string; firstName: string; lastName: string };
+  assignments?: (TaskAssignment & { child: TaskAssignmentChild; evidence?: TaskEvidenceItem[] })[];
+  // Attached only for a child-role GET /tasks response (M5 - CR-10 pool tasks).
+  canSelfAssign?: boolean;
+  claimedCount?: number;
+  claimsRemaining?: number | null;
+};
+
+export type TaskAssignmentWithTask = TaskAssignment & {
+  task: Task;
+  child?: TaskAssignmentChild;
+  evidence?: TaskEvidenceItem[];
+};
+
 // Tasks API
 export const tasksApi = {
   getAll: (params?: { status?: string; assignedTo?: string; page?: number; limit?: number }) =>
-    request<ApiResponse<Paged<{ tasks: unknown[] }>>>(`/tasks${qs(params)}`),
+    request<ApiResponse<Paged<{ tasks: TaskWithRelations[]; hasPendingPrimaries?: boolean }>>>(
+      `/tasks${qs(params)}`,
+    ),
 
   getById: (id: string) =>
-    request<ApiResponse<{ task: unknown }>>(`/tasks/${id}`),
+    request<ApiResponse<{ task: TaskWithRelations }>>(`/tasks/${id}`),
 
   create: (data: CreateTaskRequest) =>
-    request<ApiResponse<{ task: unknown }>>('/tasks', {
+    request<ApiResponse<CreateTaskResponse>>('/tasks', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   update: (id: string, data: UpdateTaskRequest) =>
-    request<ApiResponse<{ task: unknown }>>(`/tasks/${id}`, {
+    request<ApiResponse<{ task: TaskWithRelations; warnings: TaskScheduleWarning[] }>>(`/tasks/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   // M5 - CR-10: Child self-assigns a secondary task
   selfAssign: (taskId: string) =>
-    request<ApiResponse<{ assignment: unknown }>>('/tasks/assignments/self-assign', {
+    request<ApiResponse<{ assignment: TaskAssignmentWithTask }>>('/tasks/assignments/self-assign', {
       method: 'POST',
       body: JSON.stringify({ taskId }),
     }),
 
   delete: (id: string) =>
-    request<ApiResponse<unknown>>(`/tasks/${id}`, {
+    request<ApiResponse<{ message: string }>>(`/tasks/${id}`, {
       method: 'DELETE',
     }),
 
   getMyAssignments: (params?: { page?: number; limit?: number }) =>
-    request<ApiResponse<Paged<{ assignments: unknown[] }>>>(`/tasks/assignments/me${qs(params)}`),
+    request<ApiResponse<Paged<{ assignments: TaskAssignmentWithTask[] }>>>(
+      `/tasks/assignments/me${qs(params)}`,
+    ),
 
   getPendingApprovals: (params?: { page?: number; limit?: number }) =>
-    request<ApiResponse<Paged<{ assignments: unknown[] }>>>(
+    request<ApiResponse<Paged<{ assignments: TaskAssignmentWithTask[] }>>>(
       `/tasks/assignments/pending${qs(params)}`,
     ),
 
@@ -512,18 +602,30 @@ export const tasksApi = {
     }),
 
   assignChild: (taskId: string, childId: string) =>
-    request<ApiResponse<{ assignment: unknown }>>(`/tasks/${taskId}/assign`, {
+    request<ApiResponse<{ assignment: TaskAssignmentWithTask }>>(`/tasks/${taskId}/assign`, {
       method: 'POST',
       body: JSON.stringify({ childId }),
     }),
 
   startAssignment: (assignmentId: string) =>
-    request<ApiResponse<{ assignment: unknown }>>(`/tasks/assignments/${assignmentId}/start`, {
+    request<ApiResponse<{ assignment: TaskAssignment }>>(`/tasks/assignments/${assignmentId}/start`, {
       method: 'PUT',
     }),
 
+  // Auto-approve tasks resolve immediately (pointsAwarded/xpAwarded/newBalance/levelUp/
+  // unlockedAchievements present); tasks awaiting parent review return just `{ assignment }`.
   completeAssignment: (assignmentId: string, photoUrl?: string, note?: string) =>
-    request<ApiResponse<{ assignment: unknown }>>(`/tasks/assignments/${assignmentId}/complete`, {
+    request<
+      ApiResponse<{
+        assignment: TaskAssignment;
+        pointsAwarded?: number;
+        xpAwarded?: number;
+        newBalance?: number;
+        autoApproved?: boolean;
+        levelUp?: LevelUpResult;
+        unlockedAchievements?: { id: string; name: string; pointsReward: number; xpReward: number }[];
+      }>
+    >(`/tasks/assignments/${assignmentId}/complete`, {
       method: 'PUT',
       body: JSON.stringify({ photoUrl, note }),
     }),
@@ -552,45 +654,90 @@ export const tasksApi = {
     return data;
   },
 
+  // Approve resolves immediately (pointsAwarded/xpAwarded/newBalance/levelUp/unlockedAchievements
+  // present); reject returns just `{ assignment }`.
   approveAssignment: (assignmentId: string, approved: boolean, feedback?: string, bonusPoints?: number) =>
-    request<ApiResponse<{ assignment: unknown }>>(`/tasks/assignments/${assignmentId}/approve`, {
+    request<
+      ApiResponse<{
+        assignment: TaskAssignment;
+        pointsAwarded?: number;
+        xpAwarded?: number;
+        newBalance?: number;
+        levelUp?: LevelUpResult;
+        unlockedAchievements?: { id: string; name: string; pointsReward: number; xpReward: number }[];
+      }>
+    >(`/tasks/assignments/${assignmentId}/approve`, {
       method: 'PUT',
       body: JSON.stringify({ approved, feedback, bonusPoints }),
     }),
 
   resetAssignment: (assignmentId: string) =>
-    request<ApiResponse<{ assignment: unknown }>>(`/tasks/assignments/${assignmentId}/reset`, {
+    request<ApiResponse<{ assignment: TaskAssignment }>>(`/tasks/assignments/${assignmentId}/reset`, {
       method: 'PUT',
     }),
 };
 
+// ─── Reward/redemption response shapes ─────────────────────────────────────────
+
+export type RewardListItem = RewardWithCapData & {
+  creator?: { id: string; firstName: string; lastName: string };
+  _count?: { redemptions: number };
+  // FR-09: only present for collaborative rewards.
+  collaborative?: { pooled: number; goal: number; funded: boolean };
+};
+
+interface RewardRedemptionPerson {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface RewardRedemptionItem {
+  id: string;
+  rewardId: string;
+  childId: string;
+  pointsSpent: number;
+  status: string;
+  approvedBy: string | null;
+  approvedAt: Date | null;
+  fulfilledAt: Date | null;
+  notes: string | null;
+  createdAt: Date;
+  reward?: Reward;
+  child?: RewardRedemptionPerson;
+}
+
 // Rewards API
 export const rewardsApi = {
   getAll: (params?: { active?: boolean; page?: number; limit?: number }) =>
-    request<ApiResponse<Paged<{ rewards: unknown[] }>>>(`/rewards${qs(params)}`),
+    request<ApiResponse<Paged<{ rewards: RewardListItem[] }>>>(`/rewards${qs(params)}`),
 
   getById: (id: string) =>
-    request<ApiResponse<{ reward: unknown }>>(`/rewards/${id}`),
+    request<ApiResponse<{ reward: RewardListItem & { redemptions: RewardRedemptionItem[] } }>>(
+      `/rewards/${id}`,
+    ),
 
   create: (data: CreateRewardRequest) =>
-    request<ApiResponse<{ reward: unknown }>>('/rewards', {
+    request<ApiResponse<{ reward: Reward }>>('/rewards', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   update: (id: string, data: Partial<CreateRewardRequest>) =>
-    request<ApiResponse<{ reward: unknown }>>(`/rewards/${id}`, {
+    request<ApiResponse<{ reward: Reward }>>(`/rewards/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   delete: (id: string) =>
-    request<ApiResponse<unknown>>(`/rewards/${id}`, {
+    request<ApiResponse<{ message: string }>>(`/rewards/${id}`, {
       method: 'DELETE',
     }),
 
   redeem: (rewardId: string) =>
-    request<ApiResponse<{ redemption: unknown }>>(`/rewards/${rewardId}/redeem`, {
+    request<
+      ApiResponse<RedeemRewardResponse & { unlockedAchievements: { id: string; name: string; pointsReward: number; xpReward: number }[] }>
+    >(`/rewards/${rewardId}/redeem`, {
       method: 'POST',
     }),
 
@@ -602,17 +749,17 @@ export const rewardsApi = {
     ),
 
   getRedemptionHistory: (params?: { page?: number; limit?: number }) =>
-    request<ApiResponse<Paged<{ redemptions: unknown[] }>>>(
+    request<ApiResponse<Paged<{ redemptions: RewardRedemptionItem[] }>>>(
       `/rewards/redemptions/history${qs(params)}`,
     ),
 
   fulfillRedemption: (redemptionId: string) =>
-    request<ApiResponse<unknown>>(`/rewards/redemptions/${redemptionId}/fulfill`, {
+    request<ApiResponse<{ redemption: RewardRedemptionItem }>>(`/rewards/redemptions/${redemptionId}/fulfill`, {
       method: 'PUT',
     }),
 
   cancelRedemption: (redemptionId: string) =>
-    request<ApiResponse<unknown>>(`/rewards/redemptions/${redemptionId}/cancel`, {
+    request<ApiResponse<{ message: string }>>(`/rewards/redemptions/${redemptionId}/cancel`, {
       method: 'PUT',
     }),
 };
@@ -625,8 +772,11 @@ export const dashboardApi = {
   getChildDashboard: () =>
     request<ApiResponse<ChildDashboardResponse>>('/dashboard/child'),
 
+  // Reconciled against the actual backend shape (GET /dashboard/points/:childId returns
+  // { entries, currentBalance } - the old `{ history: unknown[] }` annotation here never matched
+  // either the backend or the shared PointsHistoryResponse type it should have used).
   getPointsHistory: (childId: string) =>
-    request<ApiResponse<{ history: unknown[] }>>(`/dashboard/points/${childId}`),
+    request<ApiResponse<PointsHistoryResponse>>(`/dashboard/points/${childId}`),
 
   getLeaderboard: (period: 'weekly' | 'monthly' | 'all-time' = 'weekly') =>
     request<ApiResponse<{
@@ -646,15 +796,32 @@ export const dashboardApi = {
     }>>(`/dashboard/leaderboard?period=${period}`),
 };
 
+// ─── Achievement response shapes ───────────────────────────────────────────────
+
+export type AchievementWithStatus = Achievement & {
+  unlocked: boolean;
+  unlockedAt: Date | null;
+  progressValue: number | null;
+};
+
+export interface AchievementStats {
+  total: number;
+  unlocked: number;
+  totalPointsEarned: number;
+  totalXpEarned: number;
+}
+
 // Achievements API
 export const achievementsApi = {
   getAll: (params?: { page?: number; limit?: number }) =>
-    request<ApiResponse<Paged<{ achievements: unknown[]; stats: unknown }>>>(
+    request<ApiResponse<Paged<{ achievements: AchievementWithStatus[]; stats: AchievementStats }>>>(
       `/achievements${qs(params)}`,
     ),
 
   getUnlocked: () =>
-    request<ApiResponse<{ achievements: unknown[] }>>('/achievements/unlocked'),
+    request<ApiResponse<{ achievements: (Achievement & { unlockedAt: Date; progressValue: number | null })[] }>>(
+      '/achievements/unlocked',
+    ),
 };
 
 // ============================================
@@ -670,30 +837,26 @@ export const adminApi = {
     lastName: string;
     inviteCode: string;
   }) =>
-    request<ApiResponse<{ message: string; user: unknown }>>('/auth/admin/register', {
+    request<
+      ApiResponse<{ message: string; user: { id: string; email: string | null; firstName: string; lastName: string; role: string } }>
+    >('/auth/admin/register', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   // ── Overview stats ────────────────────────────────────────────────────────
   getOverview: () =>
-    request<ApiResponse<{
-      totalFamilies: number;
-      totalUsers: number;
-      dau: number;
-      pendingApprovals: number;
-      newRegistrationsThisWeek: number;
-    }>>('/admin/overview'),
+    request<ApiResponse<AdminStatsResponse>>('/admin/overview'),
 
   // ── Families ──────────────────────────────────────────────────────────────
   getFamilies: (params?: { search?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams(params as Record<string, string>).toString();
-    return request<ApiResponse<{ families: unknown[]; total: number; page: number }>>
+    return request<ApiResponse<AdminFamiliesResponse>>
       (`/admin/families${query ? `?${query}` : ''}`);
   },
 
   getFamily: (familyId: string) =>
-    request<ApiResponse<{ family: unknown; activity: unknown }>>(`/admin/families/${familyId}`),
+    request<ApiResponse<AdminFamilyDetailResponse>>(`/admin/families/${familyId}`),
 
   suspendFamily: (familyId: string, reason?: string) =>
     request<ApiResponse<{ message: string }>>(`/admin/families/${familyId}/suspend`, {
@@ -709,12 +872,12 @@ export const adminApi = {
   // ── Users ─────────────────────────────────────────────────────────────────
   getUsers: (params?: { search?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams(params as Record<string, string>).toString();
-    return request<ApiResponse<{ users: unknown[]; total: number; page: number }>>
+    return request<ApiResponse<AdminUsersResponse>>
       (`/admin/users${query ? `?${query}` : ''}`);
   },
 
   getUser: (userId: string) =>
-    request<ApiResponse<{ user: unknown }>>(`/admin/users/${userId}`),
+    request<ApiResponse<{ user: AdminUserDetail }>>(`/admin/users/${userId}`),
 
   forcePasswordReset: (userId: string) =>
     request<ApiResponse<{ message: string }>>(`/admin/users/${userId}/force-reset`, {
@@ -723,26 +886,16 @@ export const adminApi = {
 
   // ── Achievements ──────────────────────────────────────────────────────────
   getAchievements: () =>
-    request<ApiResponse<{ achievements: unknown[] }>>('/admin/achievements'),
+    request<ApiResponse<{ achievements: AdminAchievementRow[] }>>('/admin/achievements'),
 
-  createAchievement: (data: {
-    name: string;
-    description?: string;
-    iconUrl?: string;
-    category?: string;
-    unlockCriteriaType?: string;
-    unlockCriteriaValue?: number;
-    tier?: string;
-    pointsReward?: number;
-    xpReward?: number;
-  }) =>
-    request<ApiResponse<{ achievement: unknown }>>('/admin/achievements', {
+  createAchievement: (data: AdminCreateAchievementRequest) =>
+    request<ApiResponse<{ achievement: Achievement }>>('/admin/achievements', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  updateAchievement: (id: string, data: unknown) =>
-    request<ApiResponse<{ achievement: unknown }>>(`/admin/achievements/${id}`, {
+  updateAchievement: (id: string, data: AdminUpdateAchievementRequest) =>
+    request<ApiResponse<{ achievement: Achievement }>>(`/admin/achievements/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
@@ -764,7 +917,7 @@ export const adminApi = {
     limit?: number;
   }) => {
     const query = new URLSearchParams(params as Record<string, string>).toString();
-    return request<ApiResponse<{ logs: unknown[]; total: number; page: number }>>
+    return request<ApiResponse<AdminAuditLogsResponse>>
       (`/admin/audit-logs${query ? `?${query}` : ''}`);
   },
 
@@ -784,6 +937,24 @@ export const adminApi = {
 // M9 - Email Log API (admin only)
 // ============================================
 
+export interface AdminEmailLogEntry {
+  id: string;
+  toEmail: string;
+  toUserId: string | null;
+  familyId: string | null;
+  triggerType: string;
+  subject: string;
+  status: 'sent' | 'failed' | 'bounced';
+  errorMessage: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  resendCount: number;
+  lastResentAt: Date | null;
+  createdAt: Date;
+  toUser?: { firstName: string; lastName: string; email: string | null; role: string } | null;
+  family?: { familyName: string } | null;
+}
+
 export const emailsApi = {
   /**
    * GET /admin/emails
@@ -800,25 +971,15 @@ export const emailsApi = {
     limit?: number;
   }) => {
     const query = new URLSearchParams(params as Record<string, string>).toString();
-    return request<ApiResponse<{
-      logs: {
-        id: string;
-        toEmail: string;
-        toUserId: string | null;
-        familyId: string | null;
-        triggerType: string;
-        subject: string;
-        status: 'sent' | 'failed' | 'bounced';
-        errorMessage: string | null;
-        referenceType: string | null;
-        referenceId: string | null;
-        resendCount: number;
-        lastResentAt: string | null;
-        createdAt: string;
-      }[];
+    // Note: unlike almost every other endpoint, GET /admin/emails and POST .../resend do NOT wrap
+    // their JSON body in the { success, data } ApiResponse envelope - see backend/src/routes/emails.ts.
+    return request<{
+      logs: AdminEmailLogEntry[];
       total: number;
       page: number;
-    }>>(`/admin/emails${query ? `?${query}` : ''}`);
+      limit: number;
+      pages: number;
+    }>(`/admin/emails${query ? `?${query}` : ''}`);
   },
 
   /**
@@ -827,7 +988,7 @@ export const emailsApi = {
    * Returns the updated log entry with incremented resendCount.
    */
   resend: (logId: string) =>
-    request<ApiResponse<{ log: unknown; message: string }>>(`/admin/emails/${logId}/resend`, {
+    request<{ log: AdminEmailLogEntry; message: string }>(`/admin/emails/${logId}/resend`, {
       method: 'POST',
     }),
 };
@@ -854,42 +1015,44 @@ function buildReportQuery(params?: ReportParams & { period?: string; page?: numb
   return q ? `?${q}` : '';
 }
 
+// The report routes (backend/src/routes/reports.ts) return their ReportService result directly as
+// the JSON body - NOT wrapped in the { success, data } ApiResponse envelope used everywhere else.
 export const reportsApi = {
   getTaskCompletion: (params?: ReportParams) =>
-    request<unknown>(`/reports/task-completion${buildReportQuery(params)}`),
+    request<TaskCompletionReport>(`/reports/task-completion${buildReportQuery(params)}`),
 
   getPointsLedger: (params?: ReportParams) =>
-    request<unknown>(`/reports/points-ledger${buildReportQuery(params)}`),
+    request<PointsLedgerReport>(`/reports/points-ledger${buildReportQuery(params)}`),
 
   getRewardRedemption: (params?: ReportParams) =>
-    request<unknown>(`/reports/reward-redemption${buildReportQuery(params)}`),
+    request<RewardRedemptionReport>(`/reports/reward-redemption${buildReportQuery(params)}`),
 
   getEngagementStreak: (params?: ReportParams) =>
-    request<unknown>(`/reports/engagement-streak${buildReportQuery(params)}`),
+    request<EngagementStreakReport>(`/reports/engagement-streak${buildReportQuery(params)}`),
 
   getAchievement: (params?: ReportParams) =>
-    request<unknown>(`/reports/achievement${buildReportQuery(params)}`),
+    request<AchievementReport>(`/reports/achievement${buildReportQuery(params)}`),
 
   getLeaderboard: (period: 'weekly' | 'monthly' | 'all-time' = 'weekly', familyId?: string) => {
     const p: Record<string, string> = { period };
     if (familyId) p.familyId = familyId;
-    return request<unknown>(`/reports/leaderboard?${new URLSearchParams(p).toString()}`);
+    return request<LeaderboardReport>(`/reports/leaderboard?${new URLSearchParams(p).toString()}`);
   },
 
   getExpiryOverdue: (params?: ReportParams) =>
-    request<unknown>(`/reports/expiry-overdue${buildReportQuery(params)}`),
+    request<ExpiryOverdueReport>(`/reports/expiry-overdue${buildReportQuery(params)}`),
 
   getPlatformHealth: () =>
-    request<unknown>('/reports/platform-health'),
+    request<PlatformHealthReport>('/reports/platform-health'),
 
   getAuditTrail: (params?: ReportParams & { page?: number; pageSize?: number }) =>
-    request<unknown>(`/reports/audit-trail${buildReportQuery(params)}`),
+    request<AuditTrailReport>(`/reports/audit-trail${buildReportQuery(params)}`),
 
   getEmailDelivery: (params?: ReportParams) =>
-    request<unknown>(`/reports/email-delivery${buildReportQuery(params)}`),
+    request<EmailDeliveryReport>(`/reports/email-delivery${buildReportQuery(params)}`),
 
   getExecutionTime: (params?: ReportParams) =>
-    request<unknown>(`/reports/task-execution-time${buildReportQuery(params)}`),
+    request<TaskExecutionTimeReport>(`/reports/task-execution-time${buildReportQuery(params)}`),
 
   exportCsvUrl: (reportName: string, params?: ReportParams & { period?: string }): string => {
     const p: Record<string, string> = { format: 'csv' };
@@ -984,16 +1147,16 @@ export const challengesApi = {
 
 export const gamesApi = {
   list: () =>
-    request<ApiResponse<{ games: unknown[] }>>('/games'),
+    request<ApiResponse<GamesListResponse>>('/games'),
 
   startSession: (gameDefinitionId: string) =>
-    request<ApiResponse<{ sessionId: string; expiresAt: string; game: unknown; questions: unknown[] }>>('/games/sessions', {
+    request<ApiResponse<GameSession>>('/games/sessions', {
       method: 'POST',
       body: JSON.stringify({ gameDefinitionId }),
     }),
 
   submitSession: (sessionId: string, answers: number[]) =>
-    request<ApiResponse<{ correct: boolean; pointsAwarded: number; xpAwarded: number; cappedMessage?: string }>>(`/games/sessions/${sessionId}/submit`, {
+    request<ApiResponse<GameSubmitResult>>(`/games/sessions/${sessionId}/submit`, {
       method: 'POST',
       body: JSON.stringify({ answers }),
     }),

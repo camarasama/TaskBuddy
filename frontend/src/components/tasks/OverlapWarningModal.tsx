@@ -12,8 +12,8 @@ export interface OverlapWarning {
   assignmentId: string;
   taskId: string;
   taskTitle: string;
-  startTime: string; // ISO string from API
-  endTime: string;   // ISO string from API
+  startTime: Date | string; // ISO string over the wire, typed Date to match the shared API type
+  endTime: Date | string;
   childId: string;
   childFirstName: string;
 }
@@ -24,8 +24,9 @@ interface OverlapWarningModalProps {
   onGoBack: () => void;
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], {
+function formatTime(iso: Date | string): string {
+  const d = typeof iso === 'string' ? new Date(iso) : iso;
+  return d.toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });

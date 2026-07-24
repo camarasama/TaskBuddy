@@ -107,6 +107,59 @@ export interface UpdateChildRequest {
   lastName?: string;
   username?: string;
   avatarUrl?: string;
+  // FR-10: child's chosen avatar emoji (null clears it).
+  avatarEmoji?: string | null;
+  gender?: string;
+}
+
+/** GET /families/me/members - a sanitised (no passwordHash/pinHash) family member. */
+export interface FamilyMember extends Omit<User, 'passwordHash'> {
+  childProfile?: ChildProfile;
+}
+
+/** POST /families/children/capacities - CR-10 assignment capacity for one child. */
+export interface ChildCapacity {
+  totalActive: number;
+  primaryActive: number;
+  maxTotal: number;
+  maxPrimary: number;
+}
+
+/** PUT /families/me/settings request body. */
+export interface UpdateFamilySettingsRequest {
+  autoApproveRecurringTasks?: boolean;
+  enableDailyChallenges?: boolean;
+  enableLeaderboard?: boolean;
+  streakGracePeriodHours?: number;
+  theme?: string;
+  language?: string;
+  timezone?: string;
+  notificationPreferences?: Record<string, boolean>;
+}
+
+/** GET /families/me/parents */
+export interface FamilyParentRow {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  isPrimaryParent: boolean;
+  avatarUrl: string | null;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+}
+
+export interface FamilyPendingInvite {
+  id: string;
+  email: string;
+  expiresAt: Date;
+  createdAt: Date;
+  invitedBy: { firstName: string; lastName: string };
+}
+
+export interface FamilyParentsResponse {
+  parents: FamilyParentRow[];
+  pendingInvites: FamilyPendingInvite[];
 }
 
 // ========== TASKS ==========
@@ -125,9 +178,21 @@ export interface CreateTaskRequest {
   assignedTo: string[]; // child IDs
 }
 
+// M5 - CR-09: a scheduling conflict surfaced as a warning (HTTP 200, not a hard block).
+export interface TaskScheduleWarning {
+  assignmentId: string;
+  taskId: string;
+  taskTitle: string;
+  startTime: Date;
+  endTime: Date;
+  childId: string;
+  childFirstName: string;
+}
+
 export interface CreateTaskResponse {
   task: Task;
   assignments: TaskAssignment[];
+  warnings?: TaskScheduleWarning[];
 }
 
 export interface UpdateTaskRequest {

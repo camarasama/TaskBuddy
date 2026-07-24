@@ -101,16 +101,16 @@ interface ParentUser {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email: string | null;
   isPrimaryParent: boolean;
-  avatarUrl?: string;
-  lastLoginAt?: string;
+  avatarUrl?: string | null;
+  lastLoginAt?: Date | string | null;
 }
 
 interface PendingInvite {
   id: string;
   email: string;
-  expiresAt: string;
+  expiresAt: Date | string;
   invitedBy: { firstName: string; lastName: string };
 }
 
@@ -223,7 +223,7 @@ export default function ParentSettingsPage() {
         // M9 - Include notificationPreferences in the settings payload
         familyApi.updateSettings({
           ...familySettings,
-          notificationPreferences: notificationPrefs,
+          notificationPreferences: { ...notificationPrefs },
         }),
         authApi.updateMe({ gender: gender || undefined }),
       ]);
