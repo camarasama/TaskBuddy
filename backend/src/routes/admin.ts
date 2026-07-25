@@ -32,6 +32,7 @@ import { validateBody, validateQuery } from '../middleware/validate';
 import { NotFoundError } from '../middleware/errorHandler';
 import crypto from 'crypto';
 import { AuditService } from '../services/AuditService';
+import { FunnelService } from '../services/FunnelService';
 import { SessionService } from '../services/SessionService';
 import { EmailService } from '../services/email';
 
@@ -41,6 +42,12 @@ export const adminRouter = Router();
 adminRouter.use(authenticate, requireAdmin);
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
+
+// Window for the funnel view. Capped at a year — anything longer is a data-export question,
+// not a dashboard one.
+const funnelQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(30),
+});
 
 const paginationSchema = z.object({
   page:  z.coerce.number().int().min(1).default(1),
@@ -147,6 +154,30 @@ adminRouter.get('/overview', async (req, res, next) => {
         newRegistrationsThisWeek,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+// ─── GET /admin/funnel ────────────────────────────────────────────────────────
+
+/**
+ * The activation funnel (growth roadmap §1, §5.5).
+ *
+ * `analytics_events` has been write-only since U1 — this is the first thing that reads it, and it is
+ * what makes the roadmap's north star checkable rather than aspirational.
+ *
+ * Additive: /admin/overview is untouched.
+ */
+adminRouter.get('/funnel', validateQuery(funnelQuerySchema), async (req, res, next) => {
+  try {
+    const { days } = funnelQuerySchema.parse(req.query);
+    const to = new Date();
+    const from = new Date(to.getTime() - days * 86_400_000);
+
+    const funnel = await FunnelService.getFunnel({ from, to });
+    res.json({ success: true, data: { funnel, days } });
   } catch (error) {
     next(error);
   }
