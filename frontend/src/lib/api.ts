@@ -53,6 +53,8 @@ import type {
   GamesListResponse,
   GameSession,
   GameSubmitResult,
+  WebhookEvent,
+  WebhookSubscriptionSummary,
   TaskComment,
 } from '@taskbuddy/shared';
 
@@ -1196,4 +1198,31 @@ export const gamesApi = {
       method: 'POST',
       body: JSON.stringify({ answers }),
     }),
+};
+
+// ─── FR-18: outbound webhooks (parent-managed, family-scoped) ────────────────
+
+export const webhooksApi = {
+  list: () =>
+    request<ApiResponse<{
+      subscriptions: WebhookSubscriptionSummary[];
+      availableEvents: readonly WebhookEvent[];
+    }>>('/webhooks'),
+
+  /**
+   * The plaintext signing secret comes back HERE and nowhere else automatically — the list
+   * endpoint deliberately omits it. Show it to the parent once on creation; after that it takes
+   * an explicit `reveal()`.
+   */
+  create: (url: string, events: WebhookEvent[]) =>
+    request<ApiResponse<{ subscription: WebhookSubscriptionSummary; secret: string }>>('/webhooks', {
+      method: 'POST',
+      body: JSON.stringify({ url, events }),
+    }),
+
+  reveal: (id: string) =>
+    request<ApiResponse<{ secret: string }>>(`/webhooks/${id}/secret`),
+
+  remove: (id: string) =>
+    request<ApiResponse<{ deleted: boolean }>>(`/webhooks/${id}`, { method: 'DELETE' }),
 };

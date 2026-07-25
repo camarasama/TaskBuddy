@@ -61,6 +61,25 @@
     // max-http-header-size bounding the `baggage` header, Cloudflare in front, global rate
     // limiting, and tracesSampleRate=0. RE-TRIAGE: remove when @sentry/node depends on
     // @opentelemetry/core >= 2.8.0. See security_assessment.md § Dependency Audit.
-    "GHSA-8988-4f7v-96qf"
+    "GHSA-8988-4f7v-96qf",
+
+    // DEP-08 — brace-expansion: DoS via unbounded expansion length causing an OOM process crash
+    // (high). Published 2026-07-24/25, AFTER this repo's last green run; it fails on a clean
+    // `main` checkout too, so it is unrelated to the FR-18 work that surfaced it.
+    // NO FIX EXISTS: the advisory range is `<=5.0.7`, i.e. EVERY published version including the
+    // newest. npm's suggested remedy is a semver-major @sentry/node bump to 10.68.0, which would
+    // not clear it either — the range covers all versions, so there is nothing to upgrade to.
+    // Mostly dev/build-only (eslint, jest, next-pwa's workbox build, rimraf, ts-jest), BUT it is
+    // also reachable in a PRODUCTION install:
+    //   @sentry/node@9.47.1 -> minimatch@9.0.9 -> brace-expansion@2.1.2
+    // so it is recorded as runtime-reachable rather than dismissed as dev-only.
+    // ACCEPTED RISK, low exploitability: the DoS requires an attacker-controlled brace/glob
+    // pattern. Nothing in backend/src, frontend/src or shared/src uses minimatch, glob or
+    // braceExpand directly (verified by grep), and no Sentry pattern options
+    // (ignoreTransactions / denyUrls / allowUrls / tracePropagationTargets) are configured, so
+    // the only patterns ever expanded are the SDK's own constants. No request data reaches it.
+    // RE-TRIAGE: remove as soon as a patched brace-expansion ships and the dependency tree can
+    // reach it — this entry exists only because there is currently nothing to upgrade to.
+    "GHSA-mh99-v99m-4gvg"
   ]
 }

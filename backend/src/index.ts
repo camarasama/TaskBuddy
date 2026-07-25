@@ -24,6 +24,8 @@ import { startDailyChallengeCron } from './jobs/dailyChallengeCron';
 // M10 - Phase 4/5: Reports, Notifications and real-time socket
 import { reportsRouter } from './routes/reports';
 import { notificationsRouter } from './routes/notifications';
+// FR-18 - Outbound webhooks (parent-managed, family-scoped)
+import { webhooksRouter } from './routes/webhooks';
 import { initSocketService } from './services/SocketService';
 import { seedGames } from './routes/gamesSeed';
 
@@ -160,6 +162,8 @@ app.use('/api/v1/admin', adminRouter);
 // M10 - Phase 4: Reports (parent + admin) and in-app notifications
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
+// FR-18 - Outbound webhooks (parent-only, enforced inside the router)
+app.use('/api/v1/webhooks', webhooksRouter);
 
 // Error handling
 app.use(notFoundHandler);
