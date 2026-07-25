@@ -1076,7 +1076,34 @@ function buildReportQuery(params?: ReportParams & { period?: string; page?: numb
 
 // The report routes (backend/src/routes/reports.ts) return their ReportService result directly as
 // the JSON body - NOT wrapped in the { success, data } ApiResponse envelope used everywhere else.
+export interface InsightsReport {
+  window: { from: string; to: string; weeks: number };
+  /** Dense — every day in the window, zeroes included. The empty days are the signal. */
+  heatmap: Array<{ date: string; approved: number }>;
+  /** Index 0 = Monday … 6 = Sunday. */
+  byDayOfWeek: number[];
+  /** Index 0-23, UTC. */
+  byHourOfDay: number[];
+  economy: {
+    pointsEarned: number;
+    pointsSpent: number;
+    earnSpendRatio: number | null;
+    currentBalance: number;
+    inflationWarning: string | null;
+  };
+  totals: { approved: number; activeDays: number };
+}
+
 export const reportsApi = {
+  /** Growth roadmap §5.2 — not a CSV/PDF report, so it has no export pair. */
+  insights: (params?: { childId?: string; weeks?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.childId) qs.set('childId', params.childId);
+    if (params?.weeks) qs.set('weeks', String(params.weeks));
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return request<InsightsReport>(`/reports/insights${suffix}`);
+  },
+
   getTaskCompletion: (params?: ReportParams) =>
     request<TaskCompletionReport>(`/reports/task-completion${buildReportQuery(params)}`),
 
