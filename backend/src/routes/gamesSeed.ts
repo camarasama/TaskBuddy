@@ -149,14 +149,28 @@ export async function seedGames(): Promise<void> {
  * Run once after deploying rotation:
  *   node backend/dist/scripts/backfill-game-banks.js
  */
+/** Normalise question text for duplicate detection: case, surrounding and repeated whitespace. */
+function normaliseText(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 export async function backfillGameBanks(): Promise<void> {
   for (const game of QUIZ_GAMES) {
     const existing = await prisma.gameDefinition.findFirst({ where: { title: game.title } });
     if (!existing) continue;
 
-    const current = (existing.questionsJson as unknown as Array<{ id: string }>) ?? [];
+    const current =
+      (existing.questionsJson as unknown as Array<{ id: string; text: string }>) ?? [];
     const currentIds = new Set(current.map((q) => q.id));
-    const missing = game.questionsJson.filter((q) => !currentIds.has(q.id));
+    // Match on TEXT as well as id. The original seed used ids q1-q5 for every game while the banks
+    // here use per-topic ids (m01, s01, g01...), so an id-only check finds no overlap and appends
+    // all 25 - leaving the first five duplicated under two ids. A daily draw treats those as
+    // distinct entries and could serve the same question twice in one quiz.
+    const currentTexts = new Set(current.map((q) => normaliseText(q.text ?? '')));
+
+    const missing = game.questionsJson.filter(
+      (q) => !currentIds.has(q.id) && !currentTexts.has(normaliseText(q.text)),
+    );
 
     if (missing.length === 0) {
       console.log(`[Games] ${game.title}: bank already complete (${current.length} questions)`);

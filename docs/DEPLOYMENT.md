@@ -149,6 +149,12 @@ deploy looks clean and the app breaks for real users:
    F-4 evidence migration on 2026-07-23). These scripts are written idempotent, so a failed early
    run is safe to re-run once ordered correctly.
 
+**One-off scripts load `.env` by absolute path, so they run from any directory.** They import
+`../config`, which resolves `backend/.env` from `__dirname`. Do NOT reintroduce
+`import 'dotenv/config'` in a script: that resolves `.env` from the WORKING DIRECTORY, and there is
+no `.env` at the repo root on the VPS — so the script only works when invoked from `backend/` and
+otherwise fails with an unset `DATABASE_URL` rather than a clear message.
+
 Take a fresh backup before any migration: `sudo systemctl start taskbuddy-backup.service`.
 
 **Pre-flight: JWT secret strength (hard boot gate).** The backend refuses to start if `JWT_SECRET`
