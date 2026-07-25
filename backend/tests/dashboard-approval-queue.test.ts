@@ -22,7 +22,10 @@ jest.mock('../src/services/database', () => ({
     family: { findUnique: jest.fn() },
     user: { findMany: jest.fn() },
     taskAssignment: { findMany: jest.fn(), count: jest.fn() },
-    rewardWishlist: { groupBy: jest.fn() },
+    // U7: the parent dashboard now attaches each child's pinned goal (roadmap §4.2), so
+    // GoalService's reads must exist here or the route throws before it responds.
+    rewardWishlist: { groupBy: jest.fn(), findFirst: jest.fn() },
+    childProfile: { findUnique: jest.fn() },
     taskComment: { groupBy: jest.fn() },
     task: { count: jest.fn() },
     pointsLedger: { aggregate: jest.fn() },
@@ -47,7 +50,8 @@ const p = prisma as unknown as {
   family: { findUnique: jest.Mock };
   user: { findMany: jest.Mock };
   taskAssignment: { findMany: jest.Mock; count: jest.Mock };
-  rewardWishlist: { groupBy: jest.Mock };
+  rewardWishlist: { groupBy: jest.Mock; findFirst: jest.Mock };
+  childProfile: { findUnique: jest.Mock };
   taskComment: { groupBy: jest.Mock };
   task: { count: jest.Mock };
   pointsLedger: { aggregate: jest.Mock };
@@ -113,6 +117,9 @@ describe('GET /dashboard/parent', () => {
       },
     ]);
     p.rewardWishlist.groupBy.mockResolvedValue([{ childId: 'child-1', _count: { _all: 3 } }]);
+    // No pinned goal by default; goal behaviour itself is covered in child-goal.test.ts.
+    p.rewardWishlist.findFirst.mockResolvedValue(null);
+    p.childProfile.findUnique.mockResolvedValue({ pointsBalance: 0 });
     p.taskComment.groupBy.mockResolvedValue([{ authorId: 'child-1', _count: { _all: 2 } }]);
 
     // weeklyStats runs inside a transaction; hand the callback the same mocks.

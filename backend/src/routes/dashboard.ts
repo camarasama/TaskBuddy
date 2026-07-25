@@ -3,6 +3,7 @@ import { prisma } from '../services/database';
 import { authenticate, requireParent, requireChild, familyIsolation } from '../middleware/auth';
 import { NotFoundError } from '../middleware/errorHandler';
 import { withEvidenceUrlsList } from '../services/storage';
+import { GoalService } from '../services/GoalService';
 import { isStreakAtRisk } from '../services/streakService';
 import { getTodayChallenge } from '../services/ChallengeService';
 
@@ -208,10 +209,16 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
     const wishlistByChild = new Map(wishlistCounts.map((r) => [r.childId, r._count._all]));
     const commentsByChild = new Map(commentCounts.map((r) => [r.authorId, r._count._all]));
 
+    // Growth roadmap §4.2: parents see what each child is saving for — oversight, and a gift-idea
+    // signal. Fetched per child because progress is derived, not stored.
+    const goals = await Promise.all(childIds.map((id) => GoalService.getGoal(id)));
+    const goalByChild = new Map(childIds.map((id, i) => [id, goals[i]]));
+
     const childrenWithEngagement = childrenWithStats.map((c) => ({
       ...c,
       wishlistCount: wishlistByChild.get(c.user.id) ?? 0,
       recentCommentCount: commentsByChild.get(c.user.id) ?? 0,
+      goal: goalByChild.get(c.user.id) ?? null,
     }));
 
     res.json({
@@ -325,6 +332,9 @@ dashboardRouter.get('/child', requireChild, async (req, res, next) => {
       orderBy: { pointsCost: 'asc' },
     });
 
+    // Growth roadmap §4.2: the pinned goal, with progress derived live from the points balance.
+    const goal = await GoalService.getGoal(req.user!.userId);
+
     // Remove sensitive data
     const { passwordHash, ...userWithoutPassword } = user;
     const { pinHash, ...profileWithoutPin } = user.childProfile;
@@ -350,6 +360,7 @@ dashboardRouter.get('/child', requireChild, async (req, res, next) => {
               pointsNeeded: nextReward.pointsCost - user.childProfile.pointsBalance,
             }
           : undefined,
+        goal,
       },
     });
   } catch (error) {

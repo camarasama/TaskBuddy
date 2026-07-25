@@ -390,6 +390,10 @@ model RewardWishlist {
   id        String   @id @default(uuid())
   rewardId  String   @map("reward_id")
   childId   String   @map("child_id")
+  /// The one wishlist item the child has pinned as their goal (growth roadmap §4.2).
+  /// At most one per child; enforced in GoalService, not by a constraint, because "at most one true
+  /// per child" is not expressible as a unique index.
+  isGoal    Boolean  @default(false) @map("is_goal")
   createdAt DateTime @default(now()) @map("created_at")
 
   reward Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)

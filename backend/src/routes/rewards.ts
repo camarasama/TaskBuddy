@@ -15,6 +15,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../services/database';
+import { GoalService } from '../services/GoalService';
 import { toSkipTake, buildMeta } from '../utils/pagination';
 import { authenticate, requireParent, familyIsolation } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
@@ -376,7 +377,37 @@ rewardRouter.delete('/:id/wishlist', async (req, res, next) => {
   }
 });
 
+
+// ─── Goal: "I'm saving for…" (growth roadmap §4.2) ───────────────────────────
+
+// PUT /rewards/:id/goal — pin this reward as the caller child's one goal.
+rewardRouter.put('/:id/goal', async (req, res, next) => {
+  try {
+    if (req.user!.role !== 'child') throw new ForbiddenError('Only children set a goal');
+    const goal = await GoalService.setGoal({
+      childId: req.user!.userId,
+      familyId: req.familyId!,
+      rewardId: req.params.id,
+    });
+    res.json({ success: true, data: { goal } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /rewards/goal — un-pin. The wishlist entry survives; un-pinning is not un-wanting.
+rewardRouter.delete('/goal/current', async (req, res, next) => {
+  try {
+    if (req.user!.role !== 'child') throw new ForbiddenError('Only children set a goal');
+    await GoalService.clearGoal(req.user!.userId);
+    res.json({ success: true, data: { goal: null } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ─── POST /rewards/:id/redeem - Redeem a reward (children only) ──────────────
+
 
 rewardRouter.post('/:id/redeem', async (req, res, next) => {
   try {
