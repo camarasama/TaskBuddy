@@ -15,11 +15,14 @@
  *     recurring task but no active assignment for today.  Covers children
  *     whose assignments were deleted (instead of expired) by the old scheduler.
  *
- * Run once from the backend directory:
+ * Run once, from any directory:
  *   npm run backfill:recurring
  */
 
-import 'dotenv/config';
+// Same cwd trap as backfill-game-banks: `import 'dotenv/config'` resolves .env from the WORKING
+// DIRECTORY, so this only ever worked when run from backend/. config/index.ts resolves it from
+// __dirname instead. Left unfixed this fails with an unset DATABASE_URL, not a clear error.
+import '../config';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
