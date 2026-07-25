@@ -7,8 +7,9 @@
  * R-08 Audit Trail and R-09 Email Delivery are ADMIN-ONLY and removed.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
+import { dashboardApi } from '@/lib/api';
 import TaskCompletionReport from '@/components/reports/TaskCompletionReport';
 import PointsLedgerReport from '@/components/reports/PointsLedgerReport';
 import RewardRedemptionReport from '@/components/reports/RewardRedemptionReport';
@@ -32,11 +33,43 @@ const TABS = [
 
 type TabId = typeof TABS[number]['id'];
 
+interface ChildOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('r01');
   const [childId, setChildId]     = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate]     = useState('');
+  const [children, setChildren]   = useState<ChildOption[]>([]);
+
+  // Populate the child picker. Failing silently is deliberate: the picker falls back to
+  // "All children" and every report still works unfiltered.
+  useEffect(() => {
+    let cancelled = false;
+    dashboardApi
+      .getParentDashboard()
+      .then((res) => {
+        if (cancelled) return;
+        const rows = (res.data as {
+          children?: Array<{ user: { id: string; firstName?: string; lastName?: string } }>;
+        }).children ?? [];
+        setChildren(
+          rows.map((r) => ({
+            id: r.user.id,
+            firstName: r.user.firstName ?? '',
+            lastName: r.user.lastName ?? '',
+          })),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setPreset = (days: number) => {
     const end = new Date();
@@ -67,13 +100,21 @@ export default function ReportsPage() {
             <div className="flex flex-wrap gap-3 items-end">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Child</label>
-                <input
-                  type="text"
-                  placeholder="Child ID (optional)"
+                {/* Was a raw "Child ID" text box - a parent has no way to know a UUID. The names
+                    come from the dashboard payload the app already fetches, so no new endpoint. */}
+                <select
                   value={childId}
                   onChange={(e) => setChildId(e.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 w-44 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                  disabled={children.length === 0}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 w-44 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
+                >
+                  <option value="">All children</option>
+                  {children.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.firstName} {c.lastName}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">From</label>

@@ -25,7 +25,6 @@ import {
   Users,
   Settings,
   LogOut,
-  CheckCircle2,
   Menu,
   X,
   BarChart2,
@@ -37,6 +36,7 @@ import { NotificationProvider } from '@/contexts/NotificationContext';
 import NotificationBell from '@/components/NotificationBell';
 import { cn, getInitials } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 
 interface ParentLayoutProps {
   children: ReactNode;
@@ -141,14 +141,8 @@ function ParentLayoutInner({ children }: { children: ReactNode }) {
 
           {/* Logo + Notification Bell */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-white" />
-              </div>
-              <span className="font-display font-bold text-xl text-slate-900">
-                TaskBuddy
-              </span>
-            </div>
+            {/* Lockup includes the wordmark, so it replaces the old icon + "TaskBuddy" text pair. */}
+            <BrandLogo variant="lockup" size={132} href="/parent/dashboard" priority />
             {/* Bell - visible on desktop sidebar */}
             <NotificationBell />
           </div>
@@ -195,15 +189,13 @@ function ParentLayoutInner({ children }: { children: ReactNode }) {
       {/* ── Mobile Header ───────────────────────────────────────────────────── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40">
         <div className="flex items-center justify-between px-4 py-3">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-white" />
-            </div>
+          {/* Mark + text here: at this height the lockup's baked wordmark would be illegible. */}
+          <Link href="/parent/dashboard" className="flex items-center gap-2">
+            <BrandLogo variant="mark" size={30} alt="" />
             <span className="font-display font-bold text-lg text-slate-900">
               TaskBuddy
             </span>
-          </div>
+          </Link>
 
           {/* Bell + Hamburger */}
           <div className="flex items-center gap-1">
@@ -242,12 +234,7 @@ function ParentLayoutInner({ children }: { children: ReactNode }) {
               className="lg:hidden fixed inset-y-0 left-0 w-64 bg-white z-50 flex flex-col"
             >
               <div className="flex items-center gap-2 px-6 py-5 border-b border-slate-200">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-white" />
-                </div>
-                <span className="font-display font-bold text-xl text-slate-900">
-                  TaskBuddy
-                </span>
+                <BrandLogo variant="lockup" size={132} />
               </div>
 
               <nav className="flex-1 px-4 py-6 space-y-1">

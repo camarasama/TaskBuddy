@@ -17,6 +17,7 @@ import { apiRouter } from './routes';
 import { initScheduler } from './services/scheduler';
 // M8 - Admin router mounted at /api/v1/admin
 import { adminRouter } from './routes/admin';
+import { adminGamesRouter } from './routes/adminGames';
 import { initRecurringScheduler } from './services/RecurringScheduler';
 import { startExpiryEmailCron } from './jobs/expiryEmailCron';
 import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
@@ -158,6 +159,9 @@ app.use('/api/v1/auth/admin/register', authLimiter);
 // API routes
 app.use('/api/v1', apiRouter);
 // M8 - Admin API routes (role-protected inside the router itself)
+// Games CRUD mounts FIRST: adminRouter has no /games routes, but mounting the more specific path
+// ahead of it keeps this independent of any future wildcard there.
+app.use('/api/v1/admin/games', adminGamesRouter);
 app.use('/api/v1/admin', adminRouter);
 // M10 - Phase 4: Reports (parent + admin) and in-app notifications
 app.use('/api/v1/reports', reportsRouter);

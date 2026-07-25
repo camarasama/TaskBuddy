@@ -60,6 +60,8 @@ export interface User extends BaseModel {
   lastName: string;
   avatarUrl?: string | null;
   isActive: boolean;
+  /** Primary parent = the account that registered the family. Co-parents are false. */
+  isPrimaryParent?: boolean;
   lockedUntil?: Date | null;
   lastLoginAt?: Date | null;
   deletedAt?: Date | null;
@@ -146,6 +148,26 @@ export interface TaskAssignment extends BaseModel {
   startedAt?: Date | null;
   autoApproveOverridden?: boolean;
   autoApproveOverrideReason?: string | null;
+}
+
+/**
+ * Photo or note evidence attached to an assignment.
+ *
+ * `fileUrl`/`thumbnailUrl` are PRESIGNED and short-lived on R2 (F-4 made evidence private), so they
+ * must not be cached or persisted client-side - re-fetch the parent resource instead. On a note row
+ * they are null and `note` carries the content.
+ */
+export interface TaskEvidence {
+  id: string;
+  assignmentId: string;
+  evidenceType: 'photo' | 'note';
+  fileUrl?: string | null;
+  thumbnailUrl?: string | null;
+  fileSizeBytes?: number | null;
+  mimeType?: string | null;
+  note?: string | null;
+  moderationStatus?: 'pending' | 'approved' | 'rejected';
+  uploadedAt: Date;
 }
 
 // Points ledger entry

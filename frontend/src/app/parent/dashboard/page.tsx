@@ -11,7 +11,7 @@
  * All other behaviour and UI unchanged from the original parent dashboard.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -22,6 +22,8 @@ import {
   Plus,
   Trophy,
   Star,
+  Heart,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +32,7 @@ import { useToast } from '@/components/ui/Toast';
 import { cn, getInitials, formatPoints } from '@/lib/utils';
 import Link from 'next/link';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
+import { ApprovalQueue, type PendingApproval } from '@/components/tasks/ApprovalQueue';
 // M10 - Phase 6: Real-time socket updates
 import { useSocket } from '@/contexts/SocketContext';
 
@@ -42,6 +45,9 @@ interface ChildSummary {
   currentStreak?: number;
   tasksCompletedToday?: number;
   tasksPendingApproval?: number;
+  // FR-14 / FR-11 surfaced here: both features shipped but were invisible from the dashboard.
+  wishlistCount?: number;
+  recentCommentCount?: number;
 }
 
 interface ParentSummary {
@@ -61,6 +67,8 @@ interface DashboardData {
   parents: ParentSummary[];
   children: ChildSummary[];
   pendingApprovals: number;
+  /** The actual queue, rendered inline. Previously fetched, counted, and discarded. */
+  pendingList: PendingApproval[];
   weeklyStats: {
     tasksCompleted: number;
     tasksCreated: number;
@@ -74,6 +82,7 @@ const defaultData: DashboardData = {
   parents: [],
   children: [],
   pendingApprovals: 0,
+  pendingList: [],
   weeklyStats: { tasksCompleted: 0, tasksCreated: 0, pointsAwarded: 0, rewardsRedeemed: 0 },
 };
 
@@ -95,9 +104,16 @@ export default function ParentDashboardPage() {
             profile?: { level?: number; totalXp?: number; pointsBalance?: number; currentStreakDays?: number };
             completedToday?: number;
             pendingApproval?: number;
+            wishlistCount?: number;
+            recentCommentCount?: number;
           }>;
-          weeklyStats?: { tasksCompleted?: number; pointsEarned?: number; rewardsRedeemed?: number };
-          pendingApprovals?: unknown[];
+          weeklyStats?: {
+            tasksCompleted?: number;
+            tasksCreated?: number;
+            pointsEarned?: number;
+            rewardsRedeemed?: number;
+          };
+          pendingApprovals?: PendingApproval[];
         };
 
         const mappedChildren: ChildSummary[] = (apiData.children || []).map((child) => ({
@@ -109,6 +125,8 @@ export default function ParentDashboardPage() {
           currentStreak: child.profile?.currentStreakDays ?? 0,
           tasksCompletedToday: child.completedToday ?? 0,
           tasksPendingApproval: child.pendingApproval ?? 0,
+          wishlistCount: child.wishlistCount ?? 0,
+          recentCommentCount: child.recentCommentCount ?? 0,
         }));
 
         const mappedParents: ParentSummary[] = apiData.parents || [];
@@ -124,9 +142,11 @@ export default function ParentDashboardPage() {
           parents: mappedParents,
           children: mappedChildren,
           pendingApprovals: apiData.pendingApprovals?.length ?? 0,
+          pendingList: apiData.pendingApprovals ?? [],
           weeklyStats: {
             tasksCompleted: apiData.weeklyStats?.tasksCompleted ?? 0,
-            tasksCreated: 0,
+            // Was hardcoded 0 - the API now returns it.
+            tasksCreated: apiData.weeklyStats?.tasksCreated ?? 0,
             pointsAwarded: apiData.weeklyStats?.pointsEarned ?? 0,
             rewardsRedeemed: apiData.weeklyStats?.rewardsRedeemed ?? 0,
           },
@@ -142,17 +162,51 @@ export default function ParentDashboardPage() {
     loadDashboard();
   }, [showError]);
 
+  /**
+   * Drop a resolved item from local state immediately.
+   *
+   * The socket also fires task:approved for approvals, but only for approvals and only if the
+   * connection is live - so this keeps the counters honest either way. Both paths guard against
+   * going negative, and the queue de-dupes by assignment id.
+   */
+  const handleApprovalResolved = useCallback((assignmentId: string, approved: boolean) => {
+    setData((prev) => {
+      const removed = prev.pendingList.find((a) => a.id === assignmentId);
+      return {
+        ...prev,
+        pendingApprovals: Math.max(0, prev.pendingApprovals - 1),
+        pendingList: prev.pendingList.filter((a) => a.id !== assignmentId),
+        children: prev.children.map((child) =>
+          child.id !== removed?.child.id
+            ? child
+            : {
+                ...child,
+                tasksPendingApproval: Math.max(0, (child.tasksPendingApproval ?? 0) - 1),
+                tasksCompletedToday: approved
+                  ? (child.tasksCompletedToday ?? 0) + 1
+                  : child.tasksCompletedToday,
+              },
+        ),
+      };
+    });
+  }, []);
+
   // M10 - Phase 6: Real-time socket updates - parent receives family-room events
   const { socket } = useSocket();
 
   useEffect(() => {
     if (!socket) return;
 
-    // task:approved → live decrement of pending count + update child card stats
-    const handleTaskApproved = (payload: { childId: string; pointsAwarded: number }) => {
+    // task:approved → live decrement of pending count + update child card stats.
+    // Also drops the row from the inline queue, covering an approval made by a CO-PARENT on
+    // another device - otherwise this parent could click approve on something already resolved.
+    const handleTaskApproved = (payload: { childId: string; pointsAwarded: number; assignmentId?: string }) => {
       setData((prev) => ({
         ...prev,
         pendingApprovals: Math.max(0, prev.pendingApprovals - 1),
+        pendingList: payload.assignmentId
+          ? prev.pendingList.filter((a) => a.id !== payload.assignmentId)
+          : prev.pendingList,
         children: prev.children.map((child) =>
           child.id !== payload.childId
             ? child
@@ -238,6 +292,30 @@ export default function ParentDashboardPage() {
             color="gold"
           />
         </div>
+
+        {/* Approval queue - the core parent action, previously two navigations away */}
+        {data.pendingList.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-xl font-bold text-slate-900">
+                Waiting for you
+                <span className="ml-2 text-sm font-medium text-warning-600">
+                  {data.pendingApprovals} pending
+                </span>
+              </h2>
+              <Link href="/parent/tasks?tab=pending">
+                <Button variant="ghost" size="sm">
+                  View all
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+            <ApprovalQueue
+              approvals={data.pendingList}
+              onResolved={handleApprovalResolved}
+            />
+          </section>
+        )}
 
         {/* Children Overview */}
         <section>
@@ -389,6 +467,8 @@ function ChildCard({ child }: { child: ChildSummary }) {
   const currentStreak = child.currentStreak ?? 0;
   const tasksCompletedToday = child.tasksCompletedToday ?? 0;
   const tasksPendingApproval = child.tasksPendingApproval ?? 0;
+  const wishlistCount = child.wishlistCount ?? 0;
+  const recentCommentCount = child.recentCommentCount ?? 0;
 
   return (
     <Link href={`/parent/children/${child.id}`}>
@@ -430,6 +510,25 @@ function ChildCard({ child }: { child: ChildSummary }) {
             <p className="text-xs text-slate-500">Pending</p>
           </div>
         </div>
+
+        {/* Engagement signals from features that shipped but had no dashboard presence:
+            FR-14 wishlist hearts and FR-11 task comments. */}
+        {(wishlistCount > 0 || recentCommentCount > 0) && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {wishlistCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs bg-pink-50 text-pink-600 rounded-full px-2 py-0.5">
+                <Heart className="w-3 h-3" />
+                {wishlistCount} {wishlistCount === 1 ? 'wish' : 'wishes'}
+              </span>
+            )}
+            {recentCommentCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-600 rounded-full px-2 py-0.5">
+                <MessageSquare className="w-3 h-3" />
+                {recentCommentCount} {recentCommentCount === 1 ? 'comment' : 'comments'}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 flex items-center justify-between text-sm text-primary-600 font-medium">
           <span>View Details</span>

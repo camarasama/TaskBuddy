@@ -20,6 +20,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 
 interface NavItem {
   label: string;
@@ -34,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Families',     href: '/admin/families',     icon: '🏠' },
   { label: 'Users',        href: '/admin/users',        icon: '👥' },
   { label: 'Achievements', href: '/admin/achievements', icon: '🏆' },
+  { label: 'Games',        href: '/admin/games',        icon: '🎮' },
   { label: 'Reports',      href: '/admin/reports',      icon: '📈' },
   { label: 'Audit Log',    href: '/admin/audit-log',    icon: '📋' },
   { label: 'Emails',       href: '/admin/emails',       icon: '✉️' },
@@ -75,12 +77,17 @@ export default function AdminLayout({ children, pageTitle }: AdminLayoutProps) {
     <div className="flex min-h-screen bg-slate-100">
       {/* Sidebar */}
       <aside className="w-60 shrink-0 bg-slate-900 text-white flex flex-col">
-        {/* Brand */}
+        {/* Brand - mark, not lockup: the wordmark is dark teal and would disappear on slate-900. */}
         <div className="px-5 py-6 border-b border-slate-700">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-            TaskBuddy
+          <div className="flex items-center gap-2.5">
+            <BrandLogo variant="mark" size={30} href="/admin/dashboard" alt="" />
+            <div>
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                TaskBuddy
+              </div>
+              <div className="text-base font-bold text-white leading-tight">Admin Panel</div>
+            </div>
           </div>
-          <div className="text-lg font-bold text-white">Admin Panel</div>
         </div>
 
         {/* Navigation */}

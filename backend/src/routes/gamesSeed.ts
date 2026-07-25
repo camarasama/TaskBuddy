@@ -1,7 +1,13 @@
 /**
- * gamesSeed.ts - Seed initial quiz game definitions.
+ * gamesSeed.ts - Seed the initial quiz game definitions and their question BANKS.
  * Called once from the games router on first run OR via prisma/seed.ts.
- * Safe to call multiple times (upserts by title).
+ *
+ * Each game holds a bank far larger than one play. A session draws `questionsPerSession` from it,
+ * seeded by game + UTC date, so the quiz rotates daily instead of serving the same five questions
+ * forever. Banks are sized so a child does not see a repeat for weeks.
+ *
+ * Safe to call repeatedly: existing definitions are left alone (see seedGames), so an admin's edits
+ * via /admin/games are never overwritten by a redeploy.
  */
 import { prisma } from '../services/database';
 
@@ -15,12 +21,33 @@ const QUIZ_GAMES = [
     xpReward: 8,
     cooldownHours: 12,
     ageGroup: '10-12',
+    questionsPerSession: 5,
     questionsJson: [
-      { id: 'q1', text: 'What is 7 × 8?', options: ['54', '56', '64', '48'], correctIndex: 1 },
-      { id: 'q2', text: 'What is 144 ÷ 12?', options: ['10', '11', '12', '13'], correctIndex: 2 },
-      { id: 'q3', text: 'What is 15% of 200?', options: ['25', '30', '35', '40'], correctIndex: 1 },
-      { id: 'q4', text: 'What is 2³?', options: ['6', '8', '9', '16'], correctIndex: 1 },
-      { id: 'q5', text: 'What is the square root of 81?', options: ['7', '8', '9', '10'], correctIndex: 2 },
+      { id: 'm01', text: 'What is 7 × 8?', options: ['54', '56', '64', '48'], correctIndex: 1 },
+      { id: 'm02', text: 'What is 144 ÷ 12?', options: ['10', '11', '12', '13'], correctIndex: 2 },
+      { id: 'm03', text: 'What is 15% of 200?', options: ['25', '30', '35', '40'], correctIndex: 1 },
+      { id: 'm04', text: 'What is 2³?', options: ['6', '8', '9', '16'], correctIndex: 1 },
+      { id: 'm05', text: 'What is the square root of 81?', options: ['7', '8', '9', '10'], correctIndex: 2 },
+      { id: 'm06', text: 'What is 9 × 6?', options: ['45', '54', '56', '63'], correctIndex: 1 },
+      { id: 'm07', text: 'What is 100 − 37?', options: ['53', '63', '67', '73'], correctIndex: 1 },
+      { id: 'm08', text: 'What is 25 × 4?', options: ['75', '90', '100', '125'], correctIndex: 2 },
+      { id: 'm09', text: 'What is 3/4 as a decimal?', options: ['0.25', '0.5', '0.75', '0.8'], correctIndex: 2 },
+      { id: 'm10', text: 'What is the perimeter of a square with sides of 5 cm?', options: ['10 cm', '15 cm', '20 cm', '25 cm'], correctIndex: 2 },
+      { id: 'm11', text: 'What is 12 × 12?', options: ['124', '132', '144', '156'], correctIndex: 2 },
+      { id: 'm12', text: 'How many minutes are in 2½ hours?', options: ['120', '140', '150', '160'], correctIndex: 2 },
+      { id: 'm13', text: 'What is 50% of 90?', options: ['35', '40', '45', '50'], correctIndex: 2 },
+      { id: 'm14', text: 'What is 7 + 8 × 2?', options: ['23', '30', '17', '15'], correctIndex: 0 },
+      { id: 'm15', text: 'What is the next number: 2, 4, 8, 16, …?', options: ['20', '24', '32', '18'], correctIndex: 2 },
+      { id: 'm16', text: 'How many sides does a hexagon have?', options: ['5', '6', '7', '8'], correctIndex: 1 },
+      { id: 'm17', text: 'What is 81 ÷ 9?', options: ['7', '8', '9', '11'], correctIndex: 2 },
+      { id: 'm18', text: 'What is the area of a rectangle 6 cm by 4 cm?', options: ['10 cm²', '20 cm²', '24 cm²', '26 cm²'], correctIndex: 2 },
+      { id: 'm19', text: 'Round 6.7 to the nearest whole number.', options: ['6', '7', '6.5', '8'], correctIndex: 1 },
+      { id: 'm20', text: 'What is 1000 − 250?', options: ['650', '700', '750', '850'], correctIndex: 2 },
+      { id: 'm21', text: 'How many degrees are in a right angle?', options: ['45', '90', '180', '360'], correctIndex: 1 },
+      { id: 'm22', text: 'What is 6 × 7 + 3?', options: ['42', '45', '48', '63'], correctIndex: 1 },
+      { id: 'm23', text: 'Which fraction is largest?', options: ['1/2', '1/3', '1/4', '1/5'], correctIndex: 0 },
+      { id: 'm24', text: 'What is 5² − 5?', options: ['15', '20', '25', '30'], correctIndex: 1 },
+      { id: 'm25', text: 'How many degrees are in a triangle’s three angles?', options: ['90', '180', '270', '360'], correctIndex: 1 },
     ],
   },
   {
@@ -32,12 +59,33 @@ const QUIZ_GAMES = [
     xpReward: 15,
     cooldownHours: 24,
     ageGroup: null,
+    questionsPerSession: 5,
     questionsJson: [
-      { id: 'q1', text: 'What gas do plants absorb during photosynthesis?', options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'], correctIndex: 2 },
-      { id: 'q2', text: 'How many bones are in the adult human body?', options: ['196', '206', '216', '226'], correctIndex: 1 },
-      { id: 'q3', text: 'What is the closest planet to the Sun?', options: ['Venus', 'Mars', 'Mercury', 'Earth'], correctIndex: 2 },
-      { id: 'q4', text: 'What is the speed of light (approx)?', options: ['300,000 km/s', '150,000 km/s', '450,000 km/s', '100,000 km/s'], correctIndex: 0 },
-      { id: 'q5', text: 'Which organ pumps blood around the body?', options: ['Lungs', 'Brain', 'Liver', 'Heart'], correctIndex: 3 },
+      { id: 's01', text: 'What gas do plants absorb during photosynthesis?', options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'], correctIndex: 2 },
+      { id: 's02', text: 'How many bones are in the adult human body?', options: ['196', '206', '216', '226'], correctIndex: 1 },
+      { id: 's03', text: 'What is the closest planet to the Sun?', options: ['Venus', 'Mars', 'Mercury', 'Earth'], correctIndex: 2 },
+      { id: 's04', text: 'What is the speed of light (approx)?', options: ['300,000 km/s', '150,000 km/s', '450,000 km/s', '100,000 km/s'], correctIndex: 0 },
+      { id: 's05', text: 'Which organ pumps blood around the body?', options: ['Lungs', 'Brain', 'Liver', 'Heart'], correctIndex: 3 },
+      { id: 's06', text: 'What is the chemical symbol for water?', options: ['H2O', 'CO2', 'O2', 'NaCl'], correctIndex: 0 },
+      { id: 's07', text: 'How many planets are in our solar system?', options: ['7', '8', '9', '10'], correctIndex: 1 },
+      { id: 's08', text: 'What force pulls objects towards the Earth?', options: ['Magnetism', 'Friction', 'Gravity', 'Pressure'], correctIndex: 2 },
+      { id: 's09', text: 'Which part of the plant makes food?', options: ['Root', 'Stem', 'Leaf', 'Flower'], correctIndex: 2 },
+      { id: 's10', text: 'What do we call animals that eat only plants?', options: ['Carnivores', 'Herbivores', 'Omnivores', 'Insectivores'], correctIndex: 1 },
+      { id: 's11', text: 'At what temperature does water freeze (Celsius)?', options: ['0°C', '10°C', '32°C', '100°C'], correctIndex: 0 },
+      { id: 's12', text: 'What is the largest planet in our solar system?', options: ['Saturn', 'Neptune', 'Jupiter', 'Earth'], correctIndex: 2 },
+      { id: 's13', text: 'Which gas do humans need to breathe?', options: ['Nitrogen', 'Oxygen', 'Helium', 'Carbon Dioxide'], correctIndex: 1 },
+      { id: 's14', text: 'What is the hardest natural substance?', options: ['Iron', 'Gold', 'Diamond', 'Quartz'], correctIndex: 2 },
+      { id: 's15', text: 'How many legs does an insect have?', options: ['4', '6', '8', '10'], correctIndex: 1 },
+      { id: 's16', text: 'What do bees collect from flowers?', options: ['Sap', 'Nectar', 'Pollen only', 'Water'], correctIndex: 1 },
+      { id: 's17', text: 'Which planet is known as the Red Planet?', options: ['Venus', 'Mars', 'Mercury', 'Jupiter'], correctIndex: 1 },
+      { id: 's18', text: 'What is the centre of an atom called?', options: ['Electron', 'Nucleus', 'Proton', 'Shell'], correctIndex: 1 },
+      { id: 's19', text: 'What kind of animal is a frog?', options: ['Reptile', 'Amphibian', 'Mammal', 'Fish'], correctIndex: 1 },
+      { id: 's20', text: 'What does a caterpillar turn into?', options: ['Beetle', 'Butterfly', 'Bee', 'Dragonfly'], correctIndex: 1 },
+      { id: 's21', text: 'Which body part controls your movements?', options: ['Heart', 'Brain', 'Stomach', 'Lungs'], correctIndex: 1 },
+      { id: 's22', text: 'What is the boiling point of water (Celsius)?', options: ['50°C', '90°C', '100°C', '150°C'], correctIndex: 2 },
+      { id: 's23', text: 'What are clouds mostly made of?', options: ['Smoke', 'Water droplets', 'Dust', 'Air'], correctIndex: 1 },
+      { id: 's24', text: 'Which animal is the largest on Earth?', options: ['Elephant', 'Blue whale', 'Giraffe', 'Great white shark'], correctIndex: 1 },
+      { id: 's25', text: 'What do we call the path a planet takes around the Sun?', options: ['Rotation', 'Orbit', 'Axis', 'Spin'], correctIndex: 1 },
     ],
   },
   {
@@ -49,12 +97,33 @@ const QUIZ_GAMES = [
     xpReward: 20,
     cooldownHours: 24,
     ageGroup: '13-16',
+    questionsPerSession: 5,
     questionsJson: [
-      { id: 'q1', text: 'What is the capital of Australia?', options: ['Sydney', 'Melbourne', 'Canberra', 'Brisbane'], correctIndex: 2 },
-      { id: 'q2', text: 'Which is the largest country by land area?', options: ['China', 'Canada', 'USA', 'Russia'], correctIndex: 3 },
-      { id: 'q3', text: 'What is the capital of Brazil?', options: ['Rio de Janeiro', 'São Paulo', 'Brasília', 'Salvador'], correctIndex: 2 },
-      { id: 'q4', text: 'On which continent is Ghana located?', options: ['Asia', 'South America', 'Africa', 'Europe'], correctIndex: 2 },
-      { id: 'q5', text: 'What is the longest river in the world?', options: ['Amazon', 'Nile', 'Yangtze', 'Mississippi'], correctIndex: 1 },
+      { id: 'g01', text: 'What is the capital of Australia?', options: ['Sydney', 'Melbourne', 'Canberra', 'Brisbane'], correctIndex: 2 },
+      { id: 'g02', text: 'Which is the largest country by land area?', options: ['China', 'Canada', 'USA', 'Russia'], correctIndex: 3 },
+      { id: 'g03', text: 'What is the capital of Brazil?', options: ['Rio de Janeiro', 'São Paulo', 'Brasília', 'Salvador'], correctIndex: 2 },
+      { id: 'g04', text: 'On which continent is Ghana located?', options: ['Asia', 'South America', 'Africa', 'Europe'], correctIndex: 2 },
+      { id: 'g05', text: 'What is the longest river in the world?', options: ['Amazon', 'Nile', 'Yangtze', 'Mississippi'], correctIndex: 1 },
+      { id: 'g06', text: 'What is the capital of Japan?', options: ['Osaka', 'Kyoto', 'Tokyo', 'Nagoya'], correctIndex: 2 },
+      { id: 'g07', text: 'Which ocean is the largest?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], correctIndex: 3 },
+      { id: 'g08', text: 'What is the capital of Canada?', options: ['Toronto', 'Ottawa', 'Vancouver', 'Montreal'], correctIndex: 1 },
+      { id: 'g09', text: 'Which country has the most people?', options: ['China', 'India', 'USA', 'Indonesia'], correctIndex: 1 },
+      { id: 'g10', text: 'What is the tallest mountain in the world?', options: ['K2', 'Everest', 'Kilimanjaro', 'Denali'], correctIndex: 1 },
+      { id: 'g11', text: 'What is the capital of France?', options: ['Lyon', 'Marseille', 'Paris', 'Nice'], correctIndex: 2 },
+      { id: 'g12', text: 'Which desert is the largest hot desert?', options: ['Gobi', 'Kalahari', 'Sahara', 'Arabian'], correctIndex: 2 },
+      { id: 'g13', text: 'How many continents are there?', options: ['5', '6', '7', '8'], correctIndex: 2 },
+      { id: 'g14', text: 'What is the capital of Egypt?', options: ['Alexandria', 'Cairo', 'Giza', 'Luxor'], correctIndex: 1 },
+      { id: 'g15', text: 'Which country is shaped like a boot?', options: ['Spain', 'Greece', 'Italy', 'Portugal'], correctIndex: 2 },
+      { id: 'g16', text: 'What is the smallest country in the world?', options: ['Monaco', 'Vatican City', 'San Marino', 'Malta'], correctIndex: 1 },
+      { id: 'g17', text: 'On which continent is the Amazon rainforest?', options: ['Africa', 'Asia', 'South America', 'Australia'], correctIndex: 2 },
+      { id: 'g18', text: 'What is the capital of Kenya?', options: ['Mombasa', 'Nairobi', 'Kisumu', 'Nakuru'], correctIndex: 1 },
+      { id: 'g19', text: 'Which sea is the saltiest?', options: ['Red Sea', 'Dead Sea', 'Black Sea', 'Caspian Sea'], correctIndex: 1 },
+      { id: 'g20', text: 'What is the capital of Nigeria?', options: ['Lagos', 'Abuja', 'Kano', 'Ibadan'], correctIndex: 1 },
+      { id: 'g21', text: 'Which country is both in Europe and Asia?', options: ['Greece', 'Turkey', 'Poland', 'Norway'], correctIndex: 1 },
+      { id: 'g22', text: 'What is the capital of India?', options: ['Mumbai', 'Kolkata', 'New Delhi', 'Chennai'], correctIndex: 2 },
+      { id: 'g23', text: 'Which river runs through London?', options: ['Severn', 'Thames', 'Mersey', 'Tyne'], correctIndex: 1 },
+      { id: 'g24', text: 'What is the largest island in the world?', options: ['Borneo', 'Madagascar', 'Greenland', 'New Guinea'], correctIndex: 2 },
+      { id: 'g25', text: 'Which continent is the coldest?', options: ['Europe', 'Asia', 'Antarctica', 'North America'], correctIndex: 2 },
     ],
   },
 ];
@@ -64,7 +133,42 @@ export async function seedGames(): Promise<void> {
     const existing = await prisma.gameDefinition.findFirst({ where: { title: game.title } });
     if (!existing) {
       await prisma.gameDefinition.create({ data: game });
-      console.log(`[Games] Seeded: ${game.title}`);
+      console.log(`[Games] Seeded: ${game.title} (${game.questionsJson.length} questions)`);
     }
+  }
+}
+
+/**
+ * Top up the SEEDED games to their full banks without touching anything else.
+ *
+ * The original seed shipped 5 questions per game and `seedGames` skips definitions that already
+ * exist, so an existing deployment would keep serving the same five questions forever and the daily
+ * rotation would have nothing to rotate. This backfills only questions whose id is missing, so
+ * admin-authored questions and edited metadata are preserved.
+ *
+ * Run once after deploying rotation:
+ *   node backend/dist/scripts/backfill-game-banks.js
+ */
+export async function backfillGameBanks(): Promise<void> {
+  for (const game of QUIZ_GAMES) {
+    const existing = await prisma.gameDefinition.findFirst({ where: { title: game.title } });
+    if (!existing) continue;
+
+    const current = (existing.questionsJson as unknown as Array<{ id: string }>) ?? [];
+    const currentIds = new Set(current.map((q) => q.id));
+    const missing = game.questionsJson.filter((q) => !currentIds.has(q.id));
+
+    if (missing.length === 0) {
+      console.log(`[Games] ${game.title}: bank already complete (${current.length} questions)`);
+      continue;
+    }
+
+    await prisma.gameDefinition.update({
+      where: { id: existing.id },
+      data: { questionsJson: [...current, ...missing] },
+    });
+    console.log(
+      `[Games] ${game.title}: added ${missing.length} questions (${current.length} → ${current.length + missing.length})`,
+    );
   }
 }

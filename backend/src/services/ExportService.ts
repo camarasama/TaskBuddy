@@ -8,6 +8,8 @@
 import { format as formatCsv } from '@fast-csv/format';
 import { PDFDocument, StandardFonts, rgb, PageSizes } from 'pdf-lib';
 import { PassThrough } from 'stream';
+import { readFileSync } from 'fs';
+import path from 'path';
 import type {
   TaskCompletionReport,
   LedgerReport,
@@ -63,6 +65,27 @@ interface PdfCtx {
   y: { v: number };
 }
 
+/**
+ * The logo used in every PDF header, read from disk once and cached.
+ *
+ * Deliberately non-fatal: a report export is more useful unbranded than not at all, so a missing or
+ * unreadable asset degrades to the text-only header rather than throwing. Cached as `null` after a
+ * failure so a broken deploy does not retry a filesystem read on every export.
+ */
+let logoCache: Buffer | null | undefined;
+
+function loadLogo(): Buffer | null {
+  if (logoCache !== undefined) return logoCache;
+  try {
+    // Resolved from the compiled location (dist/services), so it works in dev and in prod.
+    logoCache = readFileSync(path.join(__dirname, '../../assets/logo-mark.png'));
+  } catch {
+    console.warn('[ExportService] logo-mark.png not found - exporting PDFs without the logo');
+    logoCache = null;
+  }
+  return logoCache;
+}
+
 async function buildPdf(title: string, subtitle: string): Promise<PdfCtx> {
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage(PageSizes.A4);
@@ -74,8 +97,26 @@ async function buildPdf(title: string, subtitle: string): Promise<PdfCtx> {
 
   // Header bar
   page.drawRectangle({ x: 0, y: height - 70, width, height: 70, color: BRAND_BLUE });
-  page.drawText('TaskBuddy', { x: margin, y: height - 28, size: 18, font: bold, color: WHITE });
-  page.drawText(title, { x: margin, y: height - 50, size: 11, font, color: rgb(0.88, 0.88, 1) });
+
+  // Logo, then shift the text right to clear it. Falls back to the original flush-left text layout
+  // when the asset is unavailable.
+  let textX = margin;
+  const logo = loadLogo();
+  if (logo) {
+    const image = await pdfDoc.embedPng(logo);
+    const logoHeight = 40;
+    const logoWidth = (image.width / image.height) * logoHeight;
+    page.drawImage(image, {
+      x: margin,
+      y: height - 55,
+      width: logoWidth,
+      height: logoHeight,
+    });
+    textX = margin + logoWidth + 12;
+  }
+
+  page.drawText('TaskBuddy', { x: textX, y: height - 28, size: 18, font: bold, color: WHITE });
+  page.drawText(title, { x: textX, y: height - 50, size: 11, font, color: rgb(0.88, 0.88, 1) });
   y.v = height - 82;
   page.drawText(subtitle, { x: margin, y: y.v, size: 8.5, font, color: BRAND_DARK });
   y.v -= 12;

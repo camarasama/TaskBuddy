@@ -1,6 +1,6 @@
 // API request and response types
 
-import type { User, Family, ChildProfile, Task, TaskAssignment, Reward, Achievement } from './models';
+import type { User, Family, ChildProfile, Task, TaskAssignment, TaskEvidence, Reward, Achievement } from './models';
 
 // Generic API response wrapper
 export interface ApiResponse<T = unknown> {
@@ -265,28 +265,48 @@ export interface RedeemRewardResponse {
 
 // ========== DASHBOARD ==========
 
+/**
+ * GET /dashboard/parent.
+ *
+ * Corrected against routes/dashboard.ts, which it had drifted from in four ways: `parents` was
+ * missing entirely, `pendingApprovals` was described as a `{ assignment, task, child }` wrapper the
+ * route has never returned (it returns TaskAssignment rows with relations included), `recentActivity`
+ * was declared but is never sent, and weeklyStats had no `tasksCreated`.
+ */
 export interface ParentDashboardResponse {
   family: Family;
+  /** Every active parent - primary and co-parents. */
+  parents: Array<
+    Pick<User, 'id' | 'firstName' | 'lastName' | 'email' | 'isPrimaryParent' | 'avatarUrl'> & {
+      lastLoginAt: Date | null;
+      createdAt: Date;
+    }
+  >;
   children: Array<{
     user: Omit<User, 'passwordHash'>;
     profile: ChildProfile;
     todaysTasks: number;
     completedToday: number;
     pendingApproval: number;
+    /** FR-14: rewards this child has hearted. */
+    wishlistCount: number;
+    /** FR-11: comments this child left in the last 7 days. */
+    recentCommentCount: number;
   }>;
-  pendingApprovals: Array<{
-    assignment: TaskAssignment;
-    task: Task;
-    child: Omit<User, 'passwordHash'>;
-  }>;
-  recentActivity: Array<{
-    type: string;
-    timestamp: Date;
-    childId: string;
-    description: string;
-  }>;
+  /**
+   * The approval queue itself, newest last. Evidence URLs are presigned by the route (private on R2
+   * since F-4) and are short-lived, so they are not safe to cache client-side.
+   */
+  pendingApprovals: Array<
+    TaskAssignment & {
+      task: Task;
+      child: Pick<User, 'id' | 'firstName' | 'lastName' | 'avatarUrl'>;
+      evidence: TaskEvidence[];
+    }
+  >;
   weeklyStats: {
     tasksCompleted: number;
+    tasksCreated: number;
     pointsEarned: number;
     rewardsRedeemed: number;
   };

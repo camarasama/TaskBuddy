@@ -59,9 +59,10 @@ export default function GamesLobbyPage() {
     if (game.onCooldown) return;
     setStartingId(game.id);
     try {
+      // The play screen fetches the session by id, so nothing is cached client-side - a refresh
+      // mid-quiz resumes instead of stranding an in_progress session.
       const res = await gamesApi.startSession(game.id);
-      const { sessionId, questions, game: gameInfo } = res.data as { sessionId: string; questions: unknown[]; game: unknown };
-      sessionStorage.setItem(`game-session-${sessionId}`, JSON.stringify({ questions, game: gameInfo }));
+      const { sessionId } = res.data as { sessionId: string };
       router.push(`/child/games/play?session=${sessionId}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start game';

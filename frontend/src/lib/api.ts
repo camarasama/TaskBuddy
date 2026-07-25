@@ -52,7 +52,12 @@ import type {
   TaskExecutionTimeReport,
   GamesListResponse,
   GameSession,
+  GameSessionResume,
+  GameAnswerResult,
   GameSubmitResult,
+  AdminGameSummary,
+  AdminGameDetail,
+  AdminGameInput,
   WebhookEvent,
   WebhookSubscriptionSummary,
   TaskComment,
@@ -1193,11 +1198,59 @@ export const gamesApi = {
       body: JSON.stringify({ gameDefinitionId }),
     }),
 
-  submitSession: (sessionId: string, answers: number[]) =>
+  /** Resume after a refresh - the play screen fetches this instead of trusting sessionStorage. */
+  getSession: (sessionId: string) =>
+    request<ApiResponse<GameSessionResume>>(`/games/sessions/${sessionId}`),
+
+  /**
+   * Lock one answer and find out immediately whether it was right. Indexes are in display order.
+   * The server commits the choice before revealing the answer, so this cannot be used to probe.
+   */
+  answerQuestion: (sessionId: string, questionIndex: number, answerIndex: number) =>
+    request<ApiResponse<GameAnswerResult>>(`/games/sessions/${sessionId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ questionIndex, answerIndex }),
+    }),
+
+  /** Finalise. Grading reads the answers already stored server-side. */
+  submitSession: (sessionId: string) =>
     request<ApiResponse<GameSubmitResult>>(`/games/sessions/${sessionId}/submit`, {
       method: 'POST',
-      body: JSON.stringify({ answers }),
     }),
+};
+
+// ─── Admin: game authoring ───────────────────────────────────────────────────
+
+/**
+ * Question banks used to be editable only by changing gamesSeed.ts and redeploying, which made the
+ * daily rotation impractical to maintain. These are admin-only (enforced server-side) and are the
+ * one place correct answers cross the wire.
+ */
+export const adminGamesApi = {
+  list: () =>
+    request<ApiResponse<{ games: AdminGameSummary[] }>>('/admin/games'),
+
+  get: (id: string) =>
+    request<ApiResponse<{ game: AdminGameDetail }>>(`/admin/games/${id}`),
+
+  create: (input: AdminGameInput) =>
+    request<ApiResponse<{ game: AdminGameDetail }>>('/admin/games', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  update: (id: string, input: Partial<AdminGameInput>) =>
+    request<ApiResponse<{ game: AdminGameDetail }>>(`/admin/games/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
+  /** Deactivates when the game has play history; hard-deletes only if never played. */
+  remove: (id: string) =>
+    request<ApiResponse<{ mode: 'deactivated' | 'deleted'; message: string }>>(
+      `/admin/games/${id}`,
+      { method: 'DELETE' },
+    ),
 };
 
 // ─── FR-18: outbound webhooks (parent-managed, family-scoped) ────────────────

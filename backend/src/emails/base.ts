@@ -36,6 +36,20 @@ const BRAND_GRADIENT = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
 const BRAND_NAME = 'TaskBuddy';
 const BRAND_TAGLINE = 'Family Task Management';
 
+/**
+ * Logo for the email header.
+ *
+ * Must be an ABSOLUTE url - email clients have no notion of the app's origin. It is served from the
+ * frontend's public dir, so it needs no separate hosting. The mark (not the lockup) is used because
+ * the header already prints the brand name as text directly beneath it.
+ *
+ * The <img> is additive: every client that blocks images still sees the BRAND_NAME heading, so the
+ * header never renders empty.
+ */
+const APP_URL =
+  process.env.FRONTEND_URL || process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:3000';
+const BRAND_LOGO_URL = `${APP_URL}/logo-mark.png`;
+
 // ─── Base layout ─────────────────────────────────────────────────────────────
 
 /**
@@ -69,6 +83,8 @@ export function baseLayout(innerContent: string, previewText = ''): string {
           <!-- Header -->
           <tr>
             <td style="background:${BRAND_GRADIENT};padding:32px;text-align:center;">
+              <img src="${BRAND_LOGO_URL}" width="56" height="51" alt=""
+                   style="display:block;margin:0 auto 12px;border:0;outline:none;text-decoration:none;">
               <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px;">${BRAND_NAME}</h1>
               <p style="margin:8px 0 0;color:#e0e7ff;font-size:14px;">${BRAND_TAGLINE}</p>
             </td>
