@@ -695,6 +695,18 @@ export const tasksApi = {
     return data;
   },
 
+  /**
+   * One assignment, for the single-tap approval screen. Returns ALREADY-RESOLVED assignments too,
+   * with `resolvedByName` — co-parents race on the same push, and the second one must see a
+   * finished state rather than a 404.
+   */
+  getAssignment: (assignmentId: string) =>
+    request<ApiResponse<{
+      assignment: unknown;
+      isPending: boolean;
+      resolvedByName: string | null;
+    }>>(`/tasks/assignments/${assignmentId}`),
+
   // Approve resolves immediately (pointsAwarded/xpAwarded/newBalance/levelUp/unlockedAchievements
   // present); reject returns just `{ assignment }`.
   approveAssignment: (assignmentId: string, approved: boolean, feedback?: string, bonusPoints?: number) =>

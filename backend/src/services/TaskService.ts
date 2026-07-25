@@ -48,6 +48,50 @@ interface ApproveAssignmentParams {
   ipAddress?: string;
 }
 
+/**
+ * Push every active parent in the family a "needs your approval" notification that deep-links to the
+ * one-tap approval screen.
+ *
+ * Fire-and-forget and individually guarded: one parent's push failing must not stop the others, and
+ * none of it may fail the child's submission.
+ */
+async function notifyParentsOfSubmission(params: {
+  familyId: string;
+  excludeUserId: string;
+  assignmentId: string;
+  childName: string;
+  taskTitle: string;
+}): Promise<void> {
+  try {
+    const parents = await prisma.user.findMany({
+      where: {
+        familyId: params.familyId,
+        role: 'parent',
+        deletedAt: null,
+        isActive: true,
+        id: { not: params.excludeUserId },
+      },
+      select: { id: true },
+    });
+
+    await Promise.all(
+      parents.map((parent) =>
+        createNotification({
+          userId: parent.id,
+          notificationType: 'task_submitted',
+          title: `${params.childName} finished a task`,
+          message: `"${params.taskTitle}" is waiting for your approval.`,
+          actionUrl: `/parent/approve/${params.assignmentId}`,
+          referenceType: 'task_assignment',
+          referenceId: params.assignmentId,
+        }).catch(() => {}),
+      ),
+    );
+  } catch (err) {
+    console.error('[TaskService] parent submission notification failed:', (err as Error)?.message);
+  }
+}
+
 export class TaskService {
   static async createTask(params: CreateTaskParams) {
     const { familyId, createdBy, taskTag, assignedTo, dueDate, startTime, estimatedMinutes, taskData, ipAddress } = params;
@@ -301,6 +345,18 @@ export class TaskService {
       referenceType: 'task_assignment',
       referenceId: assignment.id,
     }).catch(() => {});
+
+    // Parents previously got an EMAIL on submit but no push — so the fastest channel was carrying
+    // nothing, and approval latency (the loop's heartbeat) suffered for it. Each parent now gets a
+    // push that deep-links straight to the one-tap approval screen. createNotification routes to
+    // PushService itself, so this needs no separate push call.
+    void notifyParentsOfSubmission({
+      familyId,
+      excludeUserId: userId,
+      assignmentId: assignment.id,
+      childName: assignment.child.firstName,
+      taskTitle: assignment.task.title,
+    });
 
     SocketService.emitTaskSubmitted(familyId, {
       assignmentId,

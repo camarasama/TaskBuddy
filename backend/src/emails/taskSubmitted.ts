@@ -22,7 +22,9 @@ export function buildTaskSubmitted(data: TaskSubmittedData): string {
     timeStyle: 'short',
   });
 
-  const reviewUrl = `${process.env.FRONTEND_URL || process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:3000'}/parent/tasks/assignments/${assignmentId}`;
+  // NOTE: this used to point at /parent/tasks/assignments/{id}, a route that has never existed -
+  // every "Review Submission" click 404'd. It now targets the single-tap approval screen.
+  const reviewUrl = `${process.env.FRONTEND_URL || process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:3000'}/parent/approve/${assignmentId}`;
 
   const inner = `
   <!-- Body -->
@@ -41,7 +43,7 @@ export function buildTaskSubmitted(data: TaskSubmittedData): string {
         infoRow('Submitted at', completedDate),
       ].join(''))}
 
-      ${ctaButton('Review Submission', reviewUrl)}
+      ${ctaButton('Approve in one tap', reviewUrl)}
 
       <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
         Once you review, you can approve (awarding points &amp; XP) or request changes.
