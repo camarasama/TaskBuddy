@@ -909,3 +909,26 @@ enum EmailLogStatus {
   failed
   bounced
 }
+/// Funnel instrumentation (growth roadmap 0b).
+///
+/// Deliberately NOT joined to Family with a foreign key. Two reasons: pre-signup events (a
+/// registration that fails validation) have no family yet, and the retention purge hard-deletes
+/// families — a cascade would erase the very funnel history the metrics are computed from. The
+/// familyId is a loose reference, and events are purged on their own age-based schedule instead.
+///
+/// PII NEVER goes in `payload`. AnalyticsService strips anything email-shaped or free-text before
+/// writing; callers pass ids and enums only. Binding per the child-data guardrails.
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  eventType String   @map("event_type")
+  /// Loose reference; no FK, and null for pre-signup events.
+  familyId  String?  @map("family_id")
+  /// 'parent' | 'child' | 'admin' | 'system'
+  actorRole String?  @map("actor_role")
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([eventType, createdAt])
+  @@index([familyId, createdAt])
+  @@map("analytics_events")
+}

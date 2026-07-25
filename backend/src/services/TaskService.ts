@@ -6,6 +6,7 @@ import { evaluateStreak } from './streakService';
 import { AuditService } from './AuditService';
 import { EmailService } from './email';
 import { SocketService } from './SocketService';
+import { AnalyticsService } from './AnalyticsService';
 import { createNotification } from '../routes/notifications';
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
 import { getTaskOverlaps } from '../utils/overlapCheck';
@@ -455,6 +456,23 @@ export class TaskService {
         delta: result.pointsAwarded,
         reason: 'task_approved',
       });
+
+      // Funnel instrumentation (roadmap 0b). Fire-and-forget: AnalyticsService swallows its own
+      // failures, so a broken analytics table can never fail an approval. Ids and enums only.
+      void AnalyticsService.record({
+        eventType: 'TASK_APPROVED',
+        familyId,
+        actorRole: 'parent',
+        payload: {
+          assignmentId,
+          childId: assignment.childId,
+          pointsAwarded: result.pointsAwarded,
+          difficulty: assignment.task.difficulty ?? null,
+        },
+      });
+      // The north-star activation metric is time-to-FIRST-approved-task, so this must fire once
+      // per family, not once per approval.
+      void AnalyticsService.recordFirstApproval(familyId, { assignmentId });
 
       if (levelUpResult?.leveledUp) {
         SocketService.emitLevelUp(familyId, {

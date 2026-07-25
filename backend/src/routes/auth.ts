@@ -35,6 +35,7 @@ import { VALIDATION, CONSENT_VERSIONS } from '@taskbuddy/shared';
 import { AuditService } from '../services/AuditService';
 // M9 - Email notifications
 import { EmailService } from '../services/email';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 export const authRouter = Router();
 
@@ -236,6 +237,15 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
     });
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const verifyUrl = `${frontendUrl}/verify-email?token=${verifyToken}`;
+
+    // Funnel instrumentation (roadmap 0b) — the clock for "registration → first approved task"
+    // starts here. Fire-and-forget; no email or name goes in the payload.
+    void AnalyticsService.record({
+      eventType: 'SIGNUP',
+      familyId: result.user.familyId,
+      actorRole: 'parent',
+      payload: { userId: result.user.id },
+    });
 
     // Welcome email - CTA links directly to the verification URL
     EmailService.send({
