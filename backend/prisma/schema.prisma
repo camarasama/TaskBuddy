@@ -330,6 +330,12 @@ model Reward {
   isCollaborative        Boolean     @default(false) @map("is_collaborative")
   // FR-09: set once the pooled contributions first reach pointsCost, so auto-fulfilment fires once.
   collaborativeFulfilledAt DateTime? @map("collaborative_fulfilled_at")
+  /// Who ends up with a funded collaborative reward: 'shared' (the family — the default, because
+  /// most such rewards are a film night or a day out) or 'parent_choice' (a parent designates one
+  /// child, for rewards only one person can actually have).
+  /// Deliberately NOT last-contributor-wins: that rewards timing over effort and pushes children to
+  /// withhold points and snipe the final few.
+  recipientRule          String      @default("shared") @map("recipient_rule")
   createdAt              DateTime    @default(now()) @map("created_at")
   updatedAt              DateTime    @updatedAt @map("updated_at")
   deletedAt              DateTime?   @map("deleted_at")
@@ -356,6 +362,9 @@ model RewardRedemption {
   approvedBy  String?          @map("approved_by")
   approvedAt  DateTime?        @map("approved_at")
   fulfilledAt DateTime?        @map("fulfilled_at")
+  /// Set only when a collaborative reward's rule is 'parent_choice'. NULL means shared — nobody
+  /// individually received it — which is also the case for every solo redemption.
+  recipientChildId String?     @map("recipient_child_id")
   notes       String?
   createdAt   DateTime         @default(now()) @map("created_at")
 

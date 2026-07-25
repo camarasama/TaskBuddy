@@ -63,9 +63,17 @@ export interface RewardRedemptionRow {
   rewardId: string;
   rewardName: string;
   rewardTier: string | null;
+  /** For a collaborative reward this is THIS child's own contribution, not the full cost. */
   pointsSpent: number;
   status: string;
   fulfilledAt: string | null;
+  /** True when the row came from a pooled, multi-child reward. */
+  isCollaborative: boolean;
+  /**
+   * Who ended up with it: a child's name when a parent designated one, 'Shared' when a collaborative
+   * reward belongs to the family, and null for an ordinary solo redemption.
+   */
+  recipient: string | null;
 }
 
 export interface RewardRedemptionReport {
