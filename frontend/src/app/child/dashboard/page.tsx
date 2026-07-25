@@ -38,6 +38,7 @@ import { ChildLayout } from '@/components/layouts/ChildLayout';
 import { useSocket } from '@/contexts/SocketContext';
 // M7 - CR-06: New components for dual currency display and level-up celebration
 import { XpProgressBar } from '@/components/ui/XpProgressBar';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 import { LevelUpCelebration } from '@/components/LevelUpCelebration';
 // M10 - Phase 6: Real-time engagement toasts
 import { AchievementToast } from '@/components/AchievementToast';
@@ -328,6 +329,9 @@ export default function ChildDashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
+          {/* The child header is too dense on phone widths to carry a logo, so the brand mark
+              lives here - the one place in the child app with room for it. */}
+          <BrandLogo variant="mark" size={44} className="mx-auto mb-2" alt="" />
           <h1 className="font-display text-2xl font-bold text-slate-900 mb-2">
             Hey {user?.firstName}! 👋
           </h1>

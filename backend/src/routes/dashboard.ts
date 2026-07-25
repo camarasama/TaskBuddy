@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../services/database';
 import { authenticate, requireParent, requireChild, familyIsolation } from '../middleware/auth';
 import { NotFoundError } from '../middleware/errorHandler';
+import { withEvidenceUrlsList } from '../services/storage';
 import { isStreakAtRisk } from '../services/streakService';
 import { getTodayChallenge } from '../services/ChallengeService';
 
@@ -127,6 +128,13 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
       take: 10,
     });
 
+    // Evidence is private on R2 since F-4, so the stored fileUrl is empty and must be presigned.
+    // The dashboard previously only counted this list; now that it renders thumbnails in the inline
+    // approval queue, skipping this step would show broken images.
+    for (const assignment of pendingApprovals) {
+      assignment.evidence = await withEvidenceUrlsList(assignment.evidence);
+    }
+
     // Get weekly stats
     const weeklyStats = await prisma.$transaction(async (tx) => {
       const tasksCompleted = await tx.taskAssignment.count({
@@ -157,12 +165,54 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
         },
       });
 
+      // The dashboard has always shown a "Tasks Created" card, but the API never returned the
+      // figure and the client hardcoded 0 - so the card read 0 for every family, forever.
+      const tasksCreated = await tx.task.count({
+        where: {
+          familyId: req.familyId,
+          deletedAt: null,
+          createdAt: { gte: weekAgo },
+        },
+      });
+
       return {
         tasksCompleted,
+        tasksCreated,
         pointsEarned: pointsResult._sum.pointsAmount || 0,
         rewardsRedeemed,
       };
     });
+
+    // Per-child engagement counts the parent cards surface, so a parent can see a child is waiting
+    // on something without opening each profile. Grouped queries, not one per child.
+    const childIds = childrenWithStats.map((c) => c.user.id);
+
+    const [wishlistCounts, commentCounts] = await Promise.all([
+      childIds.length
+        ? prisma.rewardWishlist.groupBy({
+            by: ['childId'],
+            where: { childId: { in: childIds } },
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
+      // Comments a child left that no parent has replied to since - a light "needs a look" signal.
+      childIds.length
+        ? prisma.taskComment.groupBy({
+            by: ['authorId'],
+            where: { authorId: { in: childIds }, createdAt: { gte: weekAgo } },
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const wishlistByChild = new Map(wishlistCounts.map((r) => [r.childId, r._count._all]));
+    const commentsByChild = new Map(commentCounts.map((r) => [r.authorId, r._count._all]));
+
+    const childrenWithEngagement = childrenWithStats.map((c) => ({
+      ...c,
+      wishlistCount: wishlistByChild.get(c.user.id) ?? 0,
+      recentCommentCount: commentsByChild.get(c.user.id) ?? 0,
+    }));
 
     res.json({
       success: true,
@@ -171,7 +221,7 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
         // All active parent accounts (primary + co-parents).
         // totalMembers = parents.length + children.length
         parents,
-        children: childrenWithStats,
+        children: childrenWithEngagement,
         pendingApprovals,
         weeklyStats,
       },
