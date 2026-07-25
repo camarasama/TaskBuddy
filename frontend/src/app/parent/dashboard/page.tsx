@@ -34,6 +34,7 @@ import Link from 'next/link';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { ApprovalQueue, type PendingApproval } from '@/components/tasks/ApprovalQueue';
 import { useAppBadge } from '@/hooks/useAppBadge';
+import { SetupChecklistCard } from '@/components/SetupChecklistCard';
 // M10 - Phase 6: Real-time socket updates
 import { useSocket } from '@/contexts/SocketContext';
 
@@ -297,6 +298,9 @@ export default function ParentDashboardPage() {
             color="gold"
           />
         </div>
+
+        {/* Growth roadmap §3.2: the setup checklist lives here until it is finished or skipped. */}
+        <SetupChecklistCard />
 
         {/* Approval queue - the core parent action, previously two navigations away */}
         {data.pendingList.length > 0 && (
