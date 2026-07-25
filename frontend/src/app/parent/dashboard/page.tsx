@@ -33,6 +33,7 @@ import { cn, getInitials, formatPoints } from '@/lib/utils';
 import Link from 'next/link';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { ApprovalQueue, type PendingApproval } from '@/components/tasks/ApprovalQueue';
+import { useAppBadge } from '@/hooks/useAppBadge';
 // M10 - Phase 6: Real-time socket updates
 import { useSocket } from '@/contexts/SocketContext';
 
@@ -190,6 +191,10 @@ export default function ParentDashboardPage() {
       };
     });
   }, []);
+
+  // Growth roadmap §3.4: mirror the pending count onto the installed app icon, so a waiting
+  // approval is visible without opening anything. No-op where the Badging API is unsupported.
+  useAppBadge(isLoading ? undefined : data.pendingApprovals);
 
   // M10 - Phase 6: Real-time socket updates - parent receives family-room events
   const { socket } = useSocket();

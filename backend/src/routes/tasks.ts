@@ -900,6 +900,53 @@ async function loadParticipantAssignment(assignmentId: string, req: any) {
   return assignment;
 }
 
+/**
+ * GET /tasks/assignments/:id - one assignment, for the single-tap approval screen.
+ *
+ * Deliberately returns an ALREADY-RESOLVED assignment rather than 404ing on one. Co-parents race on
+ * this: two adults both get the "task submitted" push, both tap it, and the second must see
+ * "already approved by Sam" rather than an error that reads like a bug. `resolvedByName` is the
+ * whole point of this endpoint over reusing the pending list.
+ */
+taskRouter.get('/assignments/:id', requireParent, async (req, res, next) => {
+  try {
+    const assignment = await prisma.taskAssignment.findFirst({
+      where: { id: req.params.id, task: { familyId: req.familyId, deletedAt: null } },
+      include: {
+        task: true,
+        child: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        evidence: true,
+      },
+    });
+
+    if (!assignment) throw new NotFoundError('Assignment not found');
+
+    // Evidence is private on R2 since F-4 — the stored fileUrl is empty until presigned.
+    assignment.evidence = await withEvidenceUrlsList(assignment.evidence);
+
+    let resolvedByName: string | null = null;
+    if (assignment.approvedBy) {
+      const resolver = await prisma.user.findUnique({
+        where: { id: assignment.approvedBy },
+        select: { firstName: true, lastName: true },
+      });
+      resolvedByName = resolver ? `${resolver.firstName} ${resolver.lastName}`.trim() : null;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        assignment,
+        // True only while this still needs a decision.
+        isPending: assignment.status === 'completed',
+        resolvedByName,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /tasks/assignments/:id/comments - list the thread (oldest first).
 taskRouter.get('/assignments/:id/comments', async (req, res, next) => {
   try {
