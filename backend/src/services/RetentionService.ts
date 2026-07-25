@@ -20,6 +20,8 @@ export interface RetentionResult {
   enabled: boolean;
   families: number; // how many were past the retention window
   purged: number;   // how many were actually hard-deleted (0 when disabled)
+  /** Analytics events deleted by the age-based sweep (0 when disabled). */
+  analyticsPurged: number;
 }
 
 function cutoff(now: Date): Date {
@@ -60,17 +62,61 @@ async function purgeFamily(familyId: string): Promise<void> {
   await prisma.family.delete({ where: { id: familyId } });
 }
 
+/**
+ * Purge analytics events past the retention window.
+ *
+ * `analytics_events` has no FK to families precisely so the family purge cannot cascade into it and
+ * erase funnel history — which means it needs its own age-based sweep, or the table would grow
+ * forever and PRIVACY.md's retention claim would be false for it. Runs on the same
+ * RETENTION_DAYS window and honours the same dry-run gate as the family purge.
+ */
+async function purgeAnalyticsEvents(now: Date): Promise<number> {
+  const cutoffDate = cutoff(now);
+
+  if (!config.retention.purgeEnabled) {
+    const wouldDelete = await prisma.analyticsEvent.count({
+      where: { createdAt: { lt: cutoffDate } },
+    });
+    if (wouldDelete > 0) {
+      console.log(
+        `[Retention] DRY RUN - ${wouldDelete} analytics event(s) older than ` +
+          `${config.retention.days} days would be deleted.`,
+      );
+    }
+    return 0;
+  }
+
+  const { count } = await prisma.analyticsEvent.deleteMany({
+    where: { createdAt: { lt: cutoffDate } },
+  });
+  if (count > 0) console.log(`[Retention] Deleted ${count} expired analytics event(s).`);
+  return count;
+}
+
 export const RetentionService = {
   findExpiredFamilies,
+  purgeAnalyticsEvents,
 
   /**
    * Purge families past the retention window. No-op (log only) unless RETENTION_PURGE_ENABLED=true.
    */
   async runRetention(now: Date = new Date()): Promise<RetentionResult> {
+    // Independent of the family sweep — analytics rows outlive their family by design, so this runs
+    // whether or not any family is due for purging. Failure here must not skip the family purge.
+    const analyticsPurged = await purgeAnalyticsEvents(now).catch((err) => {
+      console.error('[Retention] Analytics purge failed:', (err as Error)?.message);
+      return 0;
+    });
+
     const families = await findExpiredFamilies(now);
 
     if (families.length === 0) {
-      return { enabled: config.retention.purgeEnabled, families: 0, purged: 0 };
+      return {
+        enabled: config.retention.purgeEnabled,
+        families: 0,
+        purged: 0,
+        analyticsPurged,
+      };
     }
 
     if (!config.retention.purgeEnabled) {
@@ -78,7 +124,7 @@ export const RetentionService = {
         `[Retention] DRY RUN - ${families.length} family(ies) past the ${config.retention.days}-day ` +
           'soft-delete window would be hard-deleted. Set RETENTION_PURGE_ENABLED=true to enable.',
       );
-      return { enabled: false, families: families.length, purged: 0 };
+      return { enabled: false, families: families.length, purged: 0, analyticsPurged };
     }
 
     let purged = 0;
@@ -91,6 +137,6 @@ export const RetentionService = {
       }
     }
     console.log(`[Retention] Purged ${purged}/${families.length} expired family(ies).`);
-    return { enabled: true, families: families.length, purged };
+    return { enabled: true, families: families.length, purged, analyticsPurged };
   },
 };
