@@ -154,3 +154,50 @@ export interface GameSubmitResult {
   cappedMessage?: string;
   review: GameQuestionReview[];
 }
+
+// ─── Task template library + reward presets (growth roadmap §3.1) ────────────
+//
+// Kept alongside the games types because both are "shipped starter content the parent picks from".
+
+/** One template, as offered to a parent. Never carries another family's rows. */
+export interface TaskTemplateRow {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  difficulty: string | null;
+  suggestedPoints: number;
+  estimatedMinutes: number | null;
+  /** '10-12' | '13-16' | null (all ages). */
+  ageRange: string | null;
+  requiresPhotoEvidence: boolean;
+  /** False for a template the family authored itself. */
+  isSystemTemplate: boolean;
+}
+
+export interface TemplatePack {
+  category: string;
+  templateCount: number;
+  ageRanges: string[];
+}
+
+/**
+ * Result of adding a whole pack.
+ *
+ * `skippedForCapacity` is not an error: CR-10 caps a child at 3 active assignments, so a pack fills
+ * the family library in full and assigns only what fits. The UI must surface this, not hide it.
+ */
+export interface ApplyPackResult {
+  category: string;
+  created: number;
+  assigned: number;
+  skippedForCapacity: number;
+  message: string;
+}
+
+export interface RewardPreset {
+  name: string;
+  description: string;
+  pointsCost: number;
+  tier: 'small' | 'medium' | 'large';
+}

@@ -136,7 +136,10 @@ model ChildProfile {
 
 model TaskTemplate {
   id                    String          @id @default(uuid())
-  familyId              String          @map("family_id")
+  /// NULL for system templates (isSystemTemplate = true), which belong to no family.
+  /// Required-and-cascading contradicted isSystemTemplate: a shipped template would have been owned
+  /// by one family and hard-deleted along with them.
+  familyId              String?         @map("family_id")
   name                  String
   description           String?
   category              String?
@@ -151,7 +154,7 @@ model TaskTemplate {
   updatedAt             DateTime        @updatedAt @map("updated_at")
 
   // Relations
-  family  Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family  Family? @relation(fields: [familyId], references: [id], onDelete: Cascade)
   creator User?  @relation(fields: [createdBy], references: [id])
   tasks   Task[]
 
