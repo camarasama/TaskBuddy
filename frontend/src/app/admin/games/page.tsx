@@ -10,7 +10,6 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import AdminLayout from '@/components/layouts/AdminLayout';
 import { adminGamesApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import type { AdminGameSummary, RotationHealth } from '@taskbuddy/shared';
@@ -90,8 +89,10 @@ export default function AdminGamesPage() {
     if (changed) void load();
   };
 
+  // No AdminLayout wrapper here: app/admin/layout.tsx already wraps every /admin/* page in it.
+  // Wrapping again renders a second sidebar alongside the first.
   return (
-    <AdminLayout pageTitle="Games">
+    <>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-slate-800">Mini Games</h2>
@@ -225,6 +226,6 @@ export default function AdminGamesPage() {
       {(editingId || creating) && (
         <GameEditor gameId={editingId} onClose={closeEditor} />
       )}
-    </AdminLayout>
+    </>
   );
 }
