@@ -36,6 +36,7 @@ model Family {
   settings        FamilySettings?
   invitations     FamilyInvitation[]
   emailLogs       EmailLog[]
+  webhookSubscriptions WebhookSubscription[]
 
   @@map("families")
 }
@@ -675,6 +676,47 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+// ============================================
+// OUTBOUND WEBHOOKS (FR-18)
+// ============================================
+
+// A family-owned HTTPS endpoint that receives a signed POST whenever a subscribed notification
+// event fires. See services/WebhookService.ts for the SSRF policy and the signing recipe.
+model WebhookSubscription {
+  id       String   @id @default(uuid())
+  familyId String   @map("family_id")
+  // Always https:// and always resolved to a public unicast address (validated on create AND
+  // re-validated immediately before every delivery — DNS rebinding defence).
+  url      String
+  // Canonical notification types this endpoint wants. See WEBHOOK_EVENTS in @taskbuddy/shared.
+  events   String[]
+  // HMAC-SHA256 signing key. Stored AES-256-GCM-encrypted when MFA_ENCRYPTION_KEY is configured
+  // (same `iv:tag:ciphertext` envelope as User.mfaSecret), otherwise as the raw hex string.
+  // Never returned by the list endpoint — only by the explicit reveal endpoint.
+  secret   String
+  isActive Boolean  @default(true) @map("is_active")
+
+  // Consecutive delivery failures. Reset to 0 on any success; at the auto-disable threshold the
+  // subscription flips isActive=false and the family's parents get a notification.
+  failureCount  Int       @default(0) @map("failure_count")
+  lastFailureAt DateTime? @map("last_failure_at")
+  lastSuccessAt DateTime? @map("last_success_at")
+  disabledAt    DateTime? @map("disabled_at")
+  // Bounded ring buffer (newest first, capped in code) of the last few failures so the parent UI
+  // can show "recent failures" without an unbounded, prune-me-later delivery-log table.
+  // Shape: [{ at: ISO string, event: string, reason: string, status?: number }]
+  recentFailures Json     @default("[]") @map("recent_failures")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([isActive])
+  @@map("webhook_subscriptions")
 }
 
 // ============================================

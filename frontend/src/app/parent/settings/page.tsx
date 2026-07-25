@@ -33,6 +33,7 @@ import {
   Trash2,
   Mail,
   X,
+  Webhook,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -43,6 +44,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { InviteCoParentModal } from '@/components/InviteCoParentModal';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { TwoFactorSetup } from '@/components/security/TwoFactorSetup';
+import { WebhookSettings } from '@/components/settings/WebhookSettings';
 import { getInitials, formatDate } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -689,6 +691,21 @@ export default function ParentSettingsPage() {
             initiallyEnabled={Boolean((user as { mfaEnabledAt?: string | null } | null)?.mfaEnabledAt)}
             onChange={() => { invalidateCache('/api/v1/auth'); refreshUser(); }}
           />
+        </section>
+
+        {/* Webhooks — outbound event delivery (FR-18) */}
+        <section className="bg-white rounded-xl p-6 border border-slate-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+              <Webhook className="w-5 h-5 text-primary-600" />
+            </div>
+            <h2 className="font-display font-bold text-lg text-slate-900">Webhooks</h2>
+          </div>
+          <p className="text-sm text-slate-600 mb-4">
+            Send TaskBuddy events to another service — n8n, Zapier, IFTTT or your own endpoint — so
+            an approved chore can trigger anything you like.
+          </p>
+          <WebhookSettings />
         </section>
 
         {/* Account Info */}

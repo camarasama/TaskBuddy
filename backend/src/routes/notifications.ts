@@ -18,6 +18,7 @@ import { toSkipTake, buildMeta } from '../utils/pagination';
 import { authenticate } from '../middleware/auth';
 import { emitNotificationNew } from '../services/SocketService';
 import { PushService } from '../services/PushService';
+import { WebhookService } from '../services/WebhookService';
 
 export const notificationsRouter = Router();
 
@@ -234,6 +235,25 @@ export async function createNotification(params: {
       title: params.title,
       body: params.message,
       actionUrl: params.actionUrl,
+    }).catch(() => {});
+
+    // FR-18 - Fire-and-forget outbound webhooks. This is the single seam every notification path
+    // (tasks, rewards, scheduler, TaskService) already funnels through, so hooking it here makes
+    // every notification type subscribable with no per-route changes. Deliberately NOT awaited: a
+    // slow or dead endpoint must never delay or fail the request that produced the notification.
+    // WebhookService resolves userId → family subscriptions itself and skips unknown event types.
+    WebhookService.dispatch({
+      userId: params.userId,
+      event: params.notificationType,
+      payload: {
+        notificationId: notification.id,
+        title: params.title,
+        message: params.message,
+        actionUrl: params.actionUrl ?? null,
+        referenceType: params.referenceType ?? null,
+        referenceId: params.referenceId ?? null,
+        createdAt: notification.createdAt.toISOString(),
+      },
     }).catch(() => {});
   } catch (err) {
     console.error('[createNotification] failed:', err);
