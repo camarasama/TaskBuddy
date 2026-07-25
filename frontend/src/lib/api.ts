@@ -632,14 +632,19 @@ export const tasksApi = {
       body: JSON.stringify({ childId }),
     }),
 
-  startAssignment: (assignmentId: string) =>
+  // FR-13: `startedAt` is only sent when replaying an action the child took offline; omitting it
+  // keeps the server clock, which is what every online tap does.
+  startAssignment: (assignmentId: string, startedAt?: string) =>
     request<ApiResponse<{ assignment: TaskAssignment }>>(`/tasks/assignments/${assignmentId}/start`, {
       method: 'PUT',
+      body: JSON.stringify({ startedAt }),
     }),
 
   // Auto-approve tasks resolve immediately (pointsAwarded/xpAwarded/newBalance/levelUp/
   // unlockedAchievements present); tasks awaiting parent review return just `{ assignment }`.
-  completeAssignment: (assignmentId: string, photoUrl?: string, note?: string) =>
+  // FR-13: `completedAt` carries the moment the child tapped Complete offline. Absent for a normal
+  // online completion — the server then stamps its own clock, exactly as before.
+  completeAssignment: (assignmentId: string, photoUrl?: string, note?: string, completedAt?: string) =>
     request<
       ApiResponse<{
         assignment: TaskAssignment;
@@ -652,7 +657,7 @@ export const tasksApi = {
       }>
     >(`/tasks/assignments/${assignmentId}/complete`, {
       method: 'PUT',
-      body: JSON.stringify({ photoUrl, note }),
+      body: JSON.stringify({ photoUrl, note, completedAt }),
     }),
 
   uploadEvidence: async (assignmentId: string, photo: File): Promise<ApiResponse<{ evidence: { id: string; fileUrl: string } }>> => {

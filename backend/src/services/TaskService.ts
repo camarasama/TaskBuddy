@@ -10,6 +10,7 @@ import { createNotification } from '../routes/notifications';
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
 import { getTaskOverlaps } from '../utils/overlapCheck';
 import { NotFoundError, ForbiddenError, ConflictError } from '../middleware/errorHandler';
+import { resolveClientTimestamp } from '../utils/clientTimestamp';
 
 interface CreateTaskParams {
   familyId: string;
@@ -29,6 +30,11 @@ interface SubmitCompletionParams {
   userId: string;
   userRole: string;
   note?: string;
+  /**
+   * FR-13: ISO instant captured on the device when the child tapped Complete. Present only for a
+   * replayed offline action; absent means "right now" and behaves exactly as before.
+   */
+  completedAt?: string;
   ipAddress?: string;
 }
 
@@ -134,7 +140,11 @@ export class TaskService {
   }
 
   static async submitCompletion(params: SubmitCompletionParams) {
-    const { assignmentId, familyId, userId, userRole, note, ipAddress } = params;
+    const { assignmentId, familyId, userId, userRole, note, completedAt, ipAddress } = params;
+
+    // FR-13: resolve the client's clock FIRST — a rejected timestamp must cost nothing and must
+    // never half-apply. `completionTime` is the single moment this whole method acts on.
+    const completionTime = resolveClientTimestamp(completedAt, { field: 'completedAt' });
 
     const assignment = await prisma.taskAssignment.findFirst({
       where: { id: assignmentId, task: { familyId, deletedAt: null } },
@@ -156,7 +166,7 @@ export class TaskService {
 
     const updated = await prisma.taskAssignment.update({
       where: { id: assignmentId },
-      data: { status: 'completed', completedAt: new Date(), rejectionReason: null },
+      data: { status: 'completed', completedAt: completionTime, rejectionReason: null },
       include: {
         task: true,
         child: { select: { id: true, firstName: true, lastName: true } },
@@ -181,8 +191,10 @@ export class TaskService {
       });
       const minRatio = (settings as any)?.autoApproveMinRatio ?? 0.3;
       const maxRatio = (settings as any)?.autoApproveMaxRatio ?? 3.0;
-      const actualMs = new Date().getTime() - new Date((assignment as any).startedAt).getTime();
-      const actualMinutes = Math.round(actualMs / 60000);
+      // FR-13: measure against when the child finished, not when the queue drained — otherwise an
+      // overnight sync inflates every offline task past the max ratio and blocks auto-approve.
+      const actualMs = completionTime.getTime() - new Date((assignment as any).startedAt).getTime();
+      const actualMinutes = Math.max(0, Math.round(actualMs / 60000));
       const est = assignment.task.estimatedMinutes;
 
       if (actualMinutes < est * minRatio || actualMinutes > est * maxRatio) {
@@ -247,7 +259,7 @@ export class TaskService {
 
         const levelUpResult = await checkAndApplyLevelUp(assignment.childId, oldLevel);
         const unlockedAchievements = await checkAndUnlockAchievements(assignment.childId);
-        await evaluateStreak(assignment.childId, familyId);
+        await evaluateStreak(assignment.childId, familyId, completionTime);
 
         return { ...autoApproveResult, autoApproved: true as const, levelUp: levelUpResult, unlockedAchievements };
       }
@@ -270,7 +282,7 @@ export class TaskService {
       templateData: {
         childName: assignment.child.firstName,
         taskTitle: assignment.task.title,
-        completedAt: new Date().toISOString(),
+        completedAt: completionTime.toISOString(),
         assignmentId: assignment.id,
       },
       referenceType: 'task_assignment',

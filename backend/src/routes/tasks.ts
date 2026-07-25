@@ -39,6 +39,7 @@ import { uploadPhoto } from '../middleware/upload';
 // M5 - CR-09 / CR-10 utilities
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
 import { getTaskOverlaps } from '../utils/overlapCheck';
+import { resolveClientTimestamp } from '../utils/clientTimestamp';
 // BUG FIX: Use StorageService (memoryStorage buffer) instead of old disk-path approach
 import { uploadFile, withEvidenceUrls, withEvidenceUrlsList } from '../services/storage';
 // M8 - Audit logging for all mutating task routes
@@ -108,8 +109,16 @@ const taskFiltersSchema = z.object({
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
 });
 
+// FR-13 (offline queue): both timestamps are OPTIONAL. A client that sends nothing — every client
+// before this change — gets the server clock, exactly as before. Offset-bearing ISO strings are
+// accepted because a device's Date may serialise with its local offset rather than Z.
 const completeTaskSchema = z.object({
   note: z.string().max(500).optional(),
+  completedAt: z.string().datetime({ offset: true }).optional(),
+});
+
+const startTaskSchema = z.object({
+  startedAt: z.string().datetime({ offset: true }).optional(),
 });
 
 const approveTaskSchema = z.object({
@@ -563,8 +572,12 @@ taskRouter.get('/assignments/me', async (req, res, next) => {
 });
 
 // PUT /tasks/assignments/:id/start - Child starts a task (pending → in_progress, stamps startedAt)
-taskRouter.put('/assignments/:id/start', async (req, res, next) => {
+taskRouter.put('/assignments/:id/start', validateBody(startTaskSchema), async (req, res, next) => {
   try {
+    // FR-13: resolve the device clock before touching the DB — a future timestamp is a 400 and
+    // must not leave the assignment half-started.
+    const startTime = resolveClientTimestamp(req.body?.startedAt, { field: 'startedAt' });
+
     const assignment = await prisma.taskAssignment.findFirst({
       where: {
         id: req.params.id,
@@ -583,7 +596,7 @@ taskRouter.put('/assignments/:id/start', async (req, res, next) => {
 
     const updated = await prisma.taskAssignment.update({
       where: { id: req.params.id },
-      data: { status: 'in_progress', startedAt: new Date() },
+      data: { status: 'in_progress', startedAt: startTime },
     });
 
     res.json({ success: true, data: { assignment: updated } });
@@ -601,6 +614,7 @@ taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), as
       userId: req.user!.userId,
       userRole: req.user!.role,
       note: req.body.note,
+      completedAt: req.body.completedAt,
       ipAddress: req.ip,
     });
     res.json({ success: true, data: result });
