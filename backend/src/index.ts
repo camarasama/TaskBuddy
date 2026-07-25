@@ -22,6 +22,7 @@ import { templatesRouter } from './routes/templates';
 import { trackRouter } from './routes/track';
 import { consentRouter } from './routes/consent';
 import { onboardingRouter } from './routes/onboarding';
+import { cosmeticsRouter } from './routes/cosmetics';
 import { initRecurringScheduler } from './services/RecurringScheduler';
 import { startExpiryEmailCron } from './jobs/expiryEmailCron';
 import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
@@ -35,6 +36,7 @@ import { webhooksRouter } from './routes/webhooks';
 import { initSocketService } from './services/SocketService';
 import { seedGames } from './routes/gamesSeed';
 import { seedSystemTemplates } from './routes/templatesSeed';
+import { seedCosmetics } from './routes/cosmeticsSeed';
 
 // Validate environment configuration
 validateConfig();
@@ -180,6 +182,8 @@ app.use('/api/v1/track', trackRouter);
 app.use('/api/v1/consent', consentRouter);
 // Growth roadmap §3.2 - guided setup wizard state
 app.use('/api/v1/onboarding', onboardingRouter);
+// Growth roadmap §4.4 - avatar cosmetics points sink (child-only)
+app.use('/api/v1/cosmetics', cosmeticsRouter);
 // FR-18 - Outbound webhooks (parent-only, enforced inside the router)
 app.use('/api/v1/webhooks', webhooksRouter);
 
@@ -232,6 +236,7 @@ if (config.env !== 'test') {
   seedGames().catch(console.error);
   // Growth roadmap §3.1 - idempotent by (category, name); never overwrites an edit.
   seedSystemTemplates().catch(console.error);
+  seedCosmetics().catch(console.error);
 
   httpServer.listen(PORT, () => {
     console.log(`
