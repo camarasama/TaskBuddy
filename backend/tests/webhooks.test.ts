@@ -234,26 +234,43 @@ describe('delivery', () => {
     expect(init.method).toBe('POST');
     expect(init.redirect).toBe('manual'); // a 302 to an internal host must never be followed
 
-    // The documented verification recipe, executed.
-    const expected = 'sha256=' + crypto.createHmac('sha256', SECRET).update(init.body, 'utf8').digest('hex');
+    // The documented verification recipe, executed: HMAC over "<timestamp>.<raw body>".
+    const ts = init.headers['X-TaskBuddy-Timestamp'];
+    const expected =
+      'sha256=' + crypto.createHmac('sha256', SECRET).update(`${ts}.${init.body}`, 'utf8').digest('hex');
     expect(init.headers['X-TaskBuddy-Signature']).toBe(expected);
 
     const parsed = JSON.parse(init.body);
     expect(parsed.event).toBe('task_approved');
     expect(parsed.familyId).toBe('fam1');
     expect(parsed.data.title).toBe('Nice');
-    // Timestamp header mirrors the SIGNED body field, which is the one a receiver must trust.
-    expect(init.headers['X-TaskBuddy-Timestamp']).toBe(parsed.timestamp);
+    // Unix SECONDS, and consistent with the RFC-3339 timestamp carried in the signed body.
+    expect(ts).toMatch(/^\d+$/);
+    expect(Number(ts)).toBe(Math.floor(new Date(parsed.timestamp).getTime() / 1000));
     expect(init.headers['X-TaskBuddy-Event']).toBe('task_approved');
     expect(init.headers['X-TaskBuddy-Delivery']).toBe(parsed.id);
+  });
+
+  it('binds the timestamp into the signature, so a rewritten header fails verification', async () => {
+    subFindMany.mockResolvedValue([storedSub()]);
+    await WebhookService.dispatch({ userId: 'kid1', event: 'task_approved', payload: { t: 1 } });
+    const { body, headers } = fetchMock.mock.calls[0][1];
+
+    // A replayer keeps the body + signature but freshens the header to dodge a staleness check.
+    const forgedTs = String(Number(headers['X-TaskBuddy-Timestamp']) + 3_600);
+    const recomputed =
+      'sha256=' + crypto.createHmac('sha256', SECRET).update(`${forgedTs}.${body}`, 'utf8').digest('hex');
+    expect(recomputed).not.toBe(headers['X-TaskBuddy-Signature']);
   });
 
   it('signs the EXACT bytes sent - a re-serialised body would not verify', async () => {
     subFindMany.mockResolvedValue([storedSub()]);
     await WebhookService.dispatch({ userId: 'kid1', event: 'level_up', payload: { level: 4 } });
     const { body, headers } = fetchMock.mock.calls[0][1];
+    const ts = headers['X-TaskBuddy-Timestamp'];
     const reserialised = JSON.stringify(JSON.parse(body), Object.keys(JSON.parse(body)).sort());
-    const wrong = 'sha256=' + crypto.createHmac('sha256', SECRET).update(reserialised, 'utf8').digest('hex');
+    const wrong =
+      'sha256=' + crypto.createHmac('sha256', SECRET).update(`${ts}.${reserialised}`, 'utf8').digest('hex');
     expect(headers['X-TaskBuddy-Signature']).not.toBe(wrong);
   });
 

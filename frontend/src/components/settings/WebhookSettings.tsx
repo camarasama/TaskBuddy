@@ -249,9 +249,11 @@ export function WebhookSettings() {
               <p className="mt-1.5 text-xs text-slate-500">
                 Verify each delivery with{' '}
                 <code className="font-mono">
-                  HMAC-SHA256(body, secret) === X-TaskBuddy-Signature
-                </code>
-                .
+                  HMAC-SHA256(&quot;&lt;X-TaskBuddy-Timestamp&gt;.&lt;raw body&gt;&quot;, secret)
+                </code>{' '}
+                and compare it to <code className="font-mono">X-TaskBuddy-Signature</code>. The
+                timestamp is inside the signed string, so a replayed request cannot be made to look
+                fresh.
               </p>
             </div>
           </li>

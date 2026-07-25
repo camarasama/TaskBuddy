@@ -11,17 +11,21 @@
  *   1. Read the RAW request body as bytes — do NOT parse-then-re-serialise. JSON key order and
  *      whitespace are part of what was signed; re-serialising will change the bytes and the HMAC
  *      will not match.
- *   2. expected = "sha256=" + hex(HMAC_SHA256(key = <your signing secret>, msg = <raw body>))
- *   3. Compare `expected` to the `X-TaskBuddy-Signature` header with a CONSTANT-TIME comparison
+ *   2. Read `X-TaskBuddy-Timestamp` (unix SECONDS).
+ *   3. expected = "sha256=" + hex(HMAC_SHA256(key = <secret>, msg = "<timestamp>.<raw body>"))
+ *   4. Compare `expected` to the `X-TaskBuddy-Signature` header with a CONSTANT-TIME comparison
  *      (crypto.timingSafeEqual / hmac.compare / secrets.compare_digest).
- *   4. Replay defence: parse the body and check `body.timestamp` (RFC 3339 UTC) is within a few
- *      minutes of now, and remember `body.id` (a UUID) long enough to reject duplicates.
- *      NOTE: `X-TaskBuddy-Timestamp` and `X-TaskBuddy-Event` are convenience MIRRORS of the body
- *      fields. Headers are not covered by the signature — always trust `body.timestamp` /
- *      `body.event`, never the headers, when making a security decision.
+ *   5. Replay defence: reject anything whose timestamp is outside your tolerance (a few minutes),
+ *      and remember `body.id` (a UUID) long enough to reject duplicates.
+ *      The timestamp is INSIDE the signed string on purpose: signing the body alone would leave
+ *      the header unauthenticated, letting a replayer keep a valid body+signature and rewrite the
+ *      header to look fresh. Bound this way, a rewritten header just fails verification.
+ *      `X-TaskBuddy-Event` remains an unsigned convenience mirror of `body.event` — trust the body,
+ *      not that header, for security decisions.
  *
  *   Node example:
- *     const expected = 'sha256=' + crypto.createHmac('sha256', SECRET).update(rawBody).digest('hex');
+ *     const signed   = `${tsHeader}.${rawBody}`;
+ *     const expected = 'sha256=' + crypto.createHmac('sha256', SECRET).update(signed).digest('hex');
  *     const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sigHeader));
  *
  * ─── SSRF policy: HTTPS + public unicast IPs only ───
@@ -296,9 +300,24 @@ export class WebhookService {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  /** `sha256=<hex>` over the EXACT raw body bytes. */
-  static sign(secret: string, rawBody: string): string {
-    return `sha256=${crypto.createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex')}`;
+  /**
+   * `sha256=<hex>` over `<timestamp>.<raw body>` — the receiver-facing contract.
+   *
+   * The timestamp is INSIDE the signed string on purpose. Signing the body alone would leave
+   * `X-TaskBuddy-Timestamp` unauthenticated, so a replayer could keep the body and signature and
+   * rewrite the header to look fresh, defeating the receiver's staleness check. Binding them means
+   * a rewritten header simply fails verification.
+   *
+   * To verify a delivery: read `X-TaskBuddy-Timestamp`, recompute
+   * `HMAC-SHA256(secret, "<timestamp>.<raw body>")`, compare with `X-TaskBuddy-Signature` in
+   * constant time, then reject anything whose timestamp is older than your tolerance.
+   *
+   * (Signing scheme adopted from the parallel FR-18 implementation in PR #62, which got this
+   * right where an earlier draft of this file did not.)
+   */
+  static sign(secret: string, timestamp: number, rawBody: string): string {
+    const mac = crypto.createHmac('sha256', secret).update(`${timestamp}.${rawBody}`, 'utf8');
+    return `sha256=${mac.digest('hex')}`;
   }
 
   /**
@@ -351,13 +370,22 @@ export class WebhookService {
     data: Record<string, unknown>,
   ): Promise<void> {
     const deliveryId = crypto.randomUUID();
-    const timestamp = new Date().toISOString();
+    const sentAt = new Date();
+    // Unix seconds for the signed header (the conventional webhook form, and trivial for a
+    // receiver to do freshness maths on); the ISO form stays in the body for readability.
+    const timestamp = Math.floor(sentAt.getTime() / 1000);
     // Serialise ONCE: these exact bytes are both signed and sent.
-    const rawBody = JSON.stringify({ id: deliveryId, event, timestamp, familyId: sub.familyId, data });
+    const rawBody = JSON.stringify({
+      id: deliveryId,
+      event,
+      timestamp: sentAt.toISOString(),
+      familyId: sub.familyId,
+      data,
+    });
 
     let signature: string;
     try {
-      signature = this.sign(openWebhookSecret(sub.secret), rawBody);
+      signature = this.sign(openWebhookSecret(sub.secret), timestamp, rawBody);
     } catch {
       await this.recordFailure(sub, event, 'signing secret could not be read');
       return;
@@ -386,7 +414,7 @@ export class WebhookService {
             'User-Agent': 'TaskBuddy-Webhook/1',
             'X-TaskBuddy-Event': event,
             'X-TaskBuddy-Delivery': deliveryId,
-            'X-TaskBuddy-Timestamp': timestamp,
+            'X-TaskBuddy-Timestamp': String(timestamp),
             'X-TaskBuddy-Signature': signature,
           },
           body: rawBody,
