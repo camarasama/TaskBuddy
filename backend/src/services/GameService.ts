@@ -41,6 +41,104 @@ export interface AwardResult {
 /** XP is only granted at or above this share of correct answers. */
 export const XP_THRESHOLD = 0.6;
 
+/**
+ * Age bands a definition may target; `null` means all ages.
+ *
+ * Deliberately the same two bands as the `AgeGroup` enum on ChildProfile (schema.prisma:822) so the
+ * admin editor cannot target a band the rest of the system has no way to express. The eligibility
+ * check itself uses the child's real date of birth, not this enum, so it is exact rather than banded.
+ */
+export const AGE_GROUPS = ['10-12', '13-16'] as const;
+export type AgeGroupLabel = (typeof AGE_GROUPS)[number];
+
+// ─── Question bank validation ─────────────────────────────────────────────────
+
+/**
+ * Validate a question bank coming from the admin editor.
+ *
+ * Returns human-readable problems rather than throwing, so the editor can show them all at once
+ * against the offending rows instead of failing on the first.
+ *
+ * The correctIndex bound check is the load-bearing one: an out-of-range index would make a question
+ * unanswerable, and because grading compares against it the child could never score.
+ */
+export function validateQuestionBank(bank: unknown): string[] {
+  const errors: string[] = [];
+
+  if (!Array.isArray(bank) || bank.length === 0) {
+    return ['At least one question is required.'];
+  }
+
+  const seenIds = new Set<string>();
+
+  bank.forEach((raw, i) => {
+    const label = `Question ${i + 1}`;
+    const q = raw as Partial<Question>;
+
+    if (typeof q?.id !== 'string' || q.id.trim() === '') {
+      errors.push(`${label}: id is required.`);
+    } else if (seenIds.has(q.id)) {
+      // Duplicate ids would collide in the client's React keys and in any future per-question stats.
+      errors.push(`${label}: duplicate id "${q.id}".`);
+    } else {
+      seenIds.add(q.id);
+    }
+
+    if (typeof q?.text !== 'string' || q.text.trim() === '') {
+      errors.push(`${label}: text is required.`);
+    }
+
+    if (!Array.isArray(q?.options) || q.options.length < 2) {
+      errors.push(`${label}: at least 2 options are required.`);
+      return; // correctIndex cannot be checked without a valid options array
+    }
+
+    if (q.options.some((o) => typeof o !== 'string' || o.trim() === '')) {
+      errors.push(`${label}: options cannot be blank.`);
+    }
+
+    if (
+      typeof q?.correctIndex !== 'number' ||
+      !Number.isInteger(q.correctIndex) ||
+      q.correctIndex < 0 ||
+      q.correctIndex >= q.options.length
+    ) {
+      errors.push(
+        `${label}: correctIndex must be between 0 and ${q.options.length - 1}.`,
+      );
+    }
+  });
+
+  return errors;
+}
+
+/**
+ * Whether a definition is age-appropriate for a child.
+ *
+ * `null` ageGroup means all ages. An unknown DOB is treated as eligible - withholding content from a
+ * child whose birthday was never filled in would be a worse failure than showing it.
+ */
+export function isAgeAppropriate(ageGroup: string | null, dateOfBirth: Date | null): boolean {
+  if (!ageGroup) return true;
+  if (!dateOfBirth) return true;
+
+  const [min, max] = ageGroup.split('-').map((n) => parseInt(n, 10));
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return true;
+
+  const age = ageInYears(dateOfBirth, new Date());
+  return age >= min && age <= max;
+}
+
+export function ageInYears(dateOfBirth: Date, now: Date): number {
+  let age = now.getUTCFullYear() - dateOfBirth.getUTCFullYear();
+  const monthDiff = now.getUTCMonth() - dateOfBirth.getUTCMonth();
+  // Not had this year's birthday yet.
+  if (monthDiff < 0 || (monthDiff === 0 && now.getUTCDate() < dateOfBirth.getUTCDate())) {
+    age--;
+  }
+  return age;
+}
+
 // ─── Deterministic RNG ────────────────────────────────────────────────────────
 
 /**
@@ -78,6 +176,51 @@ function seededShuffle<T>(items: T[], seed: string): T[] {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+// ─── Daily rotation ───────────────────────────────────────────────────────────
+
+/** UTC calendar day key. Used as part of the rotation seed. */
+export function toDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Draw the day's questions from a bank.
+ *
+ * Seeded by game + UTC date, so every child in a family gets the SAME quiz on a given day (fair
+ * between siblings, and it makes the quiz feel like a daily event) while tomorrow's draw differs.
+ * With a bank of 25 and a draw of 5 there is no practical repetition.
+ *
+ * Falls back to the whole bank when it is smaller than the requested count, which is why an
+ * unmigrated 5-question definition behaves exactly as before.
+ */
+export function selectDailyQuestions(
+  bank: Question[],
+  count: number,
+  gameId: string,
+  date: Date,
+): Question[] {
+  if (!Array.isArray(bank) || bank.length === 0) return [];
+  const want = Math.max(1, Math.min(count, bank.length));
+  if (want >= bank.length) return [...bank];
+  return seededShuffle(bank, `${gameId}:${toDateKey(date)}`).slice(0, want);
+}
+
+/**
+ * The questions a session is graded against.
+ *
+ * Prefers the session's own snapshot. Sessions created before rotation have no snapshot, so they
+ * fall back to the definition's bank - the same list they were served.
+ */
+export function resolveSessionQuestions(
+  servedQuestionsJson: unknown,
+  definitionBank: Question[],
+): Question[] {
+  if (Array.isArray(servedQuestionsJson) && servedQuestionsJson.length > 0) {
+    return servedQuestionsJson as Question[];
+  }
+  return definitionBank;
 }
 
 // ─── Option shuffling ─────────────────────────────────────────────────────────

@@ -55,6 +55,9 @@ import type {
   GameSessionResume,
   GameAnswerResult,
   GameSubmitResult,
+  AdminGameSummary,
+  AdminGameDetail,
+  AdminGameInput,
   WebhookEvent,
   WebhookSubscriptionSummary,
   TaskComment,
@@ -1214,6 +1217,40 @@ export const gamesApi = {
     request<ApiResponse<GameSubmitResult>>(`/games/sessions/${sessionId}/submit`, {
       method: 'POST',
     }),
+};
+
+// ─── Admin: game authoring ───────────────────────────────────────────────────
+
+/**
+ * Question banks used to be editable only by changing gamesSeed.ts and redeploying, which made the
+ * daily rotation impractical to maintain. These are admin-only (enforced server-side) and are the
+ * one place correct answers cross the wire.
+ */
+export const adminGamesApi = {
+  list: () =>
+    request<ApiResponse<{ games: AdminGameSummary[] }>>('/admin/games'),
+
+  get: (id: string) =>
+    request<ApiResponse<{ game: AdminGameDetail }>>(`/admin/games/${id}`),
+
+  create: (input: AdminGameInput) =>
+    request<ApiResponse<{ game: AdminGameDetail }>>('/admin/games', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  update: (id: string, input: Partial<AdminGameInput>) =>
+    request<ApiResponse<{ game: AdminGameDetail }>>(`/admin/games/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
+  /** Deactivates when the game has play history; hard-deletes only if never played. */
+  remove: (id: string) =>
+    request<ApiResponse<{ mode: 'deactivated' | 'deleted'; message: string }>>(
+      `/admin/games/${id}`,
+      { method: 'DELETE' },
+    ),
 };
 
 // ─── FR-18: outbound webhooks (parent-managed, family-scoped) ────────────────

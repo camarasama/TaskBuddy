@@ -733,8 +733,12 @@ model GameDefinition {
   xpReward     Int      @default(10) @map("xp_reward")
   cooldownHours Int     @default(24) @map("cooldown_hours")
   ageGroup     String?  @map("age_group") // '10-12' | '13-16' | null = all ages
-  // Stores questions array as JSON - answers included here (never sent to client)
+  // The question BANK as JSON - answers included here (never sent to client).
+  // Each session draws questionsPerSession from it, so the bank is normally much larger.
   questionsJson Json    @map("questions_json")
+  // How many questions one play serves. The daily draw rotates which ones, so a bank of 25 and a
+  // draw of 5 gives a different quiz each day instead of the same five forever.
+  questionsPerSession Int @default(5) @map("questions_per_session")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -763,6 +767,10 @@ model GameSession {
   // Array of length questionCount; null = not yet answered. The lock is what stops a child
   // probing the reveal endpoint once per option to find the correct one before committing.
   answersJson      Json?             @map("answers_json")
+  // Snapshot of the questions this session actually served, taken at creation.
+  // Deliberately a copy rather than a reference: an admin editing the bank mid-session would
+  // otherwise shift the question order and silently misalign answersJson.
+  servedQuestionsJson Json?          @map("served_questions_json")
   createdAt        DateTime          @default(now()) @map("created_at")
 
   child          User           @relation(fields: [childId], references: [id], onDelete: Cascade)

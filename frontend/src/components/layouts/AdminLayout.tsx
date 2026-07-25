@@ -34,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Families',     href: '/admin/families',     icon: '🏠' },
   { label: 'Users',        href: '/admin/users',        icon: '👥' },
   { label: 'Achievements', href: '/admin/achievements', icon: '🏆' },
+  { label: 'Games',        href: '/admin/games',        icon: '🎮' },
   { label: 'Reports',      href: '/admin/reports',      icon: '📈' },
   { label: 'Audit Log',    href: '/admin/audit-log',    icon: '📋' },
   { label: 'Emails',       href: '/admin/emails',       icon: '✉️' },

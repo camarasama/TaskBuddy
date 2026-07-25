@@ -18,7 +18,8 @@
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "backfill:recurring": "tsx src/scripts/backfill-recurring.ts"
+    "backfill:recurring": "tsx src/scripts/backfill-recurring.ts",
+    "backfill:game-banks": "tsx src/scripts/backfill-game-banks.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.991.0",

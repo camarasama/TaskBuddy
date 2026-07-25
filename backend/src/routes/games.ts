@@ -31,7 +31,10 @@ import {
   countCorrect,
   displayIndexOfCorrect,
   emptyAnswers,
+  isAgeAppropriate,
   parseAnswers,
+  resolveSessionQuestions,
+  selectDailyQuestions,
   toClientQuestions,
   toOriginalIndex,
 } from '../services/GameService';
@@ -42,8 +45,10 @@ gamesRouter.use(authenticate, requireChild);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function questionsOf(def: { questionsJson: unknown }): Question[] {
-  return def.questionsJson as unknown as Question[];
+/** The definition's full question BANK (not what a single session serves). */
+function bankOf(def: { questionsJson: unknown }): Question[] {
+  const bank = def.questionsJson as unknown as Question[];
+  return Array.isArray(bank) ? bank : [];
 }
 
 /** Load a session that the caller is allowed to play, or throw. */
@@ -69,15 +74,38 @@ async function loadPlayableSession(sessionId: string, childId: string) {
   return session;
 }
 
+/**
+ * The questions a session is graded against - its own snapshot, or the definition's bank for
+ * sessions created before rotation existed.
+ */
+function servedQuestionsOf(session: {
+  servedQuestionsJson: unknown;
+  gameDefinition: { questionsJson: unknown };
+}): Question[] {
+  return resolveSessionQuestions(session.servedQuestionsJson, bankOf(session.gameDefinition));
+}
+
 // ─── GET /games ───────────────────────────────────────────────────────────────
 
 gamesRouter.get('/', async (req, res, next) => {
   try {
     const childId = req.user!.userId;
-    const definitions = await prisma.gameDefinition.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: 'asc' },
-    });
+    const [allDefinitions, childProfile] = await Promise.all([
+      prisma.gameDefinition.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.childProfile.findUnique({
+        where: { userId: childId },
+        select: { dateOfBirth: true },
+      }),
+    ]);
+
+    // Age gate. ageGroup was stored but never applied, so a 7-year-old was being offered the
+    // 13-16 quiz. An unknown DOB stays eligible for everything.
+    const definitions = allDefinitions.filter((def) =>
+      isAgeAppropriate(def.ageGroup, childProfile?.dateOfBirth ?? null),
+    );
 
     // For each game, find the last session to compute cooldown
     const now = new Date();
@@ -107,7 +135,7 @@ gamesRouter.get('/', async (req, res, next) => {
           xpReward: def.xpReward,
           cooldownHours: def.cooldownHours,
           ageGroup: def.ageGroup,
-          questionCount: questionsOf(def).length,
+          questionCount: Math.min(def.questionsPerSession, bankOf(def).length),
           onCooldown,
           cooldownEndsAt,
         };
@@ -154,7 +182,15 @@ gamesRouter.post('/sessions', async (req, res, next) => {
       data: { status: 'expired' },
     });
 
-    const questions = questionsOf(def);
+    // Draw today's questions from the bank. Seeded by game + UTC date, so siblings playing the same
+    // day get the same quiz, and tomorrow's differs.
+    const questions = selectDailyQuestions(
+      bankOf(def),
+      def.questionsPerSession,
+      def.id,
+      new Date(),
+    );
+    if (questions.length === 0) throw new ConflictError('This game has no questions yet');
 
     // Session expires in 2× estimated solve time (min 10 min, max 60 min)
     const estimatedMs = questions.length * 60_000; // 1 min per question default
@@ -167,6 +203,8 @@ gamesRouter.post('/sessions', async (req, res, next) => {
         // Legacy column: kept non-null for older rows/readers. Grading no longer uses it.
         solutionHash: '',
         answersJson: emptyAnswers(questions.length),
+        // Snapshot, so editing the bank mid-session cannot misalign the stored answers.
+        servedQuestionsJson: questions as unknown as object[],
         expiresAt,
       },
     });
@@ -203,7 +241,7 @@ gamesRouter.get('/sessions/:id', async (req, res, next) => {
     const childId = req.user!.userId;
     const session = await loadPlayableSession(req.params.id, childId);
     const def = session.gameDefinition;
-    const questions = questionsOf(def);
+    const questions = servedQuestionsOf(session);
     const answers = parseAnswers(session.answersJson, questions.length);
 
     res.json({
@@ -246,7 +284,7 @@ gamesRouter.post('/sessions/:id/answer', async (req, res, next) => {
     };
 
     const session = await loadPlayableSession(req.params.id, childId);
-    const questions = questionsOf(session.gameDefinition);
+    const questions = servedQuestionsOf(session);
 
     if (
       !Number.isInteger(questionIndex) ||
@@ -315,7 +353,7 @@ gamesRouter.post('/sessions/:id/submit', async (req, res, next) => {
 
     const session = await loadPlayableSession(id, childId);
     const def = session.gameDefinition;
-    const questions = questionsOf(def);
+    const questions = servedQuestionsOf(session);
     const answers = parseAnswers(session.answersJson, questions.length);
 
     if (!allAnswered(answers)) {

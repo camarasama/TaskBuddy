@@ -73,6 +73,76 @@ export interface GameQuestionReview {
   correct: boolean;
 }
 
+// ─── Admin: game authoring (/admin/games) ────────────────────────────────────
+
+/**
+ * A question INCLUDING its answer. Only ever sent to admins on the authoring routes - the
+ * child-facing endpoints strip correctIndex.
+ */
+export interface AdminGameQuestion {
+  id: string;
+  text: string;
+  options: string[];
+  correctIndex: number;
+}
+
+/** Whether the bank is large enough for the daily draw to actually feel varied. */
+export type RotationHealth = 'none' | 'low' | 'good';
+
+/** GET /admin/games - one row of the management list. */
+export interface AdminGameSummary {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  difficulty: 'easy' | 'medium' | 'hard';
+  pointsReward: number;
+  xpReward: number;
+  cooldownHours: number;
+  ageGroup: string | null;
+  questionsPerSession: number;
+  bankSize: number;
+  isActive: boolean;
+  totalSessions: number;
+  completedSessions: number;
+  avgPointsAwarded: number;
+  rotationHealth: RotationHealth;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GET /admin/games/:id - the authoring view. */
+export interface AdminGameDetail {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  difficulty: 'easy' | 'medium' | 'hard';
+  pointsReward: number;
+  xpReward: number;
+  cooldownHours: number;
+  ageGroup: string | null;
+  questionsPerSession: number;
+  isActive: boolean;
+  totalSessions: number;
+  questions: AdminGameQuestion[];
+}
+
+/** Body for POST /admin/games and PATCH /admin/games/:id (patch accepts any subset). */
+export interface AdminGameInput {
+  type?: string;
+  title: string;
+  description?: string | null;
+  difficulty: 'easy' | 'medium' | 'hard';
+  pointsReward: number;
+  xpReward: number;
+  cooldownHours: number;
+  ageGroup?: string | null;
+  questionsPerSession: number;
+  questions: AdminGameQuestion[];
+  isActive?: boolean;
+}
+
 /** POST /games/sessions/:id/submit */
 export interface GameSubmitResult {
   correctCount: number;
