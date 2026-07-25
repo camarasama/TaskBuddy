@@ -113,6 +113,9 @@ model ChildProfile {
   totalTasksCompleted Int       @default(0) @map("total_tasks_completed")
   currentStreakDays   Int       @default(0) @map("current_streak_days")
   longestStreakDays   Int       @default(0) @map("longest_streak_days")
+  /// Streak insurance (growth roadmap §4.3). Earned one per 7-day milestone, capped at
+  /// MAX_STREAK_FREEZES, and spent automatically to cover missed days rather than resetting.
+  streakFreezes       Int       @default(0) @map("streak_freezes")
   lastStreakDate      DateTime? @map("last_streak_date") @db.Date
   lastActivityDate    DateTime? @map("last_activity_date")
   level               Int       @default(1)

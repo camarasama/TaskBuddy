@@ -39,6 +39,68 @@ import { emitStreakMilestone } from './SocketService';
  * replayed offline completion is NOT the moment this runs. Every day boundary below is derived
  * from it, so a 23:50 completion synced at 00:10 is still credited to the 23:50 calendar day.
  */
+
+/** Most freezes a child may bank at once (growth roadmap §4.3). */
+export const MAX_STREAK_FREEZES = 2;
+
+/** A freeze is earned each time the streak reaches a multiple of this. */
+export const STREAK_FREEZE_EARN_EVERY = 7;
+
+export interface FreezeDecision {
+  /** Streak value to store. */
+  newStreak: number;
+  /** Freeze balance to store. */
+  newFreezes: number;
+  /** How many were spent covering the gap (0 when none were needed or none could help). */
+  consumed: number;
+}
+
+/**
+ * Decide what a gap does to a streak, given the child's freeze bank.
+ *
+ * Pure, so the arithmetic can be tested exhaustively without a database.
+ *
+ * Rules (growth roadmap §4.3):
+ *  - One freeze covers ONE missed day. A 2-day gap costs 1; a 3-day gap costs 2.
+ *  - Freezes are spent only when the bank covers the WHOLE gap. A partial save would be arbitrary —
+ *    the child would lose the streak anyway and be out of pocket for it.
+ *  - Otherwise the streak resets to 1 and the bank is left alone, so the freezes remain useful for
+ *    the streak they are about to start.
+ */
+export function applyStreakFreeze(params: {
+  currentStreak: number;
+  daysSinceLast: number;
+  freezes: number;
+}): FreezeDecision {
+  const { currentStreak, daysSinceLast, freezes } = params;
+  const missedDays = Math.max(0, daysSinceLast - 1);
+
+  if (missedDays > 0 && missedDays <= freezes) {
+    return { newStreak: currentStreak + 1, newFreezes: freezes - missedDays, consumed: missedDays };
+  }
+
+  return { newStreak: 1, newFreezes: freezes, consumed: 0 };
+}
+
+/**
+ * Freeze balance after a streak lands on `newStreak`.
+ *
+ * Earning at the cap is a no-op rather than an overflow, so a long streak does not silently bank
+ * credit the child can never use.
+ */
+export function earnStreakFreeze(params: {
+  newStreak: number;
+  previousStreak: number;
+  freezes: number;
+}): number {
+  const { newStreak, previousStreak, freezes } = params;
+  const advanced = newStreak > previousStreak;
+  const hitMilestone = newStreak > 0 && newStreak % STREAK_FREEZE_EARN_EVERY === 0;
+
+  if (!advanced || !hitMilestone) return freezes;
+  return Math.min(freezes + 1, MAX_STREAK_FREEZES);
+}
+
 export async function evaluateStreak(
   childId: string,
   familyId: string,
@@ -60,6 +122,7 @@ export async function evaluateStreak(
       longestStreakDays: true,
       lastActivityDate: true,
       pointsBalance: true, // M7: needed to calculate balance after bonus
+      streakFreezes: true, // roadmap §4.3 - insurance against a missed day
     },
   });
 
@@ -83,6 +146,8 @@ export async function evaluateStreak(
     : null;
 
   let newStreak = childProfile.currentStreakDays;
+  let newFreezes = childProfile.streakFreezes;
+  let freezesConsumed = 0;
 
   if (!lastActivity) {
     // First ever task completion - start streak
@@ -107,10 +172,27 @@ export async function evaluateStreak(
       // Missed yesterday but within the grace window today - extend streak
       newStreak += 1;
     } else {
-      // Gap too large - streak resets
-      newStreak = 1;
+      // Gap. Spend banked freezes to cover the missed days rather than resetting outright
+      // (roadmap §4.3). The grace branch above keeps priority, so a child inside grace is never
+      // charged a freeze for a day they did not actually miss.
+      const decision = applyStreakFreeze({
+        currentStreak: childProfile.currentStreakDays,
+        daysSinceLast,
+        freezes: childProfile.streakFreezes,
+      });
+      newStreak = decision.newStreak;
+      newFreezes = decision.newFreezes;
+      freezesConsumed = decision.consumed;
     }
   }
+
+  // Earn AFTER any consumption, so a child cannot pay for a gap with a freeze they only just
+  // earned by closing it.
+  newFreezes = earnStreakFreeze({
+    newStreak,
+    previousStreak: childProfile.currentStreakDays,
+    freezes: newFreezes,
+  });
 
   const newLongest = Math.max(newStreak, childProfile.longestStreakDays);
 
@@ -124,8 +206,15 @@ export async function evaluateStreak(
       currentStreakDays: newStreak,
       longestStreakDays: newLongest,
       lastActivityDate: newLastActivity,
+      streakFreezes: newFreezes,
     },
   });
+
+  if (freezesConsumed > 0) {
+    console.log(
+      `[streak] child ${childId}: spent ${freezesConsumed} freeze(s) to cover a gap; streak held at ${newStreak}.`,
+    );
+  }
 
   // M7 - CR-06: Check if newStreak hits a milestone.
   // Only award the bonus once - if daysSinceLast === 0 (already active today)
