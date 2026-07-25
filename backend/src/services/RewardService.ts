@@ -261,6 +261,37 @@ export class RewardService {
           data: { collaborativeFulfilledAt: new Date() },
         });
         fulfilled = claim.count === 1;
+
+        if (fulfilled) {
+          // Record ONE redemption per contributor, in the same transaction as the claim so the
+          // exactly-once guarantee covers them too.
+          //
+          // Until now funding wrote no redemption at all, so a collaborative reward had no recorded
+          // recipient, no fulfilled/cancelled workflow, and appeared in NO redemption report — while
+          // R-02 showed the points. The two reports disagreed about the same event.
+          //
+          // pointsSpent is each child's OWN contribution, not the full cost: "Ama redeemed a
+          // 500-point reward" when she gave 100 is false, and proportional rows reconcile exactly
+          // against the ledger entries the contributions already wrote. No points are deducted here
+          // — each contribution charged the child at the time it was made.
+          const contributors = await tx.rewardContribution.groupBy({
+            by: ['childId'],
+            where: { rewardId },
+            _sum: { points: true },
+          });
+
+          await tx.rewardRedemption.createMany({
+            data: contributors.map((c) => ({
+              rewardId,
+              childId: c.childId,
+              pointsSpent: c._sum.points ?? 0,
+              status: 'pending' as const,
+              // Left null even for 'parent_choice' — the parent designates at fulfilment time, not
+              // by a rule the code guesses.
+              recipientChildId: null,
+            })),
+          });
+        }
       }
 
       return { applied, newBalance, pooledNow, fulfilled };
@@ -295,6 +326,109 @@ export class RewardService {
       pooled: result.pooledNow,
       goal: reward.pointsCost,
       fulfilled: result.fulfilled,
+    };
+  }
+
+
+  /**
+   * Parent marks a funded collaborative reward as delivered.
+   *
+   * Mirrors the solo `/redemptions/:id/fulfill` workflow, which a collaborative reward previously
+   * had no equivalent of — it was simply "funded", forever.
+   *
+   * The recipient decision lives here rather than in a rule the code applies automatically:
+   *  - `shared` (default): nobody individually receives it — a film night is not one child's.
+   *  - `parent_choice`: the parent designates one contributor, for a reward only one person can
+   *    actually have. Required in that case, and it must be someone who actually contributed —
+   *    designating a child who gave nothing would make the report a lie.
+   *
+   * Deliberately NOT last-contributor-wins: that rewards timing over effort, and teaches children to
+   * withhold points and snipe the final few.
+   */
+  static async fulfilCollaborative(params: {
+    rewardId: string;
+    familyId: string;
+    parentId: string;
+    recipientChildId?: string;
+    ipAddress?: string;
+  }) {
+    const { rewardId, familyId, parentId, recipientChildId, ipAddress } = params;
+
+    const reward = await prisma.reward.findFirst({
+      where: { id: rewardId, familyId, deletedAt: null },
+    });
+    if (!reward) throw new NotFoundError('Reward not found');
+    if (!reward.isCollaborative) throw new ConflictError('This reward is not collaborative.');
+    if (!reward.collaborativeFulfilledAt) {
+      throw new ConflictError('This reward is not fully funded yet.');
+    }
+
+    const pending = await prisma.rewardRedemption.findMany({
+      where: { rewardId, status: 'pending' },
+      select: { id: true, childId: true },
+    });
+    if (pending.length === 0) {
+      throw new ConflictError('This reward has already been marked as delivered.');
+    }
+
+    let recipient: string | null = null;
+    if (reward.recipientRule === 'parent_choice') {
+      if (!recipientChildId) {
+        throw new ValidationError('Choose which child receives this reward.');
+      }
+      // Must be an actual contributor — otherwise the report would credit someone who gave nothing.
+      if (!pending.some((p) => p.childId === recipientChildId)) {
+        throw new ValidationError('The recipient must be one of the children who contributed.');
+      }
+      recipient = recipientChildId;
+    }
+
+    const now = new Date();
+    await prisma.rewardRedemption.updateMany({
+      where: { rewardId, status: 'pending' },
+      data: {
+        status: 'fulfilled',
+        fulfilledAt: now,
+        approvedBy: parentId,
+        approvedAt: now,
+        recipientChildId: recipient,
+      },
+    });
+
+    await AuditService.logAction({
+      actorId: parentId,
+      action: 'REWARD_FULFILLED',
+      resourceType: 'reward',
+      resourceId: rewardId,
+      familyId,
+      ipAddress,
+      metadata: {
+        collaborative: true,
+        recipientRule: reward.recipientRule,
+        recipientChildId: recipient,
+        contributors: pending.length,
+      },
+    });
+
+    // Tell every contributor, not just the designated recipient — they all paid for it.
+    for (const row of pending) {
+      createNotification({
+        userId: row.childId,
+        notificationType: 'reward_redeemed',
+        title: '🎉 Your shared reward is ready!',
+        message: `"${reward.name}" has been delivered.`,
+        actionUrl: '/child/rewards',
+        referenceType: 'reward',
+        referenceId: rewardId,
+      }).catch(() => {});
+    }
+
+    return {
+      rewardId,
+      recipientRule: reward.recipientRule,
+      recipientChildId: recipient,
+      contributors: pending.length,
+      fulfilledAt: now,
     };
   }
 

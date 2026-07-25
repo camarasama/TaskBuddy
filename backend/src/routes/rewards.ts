@@ -426,7 +426,29 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
   }
 });
 
+
+// ─── PUT /rewards/:id/fulfil-shared — mark a funded collaborative reward delivered ──
+//
+// The collaborative equivalent of /redemptions/:id/fulfill, which a shared reward had no version of:
+// it was "funded" and then nothing. Body: { recipientChildId } — required only when the reward's
+// recipientRule is 'parent_choice'.
+rewardRouter.put('/:id/fulfil-shared', requireParent, async (req, res, next) => {
+  try {
+    const result = await RewardService.fulfilCollaborative({
+      rewardId: req.params.id,
+      familyId: req.familyId!,
+      parentId: req.user!.userId,
+      recipientChildId: req.body?.recipientChildId,
+      ipAddress: req.ip,
+    });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ─── GET /rewards/redemptions/history - Redemption history ───────────────────
+
 
 rewardRouter.get('/redemptions/history', async (req, res, next) => {
   try {

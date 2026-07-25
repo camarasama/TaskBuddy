@@ -244,11 +244,27 @@ export async function getRewardRedemptionReport(filters: ReportFilters): Promise
   const redemptions = await prisma.rewardRedemption.findMany({
     where,
     include: {
-      reward: { select: { name: true, tier: true } },
+      reward: { select: { name: true, tier: true, isCollaborative: true, recipientRule: true } },
       child: { select: { firstName: true, lastName: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
+
+  // A collaborative reward produces one row per contributor, each carrying that child's OWN
+  // contribution — so the report reconciles against the ledger rather than crediting one child with
+  // the whole cost. Resolve the designated recipient's name once rather than per row.
+  const recipientIds = [
+    ...new Set(redemptions.map((r) => r.recipientChildId).filter((id): id is string => Boolean(id))),
+  ];
+  const recipients = recipientIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: recipientIds } },
+        select: { id: true, firstName: true, lastName: true },
+      })
+    : [];
+  const recipientName = new Map(
+    recipients.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]),
+  );
 
   const rows: RedemptionRow[] = redemptions.map((r) => ({
     date: r.createdAt.toISOString().split('T')[0],
@@ -260,6 +276,14 @@ export async function getRewardRedemptionReport(filters: ReportFilters): Promise
     pointsSpent: r.pointsSpent,
     status: r.status,
     fulfilledAt: r.fulfilledAt?.toISOString() ?? null,
+    isCollaborative: r.reward.isCollaborative,
+    // 'Shared' rather than a name when nobody individually received it — which is the default for a
+    // collaborative reward, and always true of a solo redemption's own row.
+    recipient: r.recipientChildId
+      ? (recipientName.get(r.recipientChildId) ?? 'Unknown')
+      : r.reward.isCollaborative
+        ? 'Shared'
+        : null,
   }));
 
   const byStatus: Record<string, number> = {};

@@ -5,10 +5,14 @@
  */
 jest.mock('../src/services/database', () => {
   const tx = {
-    rewardContribution: { create: jest.fn() },
+    rewardContribution: { create: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
     childProfile: { update: jest.fn() },
     pointsLedger: { create: jest.fn() },
     reward: { updateMany: jest.fn() },
+    // Funding now also records WHO paid: one redemption row per contributor, so a funded shared
+    // reward has a recipient and reaches R-03. Covered in collaborative-recipient.test.ts; mocked
+    // here so this file keeps testing the contribution accounting it was written for.
+    rewardRedemption: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
   };
   return {
     prisma: {
