@@ -82,6 +82,7 @@ model User {
   rewardRedemptions     RewardRedemption[]
   rewardContributions   RewardContribution[]
   rewardWishlists       RewardWishlist[]
+  cosmetics             ChildCosmetic[]
   taskComments          TaskComment[]
   childAchievements     ChildAchievement[]
   challengeCompletions  ChallengeCompletion[]
@@ -981,4 +982,51 @@ model ParentalConsent {
 
   @@index([status])
   @@map("parental_consents")
+}
+
+/// Avatar cosmetics (growth roadmap §4.4).
+///
+/// A points SINK. Rewards depend on a parent actually delivering something in the real world; when
+/// they are slow, points stop meaning anything and the loop stalls. Cosmetics give points value the
+/// child controls entirely.
+///
+/// Everything is bought with in-app points earned from tasks. There is NO purchase path in the child
+/// experience — binding under the ethics guardrails.
+model CosmeticItem {
+  id          String   @id @default(uuid())
+  /// 'frame' | 'background' | 'hat'. One item may be equipped per category.
+  category    String
+  name        String
+  description String?
+  /// Renderer key the frontend maps to CSS/SVG. Keeps art out of the database.
+  assetKey    String   @map("asset_key")
+  pointsCost  Int      @map("points_cost")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owners ChildCosmetic[]
+
+  @@unique([category, assetKey])
+  @@index([category])
+  @@map("cosmetic_items")
+}
+
+/// Ownership, and separately whether it is currently worn.
+/// Owning is permanent — a child never loses something they paid for.
+model ChildCosmetic {
+  id         String   @id @default(uuid())
+  childId    String   @map("child_id")
+  itemId     String   @map("item_id")
+  /// At most one true per (child, category); enforced in CosmeticService, since that is not
+  /// expressible as a unique index.
+  isEquipped Boolean  @default(false) @map("is_equipped")
+  purchasedAt DateTime @default(now()) @map("purchased_at")
+
+  child User         @relation(fields: [childId], references: [id], onDelete: Cascade)
+  item  CosmeticItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, itemId])
+  @@index([childId, isEquipped])
+  @@map("child_cosmetics")
 }
