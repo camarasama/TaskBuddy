@@ -12,8 +12,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, User, Calendar, Sparkles } from 'lucide-react';
-import { templatesApi } from '@/lib/api';
 import type { RewardPreset } from '@taskbuddy/shared';
+import { RewardPresetPicker } from '@/components/rewards/RewardPresetPicker';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -32,16 +32,18 @@ export default function NewRewardPage() {
   const { error: showError, success: showSuccess } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
-  const [presets, setPresets] = useState<RewardPreset[]>([]);
 
-  // Loaded lazily — the presets are only needed once the parent opens the ideas panel.
+  // Opened directly by the rewards empty state's "Browse reward ideas" link (?presets=1), so that
+  // CTA lands on the ideas rather than on the blank form it is trying to avoid.
+  //
+  // Read from window.location rather than useSearchParams(): this page is statically prerendered,
+  // and useSearchParams() opts a route out of that unless the tree is wrapped in <Suspense>. Same
+  // trap that failed the build on /parent/tasks/new.
   useEffect(() => {
-    if (!showPresets || presets.length > 0) return;
-    templatesApi
-      .rewardPresets()
-      .then((res) => setPresets((res.data as { presets: RewardPreset[] }).presets))
-      .catch(() => undefined);
-  }, [showPresets, presets.length]);
+    if (new URLSearchParams(window.location.search).get('presets') === '1') {
+      setShowPresets(true);
+    }
+  }, []);
 
   /** Fill the form from a preset. Nothing is saved until the parent submits. */
   const applyPreset = (preset: RewardPreset) => {
@@ -140,41 +142,22 @@ export default function NewRewardPage() {
             <p className="text-slate-600 mt-1">Add a new reward for your children to earn</p>
           </div>
           {/* Growth roadmap §3.1: "I don't know what to offer" is the reward-side cold start.
-              Picking a preset fills the form; the parent edits before submitting. */}
+              Same modal-picker flow as /parent/tasks/new, so the two sit consistently. */}
           <button
             type="button"
-            onClick={() => setShowPresets((v) => !v)}
+            onClick={() => setShowPresets(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gold-200 bg-gold-50 text-gold-700 text-sm font-medium px-3 py-2 hover:bg-gold-100 transition-colors"
           >
             <Sparkles className="w-4 h-4" />
-            {showPresets ? 'Hide ideas' : 'Need ideas?'}
+            Browse reward ideas
           </button>
         </div>
 
         {showPresets && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-4">
-            <p className="text-sm text-slate-500 mb-3">
-              Pick one to fill the form — you can change anything before saving.
-            </p>
-            {presets.length === 0 ? (
-              <p className="text-sm text-slate-400">Loading ideas…</p>
-            ) : (
-              <div className="grid sm:grid-cols-2 gap-2">
-                {presets.map((preset) => (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    onClick={() => applyPreset(preset)}
-                    className="text-left rounded-xl border border-slate-200 p-3 hover:border-gold-400 hover:bg-gold-50/50 transition-colors"
-                  >
-                    <p className="font-medium text-slate-900 text-sm">{preset.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{preset.description}</p>
-                    <p className="text-xs text-gold-600 font-medium mt-1">{preset.pointsCost} pts</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <RewardPresetPicker
+            onUsePreset={applyPreset}
+            onClose={() => setShowPresets(false)}
+          />
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
