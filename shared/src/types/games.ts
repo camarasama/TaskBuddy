@@ -40,10 +40,47 @@ export interface GameSession {
   questions: GameQuestion[];
 }
 
+/**
+ * GET /games/sessions/:id - resume an in-progress session after a refresh.
+ * `answeredCount` says how far the child got; it reveals nothing about the remaining questions.
+ */
+export interface GameSessionResume extends GameSession {
+  answeredCount: number;
+}
+
+/**
+ * POST /games/sessions/:id/answer - lock ONE answer and learn immediately whether it was right.
+ *
+ * All indexes are in DISPLAY order (options are shuffled per session), so the UI can highlight
+ * `correctIndex` directly. Revealing it here is safe: the choice is already committed server-side
+ * and re-answering the same question is rejected.
+ */
+export interface GameAnswerResult {
+  questionIndex: number;
+  correct: boolean;
+  correctIndex: number;
+  answeredCount: number;
+  totalQuestions: number;
+}
+
+/** One row of the end-of-quiz review, all indexes in display order. */
+export interface GameQuestionReview {
+  questionIndex: number;
+  text: string;
+  options: string[];
+  chosenIndex: number | null;
+  correctIndex: number;
+  correct: boolean;
+}
+
 /** POST /games/sessions/:id/submit */
 export interface GameSubmitResult {
+  correctCount: number;
+  totalQuestions: number;
+  /** True only on a clean sweep. Retained from the pre-partial-credit API. */
   correct: boolean;
   pointsAwarded: number;
   xpAwarded: number;
   cappedMessage?: string;
+  review: GameQuestionReview[];
 }

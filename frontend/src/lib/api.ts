@@ -52,6 +52,8 @@ import type {
   TaskExecutionTimeReport,
   GamesListResponse,
   GameSession,
+  GameSessionResume,
+  GameAnswerResult,
   GameSubmitResult,
   WebhookEvent,
   WebhookSubscriptionSummary,
@@ -1193,10 +1195,24 @@ export const gamesApi = {
       body: JSON.stringify({ gameDefinitionId }),
     }),
 
-  submitSession: (sessionId: string, answers: number[]) =>
+  /** Resume after a refresh - the play screen fetches this instead of trusting sessionStorage. */
+  getSession: (sessionId: string) =>
+    request<ApiResponse<GameSessionResume>>(`/games/sessions/${sessionId}`),
+
+  /**
+   * Lock one answer and find out immediately whether it was right. Indexes are in display order.
+   * The server commits the choice before revealing the answer, so this cannot be used to probe.
+   */
+  answerQuestion: (sessionId: string, questionIndex: number, answerIndex: number) =>
+    request<ApiResponse<GameAnswerResult>>(`/games/sessions/${sessionId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ questionIndex, answerIndex }),
+    }),
+
+  /** Finalise. Grading reads the answers already stored server-side. */
+  submitSession: (sessionId: string) =>
     request<ApiResponse<GameSubmitResult>>(`/games/sessions/${sessionId}/submit`, {
       method: 'POST',
-      body: JSON.stringify({ answers }),
     }),
 };
 

@@ -756,8 +756,13 @@ model GameSession {
   status           GameSessionStatus @default(in_progress)
   pointsAwarded    Int               @default(0) @map("points_awarded")
   xpAwarded        Int               @default(0) @map("xp_awarded")
-  // SHA-256 of the correct answer array - never returned to client
+  // SHA-256 of the correct answer array - never returned to client.
+  // Retained for sessions created before per-question grading; new sessions grade from answersJson.
   solutionHash     String            @map("solution_hash")
+  // Per-question answers, locked one at a time via POST /sessions/:id/answer.
+  // Array of length questionCount; null = not yet answered. The lock is what stops a child
+  // probing the reveal endpoint once per option to find the correct one before committing.
+  answersJson      Json?             @map("answers_json")
   createdAt        DateTime          @default(now()) @map("created_at")
 
   child          User           @relation(fields: [childId], references: [id], onDelete: Cascade)
