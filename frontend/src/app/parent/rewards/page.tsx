@@ -211,11 +211,13 @@ export default function ParentRewardsPage() {
               <div className="col-span-full text-center py-12 bg-white rounded-xl border-2 border-dashed border-slate-200">
                 <Gift className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                 <h3 className="font-bold text-slate-900 mb-2">No rewards yet</h3>
-                <p className="text-slate-600 mb-4">Create rewards for your children to redeem</p>
+                <p className="text-slate-600 mb-4">
+                  Not sure what to offer? Start from a ready-made idea.
+                </p>
                 <Link href="/parent/rewards/new">
                   <Button>
                     <Plus className="w-4 h-4" />
-                    Create Reward
+                    Browse reward ideas
                   </Button>
                 </Link>
               </div>

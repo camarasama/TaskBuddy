@@ -18,6 +18,7 @@ import { initScheduler } from './services/scheduler';
 // M8 - Admin router mounted at /api/v1/admin
 import { adminRouter } from './routes/admin';
 import { adminGamesRouter } from './routes/adminGames';
+import { templatesRouter } from './routes/templates';
 import { initRecurringScheduler } from './services/RecurringScheduler';
 import { startExpiryEmailCron } from './jobs/expiryEmailCron';
 import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
@@ -29,6 +30,7 @@ import { notificationsRouter } from './routes/notifications';
 import { webhooksRouter } from './routes/webhooks';
 import { initSocketService } from './services/SocketService';
 import { seedGames } from './routes/gamesSeed';
+import { seedSystemTemplates } from './routes/templatesSeed';
 
 // Validate environment configuration
 validateConfig();
@@ -166,6 +168,8 @@ app.use('/api/v1/admin', adminRouter);
 // M10 - Phase 4: Reports (parent + admin) and in-app notifications
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
+// Growth roadmap §3.1 - task template library + reward presets (parent-only)
+app.use('/api/v1/templates', templatesRouter);
 // FR-18 - Outbound webhooks (parent-only, enforced inside the router)
 app.use('/api/v1/webhooks', webhooksRouter);
 
@@ -215,6 +219,8 @@ if (config.env !== 'test') {
   initSocketService(io); // M10 - Phase 5: wire socket emit helper
 
   seedGames().catch(console.error);
+  // Growth roadmap §3.1 - idempotent by (category, name); never overwrites an edit.
+  seedSystemTemplates().catch(console.error);
 
   httpServer.listen(PORT, () => {
     console.log(`

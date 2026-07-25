@@ -58,6 +58,10 @@ import type {
   AdminGameSummary,
   AdminGameDetail,
   AdminGameInput,
+  TaskTemplateRow,
+  TemplatePack,
+  ApplyPackResult,
+  RewardPreset,
   WebhookEvent,
   WebhookSubscriptionSummary,
   TaskComment,
@@ -1217,6 +1221,43 @@ export const gamesApi = {
     request<ApiResponse<GameSubmitResult>>(`/games/sessions/${sessionId}/submit`, {
       method: 'POST',
     }),
+};
+
+// ─── Task template library + reward presets (growth roadmap §3.1) ────────────
+
+/**
+ * Cold-start killer: a blank task list at signup is the biggest activation drop-off. These serve
+ * the shipped starter content plus anything the family has authored itself.
+ */
+export const templatesApi = {
+  /** Pack summaries for the browse screen. */
+  packs: () =>
+    request<ApiResponse<{ packs: TemplatePack[] }>>('/templates/packs'),
+
+  /** Pass childId to filter to what suits that child's real date of birth. */
+  tasks: (params?: { category?: string; childId?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.category) qs.set('category', params.category);
+    if (params?.childId) qs.set('childId', params.childId);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return request<ApiResponse<{ templates: TaskTemplateRow[] }>>(`/templates/tasks${suffix}`);
+  },
+
+  get: (id: string) =>
+    request<ApiResponse<{ template: TaskTemplateRow }>>(`/templates/tasks/${id}`),
+
+  /**
+   * Adds every template in the pack to the library, assigning only up to the child's remaining
+   * CR-10 capacity. The response reports what was held back rather than silently dropping it.
+   */
+  applyPack: (category: string, childId?: string) =>
+    request<ApiResponse<ApplyPackResult>>(`/templates/packs/${encodeURIComponent(category)}`, {
+      method: 'POST',
+      body: JSON.stringify({ childId }),
+    }),
+
+  rewardPresets: () =>
+    request<ApiResponse<{ presets: RewardPreset[] }>>('/templates/rewards'),
 };
 
 // ─── Admin: game authoring ───────────────────────────────────────────────────

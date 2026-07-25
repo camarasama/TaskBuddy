@@ -290,13 +290,15 @@ function ParentTasksInner() {
                 <EmptyState
                   icon={Filter}
                   title={searchQuery ? 'No matching tasks' : 'No tasks yet'}
-                  description={searchQuery ? 'Try a different search term' : 'Create your first task to get started'}
+                  description={searchQuery ? 'Try a different search term' : 'Start from a ready-made pack, or write your own'}
                   action={
                     !searchQuery && (
-                      <Link href="/parent/tasks/new">
+                      // Growth roadmap §3.1: a blank list is the biggest activation drop-off, so
+                      // the empty state leads with starter packs rather than an empty form.
+                      <Link href="/parent/tasks/new?templates=1">
                         <Button>
                           <Plus className="w-4 h-4" />
-                          Create Task
+                          Browse starter packs
                         </Button>
                       </Link>
                     )

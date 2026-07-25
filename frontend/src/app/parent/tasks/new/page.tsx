@@ -17,6 +17,7 @@ import {
   Info,
   Clock,
   Tag,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -24,6 +25,8 @@ import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { tasksApi, familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { cn, difficultyFromPoints, getDifficultyColor } from '@/lib/utils';
+import { TemplatePicker } from '@/components/tasks/TemplatePicker';
+import type { TaskTemplateRow } from '@taskbuddy/shared';
 import Link from 'next/link';
 // M5 - new components
 import {
@@ -103,6 +106,34 @@ export default function CreateTaskPage() {
       assignedTo: [],
     },
   });
+
+  // Opened directly by the empty state's "Browse starter packs" link (?templates=1), so that CTA
+  // lands on the packs rather than on the blank form it is trying to avoid.
+  //
+  // Read from window.location rather than useSearchParams(): this page is statically prerendered,
+  // and useSearchParams() opts a route out of that unless the whole tree is wrapped in <Suspense>.
+  // A client-only effect gets the same result without restructuring the page.
+  const [showTemplates, setShowTemplates] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('templates') === '1') {
+      setShowTemplates(true);
+    }
+  }, []);
+
+  /**
+   * Pre-fill the form from a template. Nothing is created here — the parent edits and submits as
+   * normal, and editing never writes back to the template (AC-U2d).
+   */
+  const applyTemplate = (t: TaskTemplateRow) => {
+    setValue('title', t.name, { shouldValidate: true });
+    if (t.description) setValue('description', t.description);
+    setValue('pointsValue', t.suggestedPoints, { shouldValidate: true });
+    if (t.estimatedMinutes) setValue('estimatedMinutes', t.estimatedMinutes);
+    setValue('requiresPhotoEvidence', t.requiresPhotoEvidence);
+    // A starter chore is optional/bonus work, not the day's single primary task — and only
+    // `secondary` may have more than one active at a time (CR-10).
+    setValue('taskTag', 'secondary');
+  };
 
   const taskTag = watch('taskTag');
   const assignedTo = watch('assignedTo');
@@ -247,9 +278,32 @@ export default function CreateTaskPage() {
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Tasks</span>
           </Link>
-          <h1 className="font-display text-3xl font-bold text-slate-900">Create New Task</h1>
-          <p className="text-slate-600 mt-1">Assign a task to your children</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="font-display text-3xl font-bold text-slate-900">Create New Task</h1>
+              <p className="text-slate-600 mt-1">Assign a task to your children</p>
+            </div>
+            {/* Growth roadmap §3.1: a blank form is the biggest activation drop-off, so the way
+                out of it sits next to the heading rather than buried below. */}
+            <button
+              type="button"
+              onClick={() => setShowTemplates(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 text-primary-700 text-sm font-medium px-3 py-2 hover:bg-primary-100 transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              Browse starter packs
+            </button>
+          </div>
         </div>
+
+        {showTemplates && (
+          <TemplatePicker
+            childId={assignedTo?.[0]}
+            onClose={() => setShowTemplates(false)}
+            onUseTemplate={applyTemplate}
+            onPackApplied={() => router.push('/parent/tasks')}
+          />
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           {/* ── Task Details ────────────────────────────────────────────────── */}
