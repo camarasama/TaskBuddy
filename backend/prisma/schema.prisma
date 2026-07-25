@@ -29,6 +29,7 @@ model Family {
 
   // Relations
   users           User[]
+  parentalConsent ParentalConsent?
   taskTemplates   TaskTemplate[]
   tasks           Task[]
   rewards         Reward[]
@@ -525,6 +526,9 @@ model FamilySettings {
   //       reward_redeemed | level_up | streak_at_risk | welcome | co_parent_invite
   // Default: all enabled. Individual parents can override per-key via PUT /families/me/settings.
   notificationPreferences   Json     @default("{\"task_submitted\":true,\"task_approved\":true,\"task_rejected\":true,\"task_expiring\":true,\"task_expired\":true,\"reward_redeemed\":true,\"level_up\":true,\"streak_at_risk\":true,\"welcome\":true,\"co_parent_invite\":true}") @map("notification_preferences")
+  /// Wizard progress (growth roadmap §3.2). Null until the parent starts it; holds completed step
+  /// ids and a dismissed flag, so the checklist survives logout and can be resumed or skipped.
+  onboardingState           Json?    @map("onboarding_state")
   theme                     String   @default("default")
   language                  String   @default("en")
   timezone                  String   @default("UTC")
@@ -934,4 +938,40 @@ model AnalyticsEvent {
   @@index([eventType, createdAt])
   @@index([familyId, createdAt])
   @@map("analytics_events")
+}
+
+/// COPPA verifiable parental consent (growth roadmap §3.2 / §2.1).
+///
+/// Distinct from the `CONSENT` AuditLog events, which record that ToS/privacy terms were accepted.
+/// COPPA additionally requires a verification METHOD and requires child data collection to be
+/// blocked until verification completes — that is what this table gates.
+///
+/// One row per family: consent is given by a parent on behalf of the family's children, and
+/// re-consent replaces rather than accumulates (superseded rows are revoked).
+model ParentalConsent {
+  id        String   @id @default(uuid())
+  familyId  String   @unique @map("family_id")
+  /// The parent who gave it. Kept even if they later leave, for the audit trail.
+  parentId  String   @map("parent_id")
+  /// Registered method id, e.g. 'email_plus'. Stored so a later stricter method is distinguishable.
+  method    String
+  /// 'pending' | 'verified' | 'revoked'
+  status    String   @default("pending")
+  /// SHA-256 of the verification token. The raw token only ever exists in the email.
+  tokenHash String?  @map("token_hash")
+  /// Consent that is never completed must not sit pending forever.
+  expiresAt DateTime? @map("expires_at")
+  requestedAt DateTime @default(now()) @map("requested_at")
+  verifiedAt  DateTime? @map("verified_at")
+  /// Recorded at verification — COPPA expects a record of who consented and from where.
+  ipAddress   String?  @map("ip_address")
+  tosVersion     String @map("tos_version")
+  privacyVersion String @map("privacy_version")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("parental_consents")
 }

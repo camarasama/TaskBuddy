@@ -24,6 +24,7 @@ import { buildRewardRedeemed } from './rewardRedeemed';
 import { buildLevelUp } from './levelUp';
 import { buildStreakAtRisk } from './streakAtRisk';
 import { buildWeeklyDigest } from './weeklyDigest';
+import { buildParentalConsent } from './parentalConsent';
 import { buildCoParentInvite } from './coParentInvite';
 import { buildEmailVerification } from './emailVerification';
 import { buildPasswordReset } from './passwordReset';
@@ -188,6 +189,8 @@ export async function renderTemplate(
       return buildStreakAtRisk(data as any);
     case 'weekly_digest':
       return buildWeeklyDigest(data as any);
+    case 'parental_consent':
+      return buildParentalConsent(data as any);
     case 'co_parent_invite':
       return buildCoParentInvite(data as any);
     case 'child_locked':
