@@ -214,7 +214,7 @@ export default function ParentRewardsPage() {
                 <p className="text-slate-600 mb-4">
                   Not sure what to offer? Start from a ready-made idea.
                 </p>
-                <Link href="/parent/rewards/new">
+                <Link href="/parent/rewards/new?presets=1">
                   <Button>
                     <Plus className="w-4 h-4" />
                     Browse reward ideas
