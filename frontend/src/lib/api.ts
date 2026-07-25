@@ -1235,6 +1235,35 @@ export const gamesApi = {
     }),
 };
 
+// ─── COPPA verifiable parental consent (growth roadmap §3.2) ─────────────────
+
+/**
+ * Child creation is BLOCKED until consent is verified — the API returns 403 CONSENT_REQUIRED.
+ * `verify` is unauthenticated on purpose: the parent follows the emailed link, possibly on a device
+ * with no session, and possession of the token is the proof.
+ */
+export const consentApi = {
+  status: () =>
+    request<ApiResponse<{
+      status: 'none' | 'pending' | 'verified' | 'revoked';
+      method: string | null;
+      verifiedAt: string | null;
+      requestedAt: string | null;
+      activeMethod: string;
+    }>>('/consent/status'),
+
+  request: () =>
+    request<ApiResponse<{ status: 'pending'; method: string; message: string }>>('/consent/request', {
+      method: 'POST',
+    }),
+
+  verify: (token: string) =>
+    request<ApiResponse<{ status: 'verified' }>>('/consent/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+};
+
 // ─── Task template library + reward presets (growth roadmap §3.1) ────────────
 
 /**

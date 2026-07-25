@@ -34,6 +34,7 @@ export type EmailTriggerType =
   | 'level_up'
   | 'streak_at_risk'
   | 'weekly_digest'
+  | 'parental_consent'
   | 'co_parent_invite'
   | 'child_welcome'
   | 'child_profile_updated'

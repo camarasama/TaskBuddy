@@ -20,6 +20,7 @@ import { adminRouter } from './routes/admin';
 import { adminGamesRouter } from './routes/adminGames';
 import { templatesRouter } from './routes/templates';
 import { trackRouter } from './routes/track';
+import { consentRouter } from './routes/consent';
 import { initRecurringScheduler } from './services/RecurringScheduler';
 import { startExpiryEmailCron } from './jobs/expiryEmailCron';
 import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
@@ -174,6 +175,8 @@ app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/templates', templatesRouter);
 // Growth roadmap §1 - digest open tracking. PUBLIC (email clients cannot auth); HMAC-signed URLs.
 app.use('/api/v1/track', trackRouter);
+// Growth roadmap §3.2 - COPPA verifiable parental consent. /verify is public (emailed link).
+app.use('/api/v1/consent', consentRouter);
 // FR-18 - Outbound webhooks (parent-only, enforced inside the router)
 app.use('/api/v1/webhooks', webhooksRouter);
 

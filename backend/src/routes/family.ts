@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { CONSENT_VERSIONS, AVATAR_EMOJIS } from '@taskbuddy/shared';
+import { ConsentService } from '../services/ConsentService';
+import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../services/database';
 import { authService } from '../services/auth';
 import { inviteService } from '../services/invite';
@@ -335,6 +337,18 @@ familyRouter.delete('/me/invitations/:id', requireParent, async (req, res, next)
 // POST /families/me/children - Add a child to the family
 familyRouter.post('/me/children', requireParent, validateBody(addChildSchema), async (req, res, next) => {
   try {
+    // COPPA gate (growth roadmap §3.2): no child data is collected until a parent has completed
+    // verifiable consent. A POSITIVE check, so a missing record can never accidentally permit
+    // collection. The CONSENT_REQUIRED code lets the UI route to the consent screen rather than
+    // showing a generic 403.
+    if (!(await ConsentService.hasVerifiedConsent(req.familyId!))) {
+      throw new AppError(
+        403,
+        'CONSENT_REQUIRED',
+        'Please confirm you are the parent before adding a child. We have sent you an email, or you can request a new one from Settings.',
+      );
+    }
+
     const result = await authService.addChild({
       familyId: req.familyId!,
       firstName: req.body.firstName,
