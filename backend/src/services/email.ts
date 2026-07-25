@@ -33,6 +33,7 @@ export type EmailTriggerType =
   | 'reward_redeemed'
   | 'level_up'
   | 'streak_at_risk'
+  | 'weekly_digest'
   | 'co_parent_invite'
   | 'child_welcome'
   | 'child_profile_updated'
@@ -61,6 +62,19 @@ export interface SendToParentsInput {
   /** Called once per parent to build a personalised subject line */
   subjectBuilder: (parent: { firstName: string; lastName: string; email: string }) => string;
   templateData: Record<string, any>;
+  /**
+   * Optional per-parent template data, merged over `templateData`.
+   *
+   * `templateData` alone is shared by every recipient, so a template that greets the reader by name
+   * would address all co-parents identically. Added for the weekly digest; any future personalised
+   * template can use it. Omit it and behaviour is unchanged.
+   */
+  templateDataBuilder?: (parent: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  }) => Record<string, any>;
   referenceType?: string;
   referenceId?: string;
 }
@@ -232,7 +246,8 @@ export class EmailService {
    * Parents whose individual notification prefs block the trigger are skipped.
    */
   static async sendToFamilyParents(input: SendToParentsInput): Promise<void> {
-    const { familyId, triggerType, subjectBuilder, templateData, referenceType, referenceId } = input;
+    const { familyId, triggerType, subjectBuilder, templateData, templateDataBuilder, referenceType, referenceId } =
+      input;
 
     // Fetch all active parents in the family
     const parents = await prisma.user.findMany({
@@ -259,7 +274,9 @@ export class EmailService {
           toUserId: parent.id,
           familyId,
           subject: subjectBuilder(parent),
-          templateData,
+          templateData: templateDataBuilder
+            ? { ...templateData, ...templateDataBuilder(parent) }
+            : templateData,
           referenceType,
           referenceId,
         }).catch((err) =>

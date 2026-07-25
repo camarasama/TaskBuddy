@@ -23,6 +23,7 @@ import { buildTaskExpired } from './taskExpired';
 import { buildRewardRedeemed } from './rewardRedeemed';
 import { buildLevelUp } from './levelUp';
 import { buildStreakAtRisk } from './streakAtRisk';
+import { buildWeeklyDigest } from './weeklyDigest';
 import { buildCoParentInvite } from './coParentInvite';
 import { buildEmailVerification } from './emailVerification';
 import { buildPasswordReset } from './passwordReset';
@@ -185,6 +186,8 @@ export async function renderTemplate(
       return buildLevelUp(data as any);
     case 'streak_at_risk':
       return buildStreakAtRisk(data as any);
+    case 'weekly_digest':
+      return buildWeeklyDigest(data as any);
     case 'co_parent_invite':
       return buildCoParentInvite(data as any);
     case 'child_locked':

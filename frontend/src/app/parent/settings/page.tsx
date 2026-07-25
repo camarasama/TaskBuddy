@@ -82,6 +82,8 @@ interface NotificationPreferences {
   reward_redeemed: boolean;
   level_up: boolean;
   streak_at_risk: boolean;
+  /** Growth roadmap §3.3 — Monday roll-up. Default ON; a missing key is treated as opt-in. */
+  weekly_digest: boolean;
   welcome: boolean;
   co_parent_invite: boolean;
 }
@@ -96,6 +98,7 @@ const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   reward_redeemed: true,
   level_up: true,
   streak_at_risk: true,
+  weekly_digest: true,
   welcome: true,
   co_parent_invite: true,
 };
@@ -567,6 +570,12 @@ export default function ParentSettingsPage() {
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
               Tasks
             </p>
+            <ToggleSetting
+              label="Weekly Digest"
+              description="A Monday summary of the week: tasks approved, points earned, streaks, and what's waiting on you. Nothing is sent for a quiet week."
+              checked={notificationPrefs.weekly_digest}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, weekly_digest: v })}
+            />
             <ToggleSetting
               label="Task Submitted"
               description="When a child marks a task as complete and it's waiting for your review"

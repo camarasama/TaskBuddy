@@ -19,9 +19,11 @@ import { initScheduler } from './services/scheduler';
 import { adminRouter } from './routes/admin';
 import { adminGamesRouter } from './routes/adminGames';
 import { templatesRouter } from './routes/templates';
+import { trackRouter } from './routes/track';
 import { initRecurringScheduler } from './services/RecurringScheduler';
 import { startExpiryEmailCron } from './jobs/expiryEmailCron';
 import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
+import { startDigestCron } from './jobs/digestCron';
 import { startDailyChallengeCron } from './jobs/dailyChallengeCron';
 // M10 - Phase 4/5: Reports, Notifications and real-time socket
 import { reportsRouter } from './routes/reports';
@@ -170,6 +172,8 @@ app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 // Growth roadmap §3.1 - task template library + reward presets (parent-only)
 app.use('/api/v1/templates', templatesRouter);
+// Growth roadmap §1 - digest open tracking. PUBLIC (email clients cannot auth); HMAC-signed URLs.
+app.use('/api/v1/track', trackRouter);
 // FR-18 - Outbound webhooks (parent-only, enforced inside the router)
 app.use('/api/v1/webhooks', webhooksRouter);
 
@@ -216,6 +220,7 @@ if (config.env !== 'test') {
   startExpiryEmailCron();
   startStreakAtRiskCron();
   startDailyChallengeCron();
+  startDigestCron(); // growth roadmap §3.3 - Monday 07:00 UTC weekly parent digest
   initSocketService(io); // M10 - Phase 5: wire socket emit helper
 
   seedGames().catch(console.error);
