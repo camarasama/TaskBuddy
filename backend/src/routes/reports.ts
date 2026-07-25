@@ -11,6 +11,7 @@
 
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
+import { getInsights } from '../services/InsightsService';
 import {
   getTaskCompletionReport, getPointsLedgerReport, getRewardRedemptionReport,
   getEngagementStreakReport, getAchievementReport, getLeaderboardReport,
@@ -45,7 +46,33 @@ function buildFilters(req: Request): ReportFilters {
   };
 }
 
+
+// ─── Insights (growth roadmap §5.2) ───────────────────────────────────────────
+//
+// Not a "report" in the CSV/PDF sense — no export pair — so it sits apart from the R-01..R-11 block
+// above. Family scoping reuses buildFilters, so admin can target a family exactly as elsewhere.
+reportsRouter.get('/insights', async (req, res) => {
+  try {
+    const filters = buildFilters(req);
+    if (!filters.familyId) {
+      res.status(400).json({ error: 'No family in scope' });
+      return;
+    }
+    const weeks = req.query.weeks ? Number(req.query.weeks) : undefined;
+    res.json(
+      await getInsights({
+        familyId: filters.familyId,
+        childId: filters.childId,
+        weeks: Number.isFinite(weeks) ? weeks : undefined,
+      }),
+    );
+  } catch (err) {
+    res.status(500).json({ error: 'Failed', detail: String(err) });
+  }
+});
+
 // ─── Report data endpoints ────────────────────────────────────────────────────
+
 
 reportsRouter.get('/task-completion', async (req, res) => {
   try { res.json(await getTaskCompletionReport(buildFilters(req))); }
