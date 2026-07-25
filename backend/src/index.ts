@@ -21,6 +21,7 @@ import { adminGamesRouter } from './routes/adminGames';
 import { templatesRouter } from './routes/templates';
 import { trackRouter } from './routes/track';
 import { consentRouter } from './routes/consent';
+import { onboardingRouter } from './routes/onboarding';
 import { initRecurringScheduler } from './services/RecurringScheduler';
 import { startExpiryEmailCron } from './jobs/expiryEmailCron';
 import { startStreakAtRiskCron } from './jobs/streakAtRiskCron';
@@ -177,6 +178,8 @@ app.use('/api/v1/templates', templatesRouter);
 app.use('/api/v1/track', trackRouter);
 // Growth roadmap §3.2 - COPPA verifiable parental consent. /verify is public (emailed link).
 app.use('/api/v1/consent', consentRouter);
+// Growth roadmap §3.2 - guided setup wizard state
+app.use('/api/v1/onboarding', onboardingRouter);
 // FR-18 - Outbound webhooks (parent-only, enforced inside the router)
 app.use('/api/v1/webhooks', webhooksRouter);
 

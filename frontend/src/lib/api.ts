@@ -1235,6 +1235,44 @@ export const gamesApi = {
     }),
 };
 
+// ─── Guided setup wizard (growth roadmap §3.2) ───────────────────────────────
+
+export type OnboardingStep = 'child' | 'tasks' | 'reward' | 'handoff';
+
+export interface OnboardingState {
+  completedSteps: OnboardingStep[];
+  dismissed: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+/**
+ * State lives server-side on FamilySettings, not in the browser, so the checklist survives logout,
+ * a device change, and a co-parent picking up where the first one stopped.
+ */
+export const onboardingApi = {
+  get: () =>
+    request<ApiResponse<{ state: OnboardingState; steps: OnboardingStep[]; isComplete: boolean }>>(
+      '/onboarding',
+    ),
+
+  completeStep: (step: OnboardingStep) =>
+    request<ApiResponse<{ state: OnboardingState; isComplete: boolean }>>(
+      `/onboarding/steps/${step}`,
+      { method: 'POST' },
+    ),
+
+  dismiss: () =>
+    request<ApiResponse<{ state: OnboardingState }>>('/onboarding/dismiss', { method: 'POST' }),
+
+  /** Seeds the already-submitted task the parent approves in-flow. Idempotent. */
+  seedFirstApproval: (childId: string) =>
+    request<ApiResponse<{ assignmentId: string; created: boolean }>>('/onboarding/first-approval', {
+      method: 'POST',
+      body: JSON.stringify({ childId }),
+    }),
+};
+
 // ─── COPPA verifiable parental consent (growth roadmap §3.2) ─────────────────
 
 /**
