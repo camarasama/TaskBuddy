@@ -1361,6 +1361,27 @@ export const templatesApi = {
     request<ApiResponse<{ presets: RewardPreset[] }>>('/templates/rewards'),
 };
 
+// ─── Admin: activation funnel (growth roadmap §1, §5.5) ──────────────────────
+
+export interface FunnelReport {
+  window: { from: string; to: string };
+  signups: number;
+  activated: number;
+  /** Null when nobody signed up in the window — not 0, which would read as failure. */
+  activationRate: number | null;
+  medianHoursToFirstApproval: number | null;
+  setupSteps: Array<{ step: string; families: number }>;
+  digestsSent: number;
+  digestsOpened: number;
+  digestOpenRate: number | null;
+}
+
+/** First reader of `analytics_events`, which has been write-only since the instrumentation shipped. */
+export const adminFunnelApi = {
+  get: (days = 30) =>
+    request<ApiResponse<{ funnel: FunnelReport; days: number }>>(`/admin/funnel?days=${days}`),
+};
+
 // ─── Admin: game authoring ───────────────────────────────────────────────────
 
 /**
