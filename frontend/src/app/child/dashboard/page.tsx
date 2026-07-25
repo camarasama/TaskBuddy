@@ -39,6 +39,8 @@ import { useSocket } from '@/contexts/SocketContext';
 // M7 - CR-06: New components for dual currency display and level-up celebration
 import { XpProgressBar } from '@/components/ui/XpProgressBar';
 import { BrandLogo } from '@/components/ui/BrandLogo';
+import { GoalCard } from '@/components/child/GoalCard';
+import type { ChildGoal } from '@/lib/api';
 import { LevelUpCelebration } from '@/components/LevelUpCelebration';
 // M10 - Phase 6: Real-time engagement toasts
 import { AchievementToast } from '@/components/AchievementToast';
@@ -107,6 +109,8 @@ interface ChildDashboardData {
     };
     pointsNeeded: number;
   };
+  /** Growth roadmap §4.2 - the one reward this child pinned, with progress derived live. */
+  goal?: ChildGoal | null;
 }
 
 export default function ChildDashboardPage() {
@@ -292,6 +296,8 @@ export default function ChildDashboardPage() {
   const displayPoints = livePoints !== null ? livePoints : (dashboardData.profile.pointsBalance ?? 0);
 
   const streakDays = dashboardData.profile.currentStreakDays ?? dashboardData.streak?.current ?? 0;
+  // U6: banked streak savers. Absent on an older payload, so default to none rather than NaN.
+  const streakFreezes = (dashboardData.profile as { streakFreezes?: number }).streakFreezes ?? 0;
   const completedTasks = dashboardData.todaysTasks.filter(t => {
     const status = t.assignment?.status || '';
     return status === 'completed' || status === 'approved';
@@ -341,7 +347,18 @@ export default function ChildDashboardPage() {
               <span>{streakDays} day streak!</span>
             </div>
           )}
+
+          {/* U6 streak insurance: a banked freeze is only reassuring if the child knows it is there. */}
+          {streakFreezes > 0 && (
+            <p className="mt-2 text-sm text-slate-500">
+              🛡️ {streakFreezes} streak {streakFreezes === 1 ? 'saver' : 'savers'} banked — miss a day
+              and your streak survives.
+            </p>
+          )}
         </motion.div>
+
+        {/* Growth roadmap §4.2 */}
+        <GoalCard goal={data?.goal} />
 
         {/* ── M7: Dual Currency Row ──────────────────────────────────────────
           Two side-by-side cards replace the old single-currency display:

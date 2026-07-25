@@ -1235,6 +1235,28 @@ export const gamesApi = {
     }),
 };
 
+// ─── Child goal: "I'm saving for…" (growth roadmap §4.2) ─────────────────────
+
+export interface ChildGoal {
+  rewardId: string;
+  name: string;
+  pointsCost: number;
+  pointsBalance: number;
+  pointsNeeded: number;
+  /** Clamped 0-100; a child who can already afford it sees a full bar, never 130%. */
+  percent: number;
+  tasksToGo: number;
+}
+
+/** At most one pinned goal per child; pinning a second MOVES the pin rather than adding one. */
+export const goalApi = {
+  set: (rewardId: string) =>
+    request<ApiResponse<{ goal: ChildGoal }>>(`/rewards/${rewardId}/goal`, { method: 'PUT' }),
+
+  clear: () =>
+    request<ApiResponse<{ goal: null }>>('/rewards/goal/current', { method: 'DELETE' }),
+};
+
 // ─── Guided setup wizard (growth roadmap §3.2) ───────────────────────────────
 
 export type OnboardingStep = 'child' | 'tasks' | 'reward' | 'handoff';
