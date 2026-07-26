@@ -39,7 +39,7 @@ interface AuthContextType {
     dateOfBirth?: string;
     phoneNumber?: string;
     gender?: string;
-  }) => Promise<void>;
+  }, referralCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   // Soft-logout for children: clears the session but KEEPS the saved family code + name, then
   // routes to the child login (which resumes at the PIN step). Used by the inactivity guard.
@@ -146,9 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dateOfBirth?: string;
       phoneNumber?: string;
       gender?: string;
-    }
+    },
+    referralCode?: string,
   ) => {
-    const response = await authApi.register({ familyName, parent });
+    const response = await authApi.register({ familyName, parent, referralCode });
     if (!response.data) {
       throw new Error('Invalid response from server');
     }

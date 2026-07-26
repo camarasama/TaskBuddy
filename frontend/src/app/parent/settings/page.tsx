@@ -45,6 +45,7 @@ import { InviteCoParentModal } from '@/components/InviteCoParentModal';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { TwoFactorSetup } from '@/components/security/TwoFactorSetup';
 import { WebhookSettings } from '@/components/settings/WebhookSettings';
+import { ReferralCard } from '@/components/settings/ReferralCard';
 import { getInitials, formatDate } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -764,6 +765,9 @@ export default function ParentSettingsPage() {
           </p>
           <WebhookSettings />
         </section>
+
+        {/* U20 — cross-family referral (growth roadmap §7). */}
+        <ReferralCard />
 
         {/* Account Info */}
         <section className="bg-white rounded-xl p-6 border border-slate-200">

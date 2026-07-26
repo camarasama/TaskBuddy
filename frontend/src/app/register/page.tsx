@@ -10,7 +10,7 @@
  *  - Phone field shows country code hint and optional label
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -86,6 +86,21 @@ export default function RegisterPage() {
     resolver: zodResolver(registerSchema),
   });
 
+  /**
+   * U20 — a referral code arrives as ?ref=CODE on a shared link. Read from window.location in an
+   * effect rather than via useSearchParams(), which would opt this route out of static prerendering
+   * (only `npm run build` catches that — see the U2 gate lesson).
+   *
+   * An unknown code is ignored server-side, so nothing here validates it: a mistyped referral must
+   * never stand between someone and a signup.
+   */
+  const [referralCode, setReferralCode] = useState<string | undefined>();
+
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref) setReferralCode(ref);
+  }, []);
+
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
     try {
@@ -99,7 +114,7 @@ export default function RegisterPage() {
         dateOfBirth: data.dateOfBirth,
         phoneNumber: data.phoneNumber || undefined,
         gender: data.gender || undefined,
-      });
+      }, referralCode);
     } catch (err) {
       if (err instanceof ApiError) {
         showError(err.message);
