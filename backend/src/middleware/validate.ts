@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AnyZodObject, ZodError } from 'zod';
+import { AnyZodObject, ZodError, ZodTypeAny } from 'zod';
 
 // Validate request body, params, and query with Zod schema
 export function validate(schema: AnyZodObject) {
@@ -18,7 +18,12 @@ export function validate(schema: AnyZodObject) {
 }
 
 // Validate only the request body
-export function validateBody(schema: AnyZodObject) {
+/**
+ * Accepts `ZodTypeAny`, not just `AnyZodObject`, so a schema carrying cross-field `.refine()` rules
+ * (which zod types as `ZodEffects`) can be used here — U17's "a team task needs two children" is the
+ * first such rule. Only `parseAsync` is called, which every zod schema provides.
+ */
+export function validateBody(schema: ZodTypeAny) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       const validated = await schema.parseAsync(req.body);

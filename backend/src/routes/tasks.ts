@@ -38,6 +38,7 @@ import { difficultyFromPoints } from '@taskbuddy/shared';
 import { uploadPhoto } from '../middleware/upload';
 // M5 - CR-09 / CR-10 utilities
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
+import { teamProgress } from '../services/TeamTaskService';
 import { getTaskOverlaps } from '../utils/overlapCheck';
 import { resolveClientTimestamp } from '../utils/clientTimestamp';
 // BUG FIX: Use StorageService (memoryStorage buffer) instead of old disk-path approach
@@ -78,7 +79,19 @@ const createTaskSchema = z.object({
   assignedTo: z.array(z.string().uuid()).optional().default([]),
   // How many different children can claim this task from the pool (null = unlimited)
   maxClaimsTotal: z.number().int().min(1).max(100).nullable().optional(),
-});
+  // U17 — team-up tasks. The bonus is ON TOP of each member's full base points, never a split.
+  isTeamTask: z.boolean().optional(),
+  teamBonusPoints: z.number().int().min(0).max(500).optional(),
+})
+  .refine((v) => !v.isTeamTask || v.assignedTo.length >= 2, {
+    message: 'A team task needs at least two children assigned to it',
+    path: ['assignedTo'],
+  })
+  .refine((v) => !v.isTeamTask || (v.teamBonusPoints ?? 0) > 0, {
+    // A team task with a zero bonus is just a shared task with extra words on the form.
+    message: 'A team task needs a bonus above zero',
+    path: ['teamBonusPoints'],
+  });
 
 const updateTaskSchema = z.object({
   title: z.string().min(3).max(200).optional(),
@@ -100,6 +113,10 @@ const updateTaskSchema = z.object({
   maxClaimsTotal: z.number().int().min(1).max(100).nullable().optional(),
   isRecurring: z.boolean().optional(),
   recurrencePattern: z.enum(['daily', 'weekly', 'weekdays', 'weekends']).optional(),
+  // U17 — editable so a parent can raise or cancel the bonus. `teamBonusAwardedAt` is NOT editable:
+  // once a bonus has been paid, clearing the claim would let it be paid twice.
+  isTeamTask: z.boolean().optional(),
+  teamBonusPoints: z.number().int().min(0).max(500).optional(),
 });
 
 const taskFiltersSchema = z.object({
@@ -221,11 +238,28 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
             !hasPendingPrimaries &&
             !alreadyAssigned;
 
+          // U17 — the cooperation signal. Derived here from the SAME helper the payout uses, so a
+          // child is never told "waiting on Kofi" while the bonus rule disagrees.
+          const team = task.isTeamTask
+            ? {
+                ...teamProgress(task.assignments.map((a) => ({ childId: a.childId, status: a.status }))),
+                bonusPoints: task.teamBonusPoints,
+                bonusAwarded: task.teamBonusAwardedAt !== null,
+                members: task.assignments.map((a) => ({
+                  childId: a.childId,
+                  firstName: a.child.firstName,
+                  avatarUrl: a.child.avatarUrl,
+                  status: a.status,
+                })),
+              }
+            : null;
+
           return {
             ...task,
             canSelfAssign,
             claimedCount,
             claimsRemaining,
+            team,
           };
         });
 
@@ -562,9 +596,54 @@ taskRouter.get('/assignments/me', async (req, res, next) => {
       a.evidence = await withEvidenceUrlsList(a.evidence);
     }
 
+    // U17 — attach the team summary to any assignment on a team task. Fetched in ONE query for all
+    // of them rather than per assignment, and only when at least one team task is present, so an
+    // ordinary family pays nothing for this.
+    const teamTaskIds = assignments.filter((a) => a.task.isTeamTask).map((a) => a.taskId);
+    const teamsByTaskId = new Map<string, unknown>();
+
+    if (teamTaskIds.length > 0) {
+      const teamTasks = await prisma.task.findMany({
+        where: { id: { in: teamTaskIds } },
+        select: {
+          id: true,
+          teamBonusPoints: true,
+          teamBonusAwardedAt: true,
+          assignments: {
+            select: {
+              childId: true,
+              status: true,
+              child: { select: { firstName: true, avatarUrl: true } },
+            },
+          },
+        },
+      });
+
+      for (const t of teamTasks) {
+        teamsByTaskId.set(t.id, {
+          // Same helper the payout uses, so a child is never told "waiting on Kofi" while the
+          // bonus rule disagrees.
+          ...teamProgress(t.assignments.map((m) => ({ childId: m.childId, status: m.status }))),
+          bonusPoints: t.teamBonusPoints,
+          bonusAwarded: t.teamBonusAwardedAt !== null,
+          members: t.assignments.map((m) => ({
+            childId: m.childId,
+            firstName: m.child.firstName,
+            avatarUrl: m.child.avatarUrl,
+            status: m.status,
+          })),
+        });
+      }
+    }
+
+    const withTeams = assignments.map((a) => ({
+      ...a,
+      team: teamsByTaskId.get(a.taskId) ?? null,
+    }));
+
     res.json({
       success: true,
-      data: { assignments, pagination: buildMeta(total, page, limit) },
+      data: { assignments: withTeams, pagination: buildMeta(total, page, limit) },
     });
   } catch (error) {
     next(error);

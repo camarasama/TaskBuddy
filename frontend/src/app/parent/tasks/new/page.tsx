@@ -62,6 +62,12 @@ const taskSchema = z.object({
     (v) => (v === '' || v === null || (typeof v === 'number' && isNaN(v)) ? undefined : v),
     z.number().int().min(1).max(100).optional()
   ),
+  // U17 — team-up. The bonus is on TOP of each child's full points, never split between them.
+  isTeamTask: z.boolean().optional(),
+  teamBonusPoints: z.preprocess(
+    (v) => (v === '' || v === null || (typeof v === 'number' && isNaN(v)) ? undefined : v),
+    z.number().int().min(0).max(500).optional()
+  ),
   dueDate: z.string().min(1, 'Due date is required').refine(
     (v) => new Date(v) > new Date(),
     { message: 'Due date must be in the future' }
@@ -137,6 +143,7 @@ export default function CreateTaskPage() {
 
   const taskTag = watch('taskTag');
   const assignedTo = watch('assignedTo');
+  const isTeamTask = watch('isTeamTask');
   const isRecurring = watch('isRecurring');
   const dueDate = watch('dueDate');
 
@@ -539,6 +546,53 @@ export default function CreateTaskPage() {
                 </p>
                 {errors.maxClaimsTotal && (
                   <p className="text-sm text-red-600 mt-1">{errors.maxClaimsTotal.message}</p>
+                )}
+              </div>
+
+              {/* U17 — team-up. The server rejects a team task with fewer than two children or a
+                  zero bonus; the copy here states both up front rather than letting a parent
+                  discover them on submit. */}
+              <div className="rounded-xl border border-slate-200 p-4">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <Users className="w-5 h-5 text-slate-600" />
+                    <div>
+                      <p className="font-medium text-slate-900">Team-up task</p>
+                      <p className="text-sm text-slate-500">
+                        Two or more children share it. Everyone still earns the full points, plus a
+                        bonus once all of them are approved.
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 rounded text-primary-600"
+                    {...register('isTeamTask')}
+                  />
+                </label>
+
+                {isTeamTask && (
+                  <div className="mt-4 pl-8">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Teamwork bonus (each child)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        placeholder="e.g. 15"
+                        {...register('teamBonusPoints', { valueAsNumber: true })}
+                      />
+                      <span className="text-sm text-slate-500 whitespace-nowrap">points each</span>
+                    </div>
+                    {(assignedTo?.length ?? 0) < 2 && (
+                      <p className="text-sm text-amber-600 mt-2">
+                        Assign at least two children below for this to be a team task.
+                      </p>
+                    )}
+                    {errors.teamBonusPoints && (
+                      <p className="text-sm text-red-600 mt-1">{errors.teamBonusPoints.message}</p>
+                    )}
+                  </div>
                 )}
               </div>
 
