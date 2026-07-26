@@ -15,11 +15,11 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Loader2, X, Star } from 'lucide-react';
+import { Sparkles, Loader2, X, Star, TrendingUp, Check } from 'lucide-react';
 import { templatesApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import type { RewardPreset } from '@taskbuddy/shared';
+import type { RewardPreset, RankedRewardPreset } from '@taskbuddy/shared';
 
 const TIER_STYLES: Record<RewardPreset['tier'], string> = {
   small: 'bg-slate-100 text-slate-600',
@@ -35,7 +35,7 @@ export function RewardPresetPicker({
   onClose: () => void;
 }) {
   const { error: showError } = useToast();
-  const [presets, setPresets] = useState<RewardPreset[]>([]);
+  const [presets, setPresets] = useState<RankedRewardPreset[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function RewardPresetPicker({
     templatesApi
       .rewardPresets()
       .then((res) => {
-        if (!cancelled) setPresets((res.data as { presets: RewardPreset[] }).presets);
+        if (!cancelled) setPresets((res.data as { presets: RankedRewardPreset[] }).presets);
       })
       .catch(() => {
         if (!cancelled) showError('Could not load reward ideas');
@@ -66,7 +66,8 @@ export function RewardPresetPicker({
               Reward ideas
             </h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              Pick one to fill the form — you can change anything before saving.
+              Pick one to fill the form — you can change anything before saving. Ordered by what
+              families redeem most, with your own history counting the most.
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1" aria-label="Close">
@@ -107,10 +108,32 @@ export function RewardPresetPicker({
                   </span>
                 </div>
                 <p className="text-sm text-slate-500">{preset.description}</p>
-                <p className="text-sm text-gold-600 font-medium mt-2 flex items-center gap-1">
-                  <Star className="w-3.5 h-3.5" />
-                  {preset.pointsCost} pts
-                </p>
+                <div className="flex items-center justify-between gap-2 mt-2">
+                  <p className="text-sm text-gold-600 font-medium flex items-center gap-1">
+                    <Star className="w-3.5 h-3.5" />
+                    {preset.pointsCost} pts
+                  </p>
+
+                  {/* U19 — say WHY it is ranked where it is. An unexplained reordering just looks
+                      like the list moved on its own. */}
+                  {preset.familyRedemptions > 0 ? (
+                    <span className="text-xs text-primary-600 font-medium">
+                      Redeemed {preset.familyRedemptions}× here
+                    </span>
+                  ) : preset.popularity > 0 ? (
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" />
+                      Popular
+                    </span>
+                  ) : null}
+                </div>
+
+                {preset.alreadyAdded && (
+                  <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    You already have this one
+                  </p>
+                )}
               </motion.button>
             ))}
           </div>

@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { authenticate, requireParent, familyIsolation } from '../middleware/auth';
 import { validateQuery, validateBody } from '../middleware/validate';
 import { TemplateService } from '../services/TemplateService';
+import { suggestRewards } from '../services/RewardSuggestionService';
 import { REWARD_PRESETS } from './templatesSeed';
 
 export const templatesRouter = Router();
@@ -104,9 +105,14 @@ templatesRouter.post(
  * there is no per-family reward-template authoring in scope, so ten fixed rows would be a migration
  * without a benefit.
  */
-templatesRouter.get('/rewards', async (_req, res, next) => {
+templatesRouter.get('/rewards', async (req, res, next) => {
   try {
-    res.json({ success: true, data: { presets: REWARD_PRESETS } });
+    // U19 — ranked by what families actually redeem, with this family's own history weighted far
+    // above the crowd. Global popularity counts SYSTEM PRESET NAMES ONLY; see the service for why
+    // custom reward names must never enter that aggregate.
+    const familyId = req.familyId;
+    const presets = familyId ? await suggestRewards(familyId) : REWARD_PRESETS;
+    res.json({ success: true, data: { presets } });
   } catch (error) {
     next(error);
   }
