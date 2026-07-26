@@ -69,6 +69,16 @@ export interface User extends BaseModel {
   dateOfBirth?: Date | null;
   // phoneNumber is returned masked to last 4 digits from GET /auth/me
   phoneNumber?: string | null;
+  // U16: quiet hours / schooltime. HH:MM in the FAMILY's timezone (growth roadmap §6). Suppresses
+  // the web push only — the in-app notification is still written.
+  quietHoursEnabled?: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  schooltimeEnabled?: boolean;
+  schooltimeStart?: string;
+  schooltimeEnd?: string;
+  /** ISO weekdays, 1 = Monday .. 7 = Sunday. */
+  schooltimeDays?: number[];
 }
 
 // Child profile with gamification data

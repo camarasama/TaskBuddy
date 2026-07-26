@@ -40,6 +40,9 @@ const addChildSchema = z.object({
   gender: z.enum(['boy', 'girl']).optional(),
 });
 
+/** HH:MM, 24-hour. Shared by the quiet-hours fields below. */
+const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 const updateChildSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
   lastName: z.string().min(1).max(50).optional(),
@@ -59,6 +62,16 @@ const updateChildSchema = z.object({
     .nullable()
     .optional(),
   gender: z.enum(['boy', 'girl']).optional(),
+  // U16 — quiet hours / schooltime. HH:MM in the FAMILY's timezone (see QuietHoursService); the
+  // regex is the boundary validation, so an unparseable string never reaches the evaluator.
+  quietHoursEnabled: z.boolean().optional(),
+  quietHoursStart: z.string().regex(HM, 'Time must be HH:MM').optional(),
+  quietHoursEnd: z.string().regex(HM, 'Time must be HH:MM').optional(),
+  schooltimeEnabled: z.boolean().optional(),
+  schooltimeStart: z.string().regex(HM, 'Time must be HH:MM').optional(),
+  schooltimeEnd: z.string().regex(HM, 'Time must be HH:MM').optional(),
+  // ISO weekdays, 1 = Monday .. 7 = Sunday.
+  schooltimeDays: z.array(z.number().int().min(1).max(7)).max(7).optional(),
 });
 
 const updateSettingsSchema = z.object({
@@ -505,6 +518,15 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
         ...(req.body.avatarEmoji !== undefined
           ? { childProfile: { update: { avatarEmoji: req.body.avatarEmoji } } }
           : {}),
+        // U16 — each applied only when supplied, so a PUT that renames a child never silently
+        // switches their quiet hours off.
+        ...(req.body.quietHoursEnabled !== undefined ? { quietHoursEnabled: req.body.quietHoursEnabled } : {}),
+        ...(req.body.quietHoursStart !== undefined ? { quietHoursStart: req.body.quietHoursStart } : {}),
+        ...(req.body.quietHoursEnd !== undefined ? { quietHoursEnd: req.body.quietHoursEnd } : {}),
+        ...(req.body.schooltimeEnabled !== undefined ? { schooltimeEnabled: req.body.schooltimeEnabled } : {}),
+        ...(req.body.schooltimeStart !== undefined ? { schooltimeStart: req.body.schooltimeStart } : {}),
+        ...(req.body.schooltimeEnd !== undefined ? { schooltimeEnd: req.body.schooltimeEnd } : {}),
+        ...(req.body.schooltimeDays !== undefined ? { schooltimeDays: req.body.schooltimeDays } : {}),
       },
       include: {
         childProfile: true,

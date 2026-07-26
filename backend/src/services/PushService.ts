@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import { prisma } from './database';
+import { isPushSuppressed } from './QuietHoursService';
 
 const vapidPublicKey  = process.env.VAPID_PUBLIC_KEY  || '';
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
@@ -19,6 +20,12 @@ export interface PushPayload {
 export class PushService {
   static async sendPush(userId: string, payload: PushPayload): Promise<void> {
     if (!vapidPublicKey || !vapidPrivateKey) return; // VAPID not configured
+
+    // U16 — quiet hours / schooltime. Checked HERE rather than in createNotification so a future
+    // direct caller cannot bypass it by accident. Only the push is held: the notification row and
+    // the socket emit have already happened, so nothing is lost — it simply does not buzz.
+    const quiet = await isPushSuppressed(userId);
+    if (quiet.suppressed) return;
 
     const subs = await prisma.pushSubscription.findMany({ where: { userId } });
     if (subs.length === 0) return;

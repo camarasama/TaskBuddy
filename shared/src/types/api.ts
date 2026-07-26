@@ -110,6 +110,15 @@ export interface UpdateChildRequest {
   // FR-10: child's chosen avatar emoji (null clears it).
   avatarEmoji?: string | null;
   gender?: string;
+  // U16: quiet hours / schooltime. Times are HH:MM in the FAMILY's timezone, not UTC.
+  quietHoursEnabled?: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  schooltimeEnabled?: boolean;
+  schooltimeStart?: string;
+  schooltimeEnd?: string;
+  /** ISO weekdays, 1 = Monday .. 7 = Sunday. */
+  schooltimeDays?: number[];
 }
 
 /** GET /families/me/members - a sanitised (no passwordHash/pinHash) family member. */
