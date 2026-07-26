@@ -51,15 +51,20 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import { cn, getDifficultyColor, formatPoints, formatDate, formatDateTime } from '@/lib/utils';
 import Confetti from 'react-confetti';
+import { TeamBadge, type TeamSummary } from '@/components/tasks/TeamBadge';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface TaskAssignment {
   id: string;
+  /** U17: on this page every assignment belongs to the signed-in child, so this IS "me". */
+  childId?: string;
   status: string;
   rejectionReason?: string | null;
   canSelfAssign?: boolean;
   claimsRemaining?: number | null;
+  // U17 — present only on team-up tasks; the server derives it from the same helper the payout uses.
+  team?: TeamSummary | null;
   task: {
     id: string;
     title: string;
@@ -476,6 +481,7 @@ export default function ChildTasksPage() {
                   isCompleting={completingId === a.id}
                   isQueued={queuedIds.has(a.id)}
                   offline={offline}
+                  meId={a.childId}
                 />
               ))
             )}
@@ -566,6 +572,7 @@ function TaskCard({
   isCompleting,
   isQueued = false,
   offline = false,
+  meId,
 }: {
   assignment: TaskAssignment;
   onStart: () => void;
@@ -575,6 +582,8 @@ function TaskCard({
   /** FR-13: this card has an action waiting in the offline queue. */
   isQueued?: boolean;
   offline?: boolean;
+  /** U17: so the team badge can say "You" instead of the child's own name. */
+  meId?: string;
 }) {
   const isPending = assignment.status === 'pending';
   const isInProgress = assignment.status === 'in_progress';
@@ -625,6 +634,7 @@ function TaskCard({
               Due {formatDateTime(assignment.task.dueDate)}
             </p>
           )}
+          {assignment.team && <TeamBadge team={assignment.team} meId={meId} />}
         </div>
         <div className="flex items-center gap-1 text-gold-600 font-bold shrink-0">
           <Star className="w-4 h-4" />

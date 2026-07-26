@@ -7,6 +7,7 @@ import { AuditService } from './AuditService';
 import { EmailService } from './email';
 import { SocketService } from './SocketService';
 import { AnalyticsService } from './AnalyticsService';
+import { awardTeamBonusIfComplete } from './TeamTaskService';
 import { createNotification } from '../routes/notifications';
 import { checkAssignmentLimits } from '../utils/assignmentLimits';
 import { getTaskOverlaps } from '../utils/overlapCheck';
@@ -470,6 +471,24 @@ export class TaskService {
         referenceType: 'task_assignment',
         referenceId: assignment.id,
       }).catch(() => {});
+
+      // U17 — if this approval completed a team task, every member gets the teamwork bonus. Awaited
+      // (not fire-and-forget) so the response can report it, but it never throws: a bonus failure
+      // must not turn a successful approval into an error.
+      const teamBonus = await awardTeamBonusIfComplete(assignment.taskId, parentId);
+      if (teamBonus.awarded) {
+        for (const childId of teamBonus.childIds) {
+          createNotification({
+            userId: childId,
+            notificationType: 'team_bonus',
+            title: '🤝 Teamwork bonus!',
+            message: `Everyone finished "${assignment.task.title}" — +${teamBonus.pointsEach} bonus points each.`,
+            actionUrl: '/child/tasks',
+            referenceType: 'task',
+            referenceId: assignment.taskId,
+          }).catch(() => {});
+        }
+      }
 
       if (levelUpResult?.leveledUp) {
         createNotification({

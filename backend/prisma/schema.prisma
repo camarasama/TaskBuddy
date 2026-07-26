@@ -203,6 +203,16 @@ model Task {
   autoApprove           Boolean         @default(false) @map("auto_approve")
   // How many different children can claim this task from the pool (null = unlimited)
   maxClaimsTotal        Int?            @map("max_claims_total")
+  /// Team-up tasks (growth roadmap §6). Siblings share one task; each still earns the FULL base
+  /// points — the bonus is on top, never a split, or teaming up would be worth less than working
+  /// alone. Approval mechanics are unchanged; the bonus simply fires when the last member is
+  /// approved, and is paid to every member.
+  isTeamTask            Boolean         @default(false) @map("is_team_task")
+  teamBonusPoints       Int             @default(0) @map("team_bonus_points")
+  /// Exactly-once claim for the bonus payout (the FR-09 conditional-update pattern). Non-null means
+  /// the bonus has already been paid; two parents approving the last two members concurrently must
+  /// not double-pay.
+  teamBonusAwardedAt    DateTime?       @map("team_bonus_awarded_at")
   status                TaskStatus      @default(active)
   createdAt             DateTime        @default(now()) @map("created_at")
   updatedAt             DateTime        @updatedAt @map("updated_at")
