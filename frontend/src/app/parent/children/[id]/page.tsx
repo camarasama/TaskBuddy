@@ -16,6 +16,8 @@ import {
   TrendingUp,
   Edit2,
   Key,
+  Loader2,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -24,6 +26,8 @@ import { ResetPinModal } from '@/components/ResetPinModal';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { downloadExport } from '@/lib/downloadExport';
+import { reportsApi } from '@/lib/api';
 import { getInitials, formatPoints, formatDate } from '@/lib/utils';
 
 interface ChildProfile {
@@ -49,10 +53,26 @@ interface Child {
 }
 
 export default function ChildDetailsPage() {
+  const [downloadingCard, setDownloadingCard] = useState(false);
   const params = useParams();
   const router = useRouter();
   const { error: showError } = useToast();
   const [child, setChild] = useState<Child | null>(null);
+
+  /**
+   * Download last month's card. Defaults to the month just gone server-side — the card is a look
+   * back, so "this month so far" is rarely what anyone wants to share.
+   */
+  const handleReportCard = async () => {
+    setDownloadingCard(true);
+    try {
+      await downloadExport(reportsApi.reportCardUrl(String(params.id)));
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Could not build the report card');
+    } finally {
+      setDownloadingCard(false);
+    }
+  };
   const [isLoading, setIsLoading] = useState(true);
   const [showResetPinModal, setShowResetPinModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -155,6 +175,24 @@ export default function ChildDetailsPage() {
                   {child.gender}
                 </span>
               )}
+              {/* Roadmap §5.4: the one artefact designed to leave the product — parents forward it
+                  to co-parents and grandparents, and it does the introducing. */}
+              <div className="mt-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleReportCard}
+                  disabled={downloadingCard}
+                >
+                  {downloadingCard ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4" />
+                  )}
+                  Last month&apos;s report card
+                </Button>
+              </div>
+
               <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-600">
                 {age !== null && (
                   <span className="flex items-center gap-1">

@@ -537,3 +537,106 @@ export async function exportExecutionTimePdf(report: ExecutionTimeReport): Promi
   );
   return finalize(ctx.pdfDoc);
 }
+
+// ─── Monthly report card (growth roadmap §5.4) ───────────────────────────────
+
+/**
+ * The one artefact in this product designed to leave it: a parent forwards it to a co-parent or a
+ * grandparent, and it does the introducing. Built on the same `buildPdf` as every other export, so
+ * it inherits the branded header rather than growing a second renderer that drifts.
+ *
+ * An empty month still produces a real page. A parent who shares a blank sheet has been let down
+ * twice — once privately, once in front of whoever they sent it to.
+ */
+export async function exportReportCardPdf(card: ReportCardData): Promise<Buffer> {
+  const ctx = await buildPdf(
+    `${card.childName}'s month`,
+    `${card.monthLabel} · TaskBuddy report card`,
+  );
+
+  if (card.isEmpty) {
+    ctx.page.drawText('A quiet month.', {
+      x: ctx.margin,
+      y: ctx.y.v - 18,
+      size: 14,
+      font: ctx.bold,
+      color: BRAND_DARK,
+    });
+    ctx.y.v -= 40;
+    ctx.page.drawText(
+      `No tasks were approved for ${card.childName} in ${card.monthLabel}. Next month is a fresh start.`,
+      { x: ctx.margin, y: ctx.y.v, size: 10, font: ctx.font, color: rgb(0.4, 0.4, 0.45) },
+    );
+    return finalize(ctx.pdfDoc);
+  }
+
+  drawSummaryBoxes(ctx, [
+    { label: 'Tasks approved', value: card.tasksApproved },
+    { label: 'Points earned', value: card.pointsEarned, color: AMBER },
+    { label: 'Current streak', value: `${card.currentStreak}d` },
+    { label: 'Best ever streak', value: `${card.longestStreak}d`, color: GREEN },
+  ]);
+
+  if (card.approvedDelta !== null) {
+    drawHeading(ctx, 'Compared with last month');
+    const direction = card.approvedDelta > 0 ? 'up' : card.approvedDelta < 0 ? 'down' : 'level';
+    const colour = card.approvedDelta > 0 ? GREEN : card.approvedDelta < 0 ? RED : BRAND_DARK;
+    ctx.page.drawText(
+      `${Math.abs(card.approvedDelta)} ${direction} on ${card.previousMonthApproved} last month`,
+      { x: ctx.margin + 8, y: ctx.y.v - 4, size: 11, font: ctx.bold, color: colour },
+    );
+    ctx.y.v -= 22;
+  }
+
+  if (card.bestDay) {
+    drawHeading(ctx, 'Best day');
+    ctx.page.drawText(
+      `${card.bestDay.date} — ${card.bestDay.approved} task${card.bestDay.approved === 1 ? '' : 's'} approved`,
+      { x: ctx.margin + 8, y: ctx.y.v - 4, size: 10, font: ctx.font, color: BRAND_DARK },
+    );
+    ctx.y.v -= 22;
+  }
+
+  if (card.achievements.length > 0) {
+    drawHeading(ctx, 'Unlocked this month');
+    for (const name of card.achievements) {
+      ctx.page.drawText(`• ${name}`, {
+        x: ctx.margin + 8,
+        y: ctx.y.v - 4,
+        size: 10,
+        font: ctx.font,
+        color: BRAND_DARK,
+      });
+      ctx.y.v -= 14;
+    }
+    ctx.y.v -= 8;
+  }
+
+  // Deliberate blank space: the roadmap asks for a parent note, and a printed card people write on
+  // is more likely to end up on a fridge than one that is already full.
+  drawHeading(ctx, 'A note from home');
+  ctx.page.drawRectangle({
+    x: ctx.margin,
+    y: ctx.y.v - 60,
+    width: ctx.width - ctx.margin * 2,
+    height: 56,
+    borderColor: rgb(0.85, 0.85, 0.88),
+    borderWidth: 1,
+  });
+
+  return finalize(ctx.pdfDoc);
+}
+
+export interface ReportCardData {
+  childName: string;
+  monthLabel: string;
+  tasksApproved: number;
+  pointsEarned: number;
+  currentStreak: number;
+  longestStreak: number;
+  achievements: string[];
+  bestDay: { date: string; approved: number } | null;
+  previousMonthApproved: number | null;
+  approvedDelta: number | null;
+  isEmpty: boolean;
+}
