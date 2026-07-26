@@ -18,6 +18,7 @@
 import nodemailer from 'nodemailer';
 import { prisma } from './database';
 import { renderTemplate } from '../emails/base';
+import { NotificationPolicy } from './NotificationPolicy';
 
 // ─── Trigger types (must match FamilySettings.notificationPreferences keys) ──
 
@@ -181,6 +182,20 @@ export class EmailService {
         );
         return;
       }
+    }
+
+    // 1b. Global frequency cap (growth roadmap §8).
+    //
+    // AFTER the preference check and BEFORE rendering: a capped email should cost nothing, and a
+    // parent who has switched a trigger off should see that reason in the log rather than a cap.
+    // `skipPreferenceCheck` does NOT bypass this — that flag exists for recipients with no family
+    // record, and every such trigger is transactional and therefore uncapped anyway.
+    const cap = await NotificationPolicy.checkCap({ triggerType, toUserId });
+    if (!cap.allowed) {
+      console.log(
+        `[EmailService] ${triggerType} suppressed by frequency cap for user ${toUserId} — ${cap.reason}`,
+      );
+      return;
     }
 
     // 2. Render HTML
