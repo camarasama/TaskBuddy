@@ -65,6 +65,7 @@ import type {
   TemplatePack,
   ApplyPackResult,
   RewardPreset,
+  RankedRewardPreset,
   WebhookEvent,
   WebhookSubscriptionSummary,
   TaskComment,
@@ -1434,8 +1435,9 @@ export const templatesApi = {
       body: JSON.stringify({ childId }),
     }),
 
+  /** U19 — ranked by redemption data; falls back to the shipped order when there is none. */
   rewardPresets: () =>
-    request<ApiResponse<{ presets: RewardPreset[] }>>('/templates/rewards'),
+    request<ApiResponse<{ presets: RankedRewardPreset[] }>>('/templates/rewards'),
 };
 
 // ─── Admin: activation funnel (growth roadmap §1, §5.5) ──────────────────────

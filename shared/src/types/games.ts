@@ -195,6 +195,19 @@ export interface ApplyPackResult {
   message: string;
 }
 
+/**
+ * U19 — a preset with its ranking signals. Global `popularity` is computed over SYSTEM PRESET NAMES
+ * ONLY; a family's own free-text reward names never enter that aggregate.
+ */
+export interface RankedRewardPreset extends RewardPreset {
+  /** Times THIS family has redeemed a reward of this name. */
+  familyRedemptions: number;
+  /** Times any family has redeemed a preset of this name. */
+  popularity: number;
+  /** The family already has an active reward with this name. Flagged, never hidden. */
+  alreadyAdded: boolean;
+}
+
 export interface RewardPreset {
   name: string;
   description: string;
