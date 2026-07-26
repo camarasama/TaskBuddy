@@ -824,7 +824,37 @@ export const rewardsApi = {
 };
 
 // Dashboard API
+export interface CalendarWeek {
+  weekStart: string;
+  weekEnd: string;
+  /** Seven YYYY-MM-DD keys, Monday first. */
+  dates: string[];
+  children: Array<{
+    childId: string;
+    firstName: string;
+    days: Array<{
+      date: string;
+      entries: Array<{
+        assignmentId: string;
+        taskId: string;
+        title: string;
+        status: string;
+        startTime: string | null;
+        estimatedMinutes: number | null;
+        /** False when the task has no start time — the calendar must not invent one. */
+        isTimed: boolean;
+        pointsValue: number;
+        overlaps: boolean;
+      }>;
+    }>;
+  }>;
+}
+
 export const dashboardApi = {
+  /** Read-only family week (roadmap §5.3). `date` is any day in the wanted week. */
+  calendar: (date?: string) =>
+    request<ApiResponse<CalendarWeek>>(`/dashboard/calendar${date ? `?date=${date}` : ''}`),
+
   getParentDashboard: () =>
     request<ApiResponse<ParentDashboardResponse>>('/dashboard/parent'),
 

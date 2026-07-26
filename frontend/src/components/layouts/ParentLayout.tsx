@@ -29,6 +29,7 @@ import {
   X,
   BarChart2,
   LineChart,
+  CalendarDays,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,6 +49,7 @@ const navItems = [
   { href: '/parent/tasks',      icon: ListTodo,   label: 'Tasks'      },
   { href: '/parent/rewards',    icon: Gift,       label: 'Rewards'    },
   { href: '/parent/children',   icon: Users,      label: 'Children'   },
+  { href: '/parent/calendar',   icon: CalendarDays, label: 'Calendar' },
   { href: '/parent/insights',   icon: LineChart,  label: 'Insights'   },
   { href: '/parent/reports',    icon: BarChart2,  label: 'Reports'    },
   { href: '/parent/settings',   icon: Settings,   label: 'Settings'   },

@@ -4,6 +4,7 @@ import { authenticate, requireParent, requireChild, familyIsolation } from '../m
 import { NotFoundError } from '../middleware/errorHandler';
 import { withEvidenceUrlsList } from '../services/storage';
 import { GoalService } from '../services/GoalService';
+import { CalendarService } from '../services/CalendarService';
 import { isStreakAtRisk } from '../services/streakService';
 import { getTodayChallenge } from '../services/ChallengeService';
 
@@ -279,7 +280,25 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
   }
 });
 
+
+// ─── GET /dashboard/calendar (growth roadmap §5.3) ───────────────────────────
+//
+// Read-only week view. Lives on the dashboard router because it is family-scoped parent context,
+// not an analytical report. Drag-to-reschedule is deliberately NOT here — see CalendarService.
+dashboardRouter.get('/calendar', requireParent, async (req, res, next) => {
+  try {
+    const week = await CalendarService.getWeek({
+      familyId: req.familyId!,
+      date: req.query.date as string | undefined,
+    });
+    res.json({ success: true, data: week });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /dashboard/child - Child dashboard overview
+
 dashboardRouter.get('/child', requireChild, async (req, res, next) => {
   try {
     const today = new Date();
