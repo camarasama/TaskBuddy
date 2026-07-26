@@ -399,3 +399,27 @@ export interface TaskComment {
     role: string;
   };
 }
+
+// ─── U18: the child's "My Week" recap (growth roadmap §6) ────────────────────
+//
+// Derived on read, never stored. Contains no sibling data by design — the leaderboard is
+// opt-out-able, and this surface has no opt out to offer.
+
+export interface WeekRecapResponse {
+  childId: string;
+  firstName: string;
+  weekStart: string;
+  weekEnd: string;
+  tasksApproved: number;
+  pointsEarned: number;
+  pointsSpent: number;
+  /** Null when nothing was approved — never an arbitrary default day. */
+  bestDay: { date: string; tasksApproved: number } | null;
+  currentStreak: number;
+  longestStreak: number;
+  achievementsUnlocked: Array<{ name: string; icon: string | null }>;
+  gamesPlayed: number;
+  teamUpsCompleted: number;
+  /** True when nothing happened. The UI says so plainly rather than inventing praise. */
+  quietWeek: boolean;
+}

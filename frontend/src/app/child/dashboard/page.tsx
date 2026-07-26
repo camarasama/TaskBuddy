@@ -304,6 +304,11 @@ export default function ChildDashboardPage() {
   }).length;
   const totalTasks = dashboardData.todaysTasks.length;
 
+  // Friday, Saturday or Sunday — the roadmap's "Fri/Sat" ritual, with Sunday included so a weekend
+  // away does not mean the prompt is missed entirely.
+  const recapDay = new Date().getDay();
+  const isRecapWeekend = recapDay === 5 || recapDay === 6 || recapDay === 0;
+
   return (
     <ChildLayout>
       {/* M7 - CR-06: Level-up celebration modal */}
@@ -359,6 +364,19 @@ export default function ChildDashboardPage() {
 
         {/* Growth roadmap §4.2 */}
         <GoalCard goal={data?.goal} />
+
+        {/* U18 — the weekly ritual. The prompt appears Fri–Sun; the recap page itself is reachable
+            any day, because hiding a child's own summary of their own week would be odd. */}
+        {isRecapWeekend && (
+          <Link href="/child/recap" className="block">
+            <div className="rounded-2xl bg-gradient-to-br from-primary-500 to-indigo-600 text-white p-5 shadow-lg">
+              <p className="font-display font-bold text-lg">Your week is ready 🎉</p>
+              <p className="text-white/85 text-sm mt-0.5">
+                See what you got done — tap to flip through.
+              </p>
+            </div>
+          </Link>
+        )}
 
         {/* ── M7: Dual Currency Row ──────────────────────────────────────────
           Two side-by-side cards replace the old single-currency display:

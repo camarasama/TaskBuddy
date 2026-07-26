@@ -6,6 +6,7 @@ import { withEvidenceUrlsList } from '../services/storage';
 import { GoalService } from '../services/GoalService';
 import { CalendarService } from '../services/CalendarService';
 import { isStreakAtRisk } from '../services/streakService';
+import { buildWeekRecap } from '../services/RecapService';
 import { getTodayChallenge } from '../services/ChallengeService';
 
 /**
@@ -298,6 +299,20 @@ dashboardRouter.get('/calendar', requireParent, async (req, res, next) => {
 });
 
 // GET /dashboard/child - Child dashboard overview
+
+/**
+ * GET /dashboard/child/recap — the child's "My Week" (growth roadmap §6).
+ *
+ * Scoped to the caller from the token and takes no childId, so it cannot be pointed at a sibling.
+ * Registered BEFORE /child so the more specific path is not shadowed.
+ */
+dashboardRouter.get('/child/recap', requireChild, async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await buildWeekRecap(req.user!.userId) });
+  } catch (error) {
+    next(error);
+  }
+});
 
 dashboardRouter.get('/child', requireChild, async (req, res, next) => {
   try {

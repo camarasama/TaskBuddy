@@ -12,6 +12,7 @@ import type {
   CreateRewardRequest,
   ParentDashboardResponse,
   ChildDashboardResponse,
+  WeekRecapResponse,
   PointsHistoryResponse,
   LeaderboardResponse,
   Family,
@@ -862,6 +863,10 @@ export const dashboardApi = {
 
   getChildDashboard: () =>
     request<ApiResponse<ChildDashboardResponse>>('/dashboard/child'),
+
+  /** U18 — last week, for the signed-in child. Takes no id: it is scoped from the token. */
+  getWeekRecap: () =>
+    request<ApiResponse<WeekRecapResponse>>('/dashboard/child/recap'),
 
   // Reconciled against the actual backend shape (GET /dashboard/points/:childId returns
   // { entries, currentBalance } - the old `{ history: unknown[] }` annotation here never matched
