@@ -7,6 +7,18 @@ import { GoalService } from '../services/GoalService';
 import { isStreakAtRisk } from '../services/streakService';
 import { getTodayChallenge } from '../services/ChallengeService';
 
+/**
+ * Roadmap §5.1 traffic-light: one word for "how is this child doing today".
+ *
+ * `none` also covers a child with nothing assigned — an empty day is not a red flag, and colouring
+ * it as one would train parents to ignore the signal.
+ */
+function trafficLight(todaysTasks: number, completedToday: number): 'none' | 'in_progress' | 'done' {
+  if (todaysTasks === 0) return 'none';
+  if (completedToday >= todaysTasks) return 'done';
+  return completedToday > 0 ? 'in_progress' : 'none';
+}
+
 export const dashboardRouter = Router();
 
 // All dashboard routes require authentication and family isolation
@@ -66,7 +78,7 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
     // Get stats for each child
     const childrenWithStats = await Promise.all(
       children.map(async (child) => {
-        const [todaysTasks, completedToday, pendingApproval] = await Promise.all([
+        const [todaysTasks, completedToday, pendingApproval, streakAtRisk] = await Promise.all([
           // Today's assigned tasks
           prisma.taskAssignment.count({
             where: {
@@ -92,6 +104,11 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
               task: { deletedAt: null },
             },
           }),
+          // Roadmap §5.1: the child dashboard has known this since M9; the PARENT — the person who
+          // can actually do something about it at dinner — has never been shown it.
+          // Promise.resolve so this does not depend on isStreakAtRisk staying async, and a failure
+          // degrades to "not at risk" rather than failing the whole dashboard.
+          Promise.resolve(isStreakAtRisk(child.id, req.familyId!)).catch(() => false),
         ]);
 
         const { passwordHash, ...user } = child;
@@ -105,6 +122,10 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
           todaysTasks,
           completedToday,
           pendingApproval,
+          streakAtRisk,
+          // Derived HERE rather than on the client: three counts turned into a status in two places
+          // is how two surfaces end up disagreeing about the same child.
+          todayStatus: trafficLight(todaysTasks, completedToday),
         };
       })
     );
@@ -176,11 +197,31 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
         },
       });
 
+      // Roadmap §5.1: the week before, so the card can show a direction rather than a bare number.
+      // A parent cannot tell whether 12 approvals is good without knowing last week was 4.
+      const twoWeeksAgo = new Date(weekAgo);
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 7);
+
+      const tasksCompletedPrevious = await tx.taskAssignment.count({
+        where: {
+          status: 'approved',
+          approvedAt: { gte: twoWeeksAgo, lt: weekAgo },
+          task: { familyId: req.familyId, deletedAt: null },
+        },
+      });
+
       return {
         tasksCompleted,
         tasksCreated,
         pointsEarned: pointsResult._sum.pointsAmount || 0,
         rewardsRedeemed,
+        tasksCompletedPrevious,
+        // Null, not 0, when there is no prior week to compare against — "no change" and "no history"
+        // are different things and a parent reads them differently.
+        tasksCompletedDelta:
+          tasksCompletedPrevious === 0 && tasksCompleted === 0
+            ? null
+            : tasksCompleted - tasksCompletedPrevious,
       };
     });
 

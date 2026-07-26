@@ -50,6 +50,10 @@ interface ChildSummary {
   // FR-14 / FR-11 surfaced here: both features shipped but were invisible from the dashboard.
   wishlistCount?: number;
   recentCommentCount?: number;
+  /** Roadmap §5.1 — derived server-side so this and any other surface agree. */
+  todayStatus?: 'none' | 'in_progress' | 'done';
+  /** The child dashboard has known this since M9; the parent never saw it. */
+  streakAtRisk?: boolean;
 }
 
 interface ParentSummary {
@@ -76,8 +80,17 @@ interface DashboardData {
     tasksCreated: number;
     pointsAwarded: number;
     rewardsRedeemed: number;
+    /** Null when there is no history either week — different from a real 0. */
+    tasksCompletedDelta: number | null;
   };
 }
+
+/** Traffic-light presentation. 'none' is grey, not red — an empty day is not a failure. */
+const TODAY_STATUS: Record<'none' | 'in_progress' | 'done', { dot: string; label: string }> = {
+  none: { dot: 'bg-slate-300', label: 'Nothing done yet today' },
+  in_progress: { dot: 'bg-warning-500', label: 'Part-way through today' },
+  done: { dot: 'bg-success-500', label: "Today's tasks are done" },
+};
 
 const defaultData: DashboardData = {
   family: { id: '', familyName: 'Your Family', memberCount: 0 },
@@ -85,7 +98,7 @@ const defaultData: DashboardData = {
   children: [],
   pendingApprovals: 0,
   pendingList: [],
-  weeklyStats: { tasksCompleted: 0, tasksCreated: 0, pointsAwarded: 0, rewardsRedeemed: 0 },
+  weeklyStats: { tasksCompleted: 0, tasksCreated: 0, pointsAwarded: 0, rewardsRedeemed: 0, tasksCompletedDelta: null },
 };
 
 export default function ParentDashboardPage() {
@@ -108,12 +121,15 @@ export default function ParentDashboardPage() {
             pendingApproval?: number;
             wishlistCount?: number;
             recentCommentCount?: number;
+            todayStatus?: 'none' | 'in_progress' | 'done';
+            streakAtRisk?: boolean;
           }>;
           weeklyStats?: {
             tasksCompleted?: number;
             tasksCreated?: number;
             pointsEarned?: number;
             rewardsRedeemed?: number;
+            tasksCompletedDelta?: number | null;
           };
           pendingApprovals?: PendingApproval[];
         };
@@ -129,6 +145,8 @@ export default function ParentDashboardPage() {
           tasksPendingApproval: child.pendingApproval ?? 0,
           wishlistCount: child.wishlistCount ?? 0,
           recentCommentCount: child.recentCommentCount ?? 0,
+          todayStatus: child.todayStatus ?? 'none',
+          streakAtRisk: child.streakAtRisk ?? false,
         }));
 
         const mappedParents: ParentSummary[] = apiData.parents || [];
@@ -151,6 +169,7 @@ export default function ParentDashboardPage() {
             tasksCreated: apiData.weeklyStats?.tasksCreated ?? 0,
             pointsAwarded: apiData.weeklyStats?.pointsEarned ?? 0,
             rewardsRedeemed: apiData.weeklyStats?.rewardsRedeemed ?? 0,
+            tasksCompletedDelta: apiData.weeklyStats?.tasksCompletedDelta ?? null,
           },
         });
       } catch {
@@ -402,6 +421,23 @@ export default function ParentDashboardPage() {
               <p className="text-2xl font-bold text-slate-900">
                 {data.weeklyStats.tasksCompleted}
               </p>
+              {/* A bare number cannot be judged; the direction is the useful part. Null means there
+                  is no history to compare against, which is not the same as "no change". */}
+              {data.weeklyStats.tasksCompletedDelta !== null && (
+                <p
+                  className={cn(
+                    'text-xs font-medium mt-0.5',
+                    data.weeklyStats.tasksCompletedDelta > 0
+                      ? 'text-success-600'
+                      : data.weeklyStats.tasksCompletedDelta < 0
+                        ? 'text-red-500'
+                        : 'text-slate-400',
+                  )}
+                >
+                  {data.weeklyStats.tasksCompletedDelta > 0 ? '↑' : data.weeklyStats.tasksCompletedDelta < 0 ? '↓' : '→'}{' '}
+                  {Math.abs(data.weeklyStats.tasksCompletedDelta)} vs last week
+                </p>
+              )}
             </div>
             <div>
               <p className="text-sm text-slate-600">Tasks Created</p>
@@ -478,6 +514,8 @@ function ChildCard({ child }: { child: ChildSummary }) {
   const tasksPendingApproval = child.tasksPendingApproval ?? 0;
   const wishlistCount = child.wishlistCount ?? 0;
   const recentCommentCount = child.recentCommentCount ?? 0;
+  const todayStatus = child.todayStatus ?? 'none';
+  const streakAtRisk = child.streakAtRisk ?? false;
 
   return (
     <Link href={`/parent/children/${child.id}`}>
@@ -487,6 +525,11 @@ function ChildCard({ child }: { child: ChildSummary }) {
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
+            {/* Roadmap §5.1 traffic light — one glance answers "how is this child doing today". */}
+            <span
+              title={TODAY_STATUS[todayStatus].label}
+              className={cn('w-2.5 h-2.5 rounded-full shrink-0', TODAY_STATUS[todayStatus].dot)}
+            />
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold">
               {getInitials(child.firstName, child.lastName)}
             </div>
@@ -496,9 +539,16 @@ function ChildCard({ child }: { child: ChildSummary }) {
             </div>
           </div>
           {currentStreak > 0 && (
-            <div className="flex items-center gap-1 text-orange-500 text-sm font-medium">
+            <div
+              className={cn(
+                'flex items-center gap-1 text-sm font-medium',
+                streakAtRisk ? 'text-red-500' : 'text-orange-500',
+              )}
+              title={streakAtRisk ? 'Nothing finished today — this streak breaks at midnight' : undefined}
+            >
               <span>🔥</span>
               <span>{currentStreak}</span>
+              {streakAtRisk && <span className="text-xs">at risk</span>}
             </div>
           )}
         </div>
