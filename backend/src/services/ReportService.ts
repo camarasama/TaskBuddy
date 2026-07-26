@@ -20,6 +20,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from './database';
+import type { GamesReport, WebhookReport } from '@taskbuddy/shared';
 
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
@@ -1099,6 +1100,180 @@ export async function getExecutionTimeReport(filters: ReportFilters): Promise<Ex
       anomalyCount: rows.filter((r) => r.anomaly).length,
       byDifficulty: Object.fromEntries(Object.entries(byDiff).map(([k, v]) => [k, { avg: v.avg, count: v.count }])),
       byChild: Object.fromEntries(Object.entries(byChild).map(([k, v]) => [k, { name: v.name, avg: v.avg, count: v.count }])),
+    },
+  };
+}
+
+// ─── R-12: Games (growth roadmap §6) ─────────────────────────────────────────
+
+/**
+ * Games have been awarding real points since they shipped and appearing in no report.
+ *
+ * The per-child block exists mainly to answer one question: "why did my child only get 10 points for
+ * that?" The answer is almost always `maxGamePointsPerDay`, which was invisible everywhere.
+ */
+export async function getGamesReport(filters: ReportFilters): Promise<GamesReport> {
+  // Guarded here rather than only at the route: an unscoped `familyId` would make the child query
+  // match every family's children, so the export path must not be able to reach it either.
+  if (!filters.familyId) {
+    return { games: [], children: [], totals: { plays: 0, completions: 0, pointsAwarded: 0 } };
+  }
+
+  const childWhere = {
+    familyId: filters.familyId,
+    role: 'child' as const,
+    deletedAt: null,
+    ...(filters.childId ? { id: filters.childId } : {}),
+  };
+
+  const children = await prisma.user.findMany({
+    where: childWhere,
+    select: { id: true, firstName: true, lastName: true },
+  });
+
+  const childIds = children.map((c) => c.id);
+  if (childIds.length === 0) {
+    return { games: [], children: [], totals: { plays: 0, completions: 0, pointsAwarded: 0 } };
+  }
+
+  const dateFilter =
+    filters.startDate || filters.endDate
+      ? {
+          ...(filters.startDate ? { gte: filters.startDate } : {}),
+          ...(filters.endDate ? { lte: filters.endDate } : {}),
+        }
+      : undefined;
+
+  const [definitions, sessions, settings] = await Promise.all([
+    prisma.gameDefinition.findMany({
+      select: { id: true, title: true, difficulty: true },
+    }),
+    prisma.gameSession.findMany({
+      where: {
+        childId: { in: childIds },
+        ...(dateFilter ? { submittedAt: dateFilter } : {}),
+      },
+      select: {
+        gameDefinitionId: true,
+        childId: true,
+        status: true,
+        pointsAwarded: true,
+        submittedAt: true,
+      },
+    }),
+    prisma.familySettings.findUnique({
+      where: { familyId: filters.familyId },
+      select: { maxGamePointsPerDay: true },
+    }),
+  ]);
+
+  const dailyCap = (settings as { maxGamePointsPerDay?: number } | null)?.maxGamePointsPerDay ?? 100;
+
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+
+  const gameStats = new Map<string, { plays: number; completions: number; points: number }>();
+  const childStats = new Map<string, { plays: number; points: number; today: number }>();
+
+  for (const s of sessions) {
+    const g = gameStats.get(s.gameDefinitionId) ?? { plays: 0, completions: 0, points: 0 };
+    g.plays++;
+    if (s.status === 'completed') g.completions++;
+    g.points += s.pointsAwarded;
+    gameStats.set(s.gameDefinitionId, g);
+
+    const c = childStats.get(s.childId) ?? { plays: 0, points: 0, today: 0 };
+    c.plays++;
+    c.points += s.pointsAwarded;
+    if (s.submittedAt && s.submittedAt >= todayStart) c.today += s.pointsAwarded;
+    childStats.set(s.childId, c);
+  }
+
+  return {
+    games: definitions.map((d) => {
+      const stat = gameStats.get(d.id) ?? { plays: 0, completions: 0, points: 0 };
+      return {
+        gameId: d.id,
+        title: d.title,
+        difficulty: String(d.difficulty),
+        plays: stat.plays,
+        completions: stat.completions,
+        // Null rather than 0 for a game never played — 0% pass rate reads as "everyone fails".
+        passRate: stat.plays > 0 ? Math.round((stat.completions / stat.plays) * 1000) / 10 : null,
+        averagePointsAwarded:
+          stat.completions > 0 ? Math.round(stat.points / stat.completions) : 0,
+        pointsAwardedTotal: stat.points,
+      };
+    }),
+    children: children.map((child) => {
+      const stat = childStats.get(child.id) ?? { plays: 0, points: 0, today: 0 };
+      return {
+        childId: child.id,
+        childName: `${child.firstName} ${child.lastName}`.trim(),
+        plays: stat.plays,
+        pointsEarnedTotal: stat.points,
+        pointsToday: stat.today,
+        dailyCap,
+        atDailyCap: stat.today >= dailyCap,
+      };
+    }),
+    totals: {
+      plays: sessions.length,
+      completions: sessions.filter((s) => s.status === 'completed').length,
+      pointsAwarded: sessions.reduce((n, s) => n + s.pointsAwarded, 0),
+    },
+  };
+}
+
+// ─── R-13: Webhook deliveries (growth roadmap §6) ────────────────────────────
+
+/**
+ * FR-18 auto-disables a subscription after repeated failures and surfaces that nowhere durable — an
+ * integration can be dead for a week with nothing showing it. This is that surface.
+ *
+ * **The signing secret is never selected.** Not masked, not redacted — simply not read from the
+ * database, so it cannot leak through a future field addition or an accidental spread.
+ */
+export async function getWebhookReport(filters: ReportFilters): Promise<WebhookReport> {
+  const subscriptions = await prisma.webhookSubscription.findMany({
+    where: filters.familyId ? { familyId: filters.familyId } : {},
+    // Explicit select, deliberately omitting `secret`.
+    select: {
+      id: true,
+      url: true,
+      events: true,
+      isActive: true,
+      failureCount: true,
+      lastSuccessAt: true,
+      lastFailureAt: true,
+      disabledAt: true,
+      recentFailures: true,
+    },
+    orderBy: [{ isActive: 'desc' }, { failureCount: 'desc' }],
+  });
+
+  const rows = subscriptions.map((s) => ({
+    subscriptionId: s.id,
+    url: s.url,
+    events: s.events,
+    isActive: s.isActive,
+    consecutiveFailures: s.failureCount,
+    lastSuccessAt: s.lastSuccessAt?.toISOString() ?? null,
+    lastFailureAt: s.lastFailureAt?.toISOString() ?? null,
+    disabledAt: s.disabledAt?.toISOString() ?? null,
+    recentFailures: Array.isArray(s.recentFailures)
+      ? (s.recentFailures as Array<{ at: string; event: string; reason: string; status?: number }>)
+      : [],
+  }));
+
+  return {
+    rows,
+    summary: {
+      total: rows.length,
+      active: rows.filter((r) => r.isActive).length,
+      autoDisabled: rows.filter((r) => r.disabledAt !== null).length,
+      // Failing but not yet disabled — the window in which a parent can still fix it.
+      failing: rows.filter((r) => r.isActive && r.consecutiveFailures > 0).length,
     },
   };
 }

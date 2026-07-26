@@ -18,6 +18,8 @@ import AchievementReport from '@/components/reports/AchievementReport';
 import LeaderboardReport from '@/components/reports/LeaderboardReport';
 import ExpiryOverdueReport from '@/components/reports/ExpiryOverdueReport';
 import TaskExecutionTimeReport from '@/components/reports/TaskExecutionTimeReport';
+import GamesReport from '@/components/reports/GamesReport';
+import WebhookReport from '@/components/reports/WebhookReport';
 
 // Audit Trail and Email Delivery are admin-only - not included here.
 const TABS = [
@@ -29,6 +31,10 @@ const TABS = [
   { id: 'r06', label: 'Leaderboard', icon: '🥇' },
   { id: 'r07', label: 'Expiry',      icon: '⏰' },
   { id: 'r11', label: 'Exec Time',   icon: '⏱️' },
+  { id: 'r12', label: 'Games',       icon: '🎮' },
+  // Webhooks are configured by parents in settings, so the health of their own integrations is
+  // theirs to see — not an admin-only concern.
+  { id: 'r13', label: 'Webhooks',    icon: '🔗' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -168,6 +174,8 @@ export default function ReportsPage() {
             {activeTab === 'r06' && <LeaderboardReport />}
             {activeTab === 'r07' && <ExpiryOverdueReport {...filters} />}
             {activeTab === 'r11' && <TaskExecutionTimeReport {...filters} />}
+            {activeTab === 'r12' && <GamesReport {...filters} />}
+            {activeTab === 'r13' && <WebhookReport {...filters} />}
           </div>
         </div>
       </div>

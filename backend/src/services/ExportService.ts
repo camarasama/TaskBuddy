@@ -23,6 +23,7 @@ import type {
   EmailDeliveryReport,
   ExecutionTimeReport,
 } from './ReportService';
+import type { GamesReport, WebhookReport } from '@taskbuddy/shared';
 
 // ─── PDF theme ────────────────────────────────────────────────────────────────
 const BRAND_BLUE = rgb(0.18, 0.39, 0.91);
@@ -639,4 +640,122 @@ export interface ReportCardData {
   previousMonthApproved: number | null;
   approvedDelta: number | null;
   isEmpty: boolean;
+}
+
+// ─── R-12 / R-13 (growth roadmap §6) ─────────────────────────────────────────
+
+/** R-12 CSV — one row per game, then one per child, since the two answer different questions. */
+export async function exportGamesCsv(report: GamesReport): Promise<Buffer> {
+  return rowsToCsvBuffer([
+    ...report.games.map((g) => ({
+      Section: 'Game',
+      Name: g.title,
+      Difficulty: fmtLabel(g.difficulty),
+      Plays: g.plays,
+      Completions: g.completions,
+      'Pass Rate %': g.passRate ?? '',
+      'Avg Points': g.averagePointsAwarded,
+      'Total Points': g.pointsAwardedTotal,
+      'Points Today': '',
+      'Daily Cap': '',
+      'At Cap': '',
+    })),
+    ...report.children.map((c) => ({
+      Section: 'Child',
+      Name: c.childName,
+      Difficulty: '',
+      Plays: c.plays,
+      Completions: '',
+      'Pass Rate %': '',
+      'Avg Points': '',
+      'Total Points': c.pointsEarnedTotal,
+      'Points Today': c.pointsToday,
+      'Daily Cap': c.dailyCap,
+      'At Cap': c.atDailyCap ? 'Yes' : '',
+    })),
+  ]);
+}
+
+/**
+ * R-13 CSV. Every column is named explicitly — the signing secret is not in the report type at all,
+ * and building the row by hand rather than spreading keeps it that way.
+ */
+export async function exportWebhookCsv(report: WebhookReport): Promise<Buffer> {
+  return rowsToCsvBuffer(
+    report.rows.map((r) => ({
+      URL: r.url,
+      Events: r.events.join(' '),
+      Active: r.isActive ? 'Yes' : 'No',
+      'Consecutive Failures': r.consecutiveFailures,
+      'Last Success': r.lastSuccessAt ?? '',
+      'Last Failure': r.lastFailureAt ?? '',
+      'Auto-disabled At': r.disabledAt ?? '',
+      'Latest Failure Reason': r.recentFailures[0]?.reason ?? '',
+    })),
+  );
+}
+
+/** R-12 PDF */
+export async function exportGamesPdf(report: GamesReport): Promise<Buffer> {
+  const ctx = await buildPdf(
+    'R-12: Games Report',
+    `${report.totals.plays} plays · ${report.totals.pointsAwarded} points awarded`,
+  );
+  drawSummaryBoxes(ctx, [
+    { label: 'Plays', value: report.totals.plays },
+    { label: 'Completions', value: report.totals.completions, color: GREEN },
+    { label: 'Points Awarded', value: report.totals.pointsAwarded },
+    { label: 'At Daily Cap', value: report.children.filter((c) => c.atDailyCap).length, color: AMBER },
+  ]);
+
+  drawHeading(ctx, 'By Game');
+  drawTable(ctx, ['Game', 'Difficulty', 'Plays', 'Completions', 'Pass %', 'Points'],
+    [150, 70, 50, 70, 50, 60],
+    report.games.map((g) => [
+      g.title.slice(0, 26), fmtLabel(g.difficulty), String(g.plays), String(g.completions),
+      g.passRate === null ? '—' : String(g.passRate), String(g.pointsAwardedTotal),
+    ]),
+  );
+
+  drawHeading(ctx, 'By Child');
+  drawTable(ctx, ['Child', 'Plays', 'Points Total', 'Points Today', 'Daily Cap'],
+    [140, 60, 80, 80, 70],
+    report.children.map((c) => [
+      c.childName.slice(0, 24), String(c.plays), String(c.pointsEarnedTotal),
+      // The cap is what a parent is actually looking for here, so it is spelled out on the row.
+      c.atDailyCap ? `${c.pointsToday} (at cap)` : String(c.pointsToday), String(c.dailyCap),
+    ]),
+  );
+  return finalize(ctx.pdfDoc);
+}
+
+/** R-13 PDF */
+export async function exportWebhookPdf(report: WebhookReport): Promise<Buffer> {
+  const ctx = await buildPdf(
+    'R-13: Webhook Deliveries',
+    `${report.summary.active} active · ${report.summary.autoDisabled} auto-disabled`,
+  );
+  drawSummaryBoxes(ctx, [
+    { label: 'Subscriptions', value: report.summary.total },
+    { label: 'Active', value: report.summary.active, color: GREEN },
+    {
+      label: 'Auto-disabled',
+      value: report.summary.autoDisabled,
+      color: report.summary.autoDisabled > 0 ? RED : GREEN,
+    },
+    { label: 'Failing', value: report.summary.failing, color: report.summary.failing > 0 ? AMBER : GREEN },
+  ]);
+
+  drawHeading(ctx, 'Subscriptions');
+  drawTable(ctx, ['URL', 'State', 'Failures', 'Last Success', 'Last Failure'],
+    [180, 70, 55, 90, 90],
+    report.rows.map((r) => [
+      r.url.slice(0, 34),
+      r.disabledAt ? 'Disabled' : r.isActive ? 'Active' : 'Paused',
+      String(r.consecutiveFailures),
+      r.lastSuccessAt?.slice(0, 10) ?? '—',
+      r.lastFailureAt?.slice(0, 10) ?? '—',
+    ]),
+  );
+  return finalize(ctx.pdfDoc);
 }
