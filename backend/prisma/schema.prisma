@@ -68,6 +68,18 @@ model User {
   passwordResetExpiresAt      DateTime? @map("password_reset_expires_at")
   mfaSecret                   String?   @map("mfa_secret")        // F-9: AES-256-GCM encrypted TOTP secret (admins)
   mfaEnabledAt                DateTime? @map("mfa_enabled_at")    // set once the first valid code is verified
+  /// Quiet hours (growth roadmap §6, and the §11 binding guardrail "quiet hours respected in push
+  /// scheduling"). HH:MM in the FAMILY's timezone, not UTC — see QuietHoursService. Suppresses the
+  /// web push only; the in-app notification is still written. Off by default, so this ships silent.
+  quietHoursEnabled  Boolean @default(false) @map("quiet_hours_enabled")
+  quietHoursStart    String  @default("20:00") @map("quiet_hours_start")
+  quietHoursEnd      String  @default("07:00") @map("quiet_hours_end")
+  /// Schooltime mode — a second window that applies only on the selected weekdays.
+  schooltimeEnabled  Boolean @default(false) @map("schooltime_enabled")
+  schooltimeStart    String  @default("08:30") @map("schooltime_start")
+  schooltimeEnd      String  @default("15:30") @map("schooltime_end")
+  /// ISO weekday numbers, 1 = Monday .. 7 = Sunday. Defaults to the school week.
+  schooltimeDays     Int[]   @default([1, 2, 3, 4, 5]) @map("schooltime_days")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")

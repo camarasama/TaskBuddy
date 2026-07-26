@@ -66,6 +66,9 @@ interface FamilySettingsData {
   enableDailyChallenges: boolean;
   enableLeaderboard: boolean;
   streakGracePeriodHours: number;
+  // U16 — quiet hours are stored as HH:MM and evaluated in THIS zone. Without it the windows are
+  // applied in UTC, which silences the wrong hours while the parent believes they are covered.
+  timezone: string;
 }
 
 /**
@@ -120,6 +123,26 @@ interface PendingInvite {
   invitedBy: { firstName: string; lastName: string };
 }
 
+/**
+ * U16 — a short, curated list rather than the ~600 zones `Intl.supportedValuesOf('timeZone')`
+ * returns. A scrolling wall of identifiers is a worse way to pick your own city, and the backend
+ * accepts any IANA string, so this list can grow on request without a schema change.
+ */
+const TIMEZONES = [
+  'UTC',
+  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Madrid', 'Europe/Rome',
+  'Europe/Lisbon', 'Europe/Amsterdam', 'Europe/Brussels', 'Europe/Zurich', 'Europe/Dublin',
+  'Europe/Stockholm', 'Europe/Warsaw', 'Europe/Athens', 'Europe/Moscow',
+  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix',
+  'America/Los_Angeles', 'America/Anchorage', 'America/Toronto', 'America/Vancouver',
+  'America/Mexico_City', 'America/Sao_Paulo', 'America/Bogota', 'America/Argentina/Buenos_Aires',
+  'Africa/Abidjan', 'Africa/Accra', 'Africa/Lagos', 'Africa/Dakar', 'Africa/Casablanca',
+  'Africa/Cairo', 'Africa/Nairobi', 'Africa/Johannesburg',
+  'Asia/Dubai', 'Asia/Karachi', 'Asia/Kolkata', 'Asia/Dhaka', 'Asia/Bangkok',
+  'Asia/Singapore', 'Asia/Hong_Kong', 'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Seoul',
+  'Australia/Perth', 'Australia/Sydney', 'Australia/Brisbane', 'Pacific/Auckland',
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ParentSettingsPage() {
@@ -146,6 +169,7 @@ export default function ParentSettingsPage() {
     enableDailyChallenges: true,
     enableLeaderboard: false,
     streakGracePeriodHours: 4,
+    timezone: 'UTC',
   });
 
   // M9 - Notification preference toggles
@@ -195,6 +219,7 @@ export default function ParentSettingsPage() {
           enableDailyChallenges: settingsData.enableDailyChallenges ?? true,
           enableLeaderboard: settingsData.enableLeaderboard ?? false,
           streakGracePeriodHours: settingsData.streakGracePeriodHours ?? 4,
+          timezone: settingsData.timezone ?? 'UTC',
         });
 
         // M9 - Merge persisted prefs over the default so any new keys added in
@@ -677,6 +702,29 @@ export default function ParentSettingsPage() {
               />
               <p className="text-sm text-slate-500 mt-1">
                 Extra hours before a streak is broken (0-12)
+              </p>
+            </div>
+
+            {/* U16 — quiet hours are meaningless without this. Surfaced here rather than buried
+                because the per-child windows below are interpreted in exactly this zone. */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Family time zone
+              </label>
+              <select
+                value={familySettings.timezone}
+                onChange={(e) =>
+                  setFamilySettings({ ...familySettings, timezone: e.target.value })
+                }
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+              <p className="text-sm text-slate-500 mt-1">
+                Used for quiet hours and schooltime mode. Set this before turning those on, or the
+                windows apply in the wrong hours.
               </p>
             </div>
           </div>

@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/Input';
 import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { ResetPinModal } from '@/components/ResetPinModal';
 import { AvatarUpload } from '@/components/AvatarUpload';
+import { QuietHoursCard } from '@/components/settings/QuietHoursCard';
 import { familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { downloadExport } from '@/lib/downloadExport';
@@ -50,6 +51,14 @@ interface Child {
   createdAt: Date | string;
   gender?: string | null;
   childProfile?: ChildProfile;
+  // U16 — quiet hours / schooltime, returned by GET /families/me/children/:id.
+  quietHoursEnabled?: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  schooltimeEnabled?: boolean;
+  schooltimeStart?: string;
+  schooltimeEnd?: string;
+  schooltimeDays?: number[];
 }
 
 export default function ChildDetailsPage() {
@@ -316,6 +325,27 @@ export default function ChildDetailsPage() {
               <p>No achievements yet</p>
               <p className="text-sm">Complete tasks to earn achievements!</p>
             </div>
+          </motion.div>
+
+          {/* Quiet hours / schooltime (U16) */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+          >
+            <QuietHoursCard
+              childId={child.id}
+              childName={child.firstName}
+              initial={{
+                quietHoursEnabled: child.quietHoursEnabled,
+                quietHoursStart: child.quietHoursStart,
+                quietHoursEnd: child.quietHoursEnd,
+                schooltimeEnabled: child.schooltimeEnabled,
+                schooltimeStart: child.schooltimeStart,
+                schooltimeEnd: child.schooltimeEnd,
+                schooltimeDays: child.schooltimeDays,
+              }}
+            />
           </motion.div>
         </div>
 
