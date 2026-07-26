@@ -12,6 +12,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { getInsights } from '../services/InsightsService';
+import { buildReportCard } from '../services/ReportCardService';
 import {
   getTaskCompletionReport, getPointsLedgerReport, getRewardRedemptionReport,
   getEngagementStreakReport, getAchievementReport, getLeaderboardReport,
@@ -27,6 +28,7 @@ import {
   exportEngagementStreakPdf, exportAchievementPdf, exportLeaderboardPdf,
   exportExpiryOverduePdf, exportPlatformHealthPdf, exportAuditTrailPdf, exportEmailDeliveryPdf,
   exportExecutionTimePdf,
+  exportReportCardPdf,
 } from '../services/ExportService';
 
 export const reportsRouter = Router();
@@ -139,7 +141,44 @@ reportsRouter.get('/email-delivery', async (req, res) => {
   catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
 });
 
+
+// ─── GET /reports/report-card?childId=&month=YYYY-MM  (PDF) ──────────────────
+//
+// Roadmap §5.4. Deliberately outside the /:name/export block: that route serves the R-01..R-11
+// analytical reports, and this is a shareable artefact for one child in one month, not a data dump.
+reportsRouter.get('/report-card', async (req: Request, res: Response) => {
+  try {
+    const filters = buildFilters(req);
+    const childId = req.query.childId as string | undefined;
+
+    if (!filters.familyId) { res.status(400).json({ error: 'No family in scope' }); return; }
+    if (!childId) { res.status(400).json({ error: 'childId is required' }); return; }
+
+    // Default to the month just gone — the card is a look back, so "this month so far" is rarely
+    // what anyone wants.
+    const now = new Date();
+    const previous = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const month =
+      (req.query.month as string | undefined) ?? previous.toISOString().slice(0, 7);
+
+    const card = await buildReportCard({ familyId: filters.familyId, childId, month });
+    const buffer = await exportReportCardPdf(card);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="taskbuddy-${card.childName.toLowerCase()}-${month}.pdf"`,
+    );
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
+  } catch (err) {
+    const status = (err as { statusCode?: number })?.statusCode ?? 500;
+    res.status(status).json({ error: 'Report card failed', detail: (err as Error)?.message });
+  }
+});
+
 // ─── Export: GET /:name/export?format=csv|pdf ─────────────────────────────────
+
 
 // All 10 reports now support both CSV and PDF
 const ALL_REPORTS = [

@@ -1095,6 +1095,13 @@ export interface InsightsReport {
 }
 
 export const reportsApi = {
+  /**
+   * Shareable monthly card for one child (roadmap §5.4). Month defaults server-side to the one just
+   * gone. Returns a URL for downloadExport rather than a body, since it is a file download.
+   */
+  reportCardUrl: (childId: string, month?: string) =>
+    `${API_BASE}/reports/report-card?childId=${encodeURIComponent(childId)}${month ? `&month=${month}` : ''}`,
+
   /** Growth roadmap §5.2 — not a CSV/PDF report, so it has no export pair. */
   insights: (params?: { childId?: string; weeks?: number }) => {
     const qs = new URLSearchParams();
