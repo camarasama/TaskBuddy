@@ -17,24 +17,16 @@ jest.mock('../src/services/storage', () => ({
   withEvidenceUrlsList: (list: unknown[]) => mockWithEvidenceUrlsList(list),
 }));
 
-jest.mock('../src/services/database', () => ({
-  prisma: {
-    family: { findUnique: jest.fn() },
-    user: { findMany: jest.fn() },
-    taskAssignment: { findMany: jest.fn(), count: jest.fn() },
-    // U7: the parent dashboard now attaches each child's pinned goal (roadmap §4.2), so
-    // GoalService's reads must exist here or the route throws before it responds.
-    rewardWishlist: { groupBy: jest.fn(), findFirst: jest.fn() },
-    childProfile: { findUnique: jest.fn() },
-    taskComment: { groupBy: jest.fn() },
-    task: { count: jest.fn() },
-    pointsLedger: { aggregate: jest.fn() },
-    rewardRedemption: { count: jest.fn() },
-    $transaction: jest.fn(),
-  },
-}));
+jest.mock('../src/services/database', () => {
+  // Shared fixture — see tests/fixtures/parentDashboard.ts. This route's hand-rolled mock broke four
+  // times as units added reads to it; anything new goes in the fixture, once.
+  const { makeDashboardPrismaMock } = require('./fixtures/parentDashboard');
+  return { prisma: makeDashboardPrismaMock() };
+});
 
-jest.mock('../src/services/streakService', () => ({ isStreakAtRisk: jest.fn(() => false) }));
+jest.mock('../src/services/streakService', () => ({
+  isStreakAtRisk: jest.fn().mockResolvedValue(false),
+}));
 jest.mock('../src/services/ChallengeService', () => ({ getTodayChallenge: jest.fn() }));
 jest.mock('../src/middleware/auth', () => ({
   authenticate: (_req: unknown, _res: unknown, next: () => void) => next(),
