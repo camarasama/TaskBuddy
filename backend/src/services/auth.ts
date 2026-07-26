@@ -5,6 +5,8 @@ import { prisma } from './database';
 import { config } from '../config';
 import { SessionService, type SessionContext } from './SessionService';
 import { AuditService } from './AuditService';
+import { AnalyticsService } from './AnalyticsService';
+import { generateReferralCode, resolveReferrer } from './ReferralService';
 import { EmailService } from './email';
 import { jwtVerifyOptions, jwtSignOptions } from '../utils/jwt';
 import { encryptSecret, decryptSecret, generateMfaSecret, mfaKeyUri, verifyMfaCode } from '../utils/mfa';
@@ -119,6 +121,8 @@ export interface RegisterInput {
     password: string;
     gender?: string;
   };
+  /** U20 — optional cross-family referral code. An unusable one is ignored, never fatal. */
+  referralCode?: string;
 }
 
 export interface LoginInput {
@@ -165,6 +169,11 @@ export class AuthService {
     // Generate a unique memorable family code before the transaction
     const familyCode = await generateFamilyCode();
 
+    // U20 — resolve the referral before the transaction. Self-referral is impossible here (the
+    // family does not exist yet) and an unknown code resolves to null rather than throwing: a
+    // mistyped referral must never cost a signup.
+    const referredByFamilyId = await resolveReferrer(input.referralCode);
+
     // Create family and parent user in transaction
     const result = await prisma.$transaction(async (tx) => {
       // Create family with memorable code
@@ -172,6 +181,9 @@ export class AuthService {
         data: {
           familyName,
           familyCode,
+          referralCode: generateReferralCode(),
+          // Write-once: set here at signup and never updated, so credit cannot be re-attributed.
+          referredByFamilyId,
         },
       });
 
@@ -204,6 +216,17 @@ export class AuthService {
       role: result.user.role,
     });
     await SessionService.create(result.user.id, tokens.refreshToken, { ...ctx, isChild: false });
+
+    // U20 — family ids only. AnalyticsService drops anything that looks like free text or an
+    // email, so there is nothing identifying in here even if the shape changes later.
+    if (referredByFamilyId) {
+      void AnalyticsService.record({
+        eventType: 'REFERRAL_SIGNUP',
+        familyId: result.family.id,
+        actorRole: 'parent',
+        payload: { referredBy: referredByFamilyId },
+      });
+    }
 
     // Remove sensitive data
     const { passwordHash: _, ...userWithoutPassword } = result.user;

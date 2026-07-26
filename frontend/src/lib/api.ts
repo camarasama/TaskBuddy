@@ -460,6 +460,16 @@ export const familyApi = {
       body: JSON.stringify({ childIds }),
     }),
 
+  /** U20 — the family's referral code, share link and a COUNT of families joined. */
+  getReferral: () =>
+    request<ApiResponse<{
+      referralCode: string;
+      shareUrl: string;
+      referredCount: number;
+      badge: string | null;
+      nextBadgeAt: number | null;
+    }>>('/families/me/referral'),
+
   getSettings: () =>
     request<ApiResponse<{ settings: FamilySettings }>>('/families/me/settings'),
 

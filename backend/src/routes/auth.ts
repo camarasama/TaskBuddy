@@ -87,6 +87,10 @@ const registerSchema = z.object({
       .optional(),
     gender: z.enum(['male', 'female']).optional(),
   }),
+  // U20 — optional cross-family referral. An unknown code is IGNORED rather than rejected: the
+  // whole point of this feature is to produce signups, and failing one over a mistyped code would
+  // defeat it. Length-bounded only; validity is resolved in the service.
+  referralCode: z.string().max(32).optional(),
 });
 
 const loginSchema = z.object({

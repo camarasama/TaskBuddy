@@ -13,6 +13,7 @@ import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
 // M5 - import capacity utility
 import { getChildCapacity, type ChildCapacity } from '../utils/assignmentLimits';
 // M8 - Audit logging for all mutating family routes
+import { getReferralSummary } from '../services/ReferralService';
 import { AuditService } from '../services/AuditService';
 // M9 - Email notifications
 import { EmailService } from '../services/email';
@@ -630,6 +631,21 @@ familyRouter.delete('/me/children/:id', requireParent, async (req, res, next) =>
 });
 
 // GET /families/me/settings - Get family settings
+/**
+ * GET /families/me/referral — the family's share link and progress (growth roadmap §7).
+ *
+ * Returns a COUNT of families referred, never a list: who signed up is their business, not this
+ * family's. The reward is a badge and nothing else — no points, no unlock — because anything with
+ * in-app value creates a reason to game it, and children are the only people here to game.
+ */
+familyRouter.get('/me/referral', requireParent, async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await getReferralSummary(req.familyId!) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 familyRouter.get('/me/settings', async (req, res, next) => {
   try {
     let settings = await prisma.familySettings.findUnique({

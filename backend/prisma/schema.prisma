@@ -19,6 +19,13 @@ model Family {
   id         String    @id @default(uuid())
   familyName String    @map("family_name")
   familyCode String?   @unique @map("family_code")
+  /// U20 — cross-family referral (growth roadmap §7). DELIBERATELY NOT `familyCode`: that one admits
+  /// a child to THIS family, and a referral code is meant to be posted publicly. Sharing one field
+  /// for both would turn every shared referral link into an account-takeover vector.
+  referralCode String?  @unique @map("referral_code")
+  /// The family whose code was used at registration. Write-once at signup, never updated.
+  /// No child data participates in referral, which keeps acquisition outside the COPPA surface.
+  referredByFamilyId String? @map("referred_by_family_id")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")

@@ -45,6 +45,8 @@ export interface RegisterRequest {
     phoneNumber?: string;
     gender?: string;
   };
+  /** U20 — optional cross-family referral code. An unknown code is ignored, never fatal. */
+  referralCode?: string;
 }
 
 export interface RegisterResponse {

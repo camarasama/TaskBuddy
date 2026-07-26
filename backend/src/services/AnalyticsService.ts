@@ -27,7 +27,9 @@ export type AnalyticsEventType =
   | 'FIRST_APPROVAL'
   | 'TASK_APPROVED'
   | 'DIGEST_SENT'
-  | 'DIGEST_OPENED';
+  | 'DIGEST_OPENED'
+  /** U20 — a signup attributed to another family's referral code. Family ids only, never names. */
+  | 'REFERRAL_SIGNUP';
 
 export type ActorRole = 'parent' | 'child' | 'admin' | 'system';
 
