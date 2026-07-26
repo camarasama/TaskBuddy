@@ -285,3 +285,61 @@ export interface TaskExecutionTimeReport {
     byChild: Record<string, { name: string; avg: number; count: number }>;
   };
 }
+
+// ─── R-12: Games (growth roadmap §6) ─────────────────────────────────────────
+//
+// Games award real points, up to maxGamePointsPerDay per child, and until now appeared in no report
+// at all — a parent finding `game_reward` rows in the ledger had nothing explaining them.
+
+export interface GamesReportGameRow {
+  gameId: string;
+  title: string;
+  difficulty: string;
+  plays: number;
+  completions: number;
+  /** completions / plays as a percentage. Null when never played — not 0. */
+  passRate: number | null;
+  averagePointsAwarded: number;
+  pointsAwardedTotal: number;
+}
+
+export interface GamesReportChildRow {
+  childId: string;
+  childName: string;
+  plays: number;
+  pointsEarnedTotal: number;
+  /** Points from games earned today, against the family's cap. */
+  pointsToday: number;
+  dailyCap: number;
+  /** True when the child has already hit today's ceiling — the usual "why only 10?" answer. */
+  atDailyCap: boolean;
+}
+
+export interface GamesReport {
+  games: GamesReportGameRow[];
+  children: GamesReportChildRow[];
+  totals: { plays: number; completions: number; pointsAwarded: number };
+}
+
+// ─── R-13: Webhook deliveries (growth roadmap §6) ─────────────────────────────
+//
+// FR-18 auto-disables a subscription after repeated failures and surfaces that nowhere durable. An
+// integration can be dead for a week with nothing showing it. The signing secret NEVER appears here.
+
+export interface WebhookReportRow {
+  subscriptionId: string;
+  url: string;
+  events: string[];
+  isActive: boolean;
+  consecutiveFailures: number;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  /** Set when FR-18's auto-disable fired. The reason this report exists. */
+  disabledAt: string | null;
+  recentFailures: Array<{ at: string; event: string; reason: string; status?: number }>;
+}
+
+export interface WebhookReport {
+  rows: WebhookReportRow[];
+  summary: { total: number; active: number; autoDisabled: number; failing: number };
+}

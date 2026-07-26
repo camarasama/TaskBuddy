@@ -17,17 +17,18 @@ import {
   getTaskCompletionReport, getPointsLedgerReport, getRewardRedemptionReport,
   getEngagementStreakReport, getAchievementReport, getLeaderboardReport,
   getExpiryOverdueReport, getPlatformHealthReport, getAuditTrailReport,
-  getEmailDeliveryReport, getExecutionTimeReport, ReportFilters,
+  getEmailDeliveryReport, getExecutionTimeReport, getGamesReport, getWebhookReport,
+  ReportFilters,
 } from '../services/ReportService';
 import {
   exportTaskCompletionCsv, exportPointsLedgerCsv, exportRewardRedemptionCsv,
   exportEngagementStreakCsv, exportAchievementCsv, exportLeaderboardCsv,
   exportExpiryOverdueCsv, exportPlatformHealthCsv, exportAuditTrailCsv, exportEmailDeliveryCsv,
-  exportExecutionTimeCsv,
+  exportExecutionTimeCsv, exportGamesCsv, exportWebhookCsv,
   exportTaskCompletionPdf, exportPointsLedgerPdf, exportRewardRedemptionPdf,
   exportEngagementStreakPdf, exportAchievementPdf, exportLeaderboardPdf,
   exportExpiryOverduePdf, exportPlatformHealthPdf, exportAuditTrailPdf, exportEmailDeliveryPdf,
-  exportExecutionTimePdf,
+  exportExecutionTimePdf, exportGamesPdf, exportWebhookPdf,
   exportReportCardPdf,
 } from '../services/ExportService';
 
@@ -141,6 +142,28 @@ reportsRouter.get('/email-delivery', async (req, res) => {
   catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
 });
 
+// R-12 — games have been awarding real points with no report behind them since they shipped.
+reportsRouter.get('/games', async (req, res) => {
+  try {
+    const filters = buildFilters(req);
+    if (!filters.familyId) { res.status(400).json({ error: 'No family in scope' }); return; }
+    res.json(await getGamesReport(filters));
+  } catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+});
+
+// R-13 — FR-18 auto-disables a subscription and tells nobody. This is where that becomes visible.
+// An admin with no familyId query sees every family's subscriptions; a parent only ever sees theirs.
+reportsRouter.get('/webhook-deliveries', async (req, res) => {
+  try {
+    const user = (req as any).user as { familyId?: string; role: string };
+    const filters = buildFilters(req);
+    if (user.role !== 'admin' && !filters.familyId) {
+      res.status(400).json({ error: 'No family in scope' }); return;
+    }
+    res.json(await getWebhookReport(filters));
+  } catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+});
+
 
 // ─── GET /reports/report-card?childId=&month=YYYY-MM  (PDF) ──────────────────
 //
@@ -184,7 +207,7 @@ reportsRouter.get('/report-card', async (req: Request, res: Response) => {
 const ALL_REPORTS = [
   'task-completion', 'points-ledger', 'reward-redemption', 'engagement-streak',
   'achievement', 'leaderboard', 'expiry-overdue', 'platform-health',
-  'audit-trail', 'email-delivery', 'task-execution-time',
+  'audit-trail', 'email-delivery', 'task-execution-time', 'games', 'webhook-deliveries',
 ] as const;
 
 type ReportName = typeof ALL_REPORTS[number];
@@ -234,6 +257,8 @@ reportsRouter.get('/:name/export', async (req: Request, res: Response) => {
         }
         case 'email-delivery':        buffer = await exportEmailDeliveryCsv(await getEmailDeliveryReport(filters)); break;
         case 'task-execution-time':   buffer = await exportExecutionTimeCsv(await getExecutionTimeReport(filters)); break;
+        case 'games':                 buffer = await exportGamesCsv(await getGamesReport(filters)); break;
+        case 'webhook-deliveries':    buffer = await exportWebhookCsv(await getWebhookReport(filters)); break;
         default: res.status(404).json({ error: `Unknown report: ${name}` }); return;
       }
     } else {
@@ -257,6 +282,8 @@ reportsRouter.get('/:name/export', async (req: Request, res: Response) => {
         }
         case 'email-delivery':        buffer = await exportEmailDeliveryPdf(await getEmailDeliveryReport(filters)); break;
         case 'task-execution-time':   buffer = await exportExecutionTimePdf(await getExecutionTimeReport(filters)); break;
+        case 'games':                 buffer = await exportGamesPdf(await getGamesReport(filters)); break;
+        case 'webhook-deliveries':    buffer = await exportWebhookPdf(await getWebhookReport(filters)); break;
         default: res.status(404).json({ error: `Unknown report: ${name}` }); return;
       }
     }

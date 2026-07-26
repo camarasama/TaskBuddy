@@ -18,6 +18,8 @@ import ExpiryOverdueReport from '@/components/reports/ExpiryOverdueReport';
 import PlatformHealthReport from '@/components/reports/PlatformHealthReport';
 import AuditTrailReport from '@/components/reports/AuditTrailReport';
 import EmailDeliveryReport from '@/components/reports/EmailDeliveryReport';
+import GamesReport from '@/components/reports/GamesReport';
+import WebhookReport from '@/components/reports/WebhookReport';
 
 const TABS = [
   { id: 'r08', label: 'R-08 Platform Health', icon: '📊', adminOnly: true },
@@ -30,6 +32,8 @@ const TABS = [
   { id: 'r07', label: 'R-07 Expiry',           icon: '⏰' },
   { id: 'r09', label: 'R-09 Audit Trail',      icon: '📋' },
   { id: 'r10', label: 'R-10 Email Delivery',   icon: '✉️' },
+  { id: 'r12', label: 'R-12 Games',            icon: '🎮' },
+  { id: 'r13', label: 'R-13 Webhooks',         icon: '🔗' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -150,6 +154,8 @@ export default function AdminReportsPage() {
           {activeTab === 'r07' && <ExpiryOverdueReport {...filters} />}
           {activeTab === 'r09' && <AuditTrailReport {...filters} />}
           {activeTab === 'r10' && <EmailDeliveryReport {...filters} />}
+          {activeTab === 'r12' && <GamesReport {...filters} />}
+          {activeTab === 'r13' && <WebhookReport {...filters} />}
         </div>
       </div>
     </div>

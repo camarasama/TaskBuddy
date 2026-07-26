@@ -50,6 +50,8 @@ import type {
   AuditTrailReport,
   EmailDeliveryReport,
   TaskExecutionTimeReport,
+  GamesReport,
+  WebhookReport,
   GamesListResponse,
   GameSession,
   GameSessionResume,
@@ -1176,6 +1178,12 @@ export const reportsApi = {
 
   getExecutionTime: (params?: ReportParams) =>
     request<TaskExecutionTimeReport>(`/reports/task-execution-time${buildReportQuery(params)}`),
+
+  getGames: (params?: ReportParams) =>
+    request<GamesReport>(`/reports/games${buildReportQuery(params)}`),
+
+  getWebhookDeliveries: (params?: ReportParams) =>
+    request<WebhookReport>(`/reports/webhook-deliveries${buildReportQuery(params)}`),
 
   exportCsvUrl: (reportName: string, params?: ReportParams & { period?: string }): string => {
     const p: Record<string, string> = { format: 'csv' };
