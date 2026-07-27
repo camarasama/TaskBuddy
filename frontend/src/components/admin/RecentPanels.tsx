@@ -70,8 +70,13 @@ function Panel({
   );
 }
 
+/**
+ * `href` is optional on purpose. There is no /admin/users/[id] page — the admin area has a family
+ * detail page but never had a user one — so a user row links to its FAMILY, and an admin (who has
+ * no family) is not a link at all. Linking to a route that does not exist just 404s.
+ */
 function Row({ href, primary, secondary, date }: {
-  href: string;
+  href?: string;
   primary: string;
   secondary: string;
   date: Date | string;
@@ -79,9 +84,13 @@ function Row({ href, primary, secondary, date }: {
   return (
     <li className="px-5 py-3 flex items-center justify-between gap-3">
       <div className="min-w-0">
-        <a href={href} className="font-medium text-slate-800 hover:text-indigo-600 truncate block">
-          {primary}
-        </a>
+        {href ? (
+          <a href={href} className="font-medium text-slate-800 hover:text-indigo-600 truncate block">
+            {primary}
+          </a>
+        ) : (
+          <span className="font-medium text-slate-800 truncate block">{primary}</span>
+        )}
         <p className="text-xs text-slate-400 truncate">{secondary}</p>
       </div>
       <span className="text-xs text-slate-400 shrink-0">{formatDate(date)}</span>
@@ -148,7 +157,7 @@ export function RecentUsersPanel() {
       {users.map((u) => (
         <Row
           key={u.id}
-          href={`/admin/users/${u.id}`}
+          href={u.familyId ? `/admin/families/${u.familyId}` : undefined}
           primary={`${u.firstName} ${u.lastName}`}
           secondary={`${u.role}${u.family?.familyName ? ` · ${u.family.familyName}` : ''}`}
           date={u.createdAt}
