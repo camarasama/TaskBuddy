@@ -99,6 +99,11 @@ export interface ChildProfile extends BaseModel {
   experiencePoints: number;
   // M7: Lifetime XP earned - drives level calculation, never spent, never reset
   totalXpEarned: number;
+  /** Emoji avatar the child picked (allow-listed). */
+  avatarEmoji?: string | null;
+  /** A photo the child chose, visible to nobody until a parent approves it. */
+  pendingAvatarUrl?: string | null;
+  pendingAvatarAt?: Date | string | null;
 }
 
 // Task template (reusable task definitions)

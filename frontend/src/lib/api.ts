@@ -501,6 +501,25 @@ export const familyApi = {
       { method: 'PUT', body: JSON.stringify({ avatarEmoji }) },
     ),
 
+  /** Child proposes a profile photo. It stays pending until a parent approves it. */
+  setMyAvatarPhoto: (avatarUrl: string | null) =>
+    request<ApiResponse<{ profile: { userId: string; pendingAvatarUrl: string | null; pendingAvatarAt: string | null } }>>(
+      '/families/me/my-avatar-photo',
+      { method: 'PUT', body: JSON.stringify({ avatarUrl }) },
+    ),
+
+  approveChildAvatar: (childId: string) =>
+    request<ApiResponse<{ approved: boolean; avatarUrl: string | null }>>(
+      `/families/me/children/${childId}/avatar/approve`,
+      { method: 'POST' },
+    ),
+
+  rejectChildAvatar: (childId: string) =>
+    request<ApiResponse<{ approved: boolean; avatarUrl: string | null }>>(
+      `/families/me/children/${childId}/avatar/reject`,
+      { method: 'POST' },
+    ),
+
   updateChild: (childId: string, data: UpdateChildRequest) =>
     request<ApiResponse<{ child: FamilyMember }>>(`/families/me/children/${childId}`, {
       method: 'PUT',

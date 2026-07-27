@@ -149,6 +149,12 @@ model ChildProfile {
   totalXpEarned       Int       @default(0) @map("total_xp_earned")
   // M10 - Phase 5: selected emoji avatar from the avatar picker grid
   avatarEmoji         String?   @map("avatar_emoji")
+  /// A photo the CHILD chose, held here until a parent approves it — only then is it copied to
+  /// User.avatarUrl. Deliberately not written straight through: a photo is user-generated content
+  /// visible to the whole family on an app for 10-16 year olds. The emoji picker is an allow-list
+  /// for exactly that reason; a photo cannot be, so a parent is the gate instead.
+  pendingAvatarUrl    String?   @map("pending_avatar_url")
+  pendingAvatarAt     DateTime? @map("pending_avatar_at")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
