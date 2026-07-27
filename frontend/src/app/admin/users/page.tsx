@@ -13,6 +13,7 @@ import { useDataRefresh } from '@/hooks/useDataRefresh';
 import { useEffect, useState, useCallback } from 'react';
 import { adminApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { RecentUsersPanel } from '@/components/admin/RecentPanels';
 
 interface UserRow {
   id: string;
@@ -101,6 +102,11 @@ export default function AdminUsersPage() {
             {data ? `${data.total.toLocaleString()} users across all families` : 'Loading…'}
           </p>
         </div>
+      </div>
+
+      {/* Newest sign-ups, independent of whatever the list below is filtered to. */}
+      <div className="mb-6">
+        <RecentUsersPanel />
       </div>
 
       {/* Search */}

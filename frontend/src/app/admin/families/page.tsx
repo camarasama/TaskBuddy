@@ -13,6 +13,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { adminApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { RecentFamiliesPanel } from '@/components/admin/RecentPanels';
 
 interface Family {
   id: string;
@@ -103,6 +104,11 @@ export default function AdminFamiliesPage() {
             {data ? `${data.total.toLocaleString()} families registered` : 'Loading…'}
           </p>
         </div>
+      </div>
+
+      {/* Newest registrations, independent of whatever the list below is filtered to. */}
+      <div className="mb-6">
+        <RecentFamiliesPanel />
       </div>
 
       {/* Search */}
