@@ -376,14 +376,16 @@ async function build() {
   );
 
   // Role cards
+  // Parents and children only. Administration is an internal function and has no place in a manual
+  // that goes to customers.
   const roles = [
-    ['Parent', 'Create tasks and rewards,', 'approve work, view reports'],
-    ['Child', 'Complete tasks, play games,', 'earn points, spend them'],
-    ['Admin', 'Platform oversight across', 'all families'],
+    ['Parent', 'Create tasks and rewards, approve', 'work, manage children, view reports'],
+    ['Child', 'Complete tasks, play games, earn', 'points and spend them on rewards'],
   ];
-  const cardW = (cw - MARGIN * 2 - 24) / 3;
+  const gap = 16;
+  const cardW = (cw - MARGIN * 2 - gap * (roles.length - 1)) / roles.length;
   roles.forEach((role, i) => {
-    const x = MARGIN + i * (cardW + 12);
+    const x = MARGIN + i * (cardW + gap);
     const y = ch - 500;
     cover.drawRectangle({ x, y, width: cardW, height: 76, color: ROW_TINT });
     cover.drawRectangle({ x, y: y + 73, width: cardW, height: 3, color: BRAND_BLUE });
