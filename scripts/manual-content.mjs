@@ -3,6 +3,10 @@
  *
  * Kept separate from the renderer so the words can be edited without touching layout code.
  *
+ * **This manual is for customers: parents and children.** Administration is an internal function and
+ * is deliberately absent — a customer-facing manual should not teach, or advertise, suspending
+ * families and reading audit logs.
+ *
  * **Everything here must describe something a user can actually find in the product.** While writing
  * v2 two features were deliberately left out for exactly that reason: avatar cosmetics (the API
  * exists, no screen calls it) and public report-card share links (not built — an unauthenticated URL
@@ -85,7 +89,6 @@ export const MANUAL = {
         ['Parent', 'Create tasks and rewards, approve work, manage children, view reports and settings'],
         ['Co-parent', 'The same as a parent. Invited by email; both parents share equal access'],
         ['Child', 'Complete tasks, play games, earn and spend points, collect badges'],
-        ['Admin', 'Platform-wide oversight across all families. Not a member of any family'],
       ],
     },
 
@@ -521,114 +524,10 @@ export const MANUAL = {
 
     { type: 'pagebreak' },
 
-    // ─── 4. Admin ─────────────────────────────────────────────────────────────
-    { type: 'h1', text: '4. Administrator Guide' },
-    {
-      type: 'p',
-      text:
-        'The administrator role provides oversight across every family on the platform. Admins do not ' +
-        'belong to a family and cannot act inside one on a parent\'s behalf.',
-    },
-    {
-      type: 'warn',
-      text:
-        'Admin accounts are created manually and are not reachable from the public registration flow. ' +
-        'Two-factor authentication can be required for all admin sign-ins.',
-    },
+    // ─── 4. Troubleshooting ───────────────────────────────────────────────────
+    { type: 'h1', text: '4. Troubleshooting' },
 
-    { type: 'h2', text: '4.1 Overview' },
-    {
-      type: 'bullets',
-      items: [
-        'Families, users, tasks and completions across the whole platform.',
-        'Active, suspended and inactive family counts.',
-        'Email delivery in the last 24 hours, sent against failed.',
-      ],
-    },
-
-    { type: 'h2', text: '4.2 Families and users' },
-    {
-      type: 'bullets',
-      items: [
-        'Families lists every registered family; open one to see its members, tasks and family code.',
-        'Suspending a family blocks all of its logins and records the reason in the audit log. ' +
-          'Reactivating is immediate and is also recorded.',
-        'Users searches every account by name or email — useful when investigating a support request.',
-      ],
-    },
-
-    { type: 'h2', text: '4.3 Achievements and games' },
-    {
-      type: 'bullets',
-      items: [
-        'Achievements manages the global badge definitions every family shares. Deleting one never ' +
-          'removes a badge a child has already earned.',
-        'Games manages the quiz library: create and edit games and their question banks, and check ' +
-          'rotation health — whether each game has enough questions to keep serving a fresh set daily.',
-      ],
-    },
-
-    { type: 'h2', text: '4.4 Funnel' },
-    {
-      type: 'p',
-      text:
-        'Funnel shows how new families progress from signing up to their first approved task, and ' +
-        'where they stop. Families that never convert stay in the denominator, so the numbers are ' +
-        'honest rather than flattering.',
-    },
-
-    { type: 'h2', text: '4.5 Audit log' },
-    {
-      type: 'p',
-      text:
-        'An immutable record of every significant action. It cannot be edited or deleted. Filter by ' +
-        'actor, action type, resource type, family or date range, and export to CSV.',
-    },
-    {
-      type: 'table',
-      head: ['Action', 'What it records'],
-      widths: [150, 340],
-      rows: [
-        ['CREATE / UPDATE / DELETE', 'A resource was created, edited or removed'],
-        ['APPROVE / REJECT', 'A task completion was approved or returned'],
-        ['REDEEM / FULFILL', 'A reward was claimed, or marked as delivered'],
-        ['SUSPEND / REACTIVATE', 'A family was suspended or restored by an admin'],
-        ['LOGIN / REGISTER', 'A sign-in or a new account'],
-        ['INVITE_SENT / ACCEPTED', 'A co-parent invitation was sent or accepted'],
-        ['FORCE_RESET', 'An admin forced a password reset'],
-      ],
-    },
-    {
-      type: 'note',
-      text:
-        'An entry with no actor is a scheduled system action — an overnight task expiry or streak ' +
-        'sweep. That is expected, not a fault.',
-    },
-
-    { type: 'h2', text: '4.6 Emails and security' },
-    {
-      type: 'bullets',
-      items: [
-        'Emails shows the delivery history of every message sent, with the failure reason where there ' +
-          'is one, and a resend button.',
-        'Security surfaces platform-level checks and administrator access controls.',
-      ],
-    },
-
-    { type: 'h2', text: '4.7 Admin reports' },
-    {
-      type: 'p',
-      text:
-        'Admins see the eleven family reports with an added family filter, plus three that only exist ' +
-        'at platform level: R-08 Platform Health, R-09 Audit Trail and R-10 Email Delivery.',
-    },
-
-    { type: 'pagebreak' },
-
-    // ─── 5. Troubleshooting ───────────────────────────────────────────────────
-    { type: 'h1', text: '5. Troubleshooting' },
-
-    { type: 'h2', text: '5.1 Parents' },
+    { type: 'h2', text: '4.1 Parents' },
     {
       type: 'table',
       head: ['Problem', 'What to do'],
@@ -646,7 +545,7 @@ export const MANUAL = {
       ],
     },
 
-    { type: 'h2', text: '5.2 Children' },
+    { type: 'h2', text: '4.2 Children' },
     {
       type: 'table',
       head: ['Problem', 'What to do'],
@@ -663,24 +562,11 @@ export const MANUAL = {
       ],
     },
 
-    { type: 'h2', text: '5.3 Administrators' },
-    {
-      type: 'table',
-      head: ['Problem', 'What to do'],
-      widths: [180, 310],
-      rows: [
-        ['A family is missing', 'Check the status filter — suspended families are hidden by default'],
-        ['An email shows "failed"', 'Open it for the error, then use Resend. Repeated failures mean a mail configuration problem'],
-        ['An audit entry has no actor', 'That is a scheduled system action, and is expected'],
-        ['A badge did not unlock', 'Badges are evaluated on approval. Check the last approved task'],
-        ['A game repeats questions', 'Check rotation health under Games — the bank may be too small for a daily rotation'],
-      ],
-    },
 
     { type: 'pagebreak' },
 
-    // ─── 6. Glossary ──────────────────────────────────────────────────────────
-    { type: 'h1', text: '6. Glossary' },
+    // ─── 5. Glossary ──────────────────────────────────────────────────────────
+    { type: 'h1', text: '5. Glossary' },
     {
       type: 'table',
       head: ['Term', 'Meaning'],
@@ -707,7 +593,6 @@ export const MANUAL = {
         ['Badge', 'Unlocked automatically when a child reaches a milestone'],
         ['Report card', 'A shareable one-page monthly PDF summary for one child'],
         ['Webhook', 'A way to send TaskBuddy events to another service you use'],
-        ['Audit log', 'An immutable record of every significant action, visible to admins'],
       ],
     },
   ],
