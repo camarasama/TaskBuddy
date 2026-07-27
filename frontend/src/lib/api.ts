@@ -483,7 +483,8 @@ export const familyApi = {
     firstName: string;
     lastName: string;
     dateOfBirth: string;
-    username?: string;
+    /** Required: the child's login handle, unique within the family. */
+    username: string;
     pin?: string;
     email?: string;
     gender?: string;

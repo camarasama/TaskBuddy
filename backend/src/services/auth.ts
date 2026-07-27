@@ -142,7 +142,8 @@ export interface AddChildInput {
   firstName: string;
   lastName: string;
   dateOfBirth: Date;
-  username?: string;
+  /** Required: this is the child's login handle. Unique within the family, stored lowercased. */
+  username: string;
   pin?: string;
   createdBy: string;
   email?: string;
@@ -386,16 +387,18 @@ export class AuthService {
     // same dummy compare and the same generic error below. A distinct "Family not found" reply
     // (F-10d) revealed which family codes are real, both by its message and by returning before
     // the bcrypt work.
+    // Match on username ONLY. This used to also match firstName, which made the lookup ambiguous
+    // for two siblings sharing a name: findFirst returned an arbitrary one, so the other child
+    // could never log in and each of her attempts counted a failure against her sibling's
+    // account. Usernames are unique per family and stored lowercased, so an exact match on the
+    // lowercased input is both unambiguous and index-friendly.
     const user = family
       ? await prisma.user.findFirst({
           where: {
             familyId: family.id,
             role: 'child',
             deletedAt: null,
-            OR: [
-              { firstName: { equals: childIdentifier, mode: 'insensitive' } },
-              { username: { equals: childIdentifier, mode: 'insensitive' } },
-            ],
+            username: childIdentifier.trim().toLowerCase(),
           },
           include: {
             childProfile: true,
@@ -488,14 +491,24 @@ export class AuthService {
       throw new UnauthorizedError('Not authorized to add children to this family');
     }
 
-    // Check if username is taken (if provided)
-    if (username) {
-      const existingUsername = await prisma.user.findFirst({
-        where: { username: { equals: username, mode: 'insensitive' } },
-      });
-      if (existingUsername) {
-        throw new ConflictError('Username already taken');
-      }
+    // The username is the child's login handle, so it is mandatory. It is unique within the
+    // FAMILY, not globally — the old check was global, which meant one family taking "sam"
+    // permanently blocked every other family from using it.
+    const normalizedUsername = username?.trim().toLowerCase();
+    if (!normalizedUsername) {
+      throw new ValidationError('Username is required');
+    }
+    if (!/^[a-z0-9_]{3,20}$/.test(normalizedUsername)) {
+      throw new ValidationError(
+        'Username must be 3-20 characters, using only letters, numbers or underscores',
+      );
+    }
+
+    const existingUsername = await prisma.user.findFirst({
+      where: { familyId, username: normalizedUsername },
+    });
+    if (existingUsername) {
+      throw new ConflictError('That username is already taken in this family');
     }
 
     // Determine age group
@@ -521,7 +534,7 @@ export class AuthService {
           role: 'child',
           firstName,
           lastName,
-          username: username?.toLowerCase(),
+          username: normalizedUsername,
           ...(email ? { email: email.toLowerCase() } : {}),
           ...(gender ? { gender } : {}),
         },

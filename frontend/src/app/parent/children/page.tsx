@@ -278,7 +278,7 @@ function ChildModal({
         await familyApi.updateChild(child.id, {
           firstName: formData.firstName,
           lastName: formData.lastName,
-          username: formData.username || undefined,
+          username: formData.username.trim().toLowerCase(),
           avatarUrl: formData.avatarUrl || undefined,
           gender: formData.gender || undefined,
         });
@@ -297,7 +297,7 @@ function ChildModal({
         await familyApi.addChild({
           firstName: formData.firstName,
           lastName: formData.lastName,
-          username: formData.username || undefined,
+          username: formData.username.trim().toLowerCase(),
           dateOfBirth: formData.dateOfBirth,
           pin: formData.pin || undefined,
           email: formData.email || undefined,
@@ -353,10 +353,15 @@ function ChildModal({
           </div>
 
           <Input
-            label="Username (optional)"
-            placeholder="For child login"
+            label="Username"
+            placeholder="What your child types to log in"
             value={formData.username}
             onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+            minLength={3}
+            maxLength={20}
+            pattern="[a-zA-Z0-9_]+"
+            title="3-20 characters: letters, numbers or underscores"
+            required
           />
 
           <div>
