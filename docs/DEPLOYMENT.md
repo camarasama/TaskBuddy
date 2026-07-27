@@ -406,6 +406,30 @@ a pair.
 - **Shared package** (`@taskbuddy/shared`) must resolve to its compiled `dist/` at runtime
   (its `package.json` exports point there); `node dist/index.js` cannot run the TS source.
 - Backend must `trust proxy` in production (set) so rate limiting keys on the real client IP.
+- **The frontend must be BUILT and SERVED by the same Next.js.** `ExecStart` runs
+  `<repo>/node_modules/.bin/next`, while `npm run build:frontend` resolves `next` from
+  `frontend/`. If a second copy ever lands in `frontend/node_modules/next`, those are two
+  different programs and the mismatch is invisible to a green build.
+
+  This caused a production outage on 2026-07-27: `frontend/` held `16.3.0-canary.94`, the root
+  held stable `16.2.11`, and the canary build emitted route code reading the canary-only config
+  key `experimental.instantInsights.validationLevel`. The stable runtime never populates it, so
+  **every dynamic (`ƒ`) route returned 500** — `/parent/tasks/[id]`, `/parent/children/[id]`, the
+  `/parent/approve/[assignmentId]` email deep-link — while static pages, being prebuilt HTML,
+  looked perfectly healthy. Symptom in `journalctl -u taskbuddy-frontend`:
+  `TypeError: Cannot read properties of undefined (reading 'validationLevel')`.
+
+  `next` is now pinned exactly (no caret) in `frontend/package.json`, and
+  `frontend/tests/next-version-single.test.ts` fails CI if a second or prerelease copy reappears.
+  To check by hand on the box:
+  ```bash
+  cd /opt/taskbuddy/app && node -e "console.log(require(require.resolve('next/package.json',{paths:['./frontend']})).version)" && node -p "require('./node_modules/next/package.json').version"
+  ```
+  The two must be identical. Smoke-test a dynamic route after any frontend deploy — `/health` and
+  the login page cannot detect this class of failure:
+  ```bash
+  curl -s -o /dev/null -w '%{http_code}\n' https://app.gettaskbuddy.com/parent/tasks/abc123   # expect 200
+  ```
 
 ## Pending / TODO
 
