@@ -53,6 +53,10 @@ model User {
   id           String    @id @default(uuid())
   familyId     String?    @map("family_id")
   email        String?   @unique
+  /// Child login handle. Mandatory for children (enforced at the API boundary — see
+  /// routes/family.ts and AuthService.addChild), null for parents and admins, who sign in with
+  /// email. Uniqueness is scoped to the family by @@unique below, so two families may each have
+  /// a `sam`. Always stored lowercased.
   username     String?
   passwordHash String?   @map("password_hash")
   role         UserRole
@@ -115,6 +119,7 @@ model User {
   gameSessions          GameSession[]
   refreshSessions       RefreshSession[]
 
+  @@unique([familyId, username])
   @@index([familyId])
   @@index([email])
   @@index([role])

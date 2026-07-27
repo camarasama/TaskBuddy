@@ -9,7 +9,7 @@ import { authService } from '../services/auth';
 import { inviteService } from '../services/invite';
 import { authenticate, requireParent, requireChild, familyIsolation } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
-import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
+import { NotFoundError, ForbiddenError, ConflictError } from '../middleware/errorHandler';
 // M5 - import capacity utility
 import { getChildCapacity, type ChildCapacity } from '../utils/assignmentLimits';
 // M8 - Audit logging for all mutating family routes
@@ -35,7 +35,9 @@ const addChildSchema = z.object({
       const maxAge = new Date(); maxAge.setFullYear(maxAge.getFullYear() - 10);
       return birth >= minAge && birth <= maxAge;
     }, { message: 'Child must be between 10 and 16 years old' }),
-  username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/).optional(),
+  // Required: the username is what the child types to log in. Two siblings can share a first
+  // name, so the login handle has to be a field of its own.
+  username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/),
   pin: z.string().regex(/^\d{4}$/, 'PIN must be exactly 4 digits').optional(),
   email: z.string().email().optional(),
   gender: z.enum(['boy', 'girl']).optional(),
@@ -504,6 +506,24 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
 
     if (!child) {
       throw new NotFoundError('Child not found');
+    }
+
+    // Renaming a child must not collide with a sibling. There was no check on this path at all,
+    // so a parent could point two children at the same login handle and make one of them
+    // unable to sign in. The DB unique index refuses it now; this turns that raw constraint
+    // violation into something a parent can act on.
+    if (req.body.username !== undefined) {
+      const desiredUsername = req.body.username.trim().toLowerCase();
+      const clash = await prisma.user.findFirst({
+        where: {
+          familyId: req.familyId,
+          username: desiredUsername,
+          NOT: { id: req.params.id },
+        },
+      });
+      if (clash) {
+        throw new ConflictError('That username is already taken in this family');
+      }
     }
 
     const updatedChild = await prisma.user.update({

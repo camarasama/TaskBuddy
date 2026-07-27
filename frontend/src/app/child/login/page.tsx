@@ -189,12 +189,12 @@ export default function ChildLoginPage() {
                 Who are you?
               </h1>
               <p className="text-slate-600 text-center mb-8">
-                Enter your name or username
+                Enter your username
               </p>
 
               <form onSubmit={handleNameSubmit} className="space-y-6">
                 <Input
-                  placeholder="Your Name"
+                  placeholder="Your username"
                   className="text-center text-lg"
                   value={childName}
                   onChange={(e) => setChildName(e.target.value)}
