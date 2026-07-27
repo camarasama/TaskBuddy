@@ -348,7 +348,7 @@ function AchievementModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto p-4"
       onClick={onClose}
     >
       <motion.div
@@ -356,7 +356,7 @@ function AchievementModal({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.8, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+        className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Badge */}

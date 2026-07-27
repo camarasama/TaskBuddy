@@ -61,11 +61,11 @@ export function ResetPinModal({ childId, childName, onClose, onSuccess }: ResetP
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center overflow-y-auto z-50 p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl"
+        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl my-auto"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

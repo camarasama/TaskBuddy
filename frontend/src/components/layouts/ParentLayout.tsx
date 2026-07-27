@@ -141,7 +141,10 @@ function ParentLayoutInner({ children }: { children: ReactNode }) {
 
       {/* ── Desktop Sidebar ─────────────────────────────────────────────────── */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-1 bg-white border-r border-slate-200">
+        {/* overflow-y-auto: at high browser zoom (or a short window) the nav + logout block is
+            taller than the viewport. Without this the sidebar clipped and "Log out" became
+            unreachable — there was nothing to scroll. */}
+        <div className="flex flex-col flex-1 bg-white border-r border-slate-200 overflow-y-auto">
 
           {/* Logo + Notification Bell */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
@@ -235,7 +238,7 @@ function ParentLayoutInner({ children }: { children: ReactNode }) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="lg:hidden fixed inset-y-0 left-0 w-64 bg-white z-50 flex flex-col"
+              className="lg:hidden fixed inset-y-0 left-0 w-64 bg-white z-50 flex flex-col overflow-y-auto"
             >
               <div className="flex items-center gap-2 px-6 py-5 border-b border-slate-200">
                 <BrandLogo variant="lockup" size={132} />
