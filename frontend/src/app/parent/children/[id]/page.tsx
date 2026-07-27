@@ -18,6 +18,8 @@ import {
   Key,
   Loader2,
   FileText,
+  Check,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -39,6 +41,8 @@ interface ChildProfile {
   currentStreakDays: number;
   longestStreakDays: number;
   tasksCompletedCount: number;
+  /** A photo the child chose, awaiting this parent's approval. */
+  pendingAvatarUrl?: string | null;
 }
 
 interface Child {
@@ -85,8 +89,34 @@ export default function ChildDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showResetPinModal, setShowResetPinModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   const childId = params.id as string;
+
+  const reviewAvatar = async (approve: boolean) => {
+    setAvatarBusy(true);
+    try {
+      const res = approve
+        ? await familyApi.approveChildAvatar(childId)
+        : await familyApi.rejectChildAvatar(childId);
+      setChild((prev) =>
+        prev
+          ? {
+              ...prev,
+              avatarUrl: approve ? res.data?.avatarUrl ?? prev.avatarUrl : prev.avatarUrl,
+              childProfile: prev.childProfile
+                ? { ...prev.childProfile, pendingAvatarUrl: null }
+                : prev.childProfile,
+            }
+          : prev,
+      );
+    } catch {
+      // Reload rather than guess at the server's state.
+      await loadChild();
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
 
   const loadChild = async () => {
     try {
@@ -159,6 +189,38 @@ export default function ChildDetailsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
         >
+          {/* A photo the child chose. It is not their avatar yet — approving is what publishes it
+              to the rest of the family, so this sits above the profile it would change. */}
+          {child.childProfile?.pendingAvatarUrl && (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <img
+                  src={child.childProfile.pendingAvatarUrl}
+                  alt={`Photo ${child.firstName} chose`}
+                  className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-amber-900">
+                    {child.firstName} chose a new profile photo
+                  </p>
+                  <p className="text-sm text-amber-700 mt-0.5">
+                    Nobody else can see it until you approve it.
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" onClick={() => reviewAvatar(true)} disabled={avatarBusy}>
+                    {avatarBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Approve
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => reviewAvatar(false)} disabled={avatarBusy}>
+                    <X className="w-4 h-4" />
+                    Decline
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             {/* Avatar */}
             <AvatarUpload

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { CONSENT_VERSIONS, AVATAR_EMOJIS } from '@taskbuddy/shared';
@@ -17,6 +17,8 @@ import { getReferralSummary } from '../services/ReferralService';
 import { AuditService } from '../services/AuditService';
 // M9 - Email notifications
 import { EmailService } from '../services/email';
+import { isOwnStorageUrl } from '../services/storage';
+import { createNotification } from './notifications';
 
 export const familyRouter = Router();
 
@@ -50,7 +52,9 @@ const updateChildSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
   lastName: z.string().min(1).max(50).optional(),
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/).optional(),
-  avatarUrl: z.string().url().optional(),
+  // Nullable so a parent can REMOVE an approved photo, not just replace it. Prisma treats
+  // undefined as "leave alone" and null as "clear", which is exactly the distinction needed.
+  avatarUrl: z.string().url().nullable().optional(),
   // FR-10: the schema has carried avatarEmoji since M10 but this endpoint never accepted it, so
   // there was no way to set it. Constrained to a short string (an emoji can be several code
   // points — flags and ZWJ sequences are long) and validated against the picker's own list so a
@@ -491,6 +495,133 @@ familyRouter.put(
     }
   },
 );
+
+/**
+ * PUT /families/me/my-avatar-photo — a child proposes their own profile photo.
+ *
+ * The photo does NOT become their avatar here. It is parked on childProfile.pendingAvatarUrl until
+ * a parent approves it below. The emoji picker is a fixed allow-list because that field is
+ * child-controlled and family-visible; a photo cannot be allow-listed, so a parent is the gate.
+ *
+ * Send `{ avatarUrl: null }` to withdraw a pending photo.
+ */
+familyRouter.put(
+  '/me/my-avatar-photo',
+  requireChild,
+  validateBody(z.object({ avatarUrl: z.string().url().nullable() })),
+  async (req, res, next) => {
+    try {
+      const submitted: string | null = req.body.avatarUrl;
+
+      // The client supplies this URL and a PARENT's browser will load it. Without an origin check
+      // a child could submit any third-party URL — a tracking beacon, or unmoderated content.
+      if (submitted !== null && !isOwnStorageUrl(submitted)) {
+        throw new ForbiddenError('That image must be uploaded through TaskBuddy.');
+      }
+
+      const profile = await prisma.childProfile.update({
+        where: { userId: req.user!.userId },
+        data: {
+          pendingAvatarUrl: submitted,
+          pendingAvatarAt: submitted ? new Date() : null,
+        },
+        select: { userId: true, pendingAvatarUrl: true, pendingAvatarAt: true },
+      });
+
+      if (submitted) {
+        const child = await prisma.user.findUnique({
+          where: { id: req.user!.userId },
+          select: { firstName: true, familyId: true },
+        });
+        const parents = await prisma.user.findMany({
+          where: { familyId: child?.familyId ?? undefined, role: 'parent', deletedAt: null },
+          select: { id: true },
+        });
+        await Promise.all(
+          parents.map((parent) =>
+            createNotification({
+              userId: parent.id,
+              notificationType: 'child_avatar_pending',
+              title: 'New profile photo to review',
+              message: `${child?.firstName ?? 'Your child'} chose a new profile photo. Approve it or choose another.`,
+              actionUrl: `/parent/children/${req.user!.userId}`,
+              referenceType: 'child_avatar',
+              referenceId: req.user!.userId,
+            }),
+          ),
+        );
+      }
+
+      res.json({ success: true, data: { profile } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /families/me/children/:id/avatar/approve — parent promotes the pending photo to the
+ * child's real avatar. POST …/reject discards it. Both are requireParent + familyIsolation, so a
+ * parent can only act on their own children.
+ */
+function reviewChildAvatar(approved: boolean): RequestHandler {
+  return async (req, res, next) => {
+  try {
+    const child = await prisma.user.findFirst({
+      where: { id: req.params.id, familyId: req.familyId, role: 'child', deletedAt: null },
+      include: { childProfile: true },
+    });
+
+    if (!child || !child.childProfile) {
+      throw new NotFoundError('Child not found');
+    }
+    if (!child.childProfile.pendingAvatarUrl) {
+      throw new NotFoundError('There is no photo waiting for review');
+    }
+
+    const pending = child.childProfile.pendingAvatarUrl;
+
+    await prisma.$transaction([
+      prisma.childProfile.update({
+        where: { userId: child.id },
+        data: { pendingAvatarUrl: null, pendingAvatarAt: null },
+      }),
+      ...(approved
+        ? [prisma.user.update({ where: { id: child.id }, data: { avatarUrl: pending } })]
+        : []),
+    ]);
+
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'UPDATE',
+      resourceType: 'child',
+      resourceId: child.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { childAvatar: approved ? 'approved' : 'rejected' },
+    });
+
+    await createNotification({
+      userId: child.id,
+      notificationType: 'child_avatar_reviewed',
+      title: approved ? 'Your new photo is live!' : 'Photo not approved',
+      message: approved
+        ? 'Your parent approved your profile photo.'
+        : 'Your parent did not approve that photo. You can pick a different one.',
+      actionUrl: '/child/settings',
+      referenceType: 'child_avatar',
+      referenceId: child.id,
+    });
+
+    res.json({ success: true, data: { approved, avatarUrl: approved ? pending : child.avatarUrl } });
+  } catch (error) {
+    next(error);
+  }
+  };
+}
+
+familyRouter.post('/me/children/:id/avatar/approve', requireParent, reviewChildAvatar(true));
+familyRouter.post('/me/children/:id/avatar/reject', requireParent, reviewChildAvatar(false));
 
 // PUT /families/me/children/:id - Update a child
 familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSchema), async (req, res, next) => {

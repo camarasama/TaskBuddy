@@ -231,3 +231,35 @@ export async function deleteFile(
   }
   return deleteLocal(fileKey, thumbnailKey);
 }
+
+/**
+ * Is this URL one that OUR upload endpoint produced?
+ *
+ * Any endpoint that accepts an image URL from a *client* must run this first. Without it a caller
+ * can submit an arbitrary third-party URL that is then rendered in someone else's browser — a
+ * tracking beacon pointed at a parent, or unmoderated image content in an app for 10-16 year olds.
+ * The child-chosen avatar flow is exactly that shape: the child supplies the URL, a parent's
+ * browser loads it.
+ *
+ * Deliberately a prefix allow-list over the two shapes uploadFile() emits — `${apiUrl}/uploads/…`
+ * in local dev and `${R2_PUBLIC_URL}/…` on R2 — rather than a blocklist of bad hosts.
+ */
+export function isOwnStorageUrl(url: string): boolean {
+  if (typeof url !== 'string' || url.length === 0) return false;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false; // not absolute, or not a URL at all
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+
+  const allowedPrefixes = [
+    `${config.apiUrl.replace(/\/$/, '')}/uploads/`,
+    ...(config.r2.publicUrl ? [`${config.r2.publicUrl.replace(/\/$/, '')}/`] : []),
+  ];
+
+  // Compare on the normalised href so "…/uploads/../secret" cannot slip past a raw string match.
+  return allowedPrefixes.some((prefix) => parsed.href.startsWith(prefix));
+}
