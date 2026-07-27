@@ -24,6 +24,7 @@ import {
   Star,
   Heart,
   MessageSquare,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -405,6 +406,18 @@ export default function ParentDashboardPage() {
               color="xp"
             />
           </div>
+
+          {/* The user manual. A plain link rather than a QuickActionCard: those all navigate inside
+              the app, and this downloads a file — making it look identical would misrepresent it.
+              `download` so it saves rather than replacing the dashboard with a PDF viewer. */}
+          <a
+            href="/TaskBuddy-User-Manual.pdf"
+            download
+            className="mt-4 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-primary-600 transition-colors"
+          >
+            <BookOpen className="w-4 h-4" />
+            Download the TaskBuddy user manual (PDF)
+          </a>
         </section>
 
         {/* Weekly Summary */}
