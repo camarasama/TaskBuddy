@@ -211,11 +211,14 @@ export class AuthService {
     });
 
     // Generate tokens (parent uses standard expiry)
-    const tokens = this.generateTokens({
-      userId: result.user.id,
-      familyId: result.family.id,
-      role: result.user.role,
-    });
+    const tokens = this.generateTokens(
+      {
+        userId: result.user.id,
+        familyId: result.family.id,
+        role: result.user.role,
+      },
+      { isMobile: ctx.isMobile }
+    );
     await SessionService.create(result.user.id, tokens.refreshToken, { ...ctx, isChild: false });
 
     // U20 — family ids only. AnalyticsService drops anything that looks like free text or an
@@ -289,12 +292,15 @@ export class AuthService {
 
   /** Mint tokens + create the refresh session for an already-authenticated user. */
   private async issueSession(user: any, ctx: SessionContext) {
-    const tokens = this.generateTokens({
-      userId: user.id,
-      familyId: user.familyId!,
-      role: user.role,
-      ageGroup: user.childProfile?.ageGroup || undefined,
-    });
+    const tokens = this.generateTokens(
+      {
+        userId: user.id,
+        familyId: user.familyId!,
+        role: user.role,
+        ageGroup: user.childProfile?.ageGroup || undefined,
+      },
+      { isMobile: ctx.isMobile }
+    );
     await SessionService.create(user.id, tokens.refreshToken, { ...ctx, isChild: false });
     const { passwordHash: _, mfaSecret: _s, ...userWithoutPassword } = user;
     return { user: userWithoutPassword, profile: user.childProfile, tokens };
@@ -704,7 +710,7 @@ export class AuthService {
   }
 
   // Refresh access token
-  async refreshToken(refreshToken: string, _ctx: SessionContext = {}) {
+  async refreshToken(refreshToken: string, ctx: SessionContext = {}) {
     try {
       const payload = jwt.verify(refreshToken, config.jwt.refreshSecret, jwtVerifyOptions) as TokenPayload & { type: string };
 
@@ -730,12 +736,15 @@ export class AuthService {
             role: user.role,
             ageGroup: user.childProfile?.ageGroup || undefined,
           })
-        : this.generateTokens({
-            userId: user.id,
-            familyId: user.familyId!,
-            role: user.role,
-            ageGroup: user.childProfile?.ageGroup || undefined,
-          });
+        : this.generateTokens(
+            {
+              userId: user.id,
+              familyId: user.familyId!,
+              role: user.role,
+              ageGroup: user.childProfile?.ageGroup || undefined,
+            },
+            { isMobile: ctx.isMobile }
+          );
 
       // Rotate the server-side session: revoke the presented token and register the new one.
       // Throws 401 on reuse of a spent token (killing the whole chain), on absolute expiry, or
@@ -785,7 +794,10 @@ export class AuthService {
   // NOTE: Visibility changed from private → public so InviteService.acceptInvite()
   // can generate tokens for the newly created co-parent without coupling the two
   // services via inheritance. The method does not expose any secrets directly.
-  generateTokens(payload: Omit<TokenPayload, 'iat' | 'exp'>) {
+  generateTokens(
+    payload: Omit<TokenPayload, 'iat' | 'exp'>,
+    opts: { isMobile?: boolean } = {}
+  ) {
     // Both tokens share one jti, which is also the RefreshSession row id - it links an access
     // token (and any audit row) back to the exact session that issued it.
     const jti = crypto.randomUUID();
@@ -796,10 +808,17 @@ export class AuthService {
       jwtid: jti,
     });
 
+    // P0-4: only the refresh token stretches on mobile. The access token stays short-lived on
+    // every client — it is the window in which a revoked session keeps working, and lengthening
+    // it would blunt the parent revoke control this change is paired with.
+    const refreshExpiry = (opts.isMobile
+      ? config.jwt.mobileRefreshExpiresIn
+      : config.jwt.refreshExpiresIn) as any;
+
     const refreshToken = jwt.sign(
       { ...payload, type: 'refresh' },
       config.jwt.refreshSecret,
-      { ...jwtSignOptions, expiresIn: config.jwt.refreshExpiresIn as any, jwtid: jti }
+      { ...jwtSignOptions, expiresIn: refreshExpiry, jwtid: jti }
     );
 
     const decoded = jwt.decode(accessToken) as { exp: number };

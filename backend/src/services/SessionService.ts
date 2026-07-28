@@ -25,6 +25,12 @@ import { AuditService } from './AuditService';
 // Hard cap on how long a single login (chain of rotations) may live, regardless of rotation.
 const PARENT_ABSOLUTE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const CHILD_ABSOLUTE_MS = 180 * 24 * 60 * 60 * 1000; // 180 days
+// P0-4: a phone is a single-owner device that is expected to stay signed in. Forcing a parent to
+// re-enter their password every 30 days on mobile is the kind of friction that gets an app
+// uninstalled. The cap is still finite, and it is now backed by an explicit revoke control
+// (routes/sessions.ts) rather than by waiting for expiry — which is the trade that makes the
+// longer life acceptable rather than merely convenient.
+const MOBILE_ABSOLUTE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 // Revoked/expired rows are kept for a while (audit + reuse detection) then swept.
 const SWEEP_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days past natural expiry
@@ -36,13 +42,30 @@ export type RevokeReason =
   | 'expired'
   | 'password_change'
   | 'admin'
-  | 'pin_reset';
+  | 'pin_reset'
+  | 'user_revoke'    // P0-4: the session's owner signed out one of their own devices
+  | 'parent_revoke'; // P0-4: a parent signed out their child's device
 
 export interface SessionContext {
   ip?: string;
   userAgent?: string;
   isChild?: boolean;
   deviceId?: string; // F-10g: opaque client-supplied device id, stored for traceability only
+  isMobile?: boolean; // P0-4: native client → longer absolute cap
+  client?: string;    // P0-4: raw X-Client value, shown in the session list
+}
+
+/** One live session, as shown in the "signed-in devices" list. */
+export interface SessionSummary {
+  id: string;
+  userId: string;
+  client: string | null;
+  userAgent: string | null;
+  createdByIp: string | null;
+  /** When this rotation was minted — the closest thing we have to "last active". */
+  lastActiveAt: Date;
+  expiresAt: Date;
+  absoluteExpiresAt: Date;
 }
 
 function sha256(value: string): string {
@@ -72,17 +95,26 @@ export const SessionService = {
     if (!jti) throw new Error('SessionService.create: refresh token has no jti claim');
 
     const now = Date.now();
+    // Children keep the longest cap on any client: their 90-day refresh token is what spares them
+    // a PIN re-entry, and that predates mobile. Mobile only lifts the *parent* cap.
+    const absoluteMs = ctx.isChild
+      ? CHILD_ABSOLUTE_MS
+      : ctx.isMobile
+        ? MOBILE_ABSOLUTE_MS
+        : PARENT_ABSOLUTE_MS;
+
     await prisma.refreshSession.create({
       data: {
         id: jti,
         userId,
         tokenHash: sha256(refreshJwt),
         chainId: crypto.randomUUID(),
-        expiresAt: exp ? new Date(exp * 1000) : new Date(now + PARENT_ABSOLUTE_MS),
-        absoluteExpiresAt: new Date(now + (ctx.isChild ? CHILD_ABSOLUTE_MS : PARENT_ABSOLUTE_MS)),
+        expiresAt: exp ? new Date(exp * 1000) : new Date(now + absoluteMs),
+        absoluteExpiresAt: new Date(now + absoluteMs),
         createdByIp: ctx.ip ?? null,
         userAgent: ctx.userAgent ?? null,
         deviceId: ctx.deviceId ?? null,
+        client: ctx.client ?? null,
       },
     });
   },
@@ -146,6 +178,7 @@ export const SessionService = {
             createdByIp: existing.createdByIp,
             userAgent: existing.userAgent,
             deviceId: existing.deviceId, // carry the device id across rotations in the chain
+            client: existing.client,     // …and the client label, so the device stays recognisable
           },
         });
       });
@@ -172,6 +205,61 @@ export const SessionService = {
       where: { tokenHash: sha256(refreshJwt), revokedAt: null },
       data: { revokedAt: new Date(), revokedReason: reason },
     });
+  },
+
+  /**
+   * P0-4 — live sessions for the given users, newest first.
+   *
+   * Rotation revokes the row it replaced, so a chain has exactly one live row at a time and each
+   * row returned here is one signed-in device. Expiry is filtered in SQL as well as by
+   * `revokedAt`: a naturally expired row is never marked revoked (nothing runs at that moment),
+   * so listing on `revokedAt` alone would show devices that are already signed out.
+   */
+  async listLiveForUsers(userIds: string[]): Promise<SessionSummary[]> {
+    if (userIds.length === 0) return [];
+    const now = new Date();
+    const rows = await prisma.refreshSession.findMany({
+      where: {
+        userId: { in: userIds },
+        revokedAt: null,
+        expiresAt: { gt: now },
+        absoluteExpiresAt: { gt: now },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      client: row.client,
+      userAgent: row.userAgent,
+      createdByIp: row.createdByIp,
+      lastActiveAt: row.createdAt,
+      expiresAt: row.expiresAt,
+      absoluteExpiresAt: row.absoluteExpiresAt,
+    }));
+  },
+
+  /**
+   * P0-4 — revoke a session by row id, killing its whole rotation chain.
+   *
+   * The chain, not the row, is the unit of revocation. Revoking only the head would still stop the
+   * device, but by tripping reuse detection on its next refresh — which raises a SESSION_REUSE
+   * audit event that reads like a stolen token. A parent signing out a phone should not look like
+   * an attack in the audit log.
+   *
+   * Returns the row's owner, or null if no live session has that id — callers use this to
+   * authorise, so a wrong/stale id is indistinguishable from one belonging to someone else.
+   */
+  async revokeById(sessionId: string, reason: RevokeReason): Promise<{ userId: string } | null> {
+    const row = await prisma.refreshSession.findFirst({
+      where: { id: sessionId, revokedAt: null },
+      select: { userId: true, chainId: true },
+    });
+    if (!row) return null;
+
+    await revokeChain(row.chainId, reason);
+    return { userId: row.userId };
   },
 
   /** Revoke every live session for a user (password change/reset, admin action, PIN reset). */

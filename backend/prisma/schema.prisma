@@ -863,6 +863,7 @@ model RefreshSession {
   createdByIp       String?   @map("created_by_ip")
   userAgent         String?   @map("user_agent")
   deviceId          String?   @map("device_id")                   // F-10g: opaque client device id, traceability only
+  client            String?                                        // P0-4: X-Client value, e.g. taskbuddy-android/1.0.0; NULL = web
   createdAt         DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -238,11 +238,14 @@ export class InviteService {
     }
 
     // 7. Generate JWT tokens using the shared helper on authService
-    const tokens = (authService as any).generateTokens({
-      userId: result.id,
-      familyId: result.familyId,
-      role: result.role,
-    });
+    const tokens = (authService as any).generateTokens(
+      {
+        userId: result.id,
+        familyId: result.familyId,
+        role: result.role,
+      },
+      { isMobile: ctx.isMobile }
+    );
     await SessionService.create(result.id, tokens.refreshToken, { ...ctx, isChild: false });
 
     const { passwordHash: _, ...userWithoutPassword } = result;

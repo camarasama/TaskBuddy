@@ -15,6 +15,8 @@ import { gamesRouter } from './games';
 import { challengeRouter } from './challenges';
 // P0-2 - Native client metadata (minimum supported build)
 import { metaRouter } from './meta';
+// P0-4 - Signed-in devices + parent remote-revoke
+import { sessionsRouter } from './sessions';
 
 export const apiRouter = Router();
 
@@ -35,6 +37,8 @@ apiRouter.use('/games', gamesRouter);
 apiRouter.use('/challenges', challengeRouter);
 // P0-2 - Public: the mobile app checks this before it has a session
 apiRouter.use('/meta', metaRouter);
+// P0-4 - Signed-in devices; parent revoke for children (auth enforced inside the router)
+apiRouter.use('/sessions', sessionsRouter);
 
 // API info endpoint
 apiRouter.get('/', (_req, res) => {
@@ -51,6 +55,7 @@ apiRouter.get('/', (_req, res) => {
       achievements: '/api/v1/achievements',
       adminEmails: '/api/v1/admin/emails',
       meta: '/api/v1/meta',
+      sessions: '/api/v1/sessions',
     },
   });
 });

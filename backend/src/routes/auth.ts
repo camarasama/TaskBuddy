@@ -22,7 +22,7 @@ import { inviteService } from '../services/invite';
 import { SessionService } from '../services/SessionService';
 import { jwtVerifyOptions, signMfaToken, verifyMfaToken } from '../utils/jwt';
 import { hashToken } from '../utils/tokens';
-import { isMobileClient } from '../utils/client';
+import { getClient, isMobileClient, isMobilePlatform } from '../utils/client';
 import { authenticate, requireParent } from '../middleware/auth';
 import { requireCsrf, issueCsrfCookie, clearCsrfCookie } from '../middleware/csrf';
 import { uploadPhoto } from '../middleware/upload';
@@ -211,6 +211,26 @@ function getCookieOptions(isChild = false) {
  * M7 - CR-02: Masks a phone number to show only the last 4 digits.
  * e.g. "+233201234567" → "••••••••4567"
  */
+/**
+ * P0-4 — the request context carried into every session the auth service opens.
+ *
+ * The stored `client` is rebuilt from the *parsed* header rather than passed through raw, and only
+ * for a recognised native platform. That matters because this string is rendered back to a parent
+ * in the signed-in-devices list: an attacker who could put arbitrary text in `X-Client` would be
+ * writing into someone else's UI. `parseClientHeader` bounds it to `<platform>/<semver>`.
+ */
+function sessionContext(req: Request) {
+  const client = getClient(req);
+  const mobile = client !== null && isMobilePlatform(client.platform);
+
+  return {
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+    isMobile: mobile,
+    client: mobile ? `${client!.platform}/${client!.version}` : undefined,
+  };
+}
+
 function maskPhoneNumber(phone: string | null | undefined): string | null {
   if (!phone) return null;
   if (phone.length <= 4) return phone;
@@ -232,8 +252,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
     }
 
     const result = await authService.register(req.body, {
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
+      ...sessionContext(req),
     });
 
     // M8 - Audit: capture family + parent creation
@@ -321,8 +340,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
 authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
   try {
     const result = await authService.login(req.body, {
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
+      ...sessionContext(req),
     });
 
     // F-9: MFA-enrolled admin — password was correct but no session is issued yet. Hand back a
@@ -417,8 +435,7 @@ authRouter.post('/mfa/challenge', validateBody(mfaChallengeSchema), async (req, 
       throw new UnauthorizedError('MFA session expired. Please log in again.');
     }
     const result = await authService.verifyMfaAndLogin(userId, req.body.code, {
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
+      ...sessionContext(req),
     });
     await AuditService.logAction({
       actorId: result.user.id,
@@ -442,8 +459,7 @@ authRouter.post('/mfa/challenge', validateBody(mfaChallengeSchema), async (req, 
 authRouter.post('/child/login', validateBody(childLoginSchema), async (req, res, next) => {
   try {
     const result = await authService.childLogin(req.body, {
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
+      ...sessionContext(req),
     });
 
     // M8 - Audit: child login event
@@ -567,8 +583,7 @@ authRouter.get('/invite-preview', async (req, res, next) => {
 authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, res, next) => {
   try {
     const result = await inviteService.acceptInvite(req.body, {
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
+      ...sessionContext(req),
     });
 
     // M8 - Audit: co-parent joined family
@@ -620,7 +635,7 @@ authRouter.post('/refresh', requireCsrf, validateBody(refreshSchema), async (req
   try {
     const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
-    const tokens = await authService.refreshToken(refreshToken);
+    const tokens = await authService.refreshToken(refreshToken, sessionContext(req));
 
     const decoded = jwt.decode(tokens.refreshToken) as { role?: string } | null;
     const isChild = decoded?.role === 'child';
