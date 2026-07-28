@@ -24,6 +24,9 @@ export const config = {
     refreshSecret: process.env.JWT_REFRESH_SECRET || '',
     expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    // P0-4: parents on a phone. A browser session lapsing after a week is unremarkable; an app
+    // that logs you out weekly gets uninstalled. Children are unaffected — they already get 90d.
+    mobileRefreshExpiresIn: process.env.JWT_MOBILE_REFRESH_EXPIRES_IN || '90d',
   },
 
   mfa: {
