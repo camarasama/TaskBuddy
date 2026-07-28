@@ -47,6 +47,17 @@ export const config = {
     maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
   },
 
+  // P0-2: the oldest native build each platform may still run. GET /meta/min-version compares the
+  // caller's X-Client version against these and tells the app to hard-block below them — the only
+  // lever we have to kill a broken release without waiting on a store rollout. Defaults of 0.0.0
+  // block nothing, which is the correct posture until a release actually needs retiring.
+  mobile: {
+    minVersion: {
+      'taskbuddy-android': process.env.MOBILE_MIN_VERSION_ANDROID || '0.0.0',
+      'taskbuddy-ios': process.env.MOBILE_MIN_VERSION_IOS || '0.0.0',
+    } as Record<string, string>,
+  },
+
   r2: {
     accountId: process.env.R2_ACCOUNT_ID || '',
     accessKeyId: process.env.R2_ACCESS_KEY_ID || '',

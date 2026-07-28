@@ -13,6 +13,8 @@ import  emailRouter  from './emails';
 import { gamesRouter } from './games';
 // FR-08 - Daily challenges
 import { challengeRouter } from './challenges';
+// P0-2 - Native client metadata (minimum supported build)
+import { metaRouter } from './meta';
 
 export const apiRouter = Router();
 
@@ -31,6 +33,8 @@ apiRouter.use('/admin/emails', emailRouter);
 apiRouter.use('/games', gamesRouter);
 // FR-08 - Daily challenges (child completes; family views)
 apiRouter.use('/challenges', challengeRouter);
+// P0-2 - Public: the mobile app checks this before it has a session
+apiRouter.use('/meta', metaRouter);
 
 // API info endpoint
 apiRouter.get('/', (_req, res) => {
@@ -46,6 +50,7 @@ apiRouter.get('/', (_req, res) => {
       dashboard: '/api/v1/dashboard',
       achievements: '/api/v1/achievements',
       adminEmails: '/api/v1/admin/emails',
+      meta: '/api/v1/meta',
     },
   });
 });

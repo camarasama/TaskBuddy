@@ -13,6 +13,7 @@
 
 import crypto from 'crypto';
 import { Router } from 'express';
+import type { Request, Response } from 'express';
 import { config } from '../config';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
@@ -21,6 +22,7 @@ import { inviteService } from '../services/invite';
 import { SessionService } from '../services/SessionService';
 import { jwtVerifyOptions, signMfaToken, verifyMfaToken } from '../utils/jwt';
 import { hashToken } from '../utils/tokens';
+import { isMobileClient } from '../utils/client';
 import { authenticate, requireParent } from '../middleware/auth';
 import { requireCsrf, issueCsrfCookie, clearCsrfCookie } from '../middleware/csrf';
 import { uploadPhoto } from '../middleware/upload';
@@ -43,15 +45,42 @@ export const authRouter = Router();
  * The refresh token is delivered to browsers ONLY as an HttpOnly cookie (set via res.cookie
  * alongside each of these responses). Strip it from the JSON body so it never reaches
  * JS-readable storage, where XSS could exfiltrate a long-lived credential (F-2).
- *
- * TODO(mobile): native clients cannot use cookies transparently. When the Capacitor app lands,
- * add a dedicated token-delivery endpoint (e.g. POST /auth/token with an explicit client
- * assertion) rather than re-adding refresh tokens to these browser-facing bodies.
  */
 function withoutRefreshToken<T extends { refreshToken?: string }>(tokens: T): Omit<T, 'refreshToken'> {
   const safe = { ...tokens };
   delete (safe as { refreshToken?: string }).refreshToken;
   return safe;
+}
+
+/**
+ * P0-1 — deliver the refresh token by the only mechanism the caller can actually use, and return
+ * the token object that belongs in the JSON body.
+ *
+ * Browsers get an HttpOnly cookie and never see the token in the body (F-2, above). Native clients
+ * have no cookie jar: React Native's fetch does not persist `SameSite=None; Secure` cookies
+ * reliably, so a mobile session would not survive an app restart. They get the token in the body
+ * and put it straight into the OS keystore (expo-secure-store), which is the platform equivalent
+ * of the protection HttpOnly buys on the web — not a weakening of it.
+ *
+ * The trade is favourable in the other direction too: a body-supplied credential is explicit
+ * rather than ambient, so it carries no CSRF exposure, which is why middleware/csrf.ts already
+ * exempts that path.
+ *
+ * Web behaviour must stay byte-identical. `isMobileClient` is false for every request without a
+ * well-formed `X-Client` header naming a native platform, and auth-refresh-token-body.test.ts
+ * asserts the browser path still strips the token.
+ */
+function deliverTokens<T extends { refreshToken?: string }>(
+  req: Request,
+  res: Response,
+  tokens: T,
+  isChild = false
+): T | Omit<T, 'refreshToken'> {
+  if (isMobileClient(req)) return tokens;
+
+  res.cookie('refreshToken', tokens.refreshToken, getCookieOptions(isChild));
+  issueCsrfCookie(res);
+  return withoutRefreshToken(tokens);
 }
 
 // ============================================
@@ -279,12 +308,9 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res, next
       console.error('[auth/register] Verification email failed (non-fatal):', err?.message)
     );
 
-    res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
-    issueCsrfCookie(res);
-
     res.status(201).json({
       success: true,
-      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
+      data: { ...result, tokens: deliverTokens(req, res, result.tokens) },
     });
   } catch (error) {
     next(error);
@@ -316,12 +342,9 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res, next) => {
       ipAddress: req.ip,
     });
 
-    res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
-    issueCsrfCookie(res);
-
     res.json({
       success: true,
-      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
+      data: { ...result, tokens: deliverTokens(req, res, result.tokens) },
     });
   } catch (error) {
     next(error);
@@ -406,11 +429,9 @@ authRouter.post('/mfa/challenge', validateBody(mfaChallengeSchema), async (req, 
       ipAddress: req.ip,
       metadata: { mfa: true },
     });
-    res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
-    issueCsrfCookie(res);
     res.json({
       success: true,
-      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
+      data: { ...result, tokens: deliverTokens(req, res, result.tokens) },
     });
   } catch (error) {
     next(error);
@@ -435,12 +456,9 @@ authRouter.post('/child/login', validateBody(childLoginSchema), async (req, res,
       ipAddress: req.ip,
     });
 
-    res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions(true));
-    issueCsrfCookie(res);
-
     res.json({
       success: true,
-      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
+      data: { ...result, tokens: deliverTokens(req, res, result.tokens, true) },
     });
   } catch (error) {
     next(error);
@@ -579,12 +597,9 @@ authRouter.post('/accept-invite', validateBody(acceptInviteSchema), async (req, 
       console.error('[auth/accept-invite] Welcome email failed (non-fatal):', err?.message)
     );
 
-    res.cookie('refreshToken', result.tokens.refreshToken, getCookieOptions());
-    issueCsrfCookie(res);
-
     res.status(201).json({
       success: true,
-      data: { ...result, tokens: withoutRefreshToken(result.tokens) },
+      data: { ...result, tokens: deliverTokens(req, res, result.tokens) },
     });
   } catch (error) {
     next(error);
@@ -610,12 +625,9 @@ authRouter.post('/refresh', requireCsrf, validateBody(refreshSchema), async (req
     const decoded = jwt.decode(tokens.refreshToken) as { role?: string } | null;
     const isChild = decoded?.role === 'child';
 
-    res.cookie('refreshToken', tokens.refreshToken, getCookieOptions(isChild));
-    issueCsrfCookie(res);
-
     res.json({
       success: true,
-      data: { tokens: withoutRefreshToken(tokens) },
+      data: { tokens: deliverTokens(req, res, tokens, isChild) },
     });
   } catch (error) {
     next(error);
@@ -824,7 +836,12 @@ authRouter.post('/reset-password', validateBody(resetPasswordSchema), async (req
 authRouter.post('/logout', requireCsrf, async (req, res) => {
   // Revoke the server-side session so the refresh token is dead even if it was captured. Logout
   // must always succeed, so an unknown/absent token is a no-op rather than an error.
-  await SessionService.revokeByToken(req.cookies?.refreshToken, 'logout').catch((err) =>
+  //
+  // P0-1: native clients hold the token in the OS keystore and send it in the body — reading only
+  // the cookie would leave their session alive server-side after a "sign out", which is exactly
+  // the credential the parent remote-revoke control (P0-4) exists to kill.
+  const sessionToken = req.cookies?.refreshToken || req.body?.refreshToken;
+  await SessionService.revokeByToken(sessionToken, 'logout').catch((err) =>
     console.error('[auth/logout] session revoke failed (non-fatal):', err?.message)
   );
 
