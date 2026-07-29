@@ -1,151 +1,104 @@
 /**
- * Phase 0 landing screen — the scaffold's proof of life.
+ * Role chooser — the app's entry point.
  *
- * This is not a product screen and will be replaced by the role chooser in Phase 1. It exists
- * because an empty app that renders "Hello World" proves almost nothing: it does not tell you
- * whether Metro resolved the workspace, whether `@taskbuddy/shared` loaded from source, whether
- * the device can reach the API, or whether the `X-Client` header the backend keys off actually
- * arrives in the right shape.
+ * Two doors rather than one combined form, because the two credentials have nothing in common: a
+ * parent signs in with email and password, a child with a family code, a username and a 4-digit PIN.
+ * A single screen trying to serve both would have to guess which the user meant from what they typed.
  *
- * Calling `/meta/min-version` exercises all four at once, and the endpoint is public — so this
- * works before any auth exists.
+ * A signed-in session never sees this screen: it redirects into the matching shell. That redirect is
+ * also what makes sign-out land somewhere sensible without the sign-out button knowing any routes.
  */
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
-import { AGE_GROUPS } from '@taskbuddy/shared';
+import { Redirect, router } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { fetchMinVersion, NetworkError } from '@/lib/api';
-import { API_URL, CLIENT_HEADER, CONFIG_ERRORS } from '@/lib/config';
+import { Button } from '@/components/Button';
+import { Screen } from '@/components/Screen';
+import { CONFIG_ERRORS } from '@/lib/config';
+import { useAuth } from '@/stores/auth';
+import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
 
-function Row({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
+export default function RoleChooser() {
+  const theme = useTheme();
+  const status = useAuth((state) => state.status);
+  const user = useAuth((state) => state.user);
+  const offline = useAuth((state) => state.offline);
+
+  /**
+   * Already signed in — hand straight over to the right shell.
+   *
+   * Only the two roles that *have* a shell are redirected. Sending any other role to a shell would
+   * ping-pong: the group layout would refuse it and bounce back here, which bounces it out again. A
+   * signed-in admin should be unreachable — `stores/auth.ts` rejects the role at both sign-in and
+   * bootstrap — but "unreachable" plus "infinite redirect loop" is a bad pair to rely on, so an
+   * unexpected role falls through to the chooser below instead.
+   */
+  if (status === 'signedIn' && user) {
+    if (user.role === 'parent') return <Redirect href="/(parent)/dashboard" />;
+    if (user.role === 'child') return <Redirect href="/(child)/dashboard" />;
+  }
+
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, ok === true && styles.ok, ok === false && styles.bad]}>
-        {value}
+    <Screen scroll center>
+      <Text style={[styles.title, { color: theme.foreground }]}>TaskBuddy</Text>
+      <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+        Family tasks, rewards and a bit of friendly competition.
       </Text>
-    </View>
-  );
-}
 
-export default function Index() {
-  const insets = useSafeAreaInsets();
-  const [mountedAt] = useState(() => new Date());
-
-  const { data, error, isPending, isError } = useQuery({
-    queryKey: ['min-version'],
-    queryFn: ({ signal }) => fetchMinVersion(signal),
-  });
-
-  // Proves the shared workspace resolved: this constant lives in shared/src, not in mobile/.
-  const ageGroupCount = Object.keys(AGE_GROUPS).length;
-
-  useEffect(() => {
-    if (isError) console.warn('[phase-0] API check failed:', error);
-  }, [isError, error]);
-
-  return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 32 }]}
-    >
-      <Text style={styles.title}>TaskBuddy</Text>
-      <Text style={styles.subtitle}>Phase 0 — scaffold check</Text>
-
+      {/* A broken app.config is otherwise invisible until the first request fails confusingly. */}
       {CONFIG_ERRORS.length > 0 && (
-        <View style={[styles.card, styles.alertCard]}>
-          <Text style={styles.cardTitle}>Config problem</Text>
+        <View style={[styles.notice, { borderColor: theme.destructive, backgroundColor: theme.card }]}>
+          <Text style={[styles.noticeTitle, { color: theme.destructive }]}>Configuration problem</Text>
           {CONFIG_ERRORS.map((message) => (
-            <Text key={message} style={styles.error}>
+            <Text key={message} style={[styles.noticeBody, { color: theme.cardForeground }]}>
               {message}
             </Text>
           ))}
         </View>
       )}
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Wiring</Text>
-        <Row label="Shared package" value={`${ageGroupCount} age groups loaded`} ok={ageGroupCount > 0} />
-        <Row label="API base" value={API_URL} />
-        <Row label="X-Client" value={CLIENT_HEADER} />
+      {/*
+        Distinguishes "we could not reach the server just now" from "your session ended". The stored
+        credential was kept in the offline case, so signing in again is likely unnecessary once there
+        is signal — saying so avoids a pointless password entry.
+      */}
+      {offline && (
+        <View style={[styles.notice, { borderColor: theme.border, backgroundColor: theme.card }]}>
+          <Text style={[styles.noticeTitle, { color: theme.cardForeground }]}>You appear to be offline</Text>
+          <Text style={[styles.noticeBody, { color: theme.mutedForeground }]}>
+            We could not reach TaskBuddy to restore your session. Your sign-in has been kept — try
+            again once you have a connection.
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.actions}>
+        <Button label="I'm a parent" onPress={() => router.push('/login')} />
+        <Button label="I'm a kid" variant="secondary" onPress={() => router.push('/child-login')} />
       </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Backend</Text>
-
-        {isPending && (
-          <View style={styles.pending}>
-            <ActivityIndicator />
-            <Text style={styles.pendingText}>Contacting the API…</Text>
-          </View>
-        )}
-
-        {isError && (
-          <>
-            <Row label="Status" value="unreachable" ok={false} />
-            <Text style={styles.error}>
-              {error instanceof NetworkError ? error.message : String(error)}
-            </Text>
-          </>
-        )}
-
-        {data && (
-          <>
-            <Row label="Status" value="connected" ok />
-            {/* Round-trips the header: null here means the backend did not recognise this client,
-                which would silently break session persistence (P0-1). */}
-            <Row
-              label="Client recognised"
-              value={data.client ? `${data.client.platform} ${data.client.version}` : 'no — check X-Client'}
-              ok={data.client !== null}
-            />
-            <Row
-              label="Minimum build"
-              value={data.platforms['taskbuddy-android'] ?? 'unknown'}
-            />
-            <Row
-              label="Upgrade required"
-              value={data.upgradeRequired ? 'yes' : 'no'}
-              ok={!data.upgradeRequired}
-            />
-          </>
-        )}
-      </View>
-
-      <Text style={styles.footer}>Started {mountedAt.toLocaleTimeString()}</Text>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0f172a' },
-  content: { padding: 24, paddingBottom: 48 },
-  title: { fontSize: 32, fontWeight: '700', color: '#f8fafc' },
-  subtitle: { fontSize: 15, color: '#94a3b8', marginTop: 4, marginBottom: 28 },
-  card: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 16,
+  title: { fontSize: fontSize['4xl'].fontSize, lineHeight: fontSize['4xl'].lineHeight, fontWeight: fontWeight.bold },
+  subtitle: {
+    fontSize: fontSize.base.fontSize,
+    lineHeight: fontSize.base.lineHeight,
+    marginTop: spacing[2],
+    marginBottom: spacing[8],
   },
-  alertCard: { borderWidth: 1, borderColor: '#f87171' },
-  cardTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: '#64748b',
-    marginBottom: 12,
+  notice: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing[4],
+    marginBottom: spacing[4],
   },
-  row: { marginBottom: 10 },
-  rowLabel: { fontSize: 12, color: '#94a3b8', marginBottom: 2 },
-  rowValue: { fontSize: 14, color: '#e2e8f0' },
-  ok: { color: '#4ade80' },
-  bad: { color: '#f87171' },
-  pending: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pendingText: { color: '#94a3b8', fontSize: 14 },
-  error: { color: '#f87171', fontSize: 13, marginTop: 6, lineHeight: 19 },
-  footer: { color: '#475569', fontSize: 12, textAlign: 'center', marginTop: 8 },
+  noticeTitle: {
+    fontSize: fontSize.sm.fontSize,
+    lineHeight: fontSize.sm.lineHeight,
+    fontWeight: fontWeight.semibold,
+    marginBottom: spacing[1],
+  },
+  noticeBody: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
+  actions: { gap: spacing[3] },
 });
