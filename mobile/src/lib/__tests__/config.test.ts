@@ -55,13 +55,36 @@ describe('X-Client header', () => {
 });
 
 describe('missing config', () => {
-  it('fails loudly at startup rather than producing undefined in a URL', () => {
+  /**
+   * Reports the problem WITHOUT throwing. Throwing during module evaluation kills a React Native
+   * app before any error boundary or LogBox exists: the app closes back to the Expo Go home
+   * screen with nothing on the phone and nothing in the Metro terminal. An earlier version of
+   * config.ts threw here, and that is precisely how it presented.
+   */
+  it('reports missing values instead of throwing', () => {
     jest.resetModules();
     jest.doMock('expo-constants', () => ({
       __esModule: true,
       default: { expoConfig: { extra: {} } },
     }));
 
-    expect(() => require('../config')).toThrow(/apiUrl/);
+    const config = require('../config');
+
+    expect(config.CONFIG_ERRORS).toEqual(
+      expect.arrayContaining([expect.stringContaining('apiUrl')])
+    );
+    // Still importable, so the screen can render and show the error.
+    expect(config.API_URL).toContain('unconfigured');
+  });
+
+  it('flags a null manifest rather than dereferencing it', () => {
+    jest.resetModules();
+    jest.doMock('expo-constants', () => ({ __esModule: true, default: { expoConfig: null } }));
+
+    const config = require('../config');
+
+    expect(config.CONFIG_ERRORS).toEqual(
+      expect.arrayContaining([expect.stringContaining('expoConfig is null')])
+    );
   });
 });

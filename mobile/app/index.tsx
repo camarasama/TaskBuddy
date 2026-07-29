@@ -17,7 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AGE_GROUPS } from '@taskbuddy/shared';
 
 import { fetchMinVersion, NetworkError } from '@/lib/api';
-import { API_URL, CLIENT_HEADER } from '@/lib/config';
+import { API_URL, CLIENT_HEADER, CONFIG_ERRORS } from '@/lib/config';
 
 function Row({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
   return (
@@ -53,6 +53,17 @@ export default function Index() {
     >
       <Text style={styles.title}>TaskBuddy</Text>
       <Text style={styles.subtitle}>Phase 0 — scaffold check</Text>
+
+      {CONFIG_ERRORS.length > 0 && (
+        <View style={[styles.card, styles.alertCard]}>
+          <Text style={styles.cardTitle}>Config problem</Text>
+          {CONFIG_ERRORS.map((message) => (
+            <Text key={message} style={styles.error}>
+              {message}
+            </Text>
+          ))}
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Wiring</Text>
@@ -119,6 +130,7 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 16,
   },
+  alertCard: { borderWidth: 1, borderColor: '#f87171' },
   cardTitle: {
     fontSize: 12,
     fontWeight: '700',
