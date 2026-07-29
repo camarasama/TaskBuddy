@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  type ScrollViewProps,
   StyleSheet,
   View,
   type ViewStyle,
@@ -24,9 +25,20 @@ interface ScreenProps {
   /** Centre content vertically — for short screens like sign-in, which look wrong pinned to the top. */
   center?: boolean;
   contentStyle?: ViewStyle;
+  /**
+   * Pull-to-refresh control. Requires `scroll` — a RefreshControl needs a scrollable to hang from, and
+   * passing one without it would silently do nothing.
+   */
+  refreshControl?: ScrollViewProps['refreshControl'];
 }
 
-export function Screen({ children, scroll = false, center = false, contentStyle }: ScreenProps) {
+export function Screen({
+  children,
+  scroll = false,
+  center = false,
+  contentStyle,
+  refreshControl,
+}: ScreenProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -42,6 +54,7 @@ export function Screen({ children, scroll = false, center = false, contentStyle 
       style={styles.fill}
       contentContainerStyle={[padding, center && styles.centered, contentStyle]}
       keyboardShouldPersistTaps="handled"
+      refreshControl={refreshControl}
     >
       {children}
     </ScrollView>

@@ -17,9 +17,27 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ErrorScreen } from '@/components/ErrorScreen';
 import { SessionExpiredError } from '@/lib/api';
+import { initReporting, reportError } from '@/lib/reporting';
 import { useAuth } from '@/stores/auth';
 import { useTheme } from '@/theme';
+
+/**
+ * expo-router renders this in place of any route that throws during render, and — because it is
+ * exported from the *root* layout — for every route that does not export its own.
+ *
+ * The report goes in an effect keyed on the error, not in the render body: the fallback can re-render
+ * (a theme change, a parent update) and a render-phase side effect would file the same crash again
+ * each time.
+ */
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+  useEffect(() => {
+    reportError(error, 'render');
+  }, [error]);
+
+  return <ErrorScreen error={error} retry={retry} />;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +66,10 @@ function Splash() {
 function Routes() {
   const status = useAuth((state) => state.status);
   const bootstrap = useAuth((state) => state.bootstrap);
+
+  useEffect(() => {
+    initReporting();
+  }, []);
 
   useEffect(() => {
     void bootstrap();
