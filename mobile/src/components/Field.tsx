@@ -27,6 +27,9 @@ export function Field({ label, error, hint, ...inputProps }: FieldProps) {
         accessibilityLabel={label}
         accessibilityHint={hint}
         placeholderTextColor={theme.mutedForeground}
+        // Android centres multiline text vertically by default, which looks like a bug in a box tall
+        // enough to hold a sentence.
+        textAlignVertical={inputProps.multiline ? 'top' : 'center'}
         style={[
           styles.input,
           {
@@ -34,6 +37,7 @@ export function Field({ label, error, hint, ...inputProps }: FieldProps) {
             color: theme.cardForeground,
             borderColor: error ? theme.destructive : theme.input,
           },
+          inputProps.multiline && styles.multiline,
         ]}
       />
       {hint !== undefined && !error && (
@@ -70,4 +74,6 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.sm.lineHeight,
     marginTop: spacing[2],
   },
+  /** Tall enough for a couple of lines without the user having to scroll inside the box to see them. */
+  multiline: { minHeight: minTouchTarget * 2, paddingTop: spacing[3] },
 });
