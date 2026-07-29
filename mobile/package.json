@@ -18,7 +18,6 @@
     "expo": "~57.0.8",
     "expo-constants": "~57.0.7",
     "expo-linking": "~57.0.4",
-    "expo-modules-core": "~57.0.7",
     "expo-router": "~57.0.8",
     "expo-secure-store": "~57.0.1",
     "expo-status-bar": "~57.0.1",
@@ -28,6 +27,12 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "zustand": "^5.0.14"
+  },
+  "expo": {
+    "install": {
+      "//": "typescript is deliberately held at the monorepo's 5.9.x rather than the SDK 57 default of 6.0.x. Backend and frontend both build with 5.9, and npm hoists one copy; letting expo install 6.0 here would put a different major in front of `tsc -b` for the whole repo. Revisit when backend and frontend move to TypeScript 6.",
+      "exclude": ["typescript"]
+    }
   },
   "devDependencies": {
     "@testing-library/react-native": "^14.0.1",

@@ -12,10 +12,10 @@
  * those nested modules then fails to resolve — verified here, one package at a time, before this
  * comment was written.
  *
- * The reason the guides recommend it is to prevent a duplicate React being bundled. That risk is
- * handled instead by `nodeModulesPaths` listing mobile's own directory first, so its React 19 is
- * found before the root's React 18 (which the marketing build depends on). If hooks ever start
- * failing with an error that points nowhere near the cause, check that ordering first.
+ * The reason those guides recommend it is to prevent a duplicate React being bundled — a real risk
+ * here, and `nodeModulesPaths` ordering alone did NOT prevent it (see the React pin below). The
+ * two concerns are separated instead: hierarchical lookup stays ON globally so npm's nesting
+ * resolves, and is disabled only for the React packages.
  */
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
@@ -43,6 +43,52 @@ config.resolver.nodeModulesPaths = [
  */
 config.resolver.extraNodeModules = {
   '@taskbuddy/shared': path.resolve(workspaceRoot, 'shared/src'),
+};
+
+/**
+ * Pin React to mobile's own copy.
+ *
+ * The web frontend needs React 18 and this app needs React 19, so they cannot both hoist: npm puts
+ * 18 at the repo root and nests 19 under `mobile/`. That is correct on npm's part, but it means a
+ * package hoisted to the ROOT — `@tanstack/react-query` is the one that bit us — resolves `react`
+ * by walking up from its own location and finds 18, while app code finds 19. Two Reacts in one
+ * bundle, and hooks fail at startup: on a device the app closes and returns to the Expo Go home
+ * screen with no error, because it dies before anything can render one.
+ *
+ * `nodeModulesPaths` ordering does NOT prevent this — that list is consulted only after the
+ * hierarchical walk from the importing file. Only these packages get the walk disabled, so npm's
+ * nesting keeps working for everything else.
+ *
+ * `npx expo-doctor` will keep reporting "duplicate dependencies … react" regardless — it inspects
+ * the dependency tree on disk, where both copies genuinely and correctly exist. That warning is
+ * expected here and cannot be cleared without giving one of the two frontends the wrong React.
+ * What matters is the BUNDLE, so verify it there:
+ *
+ *   npx expo export --platform android --output-dir /tmp/x --no-bytecode --clear
+ *   grep -ohE '"(18|19)\.[0-9]+\.[0-9]+"' /tmp/x/_expo/static/js/android/*.js | sort -u
+ *
+ * Exactly one React version may appear. Two means this pin has stopped working.
+ */
+const REACT_PACKAGES = new Set(['react', 'react-is']);
+
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const packageName = moduleName.startsWith('@')
+    ? moduleName.split('/').slice(0, 2).join('/')
+    : moduleName.split('/')[0];
+
+  if (REACT_PACKAGES.has(packageName)) {
+    return context.resolveRequest(
+      {
+        ...context,
+        disableHierarchicalLookup: true,
+        nodeModulesPaths: [path.resolve(projectRoot, 'node_modules')],
+      },
+      moduleName,
+      platform
+    );
+  }
+
+  return context.resolveRequest(context, moduleName, platform);
 };
 
 module.exports = config;
