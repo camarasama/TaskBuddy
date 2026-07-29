@@ -19,6 +19,16 @@ export interface ApiError {
 }
 
 // Pagination
+//
+// ⚠️ `PaginatedResponse` is currently used by nothing, and its shape does NOT match what the API
+// actually returns. Paginated routes answer with a *named* collection beside a `pagination` object
+// built by `buildMeta()` in backend/src/utils/pagination.ts — e.g.
+// `{ tasks: [...], pagination: { page, limit, total, totalPages, hasMore } }`. Note `limit` not
+// `pageSize`, the extra `hasMore`, and no `items` key.
+//
+// Left in place rather than deleted because it is an exported type, but do not reach for it expecting
+// it to describe a real response. Either align it with `buildMeta` (and move that interface into
+// shared so there is one definition) or remove it.
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;

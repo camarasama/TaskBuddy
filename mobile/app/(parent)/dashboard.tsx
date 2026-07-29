@@ -11,6 +11,7 @@
  */
 import { useCallback, useState } from 'react';
 import { RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import type { ParentDashboardResponse } from '@taskbuddy/shared';
 
@@ -187,6 +188,13 @@ export default function ParentDashboard() {
           <Stat label="Rewards" value={weeklyStats.rewardsRedeemed} />
         </View>
       </Card>
+
+      {/*
+        Standing in for a tab bar, which needs @react-navigation/bottom-tabs — not installed, and
+        pulling in an undeclared native module is the Phase 0 failure class. Replaced by tabs when
+        that dependency is added deliberately alongside the remaining screens.
+      */}
+      <Button label="View all tasks" onPress={() => router.push('/(parent)/tasks')} />
 
       <View style={styles.actions}>
         <Button label="Sign out" variant="secondary" onPress={() => void signOut()} />
