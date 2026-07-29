@@ -80,6 +80,32 @@
     // the only patterns ever expanded are the SDK's own constants. No request data reaches it.
     // RE-TRIAGE: remove as soon as a patched brace-expansion ships and the dependency tree can
     // reach it — this entry exists only because there is currently nothing to upgrade to.
-    "GHSA-mh99-v99m-4gvg"
+    "GHSA-mh99-v99m-4gvg",
+
+    // DEP-09 — uuid: missing buffer bounds check in v3/v5/v6 when `buf` is provided (moderate,
+    // CVSS 7.5, CWE-787 out-of-bounds write). Range <11.1.1. Entered the tree 2026-07-28 with the
+    // mobile workspace:
+    //     mobile -> expo@57.0.8 -> @expo/config-plugins -> xcode@3.0.1 -> uuid@7.0.3
+    //
+    // NOT REACHABLE, for three independent reasons — any one would suffice:
+    //   1. WRONG CODE PATH. The advisory is specific to v3/v5/v6 called WITH a `buf` argument.
+    //      xcode calls `uuid.v4()` and nothing else (node_modules/xcode/lib/pbxProject.js:90,
+    //      its sole use), with no buffer. The vulnerable functions are never invoked.
+    //   2. BUILD-TIME ONLY. xcode manipulates .pbxproj files during `expo prebuild`. Metro
+    //      bundles only what app code imports, so it cannot reach the shipped app bundle, and it
+    //      is absent from the backend and web frontend entirely.
+    //   3. iOS ONLY, and iOS is out of scope until Android ships (see the mobile plan). Nothing
+    //      in the current pipeline — EAS Android builds included — executes it at all.
+    //
+    // NO FIX AVAILABLE: xcode@latest (3.0.1) still pins `uuid: ^7.0.3`; only unpublished
+    // nightlies exist beyond it. A root `overrides.uuid: ^11.1.1` was attempted on 2026-07-28 and
+    // npm declined to apply it to this transitive path even after deleting and regenerating
+    // package-lock.json — the tree still resolved uuid@7.0.3. npm's own suggested remedy is
+    // expo@46, an eleven-major DOWNGRADE from SDK 57. There is nothing to upgrade to.
+    //
+    // RE-TRIAGE: remove when xcode ships a release depending on uuid >= 11.1.1, or when Expo
+    // drops xcode from @expo/config-plugins. Re-examine immediately if uuid ever appears outside
+    // the xcode path — `npm ls uuid --all` showed exactly one consumer when this was triaged.
+    "GHSA-w5hq-g745-h8pq"
   ]
 }
