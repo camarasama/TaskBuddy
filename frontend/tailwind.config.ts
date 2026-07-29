@@ -1,5 +1,37 @@
 import type { Config } from 'tailwindcss';
 
+/**
+ * Tokens are imported from shared's TypeScript **source**, by relative path, rather than through
+ * the `@taskbuddy/shared` package entry the rest of the frontend uses.
+ *
+ * That entry resolves to `shared/dist`, which is gitignored and only produced as a side effect of
+ * `backend`'s `tsc -b` (via its project reference). This config, however, is loaded by Tailwind at
+ * the very start of `next dev` / `next build` — including on a fresh clone where nothing has been
+ * built yet. Going through the package entry would make the dev server's first run depend on a
+ * build step nothing here declares. Tailwind's config loader transpiles TypeScript, and the tokens
+ * module imports nothing, so reading the source directly is both safe and one less ordering trap.
+ */
+import {
+  fontSize,
+  glow,
+  palette,
+  radius,
+  rem,
+  remScale,
+  spacing,
+} from '../shared/src/design/tokens';
+
+/**
+ * Tailwind wants `{ base: ['1rem', { lineHeight: '1.5rem' }] }`; the tokens keep both numbers on
+ * one object. Converted here rather than stored in two shapes.
+ */
+const fontSizeScale: Record<string, [string, { lineHeight: string }]> = Object.fromEntries(
+  Object.entries(fontSize).map(([key, step]) => [
+    key,
+    [rem(step.fontSize), { lineHeight: rem(step.lineHeight) }],
+  ])
+);
+
 const config: Config = {
   darkMode: ['class'],
   content: [
@@ -9,87 +41,32 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      colors: {
-        // Primary brand colors - friendly and engaging
-        primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-        },
-        // Success/completion - green
-        success: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
-        },
-        // Warning/pending - amber
-        warning: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-          900: '#78350f',
-        },
-        // Points/rewards - gold
-        gold: {
-          50: '#fefce8',
-          100: '#fef9c3',
-          200: '#fef08a',
-          300: '#fde047',
-          400: '#facc15',
-          500: '#eab308',
-          600: '#ca8a04',
-          700: '#a16207',
-          800: '#854d0e',
-          900: '#713f12',
-        },
-        // XP/leveling - purple
-        xp: {
-          50: '#faf5ff',
-          100: '#f3e8ff',
-          200: '#e9d5ff',
-          300: '#d8b4fe',
-          400: '#c084fc',
-          500: '#a855f7',
-          600: '#9333ea',
-          700: '#7e22ce',
-          800: '#6b21a8',
-          900: '#581c87',
-        },
-      },
+      // primary / success / warning / gold / xp / slate / destructive, straight from the tokens.
+      // `slate` shadows Tailwind's built-in with identical values, deliberately: the app has no
+      // built-in palette, so this keeps one definition of the neutrals for both clients.
+      colors: palette,
       fontFamily: {
+        // The logical names in the tokens (`Inter`, `Poppins`) resolve through next/font's CSS
+        // variables here, and through expo-font in the app.
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
         display: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
       },
+      spacing: remScale(spacing),
+      fontSize: fontSizeScale,
       borderRadius: {
-        lg: '1rem',
-        xl: '1.5rem',
-        '2xl': '2rem',
+        ...remScale(radius),
+        // `DEFAULT` is the key behind a bare `rounded`; the tokens call that step `base`. Aliased
+        // so the plain class is token-driven too rather than silently keeping Tailwind's own.
+        DEFAULT: rem(radius.base),
+        // `full` is a sentinel, not a length — see the note on it in the tokens. Unit-converting it
+        // gives `624.9375rem`, so it is pinned to px here.
+        full: `${radius.full}px`,
       },
       boxShadow: {
-        'glow': '0 0 20px rgba(14, 165, 233, 0.3)',
-        'glow-success': '0 0 20px rgba(34, 197, 94, 0.3)',
-        'glow-gold': '0 0 20px rgba(234, 179, 8, 0.3)',
-        'glow-xp': '0 0 20px rgba(168, 85, 247, 0.3)',
+        'glow': `0 0 20px ${glow.primary}`,
+        'glow-success': `0 0 20px ${glow.success}`,
+        'glow-gold': `0 0 20px ${glow.gold}`,
+        'glow-xp': `0 0 20px ${glow.xp}`,
       },
       animation: {
         'bounce-slow': 'bounce 2s infinite',
