@@ -73,8 +73,15 @@ export interface LoginResponse {
   tokens: AuthTokens;
 }
 
-// Client-visible tokens. The refresh token is intentionally NOT here: it is delivered only as an
-// HttpOnly cookie (see backend routes/auth.ts) so it never reaches JS-readable storage (F-2).
+// Client-visible tokens, as a **browser** receives them. The refresh token is intentionally NOT here:
+// a browser gets it only as an HttpOnly cookie (see backend routes/auth.ts) so it never reaches
+// JS-readable storage (F-2).
+//
+// Native clients are the exception, added by P0-1: they have no dependable cookie jar, so they
+// receive the refresh token in the response body and put it straight into the OS keystore. This type
+// is deliberately left as the browser contract rather than widened with an optional field — the
+// mobile shape is declared separately in `mobile/src/lib/authApi.ts`, so neither client's type
+// overstates what it actually gets. `deliverTokens()` in routes/auth.ts is the switch.
 export interface AuthTokens {
   accessToken: string;
   expiresIn: number;
