@@ -36,6 +36,7 @@
  * promise. Everything else here is ordinary; this part is not optional.
  */
 import { API_URL, CLIENT_HEADER } from './config';
+import { reportError } from './reporting';
 import {
   clearSession,
   getAccessToken,
@@ -137,6 +138,15 @@ type RefreshOutcome = 'refreshed' | 'expired' | 'offline';
 /** Diagnostics for the failure modes worth seeing in Sentry rather than inferring from a logout. */
 export const REFRESH_ERRORS: string[] = [];
 
+/**
+ * Every one of these describes a session ending for a reason the user cannot see, so it goes to the
+ * reporting seam as well as the local array — otherwise the only symptom is an unexplained sign-out.
+ */
+function recordRefreshFailure(message: string): void {
+  REFRESH_ERRORS.push(message);
+  reportError(new Error(message), 'api.refresh');
+}
+
 let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
 /**
@@ -190,11 +200,11 @@ async function performRefresh(): Promise<RefreshOutcome> {
     }>;
     tokens = body?.data?.tokens;
   } catch {
-    REFRESH_ERRORS.push('refresh returned 200 with an unparseable body');
+    recordRefreshFailure('refresh returned 200 with an unparseable body');
   }
 
   if (!tokens?.accessToken) {
-    REFRESH_ERRORS.push('refresh returned 200 without an access token');
+    recordRefreshFailure('refresh returned 200 without an access token');
     await clearSession();
     notifySessionExpired();
     return 'expired';
@@ -211,7 +221,7 @@ async function performRefresh(): Promise<RefreshOutcome> {
    * one obvious sign-out with a diagnostic attached.
    */
   if (!tokens.refreshToken) {
-    REFRESH_ERRORS.push(
+    recordRefreshFailure(
       'refresh returned 200 without a refresh token — X-Client was not recognised as native, ' +
         'so the rotated token went to a cookie this client cannot read'
     );
@@ -225,7 +235,7 @@ async function performRefresh(): Promise<RefreshOutcome> {
   // is an unexplained logout. Ending the session deliberately is the better failure.
   const persisted = await setRefreshToken(tokens.refreshToken);
   if (!persisted) {
-    REFRESH_ERRORS.push('could not persist the rotated refresh token — keystore write failed');
+    recordRefreshFailure('could not persist the rotated refresh token — keystore write failed');
     await clearSession();
     notifySessionExpired();
     return 'expired';

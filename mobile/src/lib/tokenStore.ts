@@ -17,6 +17,8 @@
  */
 import * as SecureStore from 'expo-secure-store';
 
+import { reportError } from './reporting';
+
 /**
  * SecureStore keys accept only alphanumerics, `.`, `-` and `_`. Namespaced so a future credential
  * (a push token, a device id) does not collide.
@@ -52,6 +54,7 @@ export const STORE_ERRORS: string[] = [];
 function recordFailure(operation: string, cause: unknown): void {
   const detail = cause instanceof Error ? cause.message : String(cause);
   STORE_ERRORS.push(`secure-store ${operation} failed: ${detail}`);
+  reportError(cause, `tokenStore.${operation}`);
 }
 
 export async function getRefreshToken(): Promise<string | null> {

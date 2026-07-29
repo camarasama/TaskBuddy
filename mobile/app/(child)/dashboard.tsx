@@ -7,9 +7,10 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/stores/auth';
-import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
 
 export default function ChildDashboard() {
   const theme = useTheme();
@@ -25,12 +26,12 @@ export default function ChildDashboard() {
         Your tasks and rewards are on the way.
       </Text>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <Card>
         <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>Coming next</Text>
         <Text style={[styles.cardBody, { color: theme.cardForeground }]}>
           Tasks, points, rewards and games arrive in Phase 2.
         </Text>
-      </View>
+      </Card>
 
       <View style={styles.actions}>
         <Button label="Sign out" variant="secondary" onPress={() => void signOut()} />
@@ -51,7 +52,6 @@ const styles = StyleSheet.create({
     marginTop: spacing[1],
     marginBottom: spacing[6],
   },
-  card: { borderWidth: 1, borderRadius: radius.lg, padding: spacing[4] },
   cardTitle: {
     fontSize: fontSize.xs.fontSize,
     fontWeight: fontWeight.bold,
