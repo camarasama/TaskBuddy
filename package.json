@@ -7,15 +7,18 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm -w backend run dev",
     "dev:frontend": "npm -w frontend run dev",
+    "dev:mobile": "npm -w mobile run start",
     "build": "npm run db:generate && npm run build:backend && npm run build:frontend",
     "build:backend": "npm -w backend run build",
     "build:frontend": "npm -w frontend run build",
-    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint": "npm run lint:backend && npm run lint:frontend && npm run lint:mobile",
     "lint:backend": "npm -w backend run lint",
     "lint:frontend": "npm -w frontend run lint",
-    "test": "npm run test:backend && npm run test:frontend",
+    "lint:mobile": "npm -w mobile run lint",
+    "test": "npm run test:backend && npm run test:frontend && npm run test:mobile",
     "test:backend": "npm -w backend run test",
     "test:frontend": "npm -w frontend run test",
+    "test:mobile": "npm -w mobile run test",
     "db:migrate": "npm -w backend run db:migrate",
     "db:seed": "npm -w backend run db:seed",
     "db:studio": "npm -w backend run db:studio",
@@ -26,7 +29,8 @@
   "workspaces": [
     "backend",
     "frontend",
-    "shared"
+    "shared",
+    "mobile"
   ],
   "devDependencies": {
     "concurrently": "^8.2.2",
