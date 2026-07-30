@@ -3,9 +3,13 @@
  *
  * ## Scope
  *
- * `maths / beginner` already exists as "Math Challenge" (25 questions, seeded before the redesign), so
- * only the two missing levels are authored here. Content lives in `src/content/games/` rather than in
- * `gamesSeed.ts` because eighteen banks in one route file is unreadable; `gamesSeed` imports from here.
+ * All three levels live here, in one file per category — `gamesSeed.ts` imports them. They were split
+ * across two files at first (beginner inline in the seed, the rest here) and that split immediately hid a
+ * real bug: the cross-level duplicate check could not see the beginner bank, so two questions were
+ * duplicated between beginner and intermediate and two more were the same question reworded. One file per
+ * category is what makes that check possible at all.
+ *
+ * `maths / beginner` is the pre-existing "Math Challenge" bank, moved verbatim — see the warning on it.
  *
  * ## How these were written, and what to check
  *
@@ -36,11 +40,53 @@ export interface SeedQuestion {
 }
 
 /**
+ * Beginner — the ORIGINAL "Math Challenge" bank, moved here verbatim from `gamesSeed.ts`.
+ *
+ * ⚠️ **This bank predates the level system and is not really a beginner tier.** It was authored as one
+ * general mixed quiz, so it contains percentages, indices, square roots, order of operations, area,
+ * perimeter, sequences and angle sums — material that belongs at intermediate. It is preserved exactly
+ * as-is because these rows are live: children have played them, `GameQuestionSeen` references their ids,
+ * and `backfillGameBanks` matches on id AND normalised text, so editing either would change behaviour
+ * against real history.
+ *
+ * Re-tiering it needs an owner decision and a content-replacement path, not a seed edit — `seedGames()`
+ * skips definitions that already exist, so nothing here reaches an existing deployment anyway.
+ */
+export const MATHS_BEGINNER: SeedQuestion[] = [
+  { id: 'm01', text: 'What is 7 × 8?', options: ['54', '56', '64', '48'], correctIndex: 1 },
+  { id: 'm02', text: 'What is 144 ÷ 12?', options: ['10', '11', '12', '13'], correctIndex: 2 },
+  { id: 'm03', text: 'What is 15% of 200?', options: ['25', '30', '35', '40'], correctIndex: 1 },
+  { id: 'm04', text: 'What is 2³?', options: ['6', '8', '9', '16'], correctIndex: 1 },
+  { id: 'm05', text: 'What is the square root of 81?', options: ['7', '8', '9', '10'], correctIndex: 2 },
+  { id: 'm06', text: 'What is 9 × 6?', options: ['45', '54', '56', '63'], correctIndex: 1 },
+  { id: 'm07', text: 'What is 100 − 37?', options: ['53', '63', '67', '73'], correctIndex: 1 },
+  { id: 'm08', text: 'What is 25 × 4?', options: ['75', '90', '100', '125'], correctIndex: 2 },
+  { id: 'm09', text: 'What is 3/4 as a decimal?', options: ['0.25', '0.5', '0.75', '0.8'], correctIndex: 2 },
+  { id: 'm10', text: 'What is the perimeter of a square with sides of 5 cm?', options: ['10 cm', '15 cm', '20 cm', '25 cm'], correctIndex: 2 },
+  { id: 'm11', text: 'What is 12 × 12?', options: ['124', '132', '144', '156'], correctIndex: 2 },
+  { id: 'm12', text: 'How many minutes are in 2½ hours?', options: ['120', '140', '150', '160'], correctIndex: 2 },
+  { id: 'm13', text: 'What is 50% of 90?', options: ['35', '40', '45', '50'], correctIndex: 2 },
+  { id: 'm14', text: 'What is 7 + 8 × 2?', options: ['23', '30', '17', '15'], correctIndex: 0 },
+  { id: 'm15', text: 'What is the next number: 2, 4, 8, 16, …?', options: ['20', '24', '32', '18'], correctIndex: 2 },
+  { id: 'm16', text: 'How many sides does a hexagon have?', options: ['5', '6', '7', '8'], correctIndex: 1 },
+  { id: 'm17', text: 'What is 81 ÷ 9?', options: ['7', '8', '9', '11'], correctIndex: 2 },
+  { id: 'm18', text: 'What is the area of a rectangle 6 cm by 4 cm?', options: ['10 cm²', '20 cm²', '24 cm²', '26 cm²'], correctIndex: 2 },
+  { id: 'm19', text: 'Round 6.7 to the nearest whole number.', options: ['6', '7', '6.5', '8'], correctIndex: 1 },
+  { id: 'm20', text: 'What is 1000 − 250?', options: ['650', '700', '750', '850'], correctIndex: 2 },
+  { id: 'm21', text: 'How many degrees are in a right angle?', options: ['45', '90', '180', '360'], correctIndex: 1 },
+  { id: 'm22', text: 'What is 6 × 7 + 3?', options: ['42', '45', '48', '63'], correctIndex: 1 },
+  { id: 'm23', text: 'Which fraction is largest?', options: ['1/2', '1/3', '1/4', '1/5'], correctIndex: 0 },
+  { id: 'm24', text: 'What is 5² − 5?', options: ['15', '20', '25', '30'], correctIndex: 1 },
+  { id: 'm25', text: 'How many degrees are in a triangle’s three angles?', options: ['90', '180', '270', '360'], correctIndex: 1 },
+];
+
+/**
  * Intermediate: percentages, ratio, area and perimeter, negatives, order of operations, averages, and
  * one-step algebra. Roughly upper primary to early secondary.
  */
 export const MATHS_INTERMEDIATE: SeedQuestion[] = [
-  { id: 'mi01', text: 'What is 15% of 200?', options: ['25', '30', '35', '40'], correctIndex: 1 },
+  // 24 is 30% and 32 is 40% — near misses that punish estimating rather than calculating.
+  { id: 'mi01', text: 'What is 35% of 80?', options: ['24', '26', '28', '32'], correctIndex: 2 },
   // Distractor 11 is "subtract 5 then divide by nothing"; 15 is "20 minus 5".
   { id: 'mi02', text: 'Solve for x: 3x + 5 = 20', options: ['3', '5', '11', '15'], correctIndex: 1 },
   // 26 is the perimeter — the classic area/perimeter mix-up.
@@ -53,18 +99,21 @@ export const MATHS_INTERMEDIATE: SeedQuestion[] = [
   // 81 is the area rather than the perimeter.
   { id: 'mi08', text: 'What is the perimeter of a square with sides of 9 cm?', options: ['18 cm', '27 cm', '36 cm', '81 cm'], correctIndex: 2 },
   { id: 'mi09', text: 'What is 3/4 written as a percentage?', options: ['34%', '60%', '75%', '80%'], correctIndex: 2 },
-  { id: 'mi10', text: 'What is 144 ÷ 12?', options: ['10', '11', '12', '14'], correctIndex: 2 },
+  // 400 scales by nothing; 500 rounds the wrong way. Proportional reasoning, not division practice.
+  { id: 'mi10', text: 'A recipe for 4 people uses 300 g of rice. How much is needed for 6 people?', options: ['400 g', '420 g', '450 g', '500 g'], correctIndex: 2 },
   { id: 'mi11', text: 'What is 2.5 × 4?', options: ['8', '9', '10', '12'], correctIndex: 2 },
   // 10 is the discount itself rather than the new price.
   { id: 'mi12', text: 'A jacket costs 40 and is reduced by 25%. What is the new price?', options: ['10', '15', '30', '35'], correctIndex: 2 },
   // 10 is 5 × 2 — the common "squared means doubled" error.
   { id: 'mi13', text: 'What is 5²?', options: ['10', '25', '50', '55'], correctIndex: 1 },
-  { id: 'mi14', text: 'Which of these fractions is the largest?', options: ['1/2', '2/5', '3/8', '4/9'], correctIndex: 0 },
+  // Mixed decimals and fractions, so it cannot be answered by comparing denominators alone.
+  { id: 'mi14', text: 'Which of these is the smallest?', options: ['0.35', '1/3', '3/8', '0.4'], correctIndex: 1 },
   // 6/10 is correct but not simplified; the question asks for simplest form.
   { id: 'mi15', text: 'Write 0.6 as a fraction in its simplest form.', options: ['6/10', '3/5', '2/3', '1/6'], correctIndex: 1 },
   { id: 'mi16', text: 'If 5 pens cost 30, how much do 8 pens cost?', options: ['40', '45', '48', '50'], correctIndex: 2 },
   { id: 'mi17', text: 'What is 20% of 90?', options: ['14', '18', '20', '22'], correctIndex: 1 },
-  { id: 'mi18', text: 'The angles inside a triangle always add up to how many degrees?', options: ['90', '180', '270', '360'], correctIndex: 1 },
+  // 60 is base × height with the halving forgotten — by far the most common triangle-area error.
+  { id: 'mi18', text: 'What is the area of a triangle with a base of 10 cm and a height of 6 cm?', options: ['16 cm²', '30 cm²', '36 cm²', '60 cm²'], correctIndex: 1 },
   { id: 'mi19', text: 'What is 7 × 12?', options: ['74', '82', '84', '96'], correctIndex: 2 },
   // 9a is what you get by adding all three terms and ignoring the minus.
   { id: 'mi20', text: 'Simplify: 4a + 3a − 2a', options: ['5a', '7a', '9a', '3a'], correctIndex: 0 },

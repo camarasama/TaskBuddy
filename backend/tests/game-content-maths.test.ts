@@ -10,10 +10,16 @@
  * Run against every authored bank, so adding the remaining five categories inherits these checks for free.
  */
 
-import { MATHS_HARD, MATHS_INTERMEDIATE, type SeedQuestion } from '../src/content/games/maths';
+import {
+  MATHS_BEGINNER,
+  MATHS_HARD,
+  MATHS_INTERMEDIATE,
+  type SeedQuestion,
+} from '../src/content/games/maths';
 import { validateQuestionBank } from '../src/services/GameService';
 
 const BANKS: Array<[string, SeedQuestion[]]> = [
+  ['maths / beginner', MATHS_BEGINNER],
   ['maths / intermediate', MATHS_INTERMEDIATE],
   ['maths / hard', MATHS_HARD],
 ];
@@ -77,18 +83,43 @@ describe.each(BANKS)('%s bank', (_name, bank) => {
 });
 
 describe('across the maths banks', () => {
-  it('shares no question ids between levels', () => {
-    // Ids are unique per definition in the schema, but overlapping ids across banks make debugging a
-    // rotation problem much harder than it needs to be.
-    const inter = new Set(MATHS_INTERMEDIATE.map((q) => q.id));
-    const overlap = MATHS_HARD.filter((q) => inter.has(q.id));
-    expect(overlap.map((q) => q.id)).toEqual([]);
-  });
+  /**
+   * Pairwise across ALL THREE levels, and this is the test that matters most in the file.
+   *
+   * Beginner originally lived inline in `gamesSeed.ts` while the other two lived here, so this check
+   * could only see two of the three banks — and it passed while two questions were duplicated verbatim
+   * between beginner and intermediate, and two more were the same question reworded. Consolidating the
+   * content into one file is what made the check possible; without it the bug was structurally invisible.
+   *
+   * A duplicate across levels is not cosmetic: it undermines the tiering the levels exist to express, and
+   * a child meeting the same question at two difficulties concludes the app is broken.
+   */
+  const PAIRS: Array<[string, SeedQuestion[], string, SeedQuestion[]]> = [
+    ['beginner', MATHS_BEGINNER, 'intermediate', MATHS_INTERMEDIATE],
+    ['beginner', MATHS_BEGINNER, 'hard', MATHS_HARD],
+    ['intermediate', MATHS_INTERMEDIATE, 'hard', MATHS_HARD],
+  ];
 
-  it('does not repeat a question between levels', () => {
-    // The same question appearing at two difficulties undermines the tiering the levels exist to express.
-    const inter = new Set(MATHS_INTERMEDIATE.map((q) => q.text.trim().toLowerCase()));
-    const overlap = MATHS_HARD.filter((q) => inter.has(q.text.trim().toLowerCase()));
-    expect(overlap.map((q) => q.id)).toEqual([]);
+  // Looped rather than `it.each`: a tuple containing arrays renders as "beginner and [" in the output,
+  // and a test whose name does not say what it covers is a test nobody can act on when it fails.
+  for (const [nameA, bankA, nameB, bankB] of PAIRS) {
+    it(`${nameA} and ${nameB} share no question ids`, () => {
+      // Ids are unique per definition in the schema, but overlapping ids across banks make debugging a
+      // rotation problem far harder than it needs to be.
+      const ids = new Set(bankA.map((q) => q.id));
+      expect(bankB.filter((q) => ids.has(q.id)).map((q) => q.id)).toEqual([]);
+    });
+
+    it(`${nameA} and ${nameB} repeat no question text`, () => {
+      const texts = new Set(bankA.map((q) => q.text.trim().toLowerCase()));
+      expect(bankB.filter((q) => texts.has(q.text.trim().toLowerCase())).map((q) => q.id)).toEqual([]);
+    });
+  }
+
+  it('has no repeated question anywhere across the whole category', () => {
+    // The catch-all: whatever the pairings, one question text may exist once in the category.
+    const all = [...MATHS_BEGINNER, ...MATHS_INTERMEDIATE, ...MATHS_HARD];
+    const texts = all.map((q) => q.text.trim().toLowerCase());
+    expect(texts).toHaveLength(new Set(texts).size);
   });
 });
