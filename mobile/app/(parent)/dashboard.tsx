@@ -10,7 +10,7 @@
  * screen; this one links into it once that exists.
  */
 import { useCallback, useState } from 'react';
-import { RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import type { ParentDashboardResponse } from '@taskbuddy/shared';
@@ -142,27 +142,38 @@ export default function ParentDashboard() {
       <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>{family.familyName}</Text>
 
       {/* First, because it is the only item here that is blocking somebody else. */}
-      <Card
-        style={
-          pendingApprovals.length > 0 ? { borderColor: theme.primary, borderWidth: 2 } : undefined
+      <Pressable
+        onPress={() => router.push('/(parent)/approvals')}
+        accessibilityRole="button"
+        accessibilityLabel={
+          pendingApprovals.length === 0
+            ? 'Approvals, nothing waiting'
+            : `Approvals, ${pendingApprovals.length} waiting`
         }
       >
-        <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>Approvals</Text>
-        {pendingApprovals.length === 0 ? (
-          <Text style={[styles.body, { color: theme.cardForeground }]}>
-            Nothing waiting. You&apos;re all caught up.
-          </Text>
-        ) : (
-          <>
-            <Text style={[styles.bigNumber, { color: theme.foreground }]}>
-              {pendingApprovals.length}
-            </Text>
+        <Card
+          style={
+            pendingApprovals.length > 0 ? { borderColor: theme.primary, borderWidth: 2 } : undefined
+          }
+        >
+          <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>Approvals</Text>
+          {pendingApprovals.length === 0 ? (
             <Text style={[styles.body, { color: theme.cardForeground }]}>
-              {pendingApprovals.length === 1 ? 'task is' : 'tasks are'} waiting for you to review.
+              Nothing waiting. You&apos;re all caught up.
             </Text>
-          </>
-        )}
-      </Card>
+          ) : (
+            <>
+              <Text style={[styles.bigNumber, { color: theme.foreground }]}>
+                {pendingApprovals.length}
+              </Text>
+              <Text style={[styles.body, { color: theme.cardForeground }]}>
+                {pendingApprovals.length === 1 ? 'task is' : 'tasks are'} waiting for you to review.
+              </Text>
+            </>
+          )}
+          <Text style={[styles.body, { color: theme.primary }]}>Review →</Text>
+        </Card>
+      </Pressable>
 
       <Card>
         <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>
