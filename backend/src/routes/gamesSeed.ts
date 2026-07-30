@@ -10,6 +10,7 @@
  * via /admin/games are never overwritten by a redeploy.
  */
 import { prisma } from '../services/database';
+import { MATHS_HARD, MATHS_INTERMEDIATE } from '../content/games/maths';
 
 const QUIZ_GAMES = [
   {
@@ -134,13 +135,48 @@ const QUIZ_GAMES = [
       { id: 'g25', text: 'Which continent is the coldest?', options: ['Europe', 'Asia', 'Antarctica', 'North America'], correctIndex: 2 },
     ],
   },
+  // ── Phase D content ─────────────────────────────────────────────────────────
+  //
+  // Banks live in src/content/games/ — eighteen of them inline here would be unreadable. `maths /
+  // beginner` is deliberately absent: it already exists above as "Math Challenge", and seedGames matches
+  // on title, so re-declaring it would be a no-op at best and a duplicate row at worst.
+  {
+    type: 'quiz',
+    title: 'Maths Workout',
+    description: 'Percentages, ratios, shapes and a bit of algebra.',
+    category: 'maths' as const,
+    level: 'intermediate' as const,
+    difficulty: 'medium' as const,
+    // Display-only; the award path reads GAME_REWARDS[level].
+    pointsReward: 3,
+    xpReward: 25,
+    cooldownHours: 8,
+    ageGroup: null as string | null,
+    questionsPerSession: 5,
+    questionsJson: MATHS_INTERMEDIATE,
+  },
+  {
+    type: 'quiz',
+    title: 'Maths Master',
+    description: 'Algebra, powers, probability and compound percentages.',
+    category: 'maths' as const,
+    level: 'hard' as const,
+    difficulty: 'hard' as const,
+    pointsReward: 4,
+    xpReward: 40,
+    cooldownHours: 8,
+    ageGroup: null as string | null,
+    questionsPerSession: 5,
+    questionsJson: MATHS_HARD,
+  },
 ];
 
 export async function seedGames(): Promise<void> {
   for (const game of QUIZ_GAMES) {
     const existing = await prisma.gameDefinition.findFirst({ where: { title: game.title } });
     if (!existing) {
-      await prisma.gameDefinition.create({ data: game });
+      // Cast only here: the arrays stay strongly typed above so backfillGameBanks can read id/text.
+      await prisma.gameDefinition.create({ data: game as unknown as Parameters<typeof prisma.gameDefinition.create>[0]['data'] });
       console.log(`[Games] Seeded: ${game.title} (${game.questionsJson.length} questions)`);
     }
   }
