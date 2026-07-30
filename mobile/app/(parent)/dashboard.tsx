@@ -10,7 +10,8 @@
  * screen; this one links into it once that exists.
  */
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import type { ParentDashboardResponse } from '@taskbuddy/shared';
@@ -30,10 +31,10 @@ function Stat({ label, value }: { label: string; value: number }) {
   const theme = useTheme();
   return (
     <View style={styles.stat}>
-      <Text style={[styles.statValue, { color: theme.foreground }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.mutedForeground }]} numberOfLines={2}>
+      <AppText style={[styles.statValue, { color: theme.foreground }]}>{value}</AppText>
+      <AppText style={[styles.statLabel, { color: theme.mutedForeground }]} numberOfLines={2}>
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -46,26 +47,26 @@ function ChildRow({ child, first }: { child: Child; first: boolean }) {
   return (
     <View style={[styles.childRow, { borderTopColor: theme.border }, first && styles.firstChildRow]}>
       <View style={styles.childHeader}>
-        <Text style={[styles.childName, { color: theme.cardForeground }]}>
+        <AppText style={[styles.childName, { color: theme.cardForeground }]}>
           {profile.avatarEmoji ? `${profile.avatarEmoji} ` : ''}
           {user.firstName}
-        </Text>
-        <Text style={[styles.childMeta, { color: theme.mutedForeground }]}>
+        </AppText>
+        <AppText style={[styles.childMeta, { color: theme.mutedForeground }]}>
           Level {profile.level} · {profile.pointsBalance} pts
-        </Text>
+        </AppText>
       </View>
 
-      <Text style={[styles.childMeta, { color: theme.mutedForeground }]}>
+      <AppText style={[styles.childMeta, { color: theme.mutedForeground }]}>
         {child.completedToday} of {child.todaysTasks} done today
         {profile.currentStreakDays > 0 ? ` · ${profile.currentStreakDays}-day streak` : ''}
-      </Text>
+      </AppText>
 
       {waiting && (
         // Stated in words as well as colour — colour alone fails for anyone who cannot distinguish it,
         // and this is the row's most important fact.
-        <Text style={[styles.childWaiting, { color: theme.primary }]}>
+        <AppText style={[styles.childWaiting, { color: theme.primary }]}>
           {child.pendingApproval} waiting for your approval
-        </Text>
+        </AppText>
       )}
     </View>
   );
@@ -98,9 +99,9 @@ export default function ParentDashboard() {
   if (isPending) {
     return (
       <Screen>
-        <Text style={[styles.greeting, { color: theme.foreground }]}>{greeting}</Text>
+        <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>{greeting}</AppText>
         <Card>
-          <Text style={[styles.body, { color: theme.mutedForeground }]}>Loading your family…</Text>
+          <AppText style={[styles.body, { color: theme.mutedForeground }]}>Loading your family…</AppText>
         </Card>
       </Screen>
     );
@@ -110,12 +111,12 @@ export default function ParentDashboard() {
     const offline = error instanceof NetworkError;
     return (
       <Screen scroll>
-        <Text style={[styles.greeting, { color: theme.foreground }]}>{greeting}</Text>
+        <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>{greeting}</AppText>
         <Card>
-          <Text style={[styles.cardTitle, { color: theme.destructive }]}>
+          <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your dashboard'}
-          </Text>
-          <Text style={[styles.body, { color: theme.cardForeground }]}>{describeError(error)}</Text>
+          </AppText>
+          <AppText style={[styles.body, { color: theme.cardForeground }]}>{describeError(error)}</AppText>
         </Card>
         <View style={styles.actions}>
           <Button label="Try again" onPress={() => void refetch()} />
@@ -138,8 +139,8 @@ export default function ParentDashboard() {
         />
       }
     >
-      <Text style={[styles.greeting, { color: theme.foreground }]}>{greeting}</Text>
-      <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>{family.familyName}</Text>
+      <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>{greeting}</AppText>
+      <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>{family.familyName}</AppText>
 
       {/* First, because it is the only item here that is blocking somebody else. */}
       <Pressable
@@ -156,22 +157,22 @@ export default function ParentDashboard() {
             pendingApprovals.length > 0 ? { borderColor: theme.primary, borderWidth: 2 } : undefined
           }
         >
-          <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>Approvals</Text>
+          <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>Approvals</AppText>
           {pendingApprovals.length === 0 ? (
-            <Text style={[styles.body, { color: theme.cardForeground }]}>
+            <AppText style={[styles.body, { color: theme.cardForeground }]}>
               Nothing waiting. You&apos;re all caught up.
-            </Text>
+            </AppText>
           ) : (
             <>
-              <Text style={[styles.bigNumber, { color: theme.foreground }]}>
+              <AppText style={[styles.bigNumber, { color: theme.foreground }]}>
                 {pendingApprovals.length}
-              </Text>
-              <Text style={[styles.body, { color: theme.cardForeground }]}>
+              </AppText>
+              <AppText style={[styles.body, { color: theme.cardForeground }]}>
                 {pendingApprovals.length === 1 ? 'task is' : 'tasks are'} waiting for you to review.
-              </Text>
+              </AppText>
             </>
           )}
-          <Text style={[styles.body, { color: theme.primary }]}>Review →</Text>
+          <AppText style={[styles.body, { color: theme.primary }]}>Review →</AppText>
         </Card>
       </Pressable>
 
@@ -181,24 +182,24 @@ export default function ParentDashboard() {
         accessibilityLabel={`Children, ${children.length}`}
       >
         <Card>
-          <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>
+          <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>
             {children.length === 1 ? 'Child' : 'Children'}
-          </Text>
+          </AppText>
           {children.length === 0 ? (
-            <Text style={[styles.body, { color: theme.cardForeground }]}>
+            <AppText style={[styles.body, { color: theme.cardForeground }]}>
               No children added yet. You can add them on the web for now.
-            </Text>
+            </AppText>
           ) : (
             children.map((child, index) => (
               <ChildRow key={child.user.id} child={child} first={index === 0} />
             ))
           )}
-          <Text style={[styles.body, { color: theme.primary }]}>See details →</Text>
+          <AppText style={[styles.body, { color: theme.primary }]}>See details →</AppText>
         </Card>
       </Pressable>
 
       <Card>
-        <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>This week</Text>
+        <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>This week</AppText>
         <View style={styles.statRow}>
           <Stat label="Tasks done" value={weeklyStats.tasksCompleted} />
           <Stat label="Tasks created" value={weeklyStats.tasksCreated} />

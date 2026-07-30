@@ -9,7 +9,8 @@
  * settled something they had not, with a child who knows they did not.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
@@ -50,19 +51,19 @@ function RedemptionRow({
   return (
     <Card style={{ borderColor: theme.primary }}>
       <View style={styles.rowHeader}>
-        <Text style={[styles.itemTitle, { color: theme.cardForeground }]} numberOfLines={2}>
+        <AppText style={[styles.itemTitle, { color: theme.cardForeground }]} numberOfLines={2}>
           {item.reward.name}
-        </Text>
-        <Text style={[styles.cost, { color: theme.foreground }]}>{item.pointsSpent} pts</Text>
+        </AppText>
+        <AppText style={[styles.cost, { color: theme.foreground }]}>{item.pointsSpent} pts</AppText>
       </View>
 
-      <Text style={[styles.meta, { color: theme.mutedForeground }]}>
+      <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
         {item.child.firstName} redeemed this{asked ? ` on ${asked}` : ''}
         {item.status === 'approved' ? ' · approved, not yet given' : ''}
-      </Text>
+      </AppText>
 
       {item.notes ? (
-        <Text style={[styles.notes, { color: theme.cardForeground }]}>&ldquo;{item.notes}&rdquo;</Text>
+        <AppText style={[styles.notes, { color: theme.cardForeground }]}>&ldquo;{item.notes}&rdquo;</AppText>
       ) : null}
 
       <View style={styles.action}>
@@ -90,41 +91,41 @@ function RewardRow({ reward }: { reward: ParentReward }) {
   return (
     <Card>
       <View style={styles.rowHeader}>
-        <Text style={[styles.itemTitle, { color: theme.cardForeground }]} numberOfLines={2}>
+        <AppText style={[styles.itemTitle, { color: theme.cardForeground }]} numberOfLines={2}>
           {reward.name}
-        </Text>
-        <Text style={[styles.cost, { color: theme.foreground }]}>{reward.pointsCost} pts</Text>
+        </AppText>
+        <AppText style={[styles.cost, { color: theme.foreground }]}>{reward.pointsCost} pts</AppText>
       </View>
 
       {reward.description ? (
-        <Text style={[styles.meta, { color: theme.mutedForeground }]} numberOfLines={2}>
+        <AppText style={[styles.meta, { color: theme.mutedForeground }]} numberOfLines={2}>
           {reward.description}
-        </Text>
+        </AppText>
       ) : null}
 
       {/* Stated in words, so availability never depends on noticing a colour. */}
-      <Text
+      <AppText
         style={[styles.meta, { color: unavailable ? theme.destructive : theme.mutedForeground }]}
       >
         {availability(reward)}
         {reward.totalRedemptionsUsed > 0 ? ` · claimed ${reward.totalRedemptionsUsed}×` : ''}
         {expires ? ` · expires ${expires}` : ''}
-      </Text>
+      </AppText>
 
       {/* FR-09: pooled progress, in numbers rather than a bar — the server owns the arithmetic. */}
       {reward.collaborative ? (
-        <Text style={[styles.meta, { color: theme.primary }]}>
+        <AppText style={[styles.meta, { color: theme.primary }]}>
           {reward.collaborative.funded
             ? 'Group goal reached'
             : `Group goal: ${reward.collaborative.pooled} of ${reward.collaborative.goal} pts`}
-        </Text>
+        </AppText>
       ) : null}
 
       {/* FR-14 — which rewards the children actually want is the most useful signal for a parent. */}
       {reward.wishlistCount ? (
-        <Text style={[styles.meta, { color: theme.mutedForeground }]}>
+        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
           On {reward.wishlistCount} {reward.wishlistCount === 1 ? 'wishlist' : 'wishlists'}
-        </Text>
+        </AppText>
       ) : null}
     </Card>
   );
@@ -180,14 +181,14 @@ export default function Rewards() {
   if (failed) {
     return (
       <Screen>
-        <Text style={[styles.title, { color: theme.foreground }]}>Rewards</Text>
+        <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Rewards</AppText>
         <Card>
-          <Text style={[styles.cardTitle, { color: theme.destructive }]}>
+          <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
             {failure instanceof NetworkError ? 'No connection' : 'Could not load rewards'}
-          </Text>
-          <Text style={[styles.meta, { color: theme.cardForeground }]}>
+          </AppText>
+          <AppText style={[styles.meta, { color: theme.cardForeground }]}>
             {describeError(failure)}
-          </Text>
+          </AppText>
         </Card>
         <Button label="Try again" onPress={refetchAll} />
       </Screen>
@@ -197,16 +198,16 @@ export default function Rewards() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.title, { color: theme.foreground }]}>Rewards</Text>
-        <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+        <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Rewards</AppText>
+        <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
           {loading ? 'Loading…' : `${rewards.length} in the shop`}
-        </Text>
+        </AppText>
 
         {actionError !== null && (
           <Card style={{ borderColor: theme.destructive }}>
-            <Text accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
+            <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
               {actionError}
-            </Text>
+            </AppText>
           </Card>
         )}
 
@@ -219,14 +220,14 @@ export default function Rewards() {
         {!loading && (
           <>
             {/* First: things already paid for and not yet handed over. */}
-            <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
+            <AppText style={[styles.sectionTitle, { color: theme.foreground }]}>
               {owed.length === 0 ? 'Nothing to hand over' : `You owe ${owed.length}`}
-            </Text>
+            </AppText>
             {owed.length === 0 ? (
               <Card>
-                <Text style={[styles.meta, { color: theme.cardForeground }]}>
+                <AppText style={[styles.meta, { color: theme.cardForeground }]}>
                   Every redeemed reward has been given out.
-                </Text>
+                </AppText>
               </Card>
             ) : (
               owed.map((item) => (
@@ -239,12 +240,12 @@ export default function Rewards() {
               ))
             )}
 
-            <Text style={[styles.sectionTitle, { color: theme.foreground }]}>The shop</Text>
+            <AppText style={[styles.sectionTitle, { color: theme.foreground }]}>The shop</AppText>
             {rewards.length === 0 ? (
               <Card>
-                <Text style={[styles.meta, { color: theme.cardForeground }]}>
+                <AppText style={[styles.meta, { color: theme.cardForeground }]}>
                   No rewards yet. Creating them is on the web for now.
-                </Text>
+                </AppText>
               </Card>
             ) : (
               rewards.map((reward) => <RewardRow key={reward.id} reward={reward} />)

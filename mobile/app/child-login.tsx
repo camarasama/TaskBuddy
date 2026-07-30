@@ -11,7 +11,8 @@
  * is checked locally only to avoid a pointless round trip.
  */
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 import { router } from 'expo-router';
 
 import { Button } from '@/components/Button';
@@ -53,10 +54,10 @@ export default function ChildLogin() {
 
   return (
     <Screen scroll center>
-      <Text style={[styles.title, { color: theme.foreground }]}>Sign in</Text>
-      <Text style={[styles.body, { color: theme.mutedForeground }]}>
+      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Sign in</AppText>
+      <AppText style={[styles.body, { color: theme.mutedForeground }]}>
         Ask your parent for your family code if you don&apos;t know it.
-      </Text>
+      </AppText>
 
       <Field
         label="Family code"
@@ -92,9 +93,9 @@ export default function ChildLogin() {
       />
 
       {error !== null && (
-        <Text accessibilityRole="alert" style={[styles.error, { color: theme.destructive }]}>
+        <AppText accessibilityRole="alert" style={[styles.error, { color: theme.destructive }]}>
           {error}
-        </Text>
+        </AppText>
       )}
 
       <View style={styles.actions}>
@@ -107,7 +108,7 @@ export default function ChildLogin() {
         style={styles.backLink}
         disabled={busy}
       >
-        <Text style={[styles.backText, { color: theme.mutedForeground }]}>Go back</Text>
+        <AppText style={[styles.backText, { color: theme.mutedForeground }]}>Go back</AppText>
       </Pressable>
     </Screen>
   );

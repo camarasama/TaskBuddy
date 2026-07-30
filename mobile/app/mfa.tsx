@@ -9,7 +9,8 @@
  * persistent storage — but it is the reason this screen does not keep it anywhere afterwards.
  */
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { Button } from '@/components/Button';
@@ -52,10 +53,10 @@ export default function MfaChallenge() {
   if (!mfaToken) {
     return (
       <Screen center>
-        <Text style={[styles.title, { color: theme.foreground }]}>Session not found</Text>
-        <Text style={[styles.body, { color: theme.mutedForeground }]}>
+        <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Session not found</AppText>
+        <AppText style={[styles.body, { color: theme.mutedForeground }]}>
           Please sign in again to continue.
-        </Text>
+        </AppText>
         <View style={styles.actions}>
           <Button label="Back to sign-in" onPress={() => router.replace('/login')} />
         </View>
@@ -65,10 +66,10 @@ export default function MfaChallenge() {
 
   return (
     <Screen scroll center>
-      <Text style={[styles.title, { color: theme.foreground }]}>Two-factor code</Text>
-      <Text style={[styles.body, { color: theme.mutedForeground }]}>
+      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Two-factor code</AppText>
+      <AppText style={[styles.body, { color: theme.mutedForeground }]}>
         Enter the 6-digit code from your authenticator app.
-      </Text>
+      </AppText>
 
       <Field
         label="Authentication code"
@@ -86,9 +87,9 @@ export default function MfaChallenge() {
       />
 
       {error !== null && (
-        <Text accessibilityRole="alert" style={[styles.error, { color: theme.destructive }]}>
+        <AppText accessibilityRole="alert" style={[styles.error, { color: theme.destructive }]}>
           {error}
-        </Text>
+        </AppText>
       )}
 
       <View style={styles.actions}>

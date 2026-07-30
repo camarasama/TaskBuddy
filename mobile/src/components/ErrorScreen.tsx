@@ -10,7 +10,8 @@
  * string tells a parent whether to retry or report, and tells us far more than "something went wrong"
  * ever will when it comes back in a message.
  */
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
@@ -27,16 +28,18 @@ export function ErrorScreen({ error, retry }: ErrorScreenProps) {
 
   return (
     <Screen scroll center>
-      <Text style={[styles.title, { color: theme.foreground }]}>Something broke</Text>
-      <Text style={[styles.body, { color: theme.mutedForeground }]}>
+      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>
+        Something broke
+      </AppText>
+      <AppText style={[styles.body, { color: theme.mutedForeground }]}>
         This screen ran into a problem. Trying again usually works; if it keeps happening, the message
         below is the useful part to send us.
-      </Text>
+      </AppText>
 
       <View style={[styles.detail, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Text style={[styles.detailText, { color: theme.cardForeground }]}>
+        <AppText style={[styles.detailText, { color: theme.cardForeground }]}>
           {error.message || error.name || 'Unknown error'}
-        </Text>
+        </AppText>
       </View>
 
       <View style={styles.actions}>

@@ -13,7 +13,8 @@
  * Reachable at `/diagnostics`. Not linked from the UI; it is a tool, not a feature.
  */
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { AGE_GROUPS } from '@taskbuddy/shared';
@@ -24,10 +25,10 @@ import { API_URL, CLIENT_HEADER, CONFIG_ERRORS } from '@/lib/config';
 function Row({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, ok === true && styles.ok, ok === false && styles.bad]}>
+      <AppText style={styles.rowLabel}>{label}</AppText>
+      <AppText style={[styles.rowValue, ok === true && styles.ok, ok === false && styles.bad]}>
         {value}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -53,43 +54,43 @@ export default function Index() {
       style={styles.screen}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 32 }]}
     >
-      <Text style={styles.title}>TaskBuddy</Text>
-      <Text style={styles.subtitle}>Phase 0 — scaffold check</Text>
+      <AppText style={styles.title}>TaskBuddy</AppText>
+      <AppText style={styles.subtitle}>Phase 0 — scaffold check</AppText>
 
       {CONFIG_ERRORS.length > 0 && (
         <View style={[styles.card, styles.alertCard]}>
-          <Text style={styles.cardTitle}>Config problem</Text>
+          <AppText style={styles.cardTitle}>Config problem</AppText>
           {CONFIG_ERRORS.map((message) => (
-            <Text key={message} style={styles.error}>
+            <AppText key={message} style={styles.error}>
               {message}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Wiring</Text>
+        <AppText style={styles.cardTitle}>Wiring</AppText>
         <Row label="Shared package" value={`${ageGroupCount} age groups loaded`} ok={ageGroupCount > 0} />
         <Row label="API base" value={API_URL} />
         <Row label="X-Client" value={CLIENT_HEADER} />
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Backend</Text>
+        <AppText style={styles.cardTitle}>Backend</AppText>
 
         {isPending && (
           <View style={styles.pending}>
             <ActivityIndicator />
-            <Text style={styles.pendingText}>Contacting the API…</Text>
+            <AppText style={styles.pendingText}>Contacting the API…</AppText>
           </View>
         )}
 
         {isError && (
           <>
             <Row label="Status" value="unreachable" ok={false} />
-            <Text style={styles.error}>
+            <AppText style={styles.error}>
               {error instanceof NetworkError ? error.message : String(error)}
-            </Text>
+            </AppText>
           </>
         )}
 
@@ -116,7 +117,7 @@ export default function Index() {
         )}
       </View>
 
-      <Text style={styles.footer}>Started {mountedAt.toLocaleTimeString()}</Text>
+      <AppText style={styles.footer}>Started {mountedAt.toLocaleTimeString()}</AppText>
     </ScrollView>
   );
 }

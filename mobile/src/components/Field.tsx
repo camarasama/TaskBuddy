@@ -1,11 +1,12 @@
 /**
  * Labelled text input.
  *
- * The label is a real `<Text>` tied to the input via `accessibilityLabel` rather than a placeholder
+ * The label is a real `<AppText>` tied to the input via `accessibilityLabel` rather than a placeholder
  * standing in for one. Placeholder-as-label disappears the moment typing starts and is not announced
  * reliably by screen readers — and Play's Families review does look at TalkBack behaviour.
  */
-import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { AppText } from '@/components/AppText';
 
 import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
 
@@ -21,7 +22,7 @@ export function Field({ label, error, hint, ...inputProps }: FieldProps) {
 
   return (
     <View style={styles.wrapper}>
-      <Text style={[styles.label, { color: theme.mutedForeground }]}>{label}</Text>
+      <AppText style={[styles.label, { color: theme.mutedForeground }]}>{label}</AppText>
       <TextInput
         {...inputProps}
         accessibilityLabel={label}
@@ -41,13 +42,13 @@ export function Field({ label, error, hint, ...inputProps }: FieldProps) {
         ]}
       />
       {hint !== undefined && !error && (
-        <Text style={[styles.hint, { color: theme.mutedForeground }]}>{hint}</Text>
+        <AppText style={[styles.hint, { color: theme.mutedForeground }]}>{hint}</AppText>
       )}
       {error !== undefined && (
         // `alert` so a screen reader announces the message when it appears, rather than only on focus.
-        <Text accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
+        <AppText accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
           {error}
-        </Text>
+        </AppText>
       )}
     </View>
   );

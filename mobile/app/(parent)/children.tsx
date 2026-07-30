@@ -9,7 +9,8 @@
  * note further down.
  */
 import { useMemo } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
@@ -25,10 +26,10 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   const theme = useTheme();
   return (
     <View style={styles.stat}>
-      <Text style={[styles.statValue, { color: theme.cardForeground }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.mutedForeground }]} numberOfLines={2}>
+      <AppText style={[styles.statValue, { color: theme.cardForeground }]}>{value}</AppText>
+      <AppText style={[styles.statLabel, { color: theme.mutedForeground }]} numberOfLines={2}>
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -41,19 +42,19 @@ function ChildCard({ child }: { child: ChildMember }) {
   return (
     <Card>
       <View style={styles.header}>
-        <Text style={[styles.name, { color: theme.cardForeground }]} numberOfLines={1}>
+        <AppText style={[styles.name, { color: theme.cardForeground }]} numberOfLines={1}>
           {profile.avatarEmoji ? `${profile.avatarEmoji} ` : ''}
           {child.firstName} {child.lastName}
-        </Text>
+        </AppText>
         {/* Levels come straight from the server — see the note in childrenApi.ts on why nothing here
             derives a level or a progress bar. */}
-        <Text style={[styles.level, { color: theme.primary }]}>Level {profile.level}</Text>
+        <AppText style={[styles.level, { color: theme.primary }]}>Level {profile.level}</AppText>
       </View>
 
       {/* The question parents are actually asked, so it is on the card rather than a detail screen. */}
-      <Text style={[styles.identity, { color: theme.mutedForeground }]}>
+      <AppText style={[styles.identity, { color: theme.mutedForeground }]}>
         {child.username ? `Signs in as “${child.username}”` : 'No username set — add one on the web'}
-      </Text>
+      </AppText>
 
       <View style={styles.statRow}>
         <Stat label="Points to spend" value={profile.pointsBalance} />
@@ -63,17 +64,17 @@ function ChildCard({ child }: { child: ChildMember }) {
       </View>
 
       <View style={[styles.streaks, { borderTopColor: theme.border }]}>
-        <Text style={[styles.streakText, { color: theme.mutedForeground }]}>
+        <AppText style={[styles.streakText, { color: theme.mutedForeground }]}>
           {profile.currentStreakDays > 0
             ? `${profile.currentStreakDays}-day streak`
             : 'No streak right now'}
           {profile.longestStreakDays > 0 ? ` · best ${profile.longestStreakDays}` : ''}
-        </Text>
-        <Text style={[styles.streakText, { color: theme.mutedForeground }]}>
+        </AppText>
+        <AppText style={[styles.streakText, { color: theme.mutedForeground }]}>
           {lastSeen
             ? `Last signed in ${lastSeen.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
             : 'Has not signed in yet'}
-        </Text>
+        </AppText>
       </View>
 
       {/*
@@ -85,9 +86,9 @@ function ChildCard({ child }: { child: ChildMember }) {
         instruction until that is done.
       */}
       {profile.pendingAvatarUrl ? (
-        <Text style={[styles.pending, { color: theme.primary }]}>
+        <AppText style={[styles.pending, { color: theme.primary }]}>
           A profile photo is waiting for your review — approve or decline it on the web.
-        </Text>
+        </AppText>
       ) : null}
     </Card>
   );
@@ -101,12 +102,12 @@ export default function Children() {
 
   const header = (
     <View>
-      <Text style={[styles.title, { color: theme.foreground }]}>Children</Text>
-      <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Children</AppText>
+      <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
         {isPending
           ? 'Loading…'
           : `${children.length} ${children.length === 1 ? 'child' : 'children'}`}
-      </Text>
+      </AppText>
     </View>
   );
 
@@ -115,12 +116,12 @@ export default function Children() {
       <Screen>
         {header}
         <Card>
-          <Text style={[styles.cardTitle, { color: theme.destructive }]}>
+          <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
             {error instanceof NetworkError ? 'No connection' : 'Could not load your children'}
-          </Text>
-          <Text style={[styles.streakText, { color: theme.cardForeground }]}>
+          </AppText>
+          <AppText style={[styles.streakText, { color: theme.cardForeground }]}>
             {describeError(error)}
-          </Text>
+          </AppText>
         </Card>
         <Button label="Try again" onPress={() => void refetch()} />
       </Screen>
@@ -144,9 +145,9 @@ export default function Children() {
             </View>
           ) : (
             <Card>
-              <Text style={[styles.streakText, { color: theme.cardForeground }]}>
+              <AppText style={[styles.streakText, { color: theme.cardForeground }]}>
                 No children yet. Adding one is on the web for now.
-              </Text>
+              </AppText>
             </Card>
           )
         }
