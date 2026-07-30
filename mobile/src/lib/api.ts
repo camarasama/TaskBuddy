@@ -63,11 +63,36 @@ export class ApiError extends Error {
     /** Machine-readable code where the backend sets one, e.g. `EMAIL_NOT_VERIFIED`. */
     readonly code?: string,
     /** Per-field validation failures, for wiring straight into a form. */
-    readonly details: { field: string; message: string }[] = []
+    readonly details: { field: string; message: string }[] = [],
+    /**
+     * Seconds until the rate-limit window rolls, from the `Retry-After` header. Only set on a 429.
+     *
+     * Present so the UI can say how long rather than "try again later", and so retry logic has
+     * something better than a guess. See `isRateLimited` below.
+     */
+    readonly retryAfterSeconds?: number
   ) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+/**
+ * A 429 from the rate limiter.
+ *
+ * Worth its own predicate because the correct response is the opposite of every other failure:
+ * **do not retry.** The backend's global limiter is 100 requests per 15 minutes keyed on **IP**
+ * (`backend/src/index.ts`), so a retry does not just fail again — it spends another request from an
+ * already-empty bucket and pushes the window out for every other device behind the same address.
+ * A family behind one router, or any number of customers behind carrier NAT, share that bucket.
+ * (Keying it on the account instead is backend item P0-5, still outstanding.)
+ *
+ * Returns a plain boolean rather than a type predicate on purpose: callers use it *inside* an
+ * `instanceof ApiError` branch, and a predicate would narrow the negative branch to `never` and break
+ * the ordinary error handling that follows.
+ */
+export function isRateLimited(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 429;
 }
 
 /**
@@ -262,6 +287,20 @@ export interface RequestOptions {
   session?: boolean;
 }
 
+/**
+ * Seconds from the `Retry-After` header, when the server sent one.
+ *
+ * The rate limiter sets it alongside the 429 (`standardHeaders: true`), and it is the only honest
+ * answer to "how long?" — anything the client guesses would be a made-up number in a message that
+ * looks authoritative.
+ */
+function retryAfter(response: Response): number | undefined {
+  const raw = response.headers?.get?.('Retry-After');
+  if (!raw) return undefined;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
+}
+
 async function request<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
   const { method = 'GET', body, signal, session = true } = options;
 
@@ -319,7 +358,7 @@ async function request<T>(path: string, options: RequestOptions = {}, isRetry = 
     const message = details.length
       ? details.map((d) => `${d.field}: ${d.message}`).join('; ')
       : (error?.message ?? `Request failed (${response.status})`);
-    throw new ApiError(message, response.status, error?.code, details);
+    throw new ApiError(message, response.status, error?.code, details, retryAfter(response));
   }
 
   return envelope.data as T;
