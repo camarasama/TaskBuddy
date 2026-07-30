@@ -56,6 +56,20 @@ UPDATE "game_definitions" SET
 ALTER TABLE "game_definitions" ALTER COLUMN "category" SET NOT NULL;
 ALTER TABLE "game_definitions" ALTER COLUMN "level" SET NOT NULL;
 
+-- Correct the two banks the difficulty→level mapping placed too high.
+--
+-- The backfill above derives `level` from the old `difficulty` column, which was the only signal
+-- available — but it is the wrong signal for banks authored BEFORE levels existed. Reading them settles
+-- it: "Science Quiz" asks how many legs an insect has and what bees collect; "World Geography" asks how
+-- many continents there are and which country is shaped like a boot. Both are beginner banks, and leaving
+-- them at intermediate/hard is what would stop the three levels reading as three steps. Genuine
+-- intermediate and hard levels for both are authored separately and seeded as new definitions.
+--
+-- Matched on title because that is the same key `seedGames()` uses to recognise them.
+UPDATE "game_definitions"
+  SET "level" = 'beginner'::"GameLevel", "difficulty" = 'easy', "points_reward" = 2, "xp_reward" = 15
+  WHERE "title" IN ('Science Quiz', 'World Geography');
+
 -- Drop the age gates. The redesign lets a child pick any level at any age, with appropriateness carried
 -- by the authored content rather than by hiding games. `seedGames()` skips rows that already exist
 -- (`if (!existing)`), so without this the three live definitions would keep their old bands and the
