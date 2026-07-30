@@ -26,6 +26,16 @@ import {
   GEOGRAPHY_HARD,
   GEOGRAPHY_INTERMEDIATE,
 } from '../src/content/games/geography';
+import {
+  VOCABULARY_BEGINNER,
+  VOCABULARY_HARD,
+  VOCABULARY_INTERMEDIATE,
+} from '../src/content/games/vocabulary';
+import {
+  GRAMMAR_BEGINNER,
+  GRAMMAR_HARD,
+  GRAMMAR_INTERMEDIATE,
+} from '../src/content/games/grammar';
 import { validateQuestionBank } from '../src/services/GameService';
 
 /**
@@ -40,6 +50,12 @@ const CATEGORIES: Record<string, Record<string, SeedQuestion[]>> = {
     intermediate: GEOGRAPHY_INTERMEDIATE,
     hard: GEOGRAPHY_HARD,
   },
+  vocabulary: {
+    beginner: VOCABULARY_BEGINNER,
+    intermediate: VOCABULARY_INTERMEDIATE,
+    hard: VOCABULARY_HARD,
+  },
+  grammar: { beginner: GRAMMAR_BEGINNER, intermediate: GRAMMAR_INTERMEDIATE, hard: GRAMMAR_HARD },
 };
 
 const BANKS: Array<[string, SeedQuestion[]]> = Object.entries(CATEGORIES).flatMap(
