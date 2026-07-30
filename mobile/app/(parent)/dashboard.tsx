@@ -175,20 +175,27 @@ export default function ParentDashboard() {
         </Card>
       </Pressable>
 
-      <Card>
-        <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>
-          {children.length === 1 ? 'Child' : 'Children'}
-        </Text>
-        {children.length === 0 ? (
-          <Text style={[styles.body, { color: theme.cardForeground }]}>
-            No children added yet. You can add them on the web for now.
+      <Pressable
+        onPress={() => router.push('/(parent)/children')}
+        accessibilityRole="button"
+        accessibilityLabel={`Children, ${children.length}`}
+      >
+        <Card>
+          <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>
+            {children.length === 1 ? 'Child' : 'Children'}
           </Text>
-        ) : (
-          children.map((child, index) => (
-            <ChildRow key={child.user.id} child={child} first={index === 0} />
-          ))
-        )}
-      </Card>
+          {children.length === 0 ? (
+            <Text style={[styles.body, { color: theme.cardForeground }]}>
+              No children added yet. You can add them on the web for now.
+            </Text>
+          ) : (
+            children.map((child, index) => (
+              <ChildRow key={child.user.id} child={child} first={index === 0} />
+            ))
+          )}
+          <Text style={[styles.body, { color: theme.primary }]}>See details →</Text>
+        </Card>
+      </Pressable>
 
       <Card>
         <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>This week</Text>
