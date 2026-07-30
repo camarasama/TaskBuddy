@@ -2,6 +2,8 @@
 // The report routes (backend/src/routes/reports.ts) return these shapes directly as the JSON
 // body - they are NOT wrapped in the usual { success, data } ApiResponse envelope.
 
+import type { GameCategory, GameLevel } from '../constants/games';
+
 // ─── R-01: Task Completion Summary ───────────────────────────────────────────
 
 export interface TaskCompletionRow {
@@ -294,6 +296,9 @@ export interface TaskExecutionTimeReport {
 export interface GamesReportGameRow {
   gameId: string;
   title: string;
+  category: GameCategory;
+  level: GameLevel;
+  /** @deprecated Superseded by `level`. Kept so existing report consumers do not break. */
   difficulty: string;
   plays: number;
   completions: number;
@@ -315,10 +320,91 @@ export interface GamesReportChildRow {
   atDailyCap: boolean;
 }
 
+/**
+ * One cell of the mastery grid: how a child performs in one category at one level.
+ *
+ * Accuracy is over QUESTIONS, not games — a child who scrapes 3/5 four times is not 100% accurate, which
+ * a pass-rate figure would imply. `null` means never played there; it is deliberately not 0, because 0%
+ * reads as "gets everything wrong".
+ */
+export interface GamesMasteryCell {
+  childId: string;
+  childName: string;
+  category: GameCategory;
+  level: GameLevel;
+  plays: number;
+  questionsAnswered: number;
+  questionsCorrect: number;
+  accuracy: number | null;
+}
+
+/**
+ * The signal this report exists for: a category a child both avoids AND struggles with.
+ *
+ * Neither number says it alone. "Plays grammar twice a month" might just mean they are busy; "41%
+ * accuracy in grammar" might just mean grammar is hard. Together they say where a parent should look.
+ */
+export interface GamesAvoidanceRow {
+  childId: string;
+  childName: string;
+  category: GameCategory;
+  plays: number;
+  accuracy: number | null;
+  /** Plays as a share of this child's busiest category, 0–100. Low = avoided. */
+  relativePlays: number;
+  /** True when accuracy is below concern AND the category is played well under their own average. */
+  needsAttention: boolean;
+  /** Why it was flagged, in words a parent can act on. Null when not flagged. */
+  reason: string | null;
+}
+
+/** One finished game, for the parent's drill-down list. */
+export interface GamesReportSessionRow {
+  sessionId: string;
+  childId: string;
+  childName: string;
+  playedAt: Date | string | null;
+  title: string;
+  category: GameCategory;
+  level: GameLevel;
+  correctCount: number;
+  totalQuestions: number;
+  pointsAwarded: number;
+  xpAwarded: number;
+}
+
+/**
+ * How much of a bank a child has consumed — answers "why is my child seeing the same questions?".
+ *
+ * Rotation serves unseen questions first and recycles the least-recently-seen once a bank is exhausted, so
+ * 100% coverage is exactly when repeats begin. Without this the recycling looks like a bug.
+ */
+export interface GamesCoverageRow {
+  childId: string;
+  childName: string;
+  gameId: string;
+  title: string;
+  category: GameCategory;
+  level: GameLevel;
+  seen: number;
+  bankSize: number;
+  /** 0–100. At 100 the child has seen the whole bank and questions have begun to repeat. */
+  coverage: number;
+  exhausted: boolean;
+}
+
 export interface GamesReport {
   games: GamesReportGameRow[];
   children: GamesReportChildRow[];
   totals: { plays: number; completions: number; pointsAwarded: number };
+  /** Accuracy per child × category × level. Only cells for games that exist are emitted. */
+  mastery: GamesMasteryCell[];
+  /** Per child × category, newest analysis of what they dodge and find hard. */
+  avoidance: GamesAvoidanceRow[];
+  /** Finished games, newest first, capped — the drill-down list. */
+  recentSessions: GamesReportSessionRow[];
+  /** Bank consumption per child × game. */
+  coverage: GamesCoverageRow[];
 }
 
 // ─── R-13: Webhook deliveries (growth roadmap §6) ─────────────────────────────

@@ -644,30 +644,93 @@ export interface ReportCardData {
 
 // ─── R-12 / R-13 (growth roadmap §6) ─────────────────────────────────────────
 
-/** R-12 CSV — one row per game, then one per child, since the two answer different questions. */
+/**
+ * R-12 CSV — one section per question the report answers, since they are genuinely different questions.
+ *
+ * The Attention and Mastery sections come FIRST. A parent who exports this and reads the top of the file
+ * should meet "Ada avoids grammar and is 41% accurate at it" before a table of play counts — the
+ * per-game rollup is context, not the finding.
+ */
 export async function exportGamesCsv(report: GamesReport): Promise<Buffer> {
+  const blank = {
+    Category: '',
+    Level: '',
+    Plays: '' as string | number,
+    'Accuracy %': '' as string | number,
+    Completions: '' as string | number,
+    'Pass Rate %': '' as string | number,
+    'Avg Points': '' as string | number,
+    'Total Points': '' as string | number,
+    'Points Today': '' as string | number,
+    'Daily Cap': '' as string | number,
+    'At Cap': '',
+    Detail: '',
+  };
+
   return rowsToCsvBuffer([
+    // Flagged first, and only the flagged ones — an export nobody reads to the end still delivers this.
+    ...report.avoidance
+      .filter((a) => a.needsAttention)
+      .map((a) => ({
+        ...blank,
+        Section: 'Needs attention',
+        Name: a.childName,
+        Category: fmtLabel(a.category),
+        Plays: a.plays,
+        'Accuracy %': a.accuracy ?? '',
+        Detail: a.reason ?? '',
+      })),
+    ...report.mastery
+      // Never-played cells would triple the file and say nothing.
+      .filter((m) => m.plays > 0)
+      .map((m) => ({
+        ...blank,
+        Section: 'Mastery',
+        Name: m.childName,
+        Category: fmtLabel(m.category),
+        Level: fmtLabel(m.level),
+        Plays: m.plays,
+        'Accuracy %': m.accuracy ?? '',
+        Detail: `${m.questionsCorrect}/${m.questionsAnswered} questions`,
+      })),
+    ...report.recentSessions.map((s) => ({
+      ...blank,
+      Section: 'Game played',
+      Name: s.childName,
+      Category: fmtLabel(s.category),
+      Level: fmtLabel(s.level),
+      'Total Points': s.pointsAwarded,
+      Detail: `${s.title} — ${s.correctCount}/${s.totalQuestions} on ${
+        s.playedAt ? new Date(s.playedAt).toISOString().slice(0, 10) : ''
+      }`,
+    })),
+    ...report.coverage.map((c) => ({
+      ...blank,
+      Section: 'Question bank',
+      Name: c.childName,
+      Category: fmtLabel(c.category),
+      Level: fmtLabel(c.level),
+      Detail: `${c.seen}/${c.bankSize} seen (${c.coverage}%)${
+        c.exhausted ? ' — repeats have started' : ''
+      }`,
+    })),
     ...report.games.map((g) => ({
+      ...blank,
       Section: 'Game',
       Name: g.title,
-      Difficulty: fmtLabel(g.difficulty),
+      Category: fmtLabel(g.category),
+      Level: fmtLabel(g.level),
       Plays: g.plays,
       Completions: g.completions,
       'Pass Rate %': g.passRate ?? '',
       'Avg Points': g.averagePointsAwarded,
       'Total Points': g.pointsAwardedTotal,
-      'Points Today': '',
-      'Daily Cap': '',
-      'At Cap': '',
     })),
     ...report.children.map((c) => ({
+      ...blank,
       Section: 'Child',
       Name: c.childName,
-      Difficulty: '',
       Plays: c.plays,
-      Completions: '',
-      'Pass Rate %': '',
-      'Avg Points': '',
       'Total Points': c.pointsEarnedTotal,
       'Points Today': c.pointsToday,
       'Daily Cap': c.dailyCap,
@@ -708,11 +771,44 @@ export async function exportGamesPdf(report: GamesReport): Promise<Buffer> {
     { label: 'At Daily Cap', value: report.children.filter((c) => c.atDailyCap).length, color: AMBER },
   ]);
 
+  /**
+   * Attention first, deliberately.
+   *
+   * A PDF gets skimmed from the top, so the finding a parent can act on goes above the tables that merely
+   * count things. Omitted entirely when nothing is flagged rather than printing an empty table — a
+   * heading with no rows reads as broken.
+   */
+  const flagged = report.avoidance.filter((a) => a.needsAttention);
+  if (flagged.length > 0) {
+    drawHeading(ctx, 'Needs attention');
+    drawTable(ctx, ['Child', 'Subject', 'Plays', 'Accuracy', 'Why'],
+      [90, 80, 45, 60, 175],
+      flagged.map((a) => [
+        a.childName.slice(0, 16), fmtLabel(a.category), String(a.plays),
+        a.accuracy === null ? '—' : `${a.accuracy}%`,
+        (a.reason ?? '').slice(0, 44),
+      ]),
+    );
+  }
+
+  const played = report.mastery.filter((m) => m.plays > 0);
+  if (played.length > 0) {
+    drawHeading(ctx, 'Accuracy by subject and level');
+    drawTable(ctx, ['Child', 'Subject', 'Level', 'Plays', 'Questions', 'Accuracy'],
+      [90, 80, 75, 45, 75, 65],
+      played.map((m) => [
+        m.childName.slice(0, 16), fmtLabel(m.category), fmtLabel(m.level), String(m.plays),
+        `${m.questionsCorrect}/${m.questionsAnswered}`,
+        m.accuracy === null ? '—' : `${m.accuracy}%`,
+      ]),
+    );
+  }
+
   drawHeading(ctx, 'By Game');
-  drawTable(ctx, ['Game', 'Difficulty', 'Plays', 'Completions', 'Pass %', 'Points'],
-    [150, 70, 50, 70, 50, 60],
+  drawTable(ctx, ['Game', 'Subject', 'Level', 'Plays', 'Pass %', 'Points'],
+    [140, 75, 70, 45, 50, 60],
     report.games.map((g) => [
-      g.title.slice(0, 26), fmtLabel(g.difficulty), String(g.plays), String(g.completions),
+      g.title.slice(0, 24), fmtLabel(g.category), fmtLabel(g.level), String(g.plays),
       g.passRate === null ? '—' : String(g.passRate), String(g.pointsAwardedTotal),
     ]),
   );
