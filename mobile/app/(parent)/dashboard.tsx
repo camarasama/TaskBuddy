@@ -212,15 +212,8 @@ export default function ParentDashboard() {
         pulling in an undeclared native module is the Phase 0 failure class. Replaced by tabs when
         that dependency is added deliberately alongside the remaining screens.
       */}
-      <View style={styles.nav}>
-        <Button label="View all tasks" onPress={() => router.push('/(parent)/tasks')} />
-        <Button
-          label="Rewards"
-          variant="secondary"
-          onPress={() => router.push('/(parent)/rewards')}
-        />
-      </View>
-
+      {/* The "View all tasks" / "Rewards" buttons that stood in for navigation are gone — the tab bar
+          in (parent)/_layout.tsx covers it. The cards above stay tappable as shortcuts. */}
       <View style={styles.actions}>
         <Button label="Sign out" variant="secondary" onPress={() => void signOut()} />
       </View>
@@ -282,9 +275,6 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     marginTop: spacing[1],
   },
-  // Standing in for a tab bar until @react-navigation/bottom-tabs is added deliberately — see the
-  // note in (parent)/_layout.tsx on why it is not installed yet.
-  nav: { gap: spacing[3] },
   actions: { marginTop: spacing[5] },
   // The first row sits directly under the card title, where a divider reads as a stray line.
   firstChildRow: { borderTopWidth: 0, paddingTop: 0, marginTop: 0 },
