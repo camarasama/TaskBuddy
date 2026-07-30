@@ -13,6 +13,7 @@ import { config, validateConfig } from './config';
 import { prisma } from './services/database';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authenticate } from './middleware/auth';
+import { rateLimitKey } from './middleware/rateLimitKey';
 import { apiRouter } from './routes';
 import { initScheduler } from './services/scheduler';
 // M8 - Admin router mounted at /api/v1/admin
@@ -78,14 +79,23 @@ const allowedOrigins: string[] = (process.env.CLIENT_URL || 'http://localhost:30
   .filter(Boolean);
 
 // Rate limiters
+//
+// P0-5: the global limiter counts an authenticated request against its **account**, falling back to
+// the IP only for unauthenticated traffic. Keying everything on IP meant one household — or, on
+// carrier NAT, many unrelated customers — shared a single bucket. See middleware/rateLimitKey.ts for
+// why the token is verified rather than decoded, and why `authLimiter` below stays IP-based.
 const globalLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.maxRequests,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
   message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many requests' } },
 });
 
+// Sign-in has no account to key on — that is what the request is for — so this one is necessarily
+// per-IP, and that is also what makes it the brute-force control. Keying it on the submitted email
+// instead would let one address spray many accounts with a full allowance each.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
