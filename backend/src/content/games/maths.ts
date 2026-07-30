@@ -55,9 +55,6 @@ export interface SeedQuestion {
 export const MATHS_BEGINNER: SeedQuestion[] = [
   { id: 'm01', text: 'What is 7 × 8?', options: ['54', '56', '64', '48'], correctIndex: 1 },
   { id: 'm02', text: 'What is 144 ÷ 12?', options: ['10', '11', '12', '13'], correctIndex: 2 },
-  { id: 'm03', text: 'What is 15% of 200?', options: ['25', '30', '35', '40'], correctIndex: 1 },
-  { id: 'm04', text: 'What is 2³?', options: ['6', '8', '9', '16'], correctIndex: 1 },
-  { id: 'm05', text: 'What is the square root of 81?', options: ['7', '8', '9', '10'], correctIndex: 2 },
   { id: 'm06', text: 'What is 9 × 6?', options: ['45', '54', '56', '63'], correctIndex: 1 },
   { id: 'm07', text: 'What is 100 − 37?', options: ['53', '63', '67', '73'], correctIndex: 1 },
   { id: 'm08', text: 'What is 25 × 4?', options: ['75', '90', '100', '125'], correctIndex: 2 },
@@ -66,7 +63,6 @@ export const MATHS_BEGINNER: SeedQuestion[] = [
   { id: 'm11', text: 'What is 12 × 12?', options: ['124', '132', '144', '156'], correctIndex: 2 },
   { id: 'm12', text: 'How many minutes are in 2½ hours?', options: ['120', '140', '150', '160'], correctIndex: 2 },
   { id: 'm13', text: 'What is 50% of 90?', options: ['35', '40', '45', '50'], correctIndex: 2 },
-  { id: 'm14', text: 'What is 7 + 8 × 2?', options: ['23', '30', '17', '15'], correctIndex: 0 },
   { id: 'm15', text: 'What is the next number: 2, 4, 8, 16, …?', options: ['20', '24', '32', '18'], correctIndex: 2 },
   { id: 'm16', text: 'How many sides does a hexagon have?', options: ['5', '6', '7', '8'], correctIndex: 1 },
   { id: 'm17', text: 'What is 81 ÷ 9?', options: ['7', '8', '9', '11'], correctIndex: 2 },
@@ -76,8 +72,18 @@ export const MATHS_BEGINNER: SeedQuestion[] = [
   { id: 'm21', text: 'How many degrees are in a right angle?', options: ['45', '90', '180', '360'], correctIndex: 1 },
   { id: 'm22', text: 'What is 6 × 7 + 3?', options: ['42', '45', '48', '63'], correctIndex: 1 },
   { id: 'm23', text: 'Which fraction is largest?', options: ['1/2', '1/3', '1/4', '1/5'], correctIndex: 0 },
-  { id: 'm24', text: 'What is 5² − 5?', options: ['15', '20', '25', '30'], correctIndex: 1 },
   { id: 'm25', text: 'How many degrees are in a triangle’s three angles?', options: ['90', '180', '270', '360'], correctIndex: 1 },
+  // ── Added when the bank was re-tiered as a genuine beginner level ──────────
+  { id: 'mb01', text: 'What is 6 × 8?', options: ['48', '42', '46', '54'], correctIndex: 0 },
+  { id: 'mb02', text: 'What is 45 + 38?', options: ['73', '83', '85', '93'], correctIndex: 1 },
+  { id: 'mb03', text: 'What is half of 96?', options: ['46', '52', '48', '58'], correctIndex: 2 },
+  { id: 'mb04', text: 'How many centimetres are in 2 metres?', options: ['20 cm', '100 cm', '2000 cm', '200 cm'], correctIndex: 3 },
+  { id: 'mb05', text: 'What is 1/4 of 40?', options: ['10', '4', '8', '20'], correctIndex: 0 },
+  { id: 'mb06', text: 'Which of these numbers is even?', options: ['17', '34', '23', '41'], correctIndex: 1 },
+  { id: 'mb07', text: 'What is 200 ÷ 4?', options: ['40', '45', '50', '60'], correctIndex: 2 },
+  { id: 'mb08', text: 'How many days are in a leap year?', options: ['364', '365', '367', '366'], correctIndex: 3 },
+  { id: 'mb09', text: 'What is the next number: 5, 10, 15, 20, …?', options: ['25', '22', '24', '30'], correctIndex: 0 },
+  { id: 'mb10', text: 'What is 7 × 9?', options: ['54', '63', '56', '72'], correctIndex: 1 },
 ];
 
 /**
@@ -89,15 +95,16 @@ export const MATHS_INTERMEDIATE: SeedQuestion[] = [
   { id: 'mi01', text: 'What is 35% of 80?', options: ['24', '26', '28', '32'], correctIndex: 2 },
   // Distractor 11 is "subtract 5 then divide by nothing"; 15 is "20 minus 5".
   { id: 'mi02', text: 'Solve for x: 3x + 5 = 20', options: ['3', '5', '11', '15'], correctIndex: 1 },
-  // 26 is the perimeter — the classic area/perimeter mix-up.
-  { id: 'mi03', text: 'A rectangle is 7 cm long and 6 cm wide. What is its area?', options: ['13 cm²', '26 cm²', '42 cm²', '36 cm²'], correctIndex: 2 },
+  // Work backwards from the area — beginner asks for area directly, so this is a genuine step up.
+  // 48 is 56 − 8, the usual slip when the operation is misremembered as subtraction.
+  { id: 'mi03', text: 'A rectangle has an area of 56 cm² and a length of 8 cm. What is its width?', options: ['6 cm', '7 cm', '8 cm', '48 cm'], correctIndex: 1 },
   { id: 'mi04', text: 'What is −8 + 15?', options: ['−23', '−7', '7', '23'], correctIndex: 2 },
   // 30 is what you get by working strictly left to right.
   { id: 'mi05', text: 'What is 6 + 4 × 3?', options: ['18', '22', '30', '42'], correctIndex: 0 },
   { id: 'mi06', text: 'What is the mean of 4, 8, 6 and 10?', options: ['6', '7', '8', '9'], correctIndex: 1 },
   { id: 'mi07', text: 'Write the ratio 12 : 18 in its simplest form.', options: ['2 : 3', '3 : 4', '4 : 6', '6 : 9'], correctIndex: 0 },
-  // 81 is the area rather than the perimeter.
-  { id: 'mi08', text: 'What is the perimeter of a square with sides of 9 cm?', options: ['18 cm', '27 cm', '36 cm', '81 cm'], correctIndex: 2 },
+  // Again work backwards. 15 is halving the perimeter without subtracting the width; 24 is 30 − 6.
+  { id: 'mi08', text: 'A rectangle has a perimeter of 30 cm and a width of 6 cm. What is its length?', options: ['9 cm', '12 cm', '15 cm', '24 cm'], correctIndex: 0 },
   { id: 'mi09', text: 'What is 3/4 written as a percentage?', options: ['34%', '60%', '75%', '80%'], correctIndex: 2 },
   // 400 scales by nothing; 500 rounds the wrong way. Proportional reasoning, not division practice.
   { id: 'mi10', text: 'A recipe for 4 people uses 300 g of rice. How much is needed for 6 people?', options: ['400 g', '420 g', '450 g', '500 g'], correctIndex: 2 },

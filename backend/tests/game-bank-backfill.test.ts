@@ -15,6 +15,7 @@ jest.mock('../src/services/database', () => ({
 }));
 
 import { backfillGameBanks } from '../src/routes/gamesSeed';
+import { MATHS_BEGINNER } from '../src/content/games/maths';
 import { prisma } from '../src/services/database';
 
 const p = prisma as unknown as {
@@ -62,9 +63,22 @@ describe('backfillGameBanks', () => {
       );
     });
 
-    it('grows the bank to exactly 25, not 30', async () => {
+    it('appends only the bank questions the legacy rows do not already contain', async () => {
+      /**
+       * The original bug: matching on id alone found no overlap (legacy used q1-q5, banks use m01-m25),
+       * so all 25 were appended on top of the 5 — leaving the first five duplicated under two ids, and a
+       * draw able to serve the same question twice in one quiz. Matching on normalised TEXT as well is
+       * the fix.
+       *
+       * Computed rather than hardcoded: the maths bank was later re-tiered from 25 to 30 questions and a
+       * literal 25 silently became a wrong assertion. Expressing the invariant survives the next change.
+       */
       await backfillGameBanks();
-      expect(writtenBank('Math Challenge')).toHaveLength(25);
+
+      const legacyTexts = new Set(LEGACY_MATH.map((q) => q.text.trim().toLowerCase()));
+      const appended = MATHS_BEGINNER.filter((q) => !legacyTexts.has(q.text.trim().toLowerCase()));
+
+      expect(writtenBank('Math Challenge')).toHaveLength(LEGACY_MATH.length + appended.length);
     });
 
     it('introduces no duplicate question text', async () => {
@@ -144,6 +158,7 @@ describe('backfillGameBanks', () => {
       questionsJson: null,
     });
     await expect(backfillGameBanks()).resolves.not.toThrow();
-    expect(writtenBank('Math Challenge')).toHaveLength(25);
+    // Nothing to match against, so the whole bank is written.
+    expect(writtenBank('Math Challenge')).toHaveLength(MATHS_BEGINNER.length);
   });
 });
