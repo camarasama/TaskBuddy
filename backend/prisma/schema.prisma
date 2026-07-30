@@ -117,6 +117,7 @@ model User {
   emailLogs             EmailLog[]          @relation("ReceivedEmails")
   pushSubscriptions     PushSubscription[]
   gameSessions          GameSession[]
+  gameQuestionsSeen     GameQuestionSeen[]
   refreshSessions       RefreshSession[]
 
   @@unique([familyId, username])
@@ -789,12 +790,23 @@ model WebhookSubscription {
 
 model GameDefinition {
   id           String   @id @default(uuid())
-  type         String   // 'quiz' | 'crossword' | 'puzzle'
+  type         String   // 'quiz' | 'crossword' | 'puzzle' — the FORMAT, not the subject
   title        String
   description  String?
+  /// Subject axis the child picks. `puzzle` is a category here, not a format.
+  category     GameCategory
+  /// Difficulty axis the child picks. Freely selectable at any age; appropriateness lives in content.
+  level        GameLevel
+  /// Legacy difficulty. Superseded by `level` (backfilled from it) and still exposed by the admin API
+  /// for continuity. Nothing reads it for gameplay any more.
   difficulty   TaskDifficulty @default(easy)
+  /// Display-only. The award path reads GAME_REWARDS[level] from shared, so an admin typo here cannot
+  /// break the points economy. Backfilled to match the level.
   pointsReward Int      @default(20) @map("points_reward")
+  /// Display-only, same reasoning as pointsReward.
   xpReward     Int      @default(10) @map("xp_reward")
+  /// Display-only. Cooldown is now scoped to the CATEGORY and its duration comes from
+  /// GAME_COOLDOWN_HOURS in shared — completing any game in a category times out the whole category.
   cooldownHours Int     @default(24) @map("cooldown_hours")
   ageGroup     String?  @map("age_group") // '10-12' | '13-16' | null = all ages
   // The question BANK as JSON - answers included here (never sent to client).
@@ -808,10 +820,45 @@ model GameDefinition {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   sessions GameSession[]
+  seen     GameQuestionSeen[]
 
   @@index([type])
   @@index([isActive])
+  /// The child-facing picker queries by both axes.
+  @@index([category, level, isActive])
   @@map("game_definitions")
+}
+
+/// One row per (child, question) the child has actually been graded on.
+///
+/// This is the rotation index. `selectQuestionsForChild()` draws from the bank MINUS these rows, so a
+/// child never sees a question twice until they have seen them all — then it recycles the
+/// least-recently-seen, which is why a child can never dead-end on an exhausted bank.
+///
+/// It deliberately overlaps a little with `GameSession.answersJson`: that stays the authoritative
+/// in-session record (the answer-locking depends on it), while this table is an indexable
+/// per-(child, question) view. Deriving the rotation from JSON scans across every past session works
+/// and then gets slow. It is also exactly the shape the per-answer parent report wants.
+///
+/// Written at SUBMIT, not when questions are served — so abandoning a session does not burn questions,
+/// and `wasCorrect` is known. Seeing questions without answering reveals nothing, because feedback is
+/// only returned once an answer is locked.
+model GameQuestionSeen {
+  id               String   @id @default(uuid())
+  childId          String   @map("child_id")
+  gameDefinitionId String   @map("game_definition_id")
+  /// Question id from the definition's bank (e.g. `m01`). Not a foreign key — the bank is JSON.
+  questionId       String   @map("question_id")
+  seenAt           DateTime @default(now()) @map("seen_at")
+  wasCorrect       Boolean  @map("was_correct")
+
+  child          User           @relation(fields: [childId], references: [id], onDelete: Cascade)
+  gameDefinition GameDefinition @relation(fields: [gameDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, gameDefinitionId, questionId])
+  /// Drives the "least-recently-seen first" recycle order.
+  @@index([childId, gameDefinitionId, seenAt])
+  @@map("game_question_seen")
 }
 
 model GameSession {
@@ -933,6 +980,23 @@ enum GameSessionStatus {
   completed
   failed
   expired
+}
+
+/// Subject axis for games. Mirrors GAME_CATEGORIES in shared/src/constants/games.ts — keep in sync.
+enum GameCategory {
+  maths
+  science
+  geography
+  vocabulary
+  grammar
+  puzzle
+}
+
+/// Difficulty axis for games. Mirrors GAME_LEVELS in shared/src/constants/games.ts — keep in sync.
+enum GameLevel {
+  beginner
+  intermediate
+  hard
 }
 
 enum RewardTier {

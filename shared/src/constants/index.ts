@@ -168,3 +168,6 @@ export const AVATAR_EMOJIS = [
 ] as const;
 
 export type AvatarEmoji = (typeof AVATAR_EMOJIS)[number];
+
+// Games taxonomy + economy (games redesign 2026-07-30) — kept in its own file, this one is long enough.
+export * from './games';

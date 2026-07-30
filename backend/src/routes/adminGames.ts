@@ -26,6 +26,30 @@ import { validateBody } from '../middleware/validate';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { AuditService } from '../services/AuditService';
 import { AGE_GROUPS, Question, validateQuestionBank } from '../services/GameService';
+import {
+  GAME_CATEGORIES,
+  GAME_COOLDOWN_HOURS,
+  GAME_LEVELS,
+  GAME_REWARDS,
+  type GameCategory,
+  type GameLevel,
+} from '@taskbuddy/shared';
+
+/**
+ * Force the display-only reward/cooldown columns to agree with the level and category.
+ *
+ * An admin can type whatever they like into those fields; the award path ignores them and reads the
+ * shared constants. Storing the value they typed anyway would mean the admin list, the child's game card
+ * and the points actually paid all showed different numbers — so they are normalised on write instead.
+ * This is what makes the economy tamper-proof rather than merely "not read".
+ */
+function normalisedRewards(category: GameCategory, level: GameLevel) {
+  return {
+    pointsReward: GAME_REWARDS[level].points,
+    xpReward: GAME_REWARDS[level].xp,
+    cooldownHours: GAME_COOLDOWN_HOURS[category],
+  };
+}
 
 export const adminGamesRouter = Router();
 
@@ -44,10 +68,16 @@ const gameBodySchema = z.object({
   type: z.string().trim().min(1).max(32).default('quiz'),
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().max(500).nullable().optional(),
+  category: z.enum(GAME_CATEGORIES),
+  level: z.enum(GAME_LEVELS),
+  // Legacy axis, superseded by `level`. Kept accepted so existing admin clients do not break.
   difficulty: z.enum(['easy', 'medium', 'hard']).default('easy'),
-  pointsReward: z.number().int().min(0).max(500),
-  xpReward: z.number().int().min(0).max(500),
-  cooldownHours: z.number().int().min(1).max(168),
+  // Accepted but NOT authoritative: the award path reads GAME_REWARDS[level] and the cooldown reads
+  // GAME_COOLDOWN_HOURS[category], so a value set here is display-only. Normalised on write below so
+  // the stored numbers never disagree with what a child is actually paid.
+  pointsReward: z.number().int().min(0).max(500).optional(),
+  xpReward: z.number().int().min(0).max(500).optional(),
+  cooldownHours: z.number().int().min(1).max(168).optional(),
   ageGroup: z.enum(AGE_GROUPS).nullable().optional(),
   questionsPerSession: z.number().int().min(1).max(50),
   questions: z.array(questionSchema).min(1).max(200),
@@ -103,6 +133,8 @@ adminGamesRouter.get('/', async (_req, res, next) => {
         type: def.type,
         title: def.title,
         description: def.description,
+        category: def.category,
+        level: def.level,
         difficulty: def.difficulty,
         pointsReward: def.pointsReward,
         xpReward: def.xpReward,
@@ -156,6 +188,8 @@ adminGamesRouter.get('/:id', async (req, res, next) => {
           type: def.type,
           title: def.title,
           description: def.description,
+          category: def.category,
+          level: def.level,
           difficulty: def.difficulty,
           pointsReward: def.pointsReward,
           xpReward: def.xpReward,
@@ -186,10 +220,10 @@ adminGamesRouter.post('/', validateBody(gameBodySchema), async (req, res, next) 
         type: body.type,
         title: body.title,
         description: body.description ?? null,
+        category: body.category,
+        level: body.level,
         difficulty: body.difficulty,
-        pointsReward: body.pointsReward,
-        xpReward: body.xpReward,
-        cooldownHours: body.cooldownHours,
+        ...normalisedRewards(body.category, body.level),
         ageGroup: body.ageGroup ?? null,
         questionsPerSession: body.questionsPerSession,
         questionsJson: body.questions as unknown as object[],
@@ -234,10 +268,21 @@ adminGamesRouter.patch('/:id', validateBody(gamePatchSchema), async (req, res, n
         ...(body.type !== undefined && { type: body.type }),
         ...(body.title !== undefined && { title: body.title }),
         ...(body.description !== undefined && { description: body.description ?? null }),
+        ...(body.category !== undefined && { category: body.category }),
+        ...(body.level !== undefined && { level: body.level }),
         ...(body.difficulty !== undefined && { difficulty: body.difficulty }),
-        ...(body.pointsReward !== undefined && { pointsReward: body.pointsReward }),
-        ...(body.xpReward !== undefined && { xpReward: body.xpReward }),
-        ...(body.cooldownHours !== undefined && { cooldownHours: body.cooldownHours }),
+        /**
+         * Renormalised whenever either axis moves, and NOT settable directly.
+         *
+         * A patch that changes the level must move the stored reward numbers with it, or the admin list
+         * keeps showing the old level's points while the child is paid the new one's. Supplying
+         * pointsReward/xpReward/cooldownHours in the body is accepted by the schema but deliberately
+         * ignored here — the shared constants are the only source.
+         */
+        ...normalisedRewards(
+          body.category ?? existing.category,
+          body.level ?? existing.level,
+        ),
         ...(body.ageGroup !== undefined && { ageGroup: body.ageGroup ?? null }),
         ...(body.questionsPerSession !== undefined && {
           questionsPerSession: body.questionsPerSession,

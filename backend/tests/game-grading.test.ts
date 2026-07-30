@@ -13,6 +13,11 @@
  */
 
 import {
+  GAME_CATEGORIES,
+  GAME_REWARDS,
+  GAME_REWARD_ACCURACY_FLOOR,
+} from '@taskbuddy/shared';
+import {
   Question,
   XP_THRESHOLD,
   allAnswered,
@@ -173,47 +178,130 @@ describe('review screen', () => {
   });
 });
 
-describe('award calculation (partial credit)', () => {
+describe('award calculation (economy)', () => {
+  /**
+   * Reward values come from the LEVEL via the shared constants, not from the definition's columns — so an
+   * admin typo cannot inflate the economy. Hard pays 4 points / 40 XP.
+   */
   it('pays proportionally instead of all-or-nothing', () => {
-    // The reported behaviour: 4/5 used to pay 0. It now pays 80%.
-    const { pointsAwarded } = computeAward(25, 15, 4, 5, 1000);
-    expect(pointsAwarded).toBe(20);
+    // The originally reported behaviour: 4/5 used to pay 0. It pays 80% of the level's points.
+    expect(computeAward('hard', 4, 5, 1000, false).pointsAwarded).toBe(3); // 80% of 4
   });
 
-  it('pays full points for a clean sweep', () => {
-    expect(computeAward(25, 15, 5, 5, 1000).pointsAwarded).toBe(25);
+  it('pays the full level value for a clean sweep', () => {
+    expect(computeAward('hard', 5, 5, 1000, false).pointsAwarded).toBe(4);
+    expect(computeAward('beginner', 5, 5, 1000, false).pointsAwarded).toBe(2);
+    expect(computeAward('intermediate', 5, 5, 1000, false).pointsAwarded).toBe(3);
+  });
+
+  it('reads reward values from the level, never from a caller-supplied number', () => {
+    // The whole point of moving these into shared constants: the economy is not admin-editable.
+    expect(computeAward('beginner', 5, 5, 1000, false)).toMatchObject({
+      pointsAwarded: GAME_REWARDS.beginner.points,
+      xpAwarded: GAME_REWARDS.beginner.xp,
+    });
   });
 
   it('pays nothing for zero correct', () => {
-    expect(computeAward(25, 15, 0, 5, 1000)).toEqual({ pointsAwarded: 0, xpAwarded: 0 });
+    expect(computeAward('hard', 0, 5, 1000, false)).toEqual({ pointsAwarded: 0, xpAwarded: 0 });
   });
 
-  it('grants XP at or above the threshold and withholds it below', () => {
-    expect(computeAward(25, 15, 3, 5, 1000).xpAwarded).toBe(15); // 60%
-    expect(computeAward(25, 15, 2, 5, 1000).xpAwarded).toBe(0); // 40%
-    expect(XP_THRESHOLD).toBe(0.6);
+  it('withholds BOTH points and XP below the accuracy floor', () => {
+    /**
+     * Changed deliberately. Previously 2/5 still paid partial points (just no XP), which made clicking
+     * through options mildly profitable. Now a session below 60% pays nothing at all, and says why.
+     */
+    const below = computeAward('hard', 2, 5, 1000, false); // 40%
+    expect(below.pointsAwarded).toBe(0);
+    expect(below.xpAwarded).toBe(0);
+    expect(below.cappedMessage).toContain('3 of 5');
+
+    const atFloor = computeAward('hard', 3, 5, 1000, false); // exactly 60%
+    expect(atFloor.pointsAwarded).toBe(2); // 60% of 4, rounded
+    expect(atFloor.xpAwarded).toBe(40);
+  });
+
+  it('keeps the legacy XP_THRESHOLD in step with the shared floor', () => {
+    // Two constants for one concept would drift; this fails the moment they do.
+    expect(XP_THRESHOLD).toBe(GAME_REWARD_ACCURACY_FLOOR);
+    expect(GAME_REWARD_ACCURACY_FLOOR).toBe(0.6);
+  });
+
+  describe('once per category per day', () => {
+    /**
+     * The mechanism that stops six categories a day out-earning chores. A child completing 3 tasks earns
+     * 60–90 points; if every game play paid, games would beat that outright.
+     */
+    it('zeroes points but never XP on a repeat play that day', () => {
+      const repeat = computeAward('hard', 5, 5, 1000, true);
+      expect(repeat.pointsAwarded).toBe(0);
+      expect(repeat.xpAwarded).toBe(40);
+      expect(repeat.cappedMessage).toContain('XP');
+    });
+
+    it('still explains itself rather than silently paying zero', () => {
+      // A child who sees 0 points with no message concludes the app is broken.
+      expect(computeAward('beginner', 5, 5, 1000, true).cappedMessage).toBeTruthy();
+    });
   });
 
   it('trims points to the remaining daily cap', () => {
-    const res = computeAward(25, 15, 5, 5, 10);
-    expect(res.pointsAwarded).toBe(10);
-    expect(res.cappedMessage).toContain('10');
+    const res = computeAward('hard', 5, 5, 2, false);
+    expect(res.pointsAwarded).toBe(2);
+    expect(res.cappedMessage).toContain('2');
   });
 
   it('never awards negative points when the cap is already spent', () => {
-    expect(computeAward(25, 15, 5, 5, 0).pointsAwarded).toBe(0);
+    expect(computeAward('hard', 5, 5, 0, false).pointsAwarded).toBe(0);
   });
 
   it('still grants XP when points are capped, so progression is not blocked', () => {
     // Points are the scarce currency; XP is progression and is never spent.
-    expect(computeAward(25, 15, 5, 5, 0).xpAwarded).toBe(15);
+    expect(computeAward('hard', 5, 5, 0, false).xpAwarded).toBe(40);
   });
 
   it('omits the capped message when nothing was trimmed', () => {
-    expect(computeAward(25, 15, 5, 5, 1000).cappedMessage).toBeUndefined();
+    expect(computeAward('hard', 5, 5, 1000, false).cappedMessage).toBeUndefined();
   });
 
   it('does not divide by zero on an empty question set', () => {
-    expect(computeAward(25, 15, 0, 0, 100)).toEqual({ pointsAwarded: 0, xpAwarded: 0 });
+    expect(computeAward('hard', 0, 0, 100, false)).toEqual({ pointsAwarded: 0, xpAwarded: 0 });
+  });
+});
+
+describe('the games economy cannot out-earn chores', () => {
+  /**
+   * The regression this whole rebalance exists to prevent, asserted in arithmetic rather than prose.
+   *
+   * A child holds at most 3 active tasks (assignmentLimits.ts) and a medium task pays 20, so chores are
+   * worth ~60/day before streak and early-completion bonuses. Games must stay well under that even if a
+   * child aces every category at the highest level on the same day.
+   */
+  it('caps a perfect day of games below a modest day of chores', () => {
+    const CHORES_PER_DAY = 3 * 20; // 3 medium tasks, no bonuses
+
+    const bestPossibleGameDay = GAME_CATEGORIES.reduce(
+      (total) => total + computeAward('hard', 5, 5, 1000, false).pointsAwarded,
+      0,
+    );
+
+    expect(bestPossibleGameDay).toBeLessThan(CHORES_PER_DAY);
+    // And by a clear margin, not by one point.
+    expect(bestPossibleGameDay).toBeLessThan(CHORES_PER_DAY / 2);
+  });
+
+  it('does not let repeat plays add anything spendable', () => {
+    // Six categories once each, then six again. The second pass must add zero points.
+    const firstPass = GAME_CATEGORIES.reduce(
+      (t) => t + computeAward('hard', 5, 5, 1000, false).pointsAwarded,
+      0,
+    );
+    const secondPass = GAME_CATEGORIES.reduce(
+      (t) => t + computeAward('hard', 5, 5, 1000, true).pointsAwarded,
+      0,
+    );
+
+    expect(secondPass).toBe(0);
+    expect(firstPass + secondPass).toBe(firstPass);
   });
 });
