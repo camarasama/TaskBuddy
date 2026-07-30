@@ -1,14 +1,29 @@
-// Games API types (PE Mini Games) - mirrors backend/src/routes/games.ts.
+// Games API types - mirrors backend/src/routes/games.ts.
 
-/** GET /games - one entry in the game list, with cooldown status computed per-child. */
+import type { GameCategory, GameLevel } from '../constants/games';
+
+/**
+ * GET /games - one entry in the game list.
+ *
+ * `onCooldown` is now CATEGORY-scoped: completing any game in a category puts every game in that
+ * category on the timer, so several entries flip together.
+ */
 export interface GameDefinition {
   id: string;
   type: string;
   title: string;
   description: string | null;
+  /** Subject axis the child picks. */
+  category: GameCategory;
+  /** Difficulty axis the child picks. */
+  level: GameLevel;
+  /** @deprecated Superseded by `level`. Still returned so existing screens keep rendering. */
   difficulty: 'easy' | 'medium' | 'hard';
+  /** Derived from `level` (GAME_REWARDS), not from the stored column. */
   pointsReward: number;
+  /** Derived from `level` (GAME_REWARDS), not from the stored column. */
   xpReward: number;
+  /** Derived from `category` (GAME_COOLDOWN_HOURS). */
   cooldownHours: number;
   ageGroup: string | null;
   questionCount: number;
@@ -95,6 +110,9 @@ export interface AdminGameSummary {
   type: string;
   title: string;
   description: string | null;
+  category: GameCategory;
+  level: GameLevel;
+  /** @deprecated Superseded by `level`. */
   difficulty: 'easy' | 'medium' | 'hard';
   pointsReward: number;
   xpReward: number;
@@ -117,6 +135,9 @@ export interface AdminGameDetail {
   type: string;
   title: string;
   description: string | null;
+  category: GameCategory;
+  level: GameLevel;
+  /** @deprecated Superseded by `level`. */
   difficulty: 'easy' | 'medium' | 'hard';
   pointsReward: number;
   xpReward: number;
@@ -133,10 +154,17 @@ export interface AdminGameInput {
   type?: string;
   title: string;
   description?: string | null;
+  category: GameCategory;
+  level: GameLevel;
+  /** @deprecated Superseded by `level`; still accepted so older admin clients keep working. */
   difficulty: 'easy' | 'medium' | 'hard';
-  pointsReward: number;
-  xpReward: number;
-  cooldownHours: number;
+  /**
+   * Accepted but IGNORED — normalised on write from `level`/`category` via the shared constants, so the
+   * stored numbers can never disagree with what a child is actually paid.
+   */
+  pointsReward?: number;
+  xpReward?: number;
+  cooldownHours?: number;
   ageGroup?: string | null;
   questionsPerSession: number;
   questions: AdminGameQuestion[];

@@ -31,10 +31,13 @@ import {
   countCorrect,
   displayIndexOfCorrect,
   emptyAnswers,
+  cooldownHoursForCategory,
   isAgeAppropriate,
+  isCorrect,
   parseAnswers,
   resolveSessionQuestions,
-  selectDailyQuestions,
+  rewardsForLevel,
+  selectQuestionsForChild,
   toClientQuestions,
   toOriginalIndex,
 } from '../services/GameService';
@@ -101,46 +104,65 @@ gamesRouter.get('/', async (req, res, next) => {
       }),
     ]);
 
-    // Age gate. ageGroup was stored but never applied, so a 7-year-old was being offered the
-    // 13-16 quiz. An unknown DOB stays eligible for everything.
+    // Age gate. Kept for `ageGroup`-tagged legacy definitions only — the redesign lets a child pick any
+    // level at any age, with appropriateness carried by the authored content instead of a gate. New
+    // category/level definitions ship with ageGroup null and are therefore always eligible.
     const definitions = allDefinitions.filter((def) =>
       isAgeAppropriate(def.ageGroup, childProfile?.dateOfBirth ?? null),
     );
 
-    // For each game, find the last session to compute cooldown
     const now = new Date();
-    const gamesWithStatus = await Promise.all(
-      definitions.map(async (def) => {
-        const lastSession = await prisma.gameSession.findFirst({
-          where: { childId, gameDefinitionId: def.id, status: 'completed' },
-          orderBy: { submittedAt: 'desc' },
-        });
 
-        let cooldownEndsAt: Date | null = null;
-        let onCooldown = false;
-        if (lastSession?.submittedAt) {
-          cooldownEndsAt = new Date(
-            lastSession.submittedAt.getTime() + def.cooldownHours * 3600_000,
-          );
-          onCooldown = cooldownEndsAt > now;
-        }
+    /**
+     * Cooldown is per CATEGORY, not per game: finishing any maths game times out every maths game.
+     * Computed with one grouped query rather than per definition, so adding levels and categories does
+     * not multiply the round trips.
+     */
+    const lastPerCategory = await prisma.gameSession.findMany({
+      where: { childId, status: 'completed', submittedAt: { not: null } },
+      select: { submittedAt: true, gameDefinition: { select: { category: true } } },
+      orderBy: { submittedAt: 'desc' },
+    });
 
-        return {
-          id: def.id,
-          type: def.type,
-          title: def.title,
-          description: def.description,
-          difficulty: def.difficulty,
-          pointsReward: def.pointsReward,
-          xpReward: def.xpReward,
-          cooldownHours: def.cooldownHours,
-          ageGroup: def.ageGroup,
-          questionCount: Math.min(def.questionsPerSession, bankOf(def).length),
-          onCooldown,
-          cooldownEndsAt,
-        };
-      }),
-    );
+    const lastPlayedAt = new Map<string, Date>();
+    for (const s of lastPerCategory) {
+      const key = s.gameDefinition.category;
+      if (!lastPlayedAt.has(key) && s.submittedAt) lastPlayedAt.set(key, s.submittedAt);
+    }
+
+    const gamesWithStatus = definitions.map((def) => {
+      const cooldownHours = cooldownHoursForCategory(def.category);
+      const last = lastPlayedAt.get(def.category);
+
+      let cooldownEndsAt: Date | null = null;
+      let onCooldown = false;
+      if (last) {
+        cooldownEndsAt = new Date(last.getTime() + cooldownHours * 3600_000);
+        onCooldown = cooldownEndsAt > now;
+      }
+
+      const { points, xp } = rewardsForLevel(def.level);
+
+      return {
+        id: def.id,
+        type: def.type,
+        title: def.title,
+        description: def.description,
+        category: def.category,
+        level: def.level,
+        // Retained so the existing child games page keeps rendering unchanged; `level` supersedes it.
+        difficulty: def.difficulty,
+        // From the level, not the column — see the note on GAME_REWARDS. The two agree after the
+        // migration's backfill, but the level is what actually gets paid.
+        pointsReward: points,
+        xpReward: xp,
+        cooldownHours,
+        ageGroup: def.ageGroup,
+        questionCount: Math.min(def.questionsPerSession, bankOf(def).length),
+        onCooldown,
+        cooldownEndsAt,
+      };
+    });
 
     res.json({ success: true, data: { games: gamesWithStatus } });
   } catch (error) {
@@ -160,18 +182,27 @@ gamesRouter.post('/sessions', async (req, res, next) => {
     });
     if (!def) throw new NotFoundError('Game not found');
 
-    // Cooldown check
-    const lastCompleted = await prisma.gameSession.findFirst({
-      where: { childId, gameDefinitionId, status: 'completed' },
+    /**
+     * Cooldown is CATEGORY-wide: any completed game in this category holds the whole category. Without
+     * that, six near-identical maths sets could be cleared back to back.
+     */
+    const lastInCategory = await prisma.gameSession.findFirst({
+      where: {
+        childId,
+        status: 'completed',
+        submittedAt: { not: null },
+        gameDefinition: { category: def.category },
+      },
       orderBy: { submittedAt: 'desc' },
+      select: { submittedAt: true },
     });
-    if (lastCompleted?.submittedAt) {
+    if (lastInCategory?.submittedAt) {
       const cooldownEnd = new Date(
-        lastCompleted.submittedAt.getTime() + def.cooldownHours * 3600_000,
+        lastInCategory.submittedAt.getTime() + cooldownHoursForCategory(def.category) * 3600_000,
       );
       if (cooldownEnd > new Date()) {
         throw new ConflictError(
-          `Game is on cooldown. Try again at ${cooldownEnd.toISOString()}.`,
+          `${def.category} is on cooldown. Try again at ${cooldownEnd.toISOString()}.`,
         );
       }
     }
@@ -182,13 +213,20 @@ gamesRouter.post('/sessions', async (req, res, next) => {
       data: { status: 'expired' },
     });
 
-    // Draw today's questions from the bank. Seeded by game + UTC date, so siblings playing the same
-    // day get the same quiz, and tomorrow's differs.
-    const questions = selectDailyQuestions(
+    /**
+     * Draw from what THIS child has not seen, recycling the least-recently-seen once the bank runs out.
+     * The seed is per-play so two plays of the same unseen pool are not served in the same order.
+     */
+    const seen = await prisma.gameQuestionSeen.findMany({
+      where: { childId, gameDefinitionId },
+      select: { questionId: true, seenAt: true },
+    });
+
+    const questions = selectQuestionsForChild(
       bankOf(def),
       def.questionsPerSession,
-      def.id,
-      new Date(),
+      seen,
+      `${childId}:${def.id}:${Date.now()}`,
     );
     if (questions.length === 0) throw new ConflictError('This game has no questions yet');
 
@@ -381,12 +419,29 @@ gamesRouter.post('/sessions/:id/submit', async (req, res, next) => {
     const todayPoints = earnedToday._sum.pointsAwarded ?? 0;
     const remaining = Math.max(0, cap - todayPoints);
 
+    /**
+     * Spendable points are once per category per day; further plays that day earn XP only.
+     *
+     * Keyed on `pointsAwarded > 0`, so a session that scored below the accuracy floor and paid nothing
+     * does NOT consume the day's allowance — otherwise one bad round would lock the subject out.
+     */
+    const alreadyPaidInCategoryToday = await prisma.gameSession.findFirst({
+      where: {
+        childId,
+        status: 'completed',
+        submittedAt: { gte: todayStart },
+        pointsAwarded: { gt: 0 },
+        gameDefinition: { category: def.category },
+      },
+      select: { id: true },
+    });
+
     const { pointsAwarded, xpAwarded, cappedMessage } = computeAward(
-      def.pointsReward,
-      def.xpReward,
+      def.level,
       correctCount,
       questions.length,
       remaining,
+      alreadyPaidInCategoryToday !== null,
     );
 
     // Award points + close the session in one transaction.
@@ -398,6 +453,26 @@ gamesRouter.post('/sessions/:id/submit', async (req, res, next) => {
         data: { status: 'completed', submittedAt: now, pointsAwarded, xpAwarded },
       });
       if (closed.count === 0) throw new ConflictError('Session is no longer in progress');
+
+      /**
+       * Record what this child has now been graded on — the rotation index.
+       *
+       * Inside the transaction and after the conditional close, so a session that lost the concurrent
+       * -submit race never marks its questions consumed. `skipDuplicates` covers the recycle case, where
+       * a question the child has seen before comes round again and its row already exists; the original
+       * `seenAt` is deliberately left alone so the least-recently-seen ordering stays stable rather than
+       * a recycled question jumping to the back of the queue twice.
+       */
+      await tx.gameQuestionSeen.createMany({
+        data: questions.map((q, i) => ({
+          childId,
+          gameDefinitionId: session.gameDefinitionId,
+          questionId: q.id,
+          seenAt: now,
+          wasCorrect: isCorrect(q, answers[i]),
+        })),
+        skipDuplicates: true,
+      });
 
       if (pointsAwarded > 0 || xpAwarded > 0) {
         const profile = await tx.childProfile.findUnique({ where: { userId: childId } });

@@ -11,6 +11,14 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import {
+  GAME_CATEGORIES,
+  GAME_CATEGORY_LABELS,
+  GAME_LEVEL_LABELS,
+  GAME_LEVELS,
+  type GameCategory,
+  type GameLevel,
+} from '@taskbuddy/shared';
 import { adminGamesApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import type { AdminGameDetail, AdminGameQuestion } from '@taskbuddy/shared';
@@ -21,6 +29,8 @@ const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 interface FormState {
   title: string;
   description: string;
+  category: GameCategory;
+  level: GameLevel;
   difficulty: (typeof DIFFICULTIES)[number];
   pointsReward: number;
   xpReward: number;
@@ -34,6 +44,8 @@ interface FormState {
 const BLANK: FormState = {
   title: '',
   description: '',
+  category: 'maths',
+  level: 'beginner',
   difficulty: 'easy',
   pointsReward: 20,
   xpReward: 10,
@@ -78,6 +90,8 @@ export function GameEditor({
         setForm({
           title: g.title,
           description: g.description ?? '',
+          category: g.category,
+          level: g.level,
           difficulty: g.difficulty,
           pointsReward: g.pointsReward,
           xpReward: g.xpReward,
@@ -161,6 +175,8 @@ export function GameEditor({
       const payload = {
         title: form.title.trim(),
         description: form.description.trim() || null,
+        category: form.category,
+        level: form.level,
         difficulty: form.difficulty,
         pointsReward: form.pointsReward,
         xpReward: form.xpReward,
@@ -229,7 +245,42 @@ export function GameEditor({
                 />
               </Field>
 
-              <Field label="Difficulty">
+              {/* The two axes a child actually picks from. Both are required. */}
+              <Field label="Category">
+                <select
+                  value={form.category}
+                  onChange={(e) =>
+                    setForm({ ...form, category: e.target.value as GameCategory })
+                  }
+                  className={inputClass}
+                >
+                  {GAME_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {GAME_CATEGORY_LABELS[c]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Level">
+                <select
+                  value={form.level}
+                  onChange={(e) => setForm({ ...form, level: e.target.value as GameLevel })}
+                  className={inputClass}
+                >
+                  {GAME_LEVELS.map((l) => (
+                    <option key={l} value={l}>
+                      {GAME_LEVEL_LABELS[l]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              {/*
+                Legacy axis, superseded by Level. Kept visible only because existing rows carry a value;
+                nothing reads it for gameplay.
+              */}
+              <Field label="Difficulty (legacy)">
                 <select
                   value={form.difficulty}
                   onChange={(e) =>

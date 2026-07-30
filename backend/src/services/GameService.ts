@@ -16,6 +16,13 @@
  */
 
 import crypto from 'crypto';
+import {
+  GAME_COOLDOWN_HOURS,
+  GAME_REWARD_ACCURACY_FLOOR,
+  GAME_REWARDS,
+  type GameCategory,
+  type GameLevel,
+} from '@taskbuddy/shared';
 
 export interface Question {
   id: string;
@@ -39,7 +46,12 @@ export interface AwardResult {
 }
 
 /** XP is only granted at or above this share of correct answers. */
-export const XP_THRESHOLD = 0.6;
+/**
+ * @deprecated Superseded by `GAME_REWARD_ACCURACY_FLOOR` in shared, which now gates points AND XP
+ * together rather than XP alone. Kept only so the two cannot silently drift apart — a test asserts they
+ * are equal. Remove once nothing references it.
+ */
+export const XP_THRESHOLD = GAME_REWARD_ACCURACY_FLOOR;
 
 /**
  * Age bands a definition may target; `null` means all ages.
@@ -194,6 +206,65 @@ export function toDateKey(date: Date): string {
  *
  * Falls back to the whole bank when it is smaller than the requested count, which is why an
  * unmigrated 5-question definition behaves exactly as before.
+ */
+/**
+ * One row of the child's rotation index — see `GameQuestionSeen` in schema.prisma.
+ */
+export interface SeenQuestion {
+  questionId: string;
+  seenAt: Date;
+}
+
+/**
+ * Draw a child's next questions: everything they have not seen first, recycling the
+ * least-recently-seen only once the bank is exhausted.
+ *
+ * ## Why per child rather than per day
+ *
+ * `selectDailyQuestions` below seeds the draw on `gameId:UTC-date`, so every child got the same quiz on
+ * a given day and a question could recur any number of times across days. That was the "the game doesn't
+ * change" complaint. This function tracks what each child has actually been graded on, so a question
+ * never reappears for them until they have seen every question in the bank.
+ *
+ * The trade accepted with it: **siblings no longer get the same quiz.** That was a deliberate property of
+ * the daily draw, and per-child consumption is incompatible with it.
+ *
+ * ## Why it recycles instead of running out
+ *
+ * A 25-question bank drawn 5 at a time gives one child five plays before exhaustion, and no realistic
+ * authoring rate keeps ahead of a keen child forever. Locking the category at that point would make the
+ * app look broken. Recycling oldest-first means "never repeats until you have seen them all", which is
+ * what people actually mean by no repeats, and it can never dead-end.
+ *
+ * `seed` is a parameter rather than internal randomness so the draw is reproducible in tests; callers
+ * pass something per-play.
+ */
+export function selectQuestionsForChild(
+  bank: Question[],
+  count: number,
+  seen: SeenQuestion[],
+  seed: string,
+): Question[] {
+  if (!Array.isArray(bank) || bank.length === 0) return [];
+  const want = Math.max(1, Math.min(count, bank.length));
+
+  const seenAtById = new Map(seen.map((s) => [s.questionId, s.seenAt.getTime()]));
+  const unseen = bank.filter((q) => !seenAtById.has(q.id));
+
+  if (unseen.length >= want) return seededShuffle(unseen, seed).slice(0, want);
+
+  // Bank exhausted (or nearly): serve every unseen question, then top up with the ones seen longest
+  // ago. Sorted by seenAt so the child works through the whole bank before anything comes round twice.
+  const recycled = bank
+    .filter((q) => seenAtById.has(q.id))
+    .sort((a, b) => (seenAtById.get(a.id) ?? 0) - (seenAtById.get(b.id) ?? 0));
+
+  return [...seededShuffle(unseen, seed), ...recycled].slice(0, want);
+}
+
+/**
+ * @deprecated Superseded by `selectQuestionsForChild`. Retained because sessions created before the
+ * redesign were drawn with it, and its tests document the behaviour those sessions were graded under.
  */
 export function selectDailyQuestions(
   bank: Question[],
@@ -355,30 +426,68 @@ export function buildReview(
 
 // ─── Award calculation ────────────────────────────────────────────────────────
 
+/** Points and XP for a level. The single accessor — see the note on GAME_REWARDS. */
+export function rewardsForLevel(level: GameLevel): { points: number; xp: number } {
+  return GAME_REWARDS[level];
+}
+
+/** Cooldown hours for a category. Completing any game in it times out the whole category. */
+export function cooldownHoursForCategory(category: GameCategory): number {
+  return GAME_COOLDOWN_HOURS[category];
+}
+
 /**
- * Partial credit: points scale with the share correct, XP is all-or-nothing above XP_THRESHOLD.
+ * What a finished session pays.
  *
- * Replaces the previous all-or-nothing rule where 4 of 5 correct paid zero. `remainingCap` is the
- * child's unused daily game allowance and trims the payout without ever going negative.
+ * Three gates, in order:
+ *
+ *  1. **Accuracy floor.** Below `GAME_REWARD_ACCURACY_FLOOR` (60%) a session pays nothing at all — not
+ *     points, not XP — so clicking through options at random is worth zero. Above it, points scale with
+ *     the share correct and XP is paid in full, so 3 of 5 still earns; that is what partial credit was
+ *     introduced for.
+ *  2. **Once per category per day.** `pointsAlreadyEarnedInCategoryToday` zeroes the points but never the
+ *     XP. This is the gate a child can actually predict, and it is what stops six categories a day
+ *     turning into a better income than chores.
+ *  3. **The family's daily cap**, as a backstop.
+ *
+ * Reward values come from the level, not from the definition's columns — an admin typo cannot inflate the
+ * economy. XP is deliberately never capped: a child who has hit their points ceiling and then aces a quiz
+ * still levels up, because XP is progression and is never spent.
  */
 export function computeAward(
-  pointsReward: number,
-  xpReward: number,
+  level: GameLevel,
   correctCount: number,
   totalQuestions: number,
   remainingCap: number,
+  pointsAlreadyEarnedInCategoryToday: boolean,
 ): AwardResult {
   if (totalQuestions <= 0 || correctCount <= 0) {
     return { pointsAwarded: 0, xpAwarded: 0 };
   }
 
   const share = correctCount / totalQuestions;
-  const earned = Math.round(pointsReward * share);
-  const pointsAwarded = Math.max(0, Math.min(earned, remainingCap));
+  const { points, xp } = rewardsForLevel(level);
 
-  // XP tracks the child's performance, not the cap — a capped-out child who aced the quiz still
-  // levels up. Points are the scarce currency; XP is progression and is never spent.
-  const xpAwarded = share >= XP_THRESHOLD ? xpReward : 0;
+  if (share < GAME_REWARD_ACCURACY_FLOOR) {
+    return {
+      pointsAwarded: 0,
+      xpAwarded: 0,
+      cappedMessage: `You need ${Math.ceil(GAME_REWARD_ACCURACY_FLOOR * totalQuestions)} of ${totalQuestions} right to earn points. Try again!`,
+    };
+  }
+
+  const xpAwarded = xp;
+
+  if (pointsAlreadyEarnedInCategoryToday) {
+    return {
+      pointsAwarded: 0,
+      xpAwarded,
+      cappedMessage: `You already earned today's points for this subject — this one is worth ${xpAwarded} XP.`,
+    };
+  }
+
+  const earned = Math.round(points * share);
+  const pointsAwarded = Math.max(0, Math.min(earned, remainingCap));
 
   return {
     pointsAwarded,
