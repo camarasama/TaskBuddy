@@ -88,6 +88,42 @@ export interface GameQuestionReview {
   correct: boolean;
 }
 
+// ─── History and review (child-facing) ───────────────────────────────────────
+
+/** The game a past session belonged to, as the history screens need it. */
+export interface GameHistoryGame {
+  id: string;
+  title: string;
+  category: GameCategory;
+  level: GameLevel;
+}
+
+/** GET /games/history — one finished game, newest first. */
+export interface GameHistoryEntry {
+  sessionId: string;
+  playedAt: string;
+  game: GameHistoryGame;
+  correctCount: number;
+  totalQuestions: number;
+  pointsAwarded: number;
+  xpAwarded: number;
+}
+
+export interface GameHistoryResponse {
+  sessions: GameHistoryEntry[];
+}
+
+/**
+ * GET /games/history/:id — the per-question review of a finished game.
+ *
+ * Same `review` shape the submit response returns, so one renderer serves both the end-of-quiz screen and
+ * looking a game up later. Option order is derived from the session id, so the child sees the layout they
+ * actually played rather than a re-shuffled one.
+ */
+export interface GameReviewResponse extends GameHistoryEntry {
+  review: GameQuestionReview[];
+}
+
 // ─── Admin: game authoring (/admin/games) ────────────────────────────────────
 
 /**

@@ -10,6 +10,7 @@
  * via /admin/games are never overwritten by a redeploy.
  */
 import { prisma } from '../services/database';
+import { MATHS_BEGINNER, MATHS_HARD, MATHS_INTERMEDIATE } from '../content/games/maths';
 
 const QUIZ_GAMES = [
   {
@@ -26,33 +27,7 @@ const QUIZ_GAMES = [
     // Null from here on: the redesign lets a child pick any level at any age.
     ageGroup: null as string | null,
     questionsPerSession: 5,
-    questionsJson: [
-      { id: 'm01', text: 'What is 7 × 8?', options: ['54', '56', '64', '48'], correctIndex: 1 },
-      { id: 'm02', text: 'What is 144 ÷ 12?', options: ['10', '11', '12', '13'], correctIndex: 2 },
-      { id: 'm03', text: 'What is 15% of 200?', options: ['25', '30', '35', '40'], correctIndex: 1 },
-      { id: 'm04', text: 'What is 2³?', options: ['6', '8', '9', '16'], correctIndex: 1 },
-      { id: 'm05', text: 'What is the square root of 81?', options: ['7', '8', '9', '10'], correctIndex: 2 },
-      { id: 'm06', text: 'What is 9 × 6?', options: ['45', '54', '56', '63'], correctIndex: 1 },
-      { id: 'm07', text: 'What is 100 − 37?', options: ['53', '63', '67', '73'], correctIndex: 1 },
-      { id: 'm08', text: 'What is 25 × 4?', options: ['75', '90', '100', '125'], correctIndex: 2 },
-      { id: 'm09', text: 'What is 3/4 as a decimal?', options: ['0.25', '0.5', '0.75', '0.8'], correctIndex: 2 },
-      { id: 'm10', text: 'What is the perimeter of a square with sides of 5 cm?', options: ['10 cm', '15 cm', '20 cm', '25 cm'], correctIndex: 2 },
-      { id: 'm11', text: 'What is 12 × 12?', options: ['124', '132', '144', '156'], correctIndex: 2 },
-      { id: 'm12', text: 'How many minutes are in 2½ hours?', options: ['120', '140', '150', '160'], correctIndex: 2 },
-      { id: 'm13', text: 'What is 50% of 90?', options: ['35', '40', '45', '50'], correctIndex: 2 },
-      { id: 'm14', text: 'What is 7 + 8 × 2?', options: ['23', '30', '17', '15'], correctIndex: 0 },
-      { id: 'm15', text: 'What is the next number: 2, 4, 8, 16, …?', options: ['20', '24', '32', '18'], correctIndex: 2 },
-      { id: 'm16', text: 'How many sides does a hexagon have?', options: ['5', '6', '7', '8'], correctIndex: 1 },
-      { id: 'm17', text: 'What is 81 ÷ 9?', options: ['7', '8', '9', '11'], correctIndex: 2 },
-      { id: 'm18', text: 'What is the area of a rectangle 6 cm by 4 cm?', options: ['10 cm²', '20 cm²', '24 cm²', '26 cm²'], correctIndex: 2 },
-      { id: 'm19', text: 'Round 6.7 to the nearest whole number.', options: ['6', '7', '6.5', '8'], correctIndex: 1 },
-      { id: 'm20', text: 'What is 1000 − 250?', options: ['650', '700', '750', '850'], correctIndex: 2 },
-      { id: 'm21', text: 'How many degrees are in a right angle?', options: ['45', '90', '180', '360'], correctIndex: 1 },
-      { id: 'm22', text: 'What is 6 × 7 + 3?', options: ['42', '45', '48', '63'], correctIndex: 1 },
-      { id: 'm23', text: 'Which fraction is largest?', options: ['1/2', '1/3', '1/4', '1/5'], correctIndex: 0 },
-      { id: 'm24', text: 'What is 5² − 5?', options: ['15', '20', '25', '30'], correctIndex: 1 },
-      { id: 'm25', text: 'How many degrees are in a triangle’s three angles?', options: ['90', '180', '270', '360'], correctIndex: 1 },
-    ],
+    questionsJson: MATHS_BEGINNER,
   },
   {
     type: 'quiz',
@@ -134,13 +109,48 @@ const QUIZ_GAMES = [
       { id: 'g25', text: 'Which continent is the coldest?', options: ['Europe', 'Asia', 'Antarctica', 'North America'], correctIndex: 2 },
     ],
   },
+  // ── Phase D content ─────────────────────────────────────────────────────────
+  //
+  // Banks live in src/content/games/ — eighteen of them inline here would be unreadable. `maths /
+  // beginner` is deliberately absent: it already exists above as "Math Challenge", and seedGames matches
+  // on title, so re-declaring it would be a no-op at best and a duplicate row at worst.
+  {
+    type: 'quiz',
+    title: 'Maths Workout',
+    description: 'Percentages, ratios, shapes and a bit of algebra.',
+    category: 'maths' as const,
+    level: 'intermediate' as const,
+    difficulty: 'medium' as const,
+    // Display-only; the award path reads GAME_REWARDS[level].
+    pointsReward: 3,
+    xpReward: 25,
+    cooldownHours: 8,
+    ageGroup: null as string | null,
+    questionsPerSession: 5,
+    questionsJson: MATHS_INTERMEDIATE,
+  },
+  {
+    type: 'quiz',
+    title: 'Maths Master',
+    description: 'Algebra, powers, probability and compound percentages.',
+    category: 'maths' as const,
+    level: 'hard' as const,
+    difficulty: 'hard' as const,
+    pointsReward: 4,
+    xpReward: 40,
+    cooldownHours: 8,
+    ageGroup: null as string | null,
+    questionsPerSession: 5,
+    questionsJson: MATHS_HARD,
+  },
 ];
 
 export async function seedGames(): Promise<void> {
   for (const game of QUIZ_GAMES) {
     const existing = await prisma.gameDefinition.findFirst({ where: { title: game.title } });
     if (!existing) {
-      await prisma.gameDefinition.create({ data: game });
+      // Cast only here: the arrays stay strongly typed above so backfillGameBanks can read id/text.
+      await prisma.gameDefinition.create({ data: game as unknown as Parameters<typeof prisma.gameDefinition.create>[0]['data'] });
       console.log(`[Games] Seeded: ${game.title} (${game.questionsJson.length} questions)`);
     }
   }

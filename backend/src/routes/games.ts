@@ -267,6 +267,122 @@ gamesRouter.post('/sessions', async (req, res, next) => {
   }
 });
 
+// ─── GET /games/history ───────────────────────────────────────────────────────
+
+/**
+ * The child's finished games, newest first.
+ *
+ * Reads sessions rather than the `GameQuestionSeen` index on purpose: sessions are the authoritative
+ * record of what was served and answered, and they cover plays from before that index existed. The index
+ * is for rotation.
+ *
+ * Mounted BEFORE `/sessions/:id` in the file but on a distinct path, so no route shadowing is involved.
+ */
+gamesRouter.get('/history', async (req, res, next) => {
+  try {
+    const childId = req.user!.userId;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+
+    const sessions = await prisma.gameSession.findMany({
+      where: { childId, status: 'completed', submittedAt: { not: null } },
+      orderBy: { submittedAt: 'desc' },
+      take: limit,
+      include: {
+        gameDefinition: {
+          select: { id: true, title: true, category: true, level: true, questionsJson: true },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        sessions: sessions.map((s) => {
+          const questions = resolveSessionQuestions(
+            s.servedQuestionsJson,
+            (s.gameDefinition.questionsJson as unknown as Question[]) ?? [],
+          );
+          const answers = parseAnswers(s.answersJson, questions.length);
+
+          return {
+            sessionId: s.id,
+            playedAt: s.submittedAt,
+            game: {
+              id: s.gameDefinition.id,
+              title: s.gameDefinition.title,
+              category: s.gameDefinition.category,
+              level: s.gameDefinition.level,
+            },
+            correctCount: countCorrect(questions, answers),
+            totalQuestions: questions.length,
+            pointsAwarded: s.pointsAwarded,
+            xpAwarded: s.xpAwarded,
+          };
+        }),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── GET /games/history/:id ───────────────────────────────────────────────────
+
+/**
+ * Per-question review of a FINISHED game — what the child chose, what was right.
+ *
+ * A separate loader from `loadPlayableSession()`, which refuses anything that is not `in_progress` and so
+ * could never serve this. That refusal is correct for play; it just meant the review data — already
+ * stored in `servedQuestionsJson` + `answersJson`, and already returned once at submit — could not be
+ * read back afterwards.
+ *
+ * Revealing answers here is safe in a way it would not be mid-session: the session is closed, every answer
+ * is committed, and no further points can be earned from it. The option order comes from `buildReview`,
+ * which derives the permutation from the session id — so the child sees the same layout they played.
+ */
+gamesRouter.get('/history/:id', async (req, res, next) => {
+  try {
+    const childId = req.user!.userId;
+
+    const session = await prisma.gameSession.findUnique({
+      where: { id: req.params.id },
+      include: { gameDefinition: true },
+    });
+
+    if (!session) throw new NotFoundError('Game not found');
+    // Checked before status so probing another child's ids cannot distinguish "not yours" from
+    // "not finished".
+    if (session.childId !== childId) throw new ForbiddenError('Not your game');
+    if (session.status !== 'completed') {
+      throw new ConflictError('That game is not finished yet');
+    }
+
+    const questions = servedQuestionsOf(session);
+    const answers = parseAnswers(session.answersJson, questions.length);
+
+    res.json({
+      success: true,
+      data: {
+        sessionId: session.id,
+        playedAt: session.submittedAt,
+        game: {
+          id: session.gameDefinition.id,
+          title: session.gameDefinition.title,
+          category: session.gameDefinition.category,
+          level: session.gameDefinition.level,
+        },
+        correctCount: countCorrect(questions, answers),
+        totalQuestions: questions.length,
+        pointsAwarded: session.pointsAwarded,
+        xpAwarded: session.xpAwarded,
+        review: buildReview(questions, answers, session.id),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ─── GET /games/sessions/:id ──────────────────────────────────────────────────
 
 /**

@@ -54,6 +54,8 @@ import type {
   GamesReport,
   WebhookReport,
   GamesListResponse,
+  GameHistoryResponse,
+  GameReviewResponse,
   GameSession,
   GameSessionResume,
   GameAnswerResult,
@@ -1315,6 +1317,19 @@ export const challengesApi = {
 export const gamesApi = {
   list: () =>
     request<ApiResponse<GamesListResponse>>('/games'),
+
+  /** Finished games, newest first — the "what did I play?" list. */
+  history: (limit = 20) =>
+    request<ApiResponse<GameHistoryResponse>>(`/games/history?limit=${limit}`),
+
+  /**
+   * Per-question review of a finished game.
+   *
+   * Distinct from `getSession`, which only serves an in-progress session and deliberately withholds
+   * answers. This one is for a closed session, where revealing them costs nothing.
+   */
+  review: (sessionId: string) =>
+    request<ApiResponse<GameReviewResponse>>(`/games/history/${sessionId}`),
 
   startSession: (gameDefinitionId: string) =>
     request<ApiResponse<GameSession>>('/games/sessions', {

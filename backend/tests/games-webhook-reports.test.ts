@@ -19,6 +19,8 @@ jest.mock('../src/services/database', () => ({
     gameDefinition: { findMany: jest.fn() },
     gameSession: { findMany: jest.fn() },
     familySettings: { findUnique: jest.fn() },
+    // Added with the mastery/coverage sections: getGamesReport now also reads the rotation index.
+    gameQuestionSeen: { groupBy: jest.fn() },
     webhookSubscription: { findMany: jest.fn() },
   },
 }));
@@ -30,6 +32,7 @@ const p = prisma as unknown as {
   user: { findMany: jest.Mock };
   gameDefinition: { findMany: jest.Mock };
   gameSession: { findMany: jest.Mock };
+  gameQuestionSeen: { groupBy: jest.Mock };
   familySettings: { findUnique: jest.Mock };
   webhookSubscription: { findMany: jest.Mock };
 };
@@ -56,9 +59,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   p.user.findMany.mockResolvedValue([{ id: 'c1', firstName: 'Emma', lastName: 'T' }]);
   p.gameDefinition.findMany.mockResolvedValue([
-    { id: 'g1', title: 'Math Sprint', difficulty: 'easy' },
+    // category/level added when the games redesign made them the selection axes; `difficulty` is
+    // retained because the row type still carries it for older consumers.
+    { id: 'g1', title: 'Math Sprint', difficulty: 'easy', category: 'maths', level: 'beginner', questionsJson: [] },
   ]);
   p.gameSession.findMany.mockResolvedValue([]);
+  p.gameQuestionSeen.groupBy.mockResolvedValue([]);
   p.familySettings.findUnique.mockResolvedValue({ maxGamePointsPerDay: 100 });
   p.webhookSubscription.findMany.mockResolvedValue([]);
 });
@@ -140,11 +146,20 @@ describe('R-12 games report', () => {
   });
 
   it('returns an empty report for a family with no children', async () => {
+    /**
+     * Asserted as the FULL shape rather than a subset, deliberately: a caller that destructures a
+     * section which is sometimes absent would crash on the empty case, so every section must be present
+     * and empty. This is why adding a section to the report has to update this test.
+     */
     p.user.findMany.mockResolvedValue([]);
     expect(await getGamesReport({ familyId: FAMILY })).toEqual({
       games: [],
       children: [],
       totals: { plays: 0, completions: 0, pointsAwarded: 0 },
+      mastery: [],
+      avoidance: [],
+      recentSessions: [],
+      coverage: [],
     });
   });
 

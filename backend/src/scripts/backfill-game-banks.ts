@@ -12,6 +12,17 @@
  * Idempotent and non-destructive: it appends only questions whose id is not already present, so
  * re-running is a no-op and any questions an admin authored via /admin/games survive untouched.
  *
+ * ⚠️ **SUPERSEDED FOR MATHS — do not run this after `retier-maths-beginner`.**
+ *
+ * This script only ever APPENDS. The re-tier deliberately RETIRES five questions from the maths bank
+ * (percentages, indices, roots, order of operations — material that belongs at intermediate). Running
+ * this afterwards on a deployment that still holds those rows would add them straight back, undoing the
+ * re-tier silently and leaving the beginner level overlapping intermediate again.
+ *
+ * It was a one-off for the original rotation deploy and has already been applied in production. If both
+ * are ever run in one deploy, `retier-maths-beginner` must go LAST — it replaces the bank wholesale and
+ * therefore corrects whatever this one appended.
+ *
  * Per docs/DEPLOYMENT.md this is a one-off DATA script: run it AFTER `db:migrate:prod` and AFTER the
  * build, before restarting the services. Runnable from any directory:
  *

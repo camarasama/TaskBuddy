@@ -20,7 +20,22 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from './database';
-import type { GamesReport, WebhookReport } from '@taskbuddy/shared';
+import type {
+  GamesAvoidanceRow,
+  GamesCoverageRow,
+  GamesMasteryCell,
+  GamesReport,
+  GamesReportSessionRow,
+  WebhookReport,
+} from '@taskbuddy/shared';
+// Reused rather than reimplemented: the report grades past sessions with exactly the same functions the
+// game itself graded them with, so a report can never disagree with the score the child was shown.
+import {
+  countCorrect,
+  parseAnswers,
+  resolveSessionQuestions,
+  type Question as GameQuestion,
+} from './GameService';
 
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
@@ -1112,11 +1127,33 @@ export async function getExecutionTimeReport(filters: ReportFilters): Promise<Ex
  * The per-child block exists mainly to answer one question: "why did my child only get 10 points for
  * that?" The answer is almost always `maxGamePointsPerDay`, which was invisible everywhere.
  */
+/** Below this share correct, a category is treated as one the child is struggling with. */
+const ACCURACY_CONCERN = 60;
+
+/**
+ * A category counts as avoided when the child plays it well under their own busiest category — not
+ * against an absolute number, because a child who plays everything twice a week is not avoiding anything.
+ */
+const AVOIDANCE_SHARE = 0.5;
+
+/** Newest finished games returned for the drill-down. Bounded so a long-lived family stays fast. */
+const RECENT_SESSION_LIMIT = 50;
+
+const emptyGamesReport = (): GamesReport => ({
+  games: [],
+  children: [],
+  totals: { plays: 0, completions: 0, pointsAwarded: 0 },
+  mastery: [],
+  avoidance: [],
+  recentSessions: [],
+  coverage: [],
+});
+
 export async function getGamesReport(filters: ReportFilters): Promise<GamesReport> {
   // Guarded here rather than only at the route: an unscoped `familyId` would make the child query
   // match every family's children, so the export path must not be able to reach it either.
   if (!filters.familyId) {
-    return { games: [], children: [], totals: { plays: 0, completions: 0, pointsAwarded: 0 } };
+    return emptyGamesReport();
   }
 
   const childWhere = {
@@ -1133,7 +1170,7 @@ export async function getGamesReport(filters: ReportFilters): Promise<GamesRepor
 
   const childIds = children.map((c) => c.id);
   if (childIds.length === 0) {
-    return { games: [], children: [], totals: { plays: 0, completions: 0, pointsAwarded: 0 } };
+    return emptyGamesReport();
   }
 
   const dateFilter =
@@ -1144,28 +1181,58 @@ export async function getGamesReport(filters: ReportFilters): Promise<GamesRepor
         }
       : undefined;
 
-  const [definitions, sessions, settings] = await Promise.all([
+  const [definitions, sessions, settings, seenCounts] = await Promise.all([
     prisma.gameDefinition.findMany({
-      select: { id: true, title: true, difficulty: true },
+      select: {
+        id: true,
+        title: true,
+        difficulty: true,
+        category: true,
+        level: true,
+        questionsJson: true,
+      },
     }),
+    /**
+     * Per-answer detail comes from the SESSIONS, not from `GameQuestionSeen`.
+     *
+     * Sessions are authoritative for what was served and answered, and they cover plays from before that
+     * index existed — so the mastery grid is not blank for a family's whole history. The index is for
+     * rotation and, below, for bank coverage, which sessions cannot answer.
+     */
     prisma.gameSession.findMany({
       where: {
         childId: { in: childIds },
         ...(dateFilter ? { submittedAt: dateFilter } : {}),
       },
       select: {
+        id: true,
         gameDefinitionId: true,
         childId: true,
         status: true,
         pointsAwarded: true,
+        xpAwarded: true,
         submittedAt: true,
+        answersJson: true,
+        servedQuestionsJson: true,
       },
+      orderBy: { submittedAt: 'desc' },
     }),
     prisma.familySettings.findUnique({
       where: { familyId: filters.familyId },
       select: { maxGamePointsPerDay: true },
     }),
+    // Bank consumption. Grouped rather than fetched row-by-row: a family a year in has thousands.
+    prisma.gameQuestionSeen.groupBy({
+      by: ['childId', 'gameDefinitionId'],
+      where: { childId: { in: childIds } },
+      _count: { questionId: true },
+    }),
   ]);
+
+  const childName = new Map(
+    children.map((c) => [c.id, `${c.firstName} ${c.lastName}`.trim()]),
+  );
+  const definitionById = new Map(definitions.map((d) => [d.id, d]));
 
   const dailyCap = (settings as { maxGamePointsPerDay?: number } | null)?.maxGamePointsPerDay ?? 100;
 
@@ -1189,12 +1256,180 @@ export async function getGamesReport(filters: ReportFilters): Promise<GamesRepor
     childStats.set(s.childId, c);
   }
 
+  /**
+   * Per-question accuracy, per child × category × level.
+   *
+   * Counted over QUESTIONS rather than games on purpose: a child who scrapes 3 of 5 four times running is
+   * not "100% pass rate", which is what a completion-based figure would say. Only completed sessions are
+   * counted — an abandoned one says nothing about what they know.
+   */
+  const masteryKey = (childId: string, category: string, level: string) =>
+    `${childId}|${category}|${level}`;
+
+  const masteryStats = new Map<
+    string,
+    { plays: number; answered: number; correct: number }
+  >();
+  const recentSessions: GamesReportSessionRow[] = [];
+
+  for (const s of sessions) {
+    const def = definitionById.get(s.gameDefinitionId);
+    if (!def || s.status !== 'completed') continue;
+
+    const questions = resolveSessionQuestions(
+      s.servedQuestionsJson,
+      (def.questionsJson as unknown as GameQuestion[]) ?? [],
+    );
+    if (questions.length === 0) continue;
+
+    const answers = parseAnswers(s.answersJson, questions.length);
+    const correct = countCorrect(questions, answers);
+    // Unanswered slots are not "wrong" for accuracy purposes — they were never attempted.
+    const answered = answers.filter((a) => a !== null).length;
+
+    const key = masteryKey(s.childId, def.category, def.level);
+    const cell = masteryStats.get(key) ?? { plays: 0, answered: 0, correct: 0 };
+    cell.plays++;
+    cell.answered += answered;
+    cell.correct += correct;
+    masteryStats.set(key, cell);
+
+    if (recentSessions.length < RECENT_SESSION_LIMIT) {
+      recentSessions.push({
+        sessionId: s.id,
+        childId: s.childId,
+        childName: childName.get(s.childId) ?? '',
+        playedAt: s.submittedAt,
+        title: def.title,
+        category: def.category,
+        level: def.level,
+        correctCount: correct,
+        totalQuestions: questions.length,
+        pointsAwarded: s.pointsAwarded,
+        xpAwarded: s.xpAwarded,
+      });
+    }
+  }
+
+  // Only emit cells for combinations that actually exist, so the grid does not advertise games nobody
+  // has authored yet.
+  const mastery: GamesMasteryCell[] = [];
+  for (const child of children) {
+    for (const def of definitions) {
+      const cell = masteryStats.get(masteryKey(child.id, def.category, def.level));
+      mastery.push({
+        childId: child.id,
+        childName: childName.get(child.id) ?? '',
+        category: def.category,
+        level: def.level,
+        plays: cell?.plays ?? 0,
+        questionsAnswered: cell?.answered ?? 0,
+        questionsCorrect: cell?.correct ?? 0,
+        // Null, never 0 — "never played" and "gets everything wrong" must not look the same.
+        accuracy:
+          cell && cell.answered > 0
+            ? Math.round((cell.correct / cell.answered) * 1000) / 10
+            : null,
+      });
+    }
+  }
+
+  /**
+   * The avoidance signal — the reason this report is worth reading.
+   *
+   * Flagged when a child is BOTH below the accuracy concern AND playing the category well under their own
+   * busiest one. Measured relative to the child, not to an absolute play count: a child who plays
+   * everything twice a week is not avoiding anything, and a child who plays maths daily makes every other
+   * subject look neglected by comparison.
+   */
+  const categories = [...new Set(definitions.map((d) => d.category))];
+  const avoidance: GamesAvoidanceRow[] = [];
+
+  for (const child of children) {
+    const perCategory = categories.map((category) => {
+      let plays = 0;
+      let answered = 0;
+      let correct = 0;
+      for (const def of definitions.filter((d) => d.category === category)) {
+        const cell = masteryStats.get(masteryKey(child.id, category, def.level));
+        if (!cell) continue;
+        plays += cell.plays;
+        answered += cell.answered;
+        correct += cell.correct;
+      }
+      return {
+        category,
+        plays,
+        accuracy: answered > 0 ? Math.round((correct / answered) * 1000) / 10 : null,
+      };
+    });
+
+    const busiest = Math.max(...perCategory.map((c) => c.plays), 0);
+
+    for (const row of perCategory) {
+      const relativePlays = busiest > 0 ? Math.round((row.plays / busiest) * 100) : 0;
+      const avoided = busiest > 0 && row.plays < busiest * AVOIDANCE_SHARE;
+      const struggling = row.accuracy !== null && row.accuracy < ACCURACY_CONCERN;
+
+      // Never touched at all, while clearly engaging elsewhere: worth saying, but it is avoidance
+      // without an accuracy signal, so it is reported distinctly rather than as "struggling".
+      const untouched = row.plays === 0 && busiest > 0;
+
+      avoidance.push({
+        childId: child.id,
+        childName: childName.get(child.id) ?? '',
+        category: row.category,
+        plays: row.plays,
+        accuracy: row.accuracy,
+        relativePlays,
+        needsAttention: (avoided && struggling) || untouched,
+        reason: untouched
+          ? 'Never played, while playing other subjects'
+          : avoided && struggling
+            ? `Played ${relativePlays}% as often as their busiest subject, and ${row.accuracy}% accurate`
+            : null,
+      });
+    }
+  }
+
+  /** Bank coverage. 100% is exactly the point at which rotation begins recycling. */
+  const seenByPair = new Map(
+    seenCounts.map((row) => [`${row.childId}|${row.gameDefinitionId}`, row._count.questionId]),
+  );
+
+  const coverage: GamesCoverageRow[] = [];
+  for (const child of children) {
+    for (const def of definitions) {
+      const bankSize = ((def.questionsJson as unknown as GameQuestion[]) ?? []).length;
+      const seen = seenByPair.get(`${child.id}|${def.id}`) ?? 0;
+      if (seen === 0) continue; // Nothing to say about a game they have never opened.
+      coverage.push({
+        childId: child.id,
+        childName: childName.get(child.id) ?? '',
+        gameId: def.id,
+        title: def.title,
+        category: def.category,
+        level: def.level,
+        seen,
+        bankSize,
+        coverage: bankSize > 0 ? Math.round((seen / bankSize) * 100) : 0,
+        exhausted: bankSize > 0 && seen >= bankSize,
+      });
+    }
+  }
+
   return {
+    mastery,
+    avoidance,
+    recentSessions,
+    coverage,
     games: definitions.map((d) => {
       const stat = gameStats.get(d.id) ?? { plays: 0, completions: 0, points: 0 };
       return {
         gameId: d.id,
         title: d.title,
+        category: d.category,
+        level: d.level,
         difficulty: String(d.difficulty),
         plays: stat.plays,
         completions: stat.completions,
