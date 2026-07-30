@@ -44,7 +44,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-router', 'expo-secure-store'],
+  // `expo-font` is listed because `expo install` asks for it. Fonts are still loaded at runtime via
+  // `useFonts()` rather than embedded through the plugin's `fonts` option — runtime loading is what
+  // works in Expo Go, which is how the app is being tested until a development build exists.
+  plugins: ['expo-router', 'expo-secure-store', 'expo-font'],
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? PROD_API,
     // Sent as `X-Client: taskbuddy-android/<version>` on every request. The backend keys mobile

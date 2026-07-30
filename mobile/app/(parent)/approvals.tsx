@@ -13,7 +13,8 @@
  * family, so it costs a sentence.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
@@ -67,9 +68,9 @@ function EvidenceBlock({ evidence }: { evidence: PendingApproval['evidence'] }) 
         </View>
       )}
       {notes.map((note) => (
-        <Text key={note.id} style={[styles.note, { color: theme.cardForeground }]}>
+        <AppText key={note.id} style={[styles.note, { color: theme.cardForeground }]}>
           &ldquo;{note.note}&rdquo;
-        </Text>
+        </AppText>
       ))}
     </View>
   );
@@ -96,21 +97,21 @@ function ApprovalRow({
   return (
     <Card>
       <View style={styles.rowHeader}>
-        <Text style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
+        <AppText style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
           {item.task.title}
-        </Text>
-        <Text style={[styles.points, { color: theme.foreground }]}>{item.task.pointsValue} pts</Text>
+        </AppText>
+        <AppText style={[styles.points, { color: theme.foreground }]}>{item.task.pointsValue} pts</AppText>
       </View>
 
-      <Text style={[styles.meta, { color: theme.mutedForeground }]}>
+      <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
         {item.child.firstName}
         {submitted ? ` · ${submitted}` : ''}
-      </Text>
+      </AppText>
 
       {item.task.description ? (
-        <Text style={[styles.description, { color: theme.mutedForeground }]} numberOfLines={3}>
+        <AppText style={[styles.description, { color: theme.mutedForeground }]} numberOfLines={3}>
           {item.task.description}
-        </Text>
+        </AppText>
       ) : null}
 
       <EvidenceBlock evidence={item.evidence} />
@@ -121,9 +122,9 @@ function ApprovalRow({
       */}
       {item.task.requiresPhotoEvidence &&
         item.evidence.filter((e) => e.evidenceType === 'photo').length === 0 && (
-          <Text style={[styles.warning, { color: theme.destructive }]}>
+          <AppText style={[styles.warning, { color: theme.destructive }]}>
             This task asked for a photo, but none was attached.
-          </Text>
+          </AppText>
         )}
 
       {rejecting ? (
@@ -198,10 +199,10 @@ function ResultBanner({ result, onDismiss }: { result: ApprovalResult; onDismiss
   return (
     <Pressable onPress={onDismiss} accessibilityRole="button">
       <Card style={{ borderColor: theme.primary, borderWidth: 2 }}>
-        <Text accessibilityRole="alert" style={[styles.resultText, { color: theme.cardForeground }]}>
+        <AppText accessibilityRole="alert" style={[styles.resultText, { color: theme.cardForeground }]}>
           Approved{parts.length > 0 ? ` — ${parts.join(', ')}` : ''}.
-        </Text>
-        <Text style={[styles.meta, { color: theme.mutedForeground }]}>Tap to dismiss</Text>
+        </AppText>
+        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Tap to dismiss</AppText>
       </Card>
     </Pressable>
   );
@@ -248,12 +249,12 @@ export default function Approvals() {
   if (isError) {
     return (
       <Screen>
-        <Text style={[styles.title, { color: theme.foreground }]}>Approvals</Text>
+        <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Approvals</AppText>
         <Card>
-          <Text style={[styles.cardTitle, { color: theme.destructive }]}>
+          <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
             {error instanceof NetworkError ? 'No connection' : 'Could not load approvals'}
-          </Text>
-          <Text style={[styles.meta, { color: theme.cardForeground }]}>{describeError(error)}</Text>
+          </AppText>
+          <AppText style={[styles.meta, { color: theme.cardForeground }]}>{describeError(error)}</AppText>
         </Card>
         <Button label="Try again" onPress={() => void refetch()} />
       </Screen>
@@ -262,22 +263,22 @@ export default function Approvals() {
 
   const header = (
     <View>
-      <Text style={[styles.title, { color: theme.foreground }]}>Approvals</Text>
-      <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Approvals</AppText>
+      <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
         {isPending
           ? 'Loading…'
           : assignments.length === 0
             ? 'Nothing waiting'
             : `${assignments.length} waiting for you`}
-      </Text>
+      </AppText>
 
       {lastResult && <ResultBanner result={lastResult} onDismiss={() => setLastResult(null)} />}
 
       {actionError !== null && (
         <Card style={{ borderColor: theme.destructive }}>
-          <Text accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
+          <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
             {actionError}
-          </Text>
+          </AppText>
         </Card>
       )}
     </View>
@@ -307,9 +308,9 @@ export default function Approvals() {
             </View>
           ) : (
             <Card>
-              <Text style={[styles.meta, { color: theme.cardForeground }]}>
+              <AppText style={[styles.meta, { color: theme.cardForeground }]}>
                 Nothing is waiting for approval. You&apos;re all caught up.
-              </Text>
+              </AppText>
             </Card>
           )
         }

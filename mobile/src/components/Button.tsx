@@ -5,7 +5,8 @@
  * no global equivalent of the web's `globals.css` rule, so every touchable would otherwise have to
  * remember it), and the busy state, which disables the press as well as showing a spinner.
  */
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 
 import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
 
@@ -48,7 +49,7 @@ export function Button({
     >
       <View style={styles.content}>
         {busy && <ActivityIndicator size="small" color={foreground} />}
-        <Text style={[styles.label, { color: foreground }]}>{label}</Text>
+        <AppText style={[styles.label, { color: foreground }]}>{label}</AppText>
       </View>
     </Pressable>
   );

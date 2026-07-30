@@ -4,7 +4,8 @@
  * Proves the child half of the auth loop and the shell separation. The real child experience is
  * Phase 2; this is only the landing route its guard needs.
  */
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -19,18 +20,18 @@ export default function ChildDashboard() {
 
   return (
     <Screen scroll>
-      <Text style={[styles.greeting, { color: theme.foreground }]}>
+      <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>
         Hi {user?.firstName ?? 'there'}!
-      </Text>
-      <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+      </AppText>
+      <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
         Your tasks and rewards are on the way.
-      </Text>
+      </AppText>
 
       <Card>
-        <Text style={[styles.cardTitle, { color: theme.mutedForeground }]}>Coming next</Text>
-        <Text style={[styles.cardBody, { color: theme.cardForeground }]}>
+        <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>Coming next</AppText>
+        <AppText style={[styles.cardBody, { color: theme.cardForeground }]}>
           Tasks, points, rewards and games arrive in Phase 2.
-        </Text>
+        </AppText>
       </Card>
 
       <View style={styles.actions}>

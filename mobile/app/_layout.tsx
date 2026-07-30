@@ -22,6 +22,7 @@ import { isRateLimited, SessionExpiredError } from '@/lib/api';
 import { initReporting, reportError } from '@/lib/reporting';
 import { useAuth } from '@/stores/auth';
 import { useTheme } from '@/theme';
+import { FontProvider } from '@/theme/FontProvider';
 
 /**
  * expo-router renders this in place of any route that throws during render, and — because it is
@@ -92,8 +93,11 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        <StatusBar style="auto" />
-        <Routes />
+        {/* Outside <Routes> so the faces start loading during session bootstrap rather than after it. */}
+        <FontProvider>
+          <StatusBar style="auto" />
+          <Routes />
+        </FontProvider>
       </SafeAreaProvider>
     </QueryClientProvider>
   );

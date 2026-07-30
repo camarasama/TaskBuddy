@@ -9,7 +9,8 @@
  * phone is slow in a way that is hard to walk back once screens depend on the shape.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
@@ -58,14 +59,14 @@ function FilterChips({
               },
             ]}
           >
-            <Text
+            <AppText
               style={[
                 styles.chipLabel,
                 { color: selected ? theme.primaryForeground : theme.cardForeground },
               ]}
             >
               {filter.label}
-            </Text>
+            </AppText>
           </Pressable>
         );
       })}
@@ -100,34 +101,34 @@ function TaskRow({ task }: { task: ParentTask }) {
   return (
     <Card>
       <View style={styles.rowHeader}>
-        <Text style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
+        <AppText style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
           {task.title}
-        </Text>
-        <Text style={[styles.points, { color: theme.foreground }]}>{task.pointsValue} pts</Text>
+        </AppText>
+        <AppText style={[styles.points, { color: theme.foreground }]}>{task.pointsValue} pts</AppText>
       </View>
 
-      <Text style={[styles.meta, { color: theme.mutedForeground }]}>
+      <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
         {assignmentSummary(task)}
-      </Text>
+      </AppText>
 
       <View style={styles.badgeRow}>
         {due !== null && (
           // Overdue is said in words ("N days overdue") as well as coloured, so the state does not
           // depend on distinguishing red from grey.
-          <Text
+          <AppText
             style={[styles.badge, { color: overdue ? theme.destructive : theme.mutedForeground }]}
           >
             {due}
-          </Text>
+          </AppText>
         )}
         {task.difficulty && (
-          <Text style={[styles.badge, { color: theme.mutedForeground }]}>{task.difficulty}</Text>
+          <AppText style={[styles.badge, { color: theme.mutedForeground }]}>{task.difficulty}</AppText>
         )}
         {task.status !== 'active' && (
-          <Text style={[styles.badge, { color: theme.mutedForeground }]}>{task.status}</Text>
+          <AppText style={[styles.badge, { color: theme.mutedForeground }]}>{task.status}</AppText>
         )}
         {task.requiresPhotoEvidence && (
-          <Text style={[styles.badge, { color: theme.mutedForeground }]}>photo required</Text>
+          <AppText style={[styles.badge, { color: theme.mutedForeground }]}>photo required</AppText>
         )}
       </View>
     </Card>
@@ -164,10 +165,10 @@ export default function ParentTasks() {
 
   const header = (
     <View>
-      <Text style={[styles.title, { color: theme.foreground }]}>Tasks</Text>
-      <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Tasks</AppText>
+      <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
         {isPending ? 'Loading…' : `${total} ${total === 1 ? 'task' : 'tasks'}`}
-      </Text>
+      </AppText>
       <FilterChips value={status} onChange={setStatus} />
     </View>
   );
@@ -177,10 +178,10 @@ export default function ParentTasks() {
       <Screen>
         {header}
         <Card>
-          <Text style={[styles.cardTitle, { color: theme.destructive }]}>
+          <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
             {error instanceof NetworkError ? 'No connection' : 'Could not load tasks'}
-          </Text>
-          <Text style={[styles.meta, { color: theme.cardForeground }]}>{describeError(error)}</Text>
+          </AppText>
+          <AppText style={[styles.meta, { color: theme.cardForeground }]}>{describeError(error)}</AppText>
         </Card>
         <Button label="Try again" onPress={() => void refetch()} />
       </Screen>
@@ -206,11 +207,11 @@ export default function ParentTasks() {
             </View>
           ) : (
             <Card>
-              <Text style={[styles.meta, { color: theme.cardForeground }]}>
+              <AppText style={[styles.meta, { color: theme.cardForeground }]}>
                 {status === 'all'
                   ? 'No tasks yet. You can create them on the web for now.'
                   : `No ${status} tasks.`}
-              </Text>
+              </AppText>
             </Card>
           )
         }

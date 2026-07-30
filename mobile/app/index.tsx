@@ -9,7 +9,8 @@
  * also what makes sign-out land somewhere sensible without the sign-out button knowing any routes.
  */
 import { Redirect, router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
@@ -39,19 +40,19 @@ export default function RoleChooser() {
 
   return (
     <Screen scroll center>
-      <Text style={[styles.title, { color: theme.foreground }]}>TaskBuddy</Text>
-      <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>TaskBuddy</AppText>
+      <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
         Family tasks, rewards and a bit of friendly competition.
-      </Text>
+      </AppText>
 
       {/* A broken app.config is otherwise invisible until the first request fails confusingly. */}
       {CONFIG_ERRORS.length > 0 && (
         <View style={[styles.notice, { borderColor: theme.destructive, backgroundColor: theme.card }]}>
-          <Text style={[styles.noticeTitle, { color: theme.destructive }]}>Configuration problem</Text>
+          <AppText style={[styles.noticeTitle, { color: theme.destructive }]}>Configuration problem</AppText>
           {CONFIG_ERRORS.map((message) => (
-            <Text key={message} style={[styles.noticeBody, { color: theme.cardForeground }]}>
+            <AppText key={message} style={[styles.noticeBody, { color: theme.cardForeground }]}>
               {message}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}
@@ -63,11 +64,11 @@ export default function RoleChooser() {
       */}
       {offline && (
         <View style={[styles.notice, { borderColor: theme.border, backgroundColor: theme.card }]}>
-          <Text style={[styles.noticeTitle, { color: theme.cardForeground }]}>You appear to be offline</Text>
-          <Text style={[styles.noticeBody, { color: theme.mutedForeground }]}>
+          <AppText style={[styles.noticeTitle, { color: theme.cardForeground }]}>You appear to be offline</AppText>
+          <AppText style={[styles.noticeBody, { color: theme.mutedForeground }]}>
             We could not reach TaskBuddy to restore your session. Your sign-in has been kept — try
             again once you have a connection.
-          </Text>
+          </AppText>
         </View>
       )}
 

@@ -6,7 +6,8 @@
  * takes over. Treating that response as success is the bug this screen exists to not have.
  */
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/AppText';
 import { router } from 'expo-router';
 
 import { Button } from '@/components/Button';
@@ -49,7 +50,7 @@ export default function ParentLogin() {
 
   return (
     <Screen scroll center>
-      <Text style={[styles.title, { color: theme.foreground }]}>Parent sign-in</Text>
+      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Parent sign-in</AppText>
 
       <Field
         label="Email"
@@ -78,9 +79,9 @@ export default function ParentLogin() {
       />
 
       {error !== null && (
-        <Text accessibilityRole="alert" style={[styles.error, { color: theme.destructive }]}>
+        <AppText accessibilityRole="alert" style={[styles.error, { color: theme.destructive }]}>
           {error}
-        </Text>
+        </AppText>
       )}
 
       <View style={styles.actions}>
@@ -93,7 +94,7 @@ export default function ParentLogin() {
         style={styles.backLink}
         disabled={busy}
       >
-        <Text style={[styles.backText, { color: theme.mutedForeground }]}>Not a parent? Go back</Text>
+        <AppText style={[styles.backText, { color: theme.mutedForeground }]}>Not a parent? Go back</AppText>
       </Pressable>
     </Screen>
   );

@@ -12,12 +12,15 @@ import { useColorScheme } from 'react-native';
 import { type SemanticTheme, themes } from '@taskbuddy/shared';
 
 export {
+  fontFamily,
   fontSize,
   fontWeight,
   minTouchTarget,
   palette,
   radius,
   spacing,
+  type FontFamilyKey,
+  type FontWeightKey,
   type SemanticTheme,
 } from '@taskbuddy/shared';
 
