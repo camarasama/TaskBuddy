@@ -36,6 +36,7 @@ import {
   GRAMMAR_HARD,
   GRAMMAR_INTERMEDIATE,
 } from '../src/content/games/grammar';
+import { PUZZLE_BEGINNER, PUZZLE_HARD, PUZZLE_INTERMEDIATE } from '../src/content/games/puzzle';
 import { validateQuestionBank } from '../src/services/GameService';
 
 /**
@@ -56,6 +57,7 @@ const CATEGORIES: Record<string, Record<string, SeedQuestion[]>> = {
     hard: VOCABULARY_HARD,
   },
   grammar: { beginner: GRAMMAR_BEGINNER, intermediate: GRAMMAR_INTERMEDIATE, hard: GRAMMAR_HARD },
+  puzzle: { beginner: PUZZLE_BEGINNER, intermediate: PUZZLE_INTERMEDIATE, hard: PUZZLE_HARD },
 };
 
 const BANKS: Array<[string, SeedQuestion[]]> = Object.entries(CATEGORIES).flatMap(
