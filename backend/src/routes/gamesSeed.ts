@@ -23,6 +23,7 @@ import {
   VOCABULARY_INTERMEDIATE,
 } from '../content/games/vocabulary';
 import { GRAMMAR_BEGINNER, GRAMMAR_HARD, GRAMMAR_INTERMEDIATE } from '../content/games/grammar';
+import { PUZZLE_BEGINNER, PUZZLE_HARD, PUZZLE_INTERMEDIATE } from '../content/games/puzzle';
 
 const QUIZ_GAMES = [
   {
@@ -242,6 +243,48 @@ const QUIZ_GAMES = [
     ageGroup: null as string | null,
     questionsPerSession: 5,
     questionsJson: GRAMMAR_HARD,
+  },
+  {
+    type: 'quiz',
+    title: 'Brain Starter',
+    description: 'Odd one out, patterns and simple thinking.',
+    category: 'puzzle' as const,
+    level: 'beginner' as const,
+    difficulty: 'easy' as const,
+    pointsReward: 2,
+    xpReward: 15,
+    cooldownHours: 4,
+    ageGroup: null as string | null,
+    questionsPerSession: 5,
+    questionsJson: PUZZLE_BEGINNER,
+  },
+  {
+    type: 'quiz',
+    title: 'Brain Builder',
+    description: 'Analogies, number patterns and short deductions.',
+    category: 'puzzle' as const,
+    level: 'intermediate' as const,
+    difficulty: 'medium' as const,
+    pointsReward: 3,
+    xpReward: 25,
+    cooldownHours: 4,
+    ageGroup: null as string | null,
+    questionsPerSession: 5,
+    questionsJson: PUZZLE_INTERMEDIATE,
+  },
+  {
+    type: 'quiz',
+    title: 'Brain Master',
+    description: 'Famous puzzles where the obvious answer is wrong.',
+    category: 'puzzle' as const,
+    level: 'hard' as const,
+    difficulty: 'hard' as const,
+    pointsReward: 4,
+    xpReward: 40,
+    cooldownHours: 4,
+    ageGroup: null as string | null,
+    questionsPerSession: 5,
+    questionsJson: PUZZLE_HARD,
   },
 ];
 
