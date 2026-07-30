@@ -18,7 +18,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorScreen } from '@/components/ErrorScreen';
-import { SessionExpiredError } from '@/lib/api';
+import { isRateLimited, SessionExpiredError } from '@/lib/api';
 import { initReporting, reportError } from '@/lib/reporting';
 import { useAuth } from '@/stores/auth';
 import { useTheme } from '@/theme';
@@ -47,6 +47,14 @@ const queryClient = new QueryClient({
       retry: (failureCount, error) => {
         // A dead session will not recover by asking again, and each attempt costs a refresh.
         if (error instanceof SessionExpiredError) return false;
+        /**
+         * Never retry a 429. The limiter is 100 requests per 15 minutes keyed on **IP**, so a retry
+         * does not merely fail again — it spends another request from an already-empty bucket and
+         * pushes the window out for every device sharing that address. Retrying here was actively
+         * making the problem worse, found while testing on a phone alongside a browser on the same
+         * home connection.
+         */
+        if (isRateLimited(error)) return false;
         return failureCount < 1;
       },
       staleTime: 30_000,

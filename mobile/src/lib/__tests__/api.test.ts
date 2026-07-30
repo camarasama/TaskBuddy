@@ -55,11 +55,12 @@ interface FakeCall {
 
 let calls: FakeCall[] = [];
 
-function jsonResponse(status: number, body: unknown) {
+function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}) {
   return {
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
+    headers: { get: (name: string) => headers[name] ?? null },
   } as unknown as Response;
 }
 
@@ -181,6 +182,64 @@ describe('request basics', () => {
     ).rejects.toMatchObject({ name: 'ApiError', status: 401 });
 
     expect(calls[0].headers.Authorization).toBeUndefined();
+    expect(refreshCalls()).toHaveLength(0);
+  });
+});
+
+describe('rate limiting (429)', () => {
+  /**
+   * Found while testing on a phone alongside a browser on the same home connection. The backend's
+   * global limiter is 100 requests per 15 minutes keyed on **IP**, so every device behind one address
+   * drains a single bucket — and the client was retrying the 429, spending another request from an
+   * empty bucket and pushing the window out further.
+   */
+  it('exposes Retry-After so the UI can say how long', async () => {
+    const { api } = setup(() =>
+      jsonResponse(
+        429,
+        { success: false, error: { code: 'RATE_LIMITED', message: 'Too many requests' } },
+        { 'Retry-After': '23' }
+      )
+    );
+
+    await expect(api.api.get('/tasks')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 429,
+      retryAfterSeconds: 23,
+    });
+  });
+
+  it('is recognisable via isRateLimited, which is what suppresses the retry', async () => {
+    const { api } = setup(() => jsonResponse(429, { success: false, error: {} }));
+
+    const caught = await api.api.get('/tasks').catch((e: unknown) => e);
+
+    expect(api.isRateLimited(caught)).toBe(true);
+    // Not confused with other failures — retrying a 500 is fine, retrying a 429 is harmful.
+    expect(api.isRateLimited(new api.ApiError('boom', 500))).toBe(false);
+    expect(api.isRateLimited(new api.NetworkError(new Error('offline')))).toBe(false);
+  });
+
+  it('leaves retryAfterSeconds undefined rather than guessing when the header is absent', async () => {
+    // A made-up number in an authoritative-looking message is worse than no number.
+    const { api } = setup(() => jsonResponse(429, { success: false, error: {} }));
+
+    const caught = (await api.api.get('/tasks').catch((e: unknown) => e)) as InstanceType<
+      typeof api.ApiError
+    >;
+
+    expect(caught.retryAfterSeconds).toBeUndefined();
+  });
+
+  it('does not refresh the session on a 429', async () => {
+    // A 429 is not an expired token. Refreshing would spend another request AND rotate the refresh
+    // token for no reason.
+    const { api, tokenStore } = setup(() => jsonResponse(429, { success: false, error: {} }));
+    tokenStore.setAccessToken('access-1');
+    mockKeystore.set(REFRESH_KEY, 'refresh-1');
+
+    await expect(api.api.get('/tasks')).rejects.toMatchObject({ status: 429 });
+
     expect(refreshCalls()).toHaveLength(0);
   });
 });
