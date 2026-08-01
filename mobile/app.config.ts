@@ -51,7 +51,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // `expo-font` is listed because `expo install` asks for it. Fonts are still loaded at runtime via
   // `useFonts()` rather than embedded through the plugin's `fonts` option — runtime loading is what
   // works in Expo Go, which is how the app is being tested until a development build exists.
-  plugins: ['expo-router', 'expo-secure-store', 'expo-font'],
+  // `@sentry/react-native` is a native module with a config plugin, which is precisely why it could
+  // not be added while the app ran in Expo Go — see the note in src/lib/reporting.ts. It requires a
+  // development build, which now exists.
+  //
+  // Source-map upload (so stack traces name our functions instead of minified symbols) is opt-in
+  // via SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN at *build* time. Unset, the build still
+  // succeeds — you just get less readable traces, which is a fair default for a token that must not
+  // live in the repo.
+  plugins: ['expo-router', 'expo-secure-store', 'expo-font', '@sentry/react-native'],
   extra: {
     // Written by hand because `eas init` cannot edit a dynamic TypeScript config — it prints the ID
     // and stops. Without this, EAS builds have no project to attach to.
@@ -64,5 +72,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // so this string is load-bearing — see backend/src/utils/client.ts for the exact grammar.
     clientPlatform: 'taskbuddy-android',
     clientVersion: '0.1.0',
+    // Optional by design, matching backend/src/instrument.ts and the frontend's two instrumentation
+    // files: unset DSN means Sentry never initializes — no init, no events, no network. A DSN is a
+    // public ingest key, not a secret, but it stays out of the repo so a fork or a local build does
+    // not silently post crashes into our project.
+    sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   },
 });

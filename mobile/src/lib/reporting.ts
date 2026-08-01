@@ -1,26 +1,18 @@
 /**
  * Error reporting seam (§3.5).
  *
- * ## Why this is not Sentry yet
+ * Sentry lives behind this seam rather than being called directly from screens. That was the point of
+ * building the seam first: the app grew twenty-odd call sites of `reportError` while running in Expo
+ * Go, where `@sentry/react-native` — a **native** module with a config plugin — could not run at all.
+ * Wiring it up afterwards therefore touched this file, the config, and nothing else.
  *
- * The roadmap says to wire Sentry before building screens, so early crashes are visible. That intent
- * is right, but `@sentry/react-native` is a **native** module with a config plugin: it needs a
- * development build to work at all, and Expo Go — which is what the app currently runs in — ships a
- * fixed set of native modules that does not include it. Adding it now would risk the exact failure
- * that cost Phase 0 four debugging rounds (a native module the Expo Go binary does not contain,
- * presenting as the app vanishing with no error anywhere), and it could not be verified until the
- * development build exists.
- *
- * So the *seam* goes in now and the backend behind it changes later. Screens and the error boundary
- * call `reportError`; swapping the console sink for `Sentry.captureException` is a change to this file
- * and nothing else. That keeps the roadmap's real goal — crash reporting designed in from the start
- * rather than retrofitted through twenty screens — without betting the app on an unverifiable
- * dependency.
- *
- * When the development build lands: add `@sentry/react-native` as a *direct* dependency, init it in
- * `initReporting()` guarded on a DSN (the same DSN-guarded pattern the web and backend already use, so
- * an unset DSN means no init, no events, no network), and forward from `reportError`.
+ * The ring buffer below is kept. It is not redundant with Sentry: it backs the diagnostics screen, it
+ * works with no DSN and no network, and a tester reading you the last error beats waiting for it to
+ * surface in a dashboard.
  */
+import * as Sentry from '@sentry/react-native';
+
+import { CLIENT_VERSION, SENTRY_DSN } from './config';
 
 /**
  * Ring buffer of what has gone wrong this session, newest last.
@@ -63,8 +55,6 @@ export function reportError(error: unknown, context?: string): void {
     if (recent.length > MAX_RECENT) recent.shift();
 
     /**
-     * Replaced by `Sentry.captureException` once the development build exists.
-     *
      * Skipped under test: several suites deliberately break the keystore or the network to assert the
      * handling, and warning on each one buries genuine failures in CI output. The ring buffer above is
      * what tests assert against, so nothing is lost.
@@ -72,17 +62,54 @@ export function reportError(error: unknown, context?: string): void {
     if (__DEV__ && process.env.NODE_ENV !== 'test') {
       console.warn(`[report]${context ? ` ${context}:` : ''}`, error);
     }
+
+    /**
+     * Idempotent, and called here rather than relying on the root layout having run.
+     *
+     * `initReporting()` fires from an effect in `app/_layout.tsx`, which means it has NOT run during
+     * the first render — exactly when a render crash would reach the root `ErrorBoundary`. Initialising
+     * lazily on the first report closes that window, and the guard makes the repeat calls free.
+     */
+    initReporting();
+    Sentry.captureException(error, context ? { tags: { context } } : undefined);
   } catch {
     /* reporting must never be the reason something breaks */
   }
 }
 
+let initialized = false;
+
 /**
- * Called once from the root layout. A no-op today; the place Sentry's `init` goes.
+ * Initialise Sentry. Called from the root layout before any screen mounts, and again — harmlessly —
+ * from the first `reportError`.
  *
- * Kept even while empty so the call site exists and is already in the right place — the root layout,
- * before any screen mounts.
+ * DSN-guarded: with `EXPO_PUBLIC_SENTRY_DSN` unset there is no init, no events and no network, which
+ * is how local development and anyone building a fork stay out of our project. Same contract as
+ * `backend/src/instrument.ts`.
  */
 export function initReporting(): void {
-  // Intentionally empty. See the note at the top of this file.
+  // Latched before the DSN check so a build without one does not re-enter on every single report.
+  if (initialized) return;
+  initialized = true;
+
+  if (!SENTRY_DSN) return;
+
+  try {
+    Sentry.init({
+      dsn: SENTRY_DSN,
+      environment: __DEV__ ? 'development' : 'production',
+      release: CLIENT_VERSION,
+      // Errors only. Performance tracing on a children's app buys little and costs battery and quota.
+      tracesSampleRate: 0,
+      /**
+       * Explicit, and load-bearing for compliance rather than merely tidy. This app is used by
+       * children, so Google Play's Families policy applies; `sendDefaultPii` would attach IP
+       * addresses and usernames to every event. It defaults to false — stated anyway so that nobody
+       * flips it on later without reading this.
+       */
+      sendDefaultPii: false,
+    });
+  } catch {
+    /* An unusable reporter must not be the reason the app fails to start. */
+  }
 }
