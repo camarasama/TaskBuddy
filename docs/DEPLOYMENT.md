@@ -149,6 +149,13 @@ deploy looks clean and the app breaks for real users:
    F-4 evidence migration on 2026-07-23). These scripts are written idempotent, so a failed early
    run is safe to re-run once ordered correctly.
 
+**⚠️ `backfill-game-banks.js` is SUPERSEDED — do not run it again.** It only ever APPENDS questions,
+while `retier-maths-beginner.js` (run 2026-07-31) deliberately RETIRED five from the maths beginner
+bank — percentages, indices, roots, order of operations, all intermediate material. Running the
+backfill now would silently add them straight back and undo the re-tier, with no error and no visible
+symptom until someone notices the beginner level is not beginner. If both ever run in one deploy, the
+re-tier must go LAST. The script's own header carries the same warning.
+
 **One-off scripts load `.env` by absolute path, so they run from any directory.** They import
 `../config`, which resolves `backend/.env` from `__dirname`. Do NOT reintroduce
 `import 'dotenv/config'` in a script: that resolves `.env` from the WORKING DIRECTORY, and there is
@@ -400,6 +407,25 @@ a pair.
 
 ## Gotchas
 
+- **`prisma db execute` cannot be used to inspect data.** It executes statements and prints nothing,
+  so a `SELECT` piped into it "succeeds" with empty output and looks like an empty table. It also
+  requires `--schema` or `--url`, and without one fails with `Either --url or --schema must be
+  provided`. To actually read rows on the box, use `psql` — but **do NOT source `backend/.env` to get
+  the URL.** It contains `SMTP_FROM=TaskBuddy <no-reply@gettaskbuddy.com>` unquoted; dotenv and
+  systemd's `EnvironmentFile` tolerate that, but to a shell `<` is a redirect, so `. ./.env` dies with
+  ``syntax error near unexpected token `newline` ``. Extract the one variable instead:
+  ```bash
+  sudo -u taskbuddy bash -c 'cd /opt/taskbuddy/app/backend && \
+    line=$(grep -m1 "^DATABASE_URL=" .env) && url=${line#DATABASE_URL=} && \
+    url=${url%\"} && url=${url#\"} && \
+    psql "$url" -c "SELECT category, level, title FROM game_definitions ORDER BY 1,2;"'
+  ```
+  No `eval`: a quoted assignment means a `?schema=…&…` in the URL cannot be reinterpreted as shell
+  syntax. This is the same trap as the `backup.env` quoting gotcha below — the difference is that
+  `backup.env` failed *silently* (every variable after the bad line was dropped) whereas sourcing
+  `backend/.env` fails loudly. Neither file should be shell-sourced.
+
+  `prisma migrate status` remains the check for whether migrations applied (cwd must be `backend/`).
 - **Coexists with GNFS** (node on `:3001`, DB `gnfs`, its own nginx vhosts). TaskBuddy uses
   ports 3100/3200 and a separate DB/role. Never edit GNFS's config.
 - **No Redis** at launch (single instance).
