@@ -410,11 +410,21 @@ a pair.
 - **`prisma db execute` cannot be used to inspect data.** It executes statements and prints nothing,
   so a `SELECT` piped into it "succeeds" with empty output and looks like an empty table. It also
   requires `--schema` or `--url`, and without one fails with `Either --url or --schema must be
-  provided`. To actually read rows on the box, source the env and use `psql`:
+  provided`. To actually read rows on the box, use `psql` — but **do NOT source `backend/.env` to get
+  the URL.** It contains `SMTP_FROM=TaskBuddy <no-reply@gettaskbuddy.com>` unquoted; dotenv and
+  systemd's `EnvironmentFile` tolerate that, but to a shell `<` is a redirect, so `. ./.env` dies with
+  ``syntax error near unexpected token `newline` ``. Extract the one variable instead:
   ```bash
-  sudo -u taskbuddy bash -c 'cd /opt/taskbuddy/app/backend && set -a && . ./.env && set +a && \
-    psql "$DATABASE_URL" -c "SELECT category, level, title FROM game_definitions ORDER BY 1,2;"'
+  sudo -u taskbuddy bash -c 'cd /opt/taskbuddy/app/backend && \
+    line=$(grep -m1 "^DATABASE_URL=" .env) && url=${line#DATABASE_URL=} && \
+    url=${url%\"} && url=${url#\"} && \
+    psql "$url" -c "SELECT category, level, title FROM game_definitions ORDER BY 1,2;"'
   ```
+  No `eval`: a quoted assignment means a `?schema=…&…` in the URL cannot be reinterpreted as shell
+  syntax. This is the same trap as the `backup.env` quoting gotcha below — the difference is that
+  `backup.env` failed *silently* (every variable after the bad line was dropped) whereas sourcing
+  `backend/.env` fails loudly. Neither file should be shell-sourced.
+
   `prisma migrate status` remains the check for whether migrations applied (cwd must be `backend/`).
 - **Coexists with GNFS** (node on `:3001`, DB `gnfs`, its own nginx vhosts). TaskBuddy uses
   ports 3100/3200 and a separate DB/role. Never edit GNFS's config.
