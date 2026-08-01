@@ -19,6 +19,8 @@ interface Extra {
   apiUrl: string;
   clientPlatform: string;
   clientVersion: string;
+  /** Optional — see SENTRY_DSN below. */
+  sentryDsn?: string;
 }
 
 const extra = Constants.expoConfig?.extra as Partial<Extra> | undefined;
@@ -42,6 +44,16 @@ if (!Constants.expoConfig) {
 export const API_URL = read('apiUrl', 'https://unconfigured.invalid/api/v1');
 export const CLIENT_PLATFORM = read('clientPlatform', 'unknown');
 export const CLIENT_VERSION = read('clientVersion', '0.0.0');
+
+/**
+ * Sentry ingest DSN, or `undefined` when unset.
+ *
+ * Deliberately NOT routed through `read()`: a missing DSN is not a misconfiguration, it is the
+ * documented way to turn crash reporting off, so it must not raise a CONFIG_ERRORS banner. This is
+ * the same DSN-guarded contract the backend and frontend already follow.
+ */
+export const SENTRY_DSN: string | undefined =
+  typeof extra?.sentryDsn === 'string' && extra.sentryDsn.length > 0 ? extra.sentryDsn : undefined;
 
 /**
  * The `X-Client` header value. The backend parses this to decide two things: that this client
