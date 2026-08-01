@@ -22,6 +22,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'TaskBuddy',
   slug: 'taskbuddy',
+  // The EAS account that owns the project and, more importantly, the signing credentials. Stated
+  // explicitly rather than inferred from whoever is logged in, so a build from another machine or
+  // from CI cannot quietly resolve to a different account.
+  owner: 'camarasama',
   scheme: 'taskbuddy',
   version: '0.1.0',
   orientation: 'portrait',
@@ -49,6 +53,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // works in Expo Go, which is how the app is being tested until a development build exists.
   plugins: ['expo-router', 'expo-secure-store', 'expo-font'],
   extra: {
+    // Written by hand because `eas init` cannot edit a dynamic TypeScript config — it prints the ID
+    // and stops. Without this, EAS builds have no project to attach to.
+    eas: {
+      projectId: '2788418b-e7dd-46b0-9dc9-b812b038308e',
+    },
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? PROD_API,
     // Sent as `X-Client: taskbuddy-android/<version>` on every request. The backend keys mobile
     // token delivery off the platform (P0-1) and the force-upgrade gate off the version (P0-2),
