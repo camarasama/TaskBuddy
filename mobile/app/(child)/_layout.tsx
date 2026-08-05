@@ -1,19 +1,38 @@
 /**
- * Child shell.
+ * Child shell — a bottom tab bar.
  *
  * The mirror of `(parent)/_layout.tsx`, and the same reasoning applies: this layout is the role
- * boundary for everything in this directory, so screens added later are guarded by construction.
+ * boundary for everything in this directory, so screens added later are guarded by construction rather
+ * than by everyone remembering.
  *
  * The asymmetry worth noting is that this guard also refuses *parents*. Not for safety — a parent
  * seeing a child screen leaks nothing — but because the child experience is built around one child's
- * own points, streaks and tasks, and a parent session has no such subject. Half the screen would
- * render empty. Parents get the child's view through the children screens in their own shell.
+ * own points, streaks and tasks, and a parent session has no such subject. Half the screen would render
+ * empty. Parents get the child's view through the children screens in their own shell.
+ *
+ * ## On the tab set
+ *
+ * Only the tabs whose screens exist are declared. expo-router resolves `<Tabs.Screen name="…">`
+ * against real files in this directory, so declaring a tab ahead of its screen is a routing error, not
+ * a placeholder. Rewards, Games and a "Me" tab (achievements, leaderboard, recap, cosmetics) join as
+ * those screens land — five is the ceiling before labels truncate on a narrow phone, which is why the
+ * last four collapse into one tab rather than getting one each.
+ *
+ * Import is `expo-router/js-tabs`, not `expo-router` — the root `Tabs` export is deprecated in SDK 57.
+ * `native-tabs` is deliberately unused: it reaches for platform tab views and would reintroduce exactly
+ * the native-mismatch risk class that cost Phase 0 four rounds.
  */
-import { Redirect, Stack } from 'expo-router';
+// From the family's own module, never the `@expo/vector-icons` barrel — the barrel bundles all 20 icon
+// fonts (+400KB) on an app whose audience is families with cheap phones and metered data.
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Redirect } from 'expo-router';
+import { Tabs } from 'expo-router/js-tabs';
 
 import { useAuth } from '@/stores/auth';
+import { fontSize, fontWeight, minTouchTarget, useTheme } from '@/theme';
 
 export default function ChildLayout() {
+  const theme = useTheme();
   const status = useAuth((state) => state.status);
   const user = useAuth((state) => state.user);
 
@@ -21,5 +40,61 @@ export default function ChildLayout() {
     return <Redirect href="/" />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.mutedForeground,
+        tabBarStyle: { backgroundColor: theme.card, borderTopColor: theme.border },
+        tabBarLabelStyle: {
+          fontSize: fontSize.xs.fontSize,
+          fontWeight: fontWeight.medium,
+        },
+        tabBarItemStyle: { minHeight: minTouchTarget },
+      }}
+    >
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          title: 'Tasks',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="checkbox-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="rewards"
+        options={{
+          title: 'Rewards',
+          tabBarIcon: ({ color, size }) => <Ionicons name="gift-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="games"
+        options={{
+          title: 'Games',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="game-controller-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="me"
+        options={{
+          title: 'Me',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
+    </Tabs>
+  );
 }
