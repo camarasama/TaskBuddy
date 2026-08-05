@@ -3,11 +3,16 @@
 > **DRAFT TEMPLATE. This document is a starting point and is NOT legal advice.**
 > It must be reviewed by a qualified lawyer before TaskBuddy is published. TaskBuddy is
 > directed at children, so these Terms must be read together with the Privacy Policy and the
-> applicable children's-privacy laws (COPPA, GDPR-K, UK Children's Code). Bracketed `[...]`
-> items are decisions the provider and its counsel must confirm.
+> applicable children's-privacy laws (COPPA, GDPR-K, UK Children's Code).
+>
+> **The bracketed `[...]` decisions have now been drafted**, each marked **(drafted — confirm)** and
+> answered from what the software actually does. **One section was rewritten rather than filled in:**
+> §5 described a paid "Family Premium" subscription that does not exist and never has — see the note
+> there. **Removing this notice publishes the document**: `marketing/build.mjs` gates `/terms` on the
+> string "DRAFT TEMPLATE" being absent, so deleting these lines is the act of publication.
 
-**Version:** 1.0 (draft)
-**Last updated:** 2026-07-23
+**Version:** 1.1 (draft — bracketed decisions filled in, pending legal review)
+**Last updated:** 2026-08-05
 **Provider:** Evolution Prime IT Ltd ("we", "us", "our")
 **Contact:** support@gettaskbuddy.com
 
@@ -40,22 +45,32 @@ completions and manage rewards. We may add, change, or remove features over time
 - You must provide accurate information and keep it up to date.
 - You may not attempt to access another family's data or another user's account.
 
-## 5. Subscriptions, billing, and renewals
+## 5. Cost
 
-TaskBuddy offers a **free tier** and a paid **"Family Premium"** subscription.
-- Paid plans **renew automatically** for the chosen period until cancelled.
-- **Web** payments are processed by our payment provider **[Stripe]**; purchases made through the
-  **Apple App Store** or **Google Play** are billed by, and additionally governed by, those
-  stores' terms.
-- Prices, plan limits, and any free-trial terms are shown at purchase. We will give notice of
-  price changes as required by law and the app stores.
+**TaskBuddy is free to use** *(drafted — confirm)*. There is no paid tier, no subscription, and no
+in-app purchase. The points, rewards and cosmetic items in the app are earned through use and cannot
+be bought with money.
 
-## 6. Cancellation and refunds
+If we ever introduce a paid feature we will publish revised Terms and, where the law requires,
+obtain fresh agreement before it applies to you.
 
-You may cancel at any time; paid access continues until the end of the current billing period,
-after which it does not renew. **Refunds** follow the policy of the channel through which you
-purchased (our provider for web; Apple/Google for in-app purchases), plus any non-waivable
-statutory rights (e.g., EU/UK consumer withdrawal rights). [Confirm the final refund policy.]
+## 6. Cancellation
+
+You may stop using TaskBuddy and delete your family account at any time from the parent dashboard.
+Deleting the account removes your family's personal data as described in the Privacy Policy. As
+there is nothing to pay for, there is nothing to cancel or refund.
+
+> **For counsel — this section was rewritten, not merely filled in, and you should know why.**
+> The template described a paid "Family Premium" subscription billed through Stripe and the app
+> stores. **No such thing exists.** The software has no payment integration of any kind — no Stripe,
+> no billing library, no in-app purchase — and "no monetisation" is a settled product decision rather
+> than an unbuilt feature. Publishing the original text would have described a product that does not
+> exist, to an audience of parents, for a children's app: wrong on the consumer-protection facts and
+> a direct contradiction of the Play Data safety declaration, which states no purchases.
+>
+> The absence of payments is also load-bearing elsewhere: it is part of why the "email plus" parental
+> consent method in the Privacy Policy is available. If a paid tier is ever added, this section, the
+> Privacy Policy §5 and §7, and the Play declarations must be revisited together.
 
 ## 7. Acceptable use
 
@@ -100,9 +115,18 @@ excluded by law (including certain consumer rights).
 
 To the maximum extent permitted by law, Evolution Prime IT Ltd is not liable for indirect,
 incidental, special, or consequential damages, or for loss of data or profits. Our total
-liability for any claim is limited to **[the amount you paid us in the 12 months before the
-claim]**. Some jurisdictions do not allow certain limitations, so parts of this section may not
-apply to you. [Confirm caps and carve-outs with counsel.]
+liability for any claim is limited to **£100** *(drafted — confirm)*. Some jurisdictions do not
+allow certain limitations, so parts of this section may not apply to you.
+
+> **For counsel.** The template's cap — "the amount you paid us in the 12 months before the claim" —
+> is the standard SaaS formulation and is **worthless here**, because the service is free: it
+> evaluates to zero, and a zero cap is the kind a court is most likely to strike down as unreasonable
+> under the Unfair Contract Terms Act, leaving no cap at all. A small fixed sum is the usual answer
+> for a free consumer service; £100 is a placeholder for your figure, not a recommendation.
+>
+> Note also that nothing here can limit liability for death or personal injury caused by negligence,
+> for fraud, or under the non-excludable parts of consumer law — worth stating explicitly in this
+> section rather than relying on the general saving in §11.
 
 ## 13. Indemnity
 
@@ -117,10 +141,20 @@ Privacy Policy applies.
 
 ## 15. Governing law and disputes
 
-These Terms are governed by the laws of **[England and Wales / provider's jurisdiction]**, and
-disputes are subject to the **[courts of that jurisdiction]**, without limiting any mandatory
-consumer-protection rights you have where you live. [Confirm governing law, venue, and any
-dispute-resolution process with counsel.]
+These Terms are governed by the laws of **England and Wales** *(drafted — confirm)*, and disputes
+are subject to the **courts of England and Wales**, without limiting any mandatory
+consumer-protection rights you have where you live.
+
+> **For counsel.** England and Wales follows from Evolution Prime IT Ltd being UK-established; it is
+> the obvious answer rather than a considered one, so confirm it against the company's actual
+> registered jurisdiction. Two points that follow from it:
+>
+> - A choice of English law **cannot deprive an EU-resident consumer** of the protections of their own
+>   country's mandatory law (Rome I, Art. 6). The saving sentence above is doing real work and should
+>   not be trimmed.
+> - The app is distributed through Google Play worldwide by default. If distribution is limited to
+>   specific countries at launch, this clause is easier to defend; that is a Play Console setting and
+>   worth deciding deliberately rather than by default.
 
 ## 16. Changes to these Terms
 
