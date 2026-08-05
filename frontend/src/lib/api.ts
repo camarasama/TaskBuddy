@@ -71,6 +71,7 @@ import type {
   WebhookEvent,
   WebhookSubscriptionSummary,
   TaskComment,
+  ChildGoal,
 } from '@taskbuddy/shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -1360,16 +1361,12 @@ export const gamesApi = {
 
 // ─── Child goal: "I'm saving for…" (growth roadmap §4.2) ─────────────────────
 
-export interface ChildGoal {
-  rewardId: string;
-  name: string;
-  pointsCost: number;
-  pointsBalance: number;
-  pointsNeeded: number;
-  /** Clamped 0-100; a child who can already afford it sees a full bar, never 130%. */
-  percent: number;
-  tasksToGo: number;
-}
+/**
+ * Re-exported from `shared` rather than declared here. It used to be one of three identical copies
+ * (backend `GoalService`, here, and about to be a fourth in mobile); consumers importing it from this
+ * module keep working unchanged.
+ */
+export type { ChildGoal };
 
 /** At most one pinned goal per child; pinning a second MOVES the pin rather than adding one. */
 export const goalApi = {

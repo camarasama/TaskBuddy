@@ -340,9 +340,35 @@ export interface ParentDashboardResponse {
   };
 }
 
+/**
+ * The one reward a child has pinned as what they are saving for (growth roadmap §4.2).
+ *
+ * Every field except `rewardId` and `name` is **derived live** from the points balance on each read —
+ * `GoalService.getGoal` recomputes rather than storing, because a stored progress figure drifts the
+ * moment points are spent, refunded, or reversed by the FR-03 revoke flow. Treat it as a snapshot of
+ * this instant, not a record.
+ */
+export interface ChildGoal {
+  rewardId: string;
+  name: string;
+  pointsCost: number;
+  pointsBalance: number;
+  pointsNeeded: number;
+  /** 0-100, clamped — a child who can already afford it sees a full bar, never 130%. */
+  percent: number;
+  /** Rough "about N tasks to go", from the child's own recent earning rate. */
+  tasksToGo: number;
+}
+
 export interface ChildDashboardResponse {
   user: Omit<User, 'passwordHash'>;
   profile: ChildProfile;
+  /**
+   * Note the shape: a wrapper object per row, **not** a bare `TaskAssignment[]`. The route builds
+   * `{ assignment, task }` explicitly. The web's local copy of this interface says `TaskAssignment[]`
+   * and is simply wrong — its runtime code reads `t.assignment?.status`, i.e. it follows the real
+   * shape and not its own annotation. Trust this one.
+   */
   todaysTasks: Array<{
     assignment: TaskAssignment;
     task: Task;
@@ -364,11 +390,15 @@ export interface ChildDashboardResponse {
     bonusPoints: number;
     progress: number;
     target: number;
+    /** Whether the bonus has already been banked today — hide the card rather than tease it again. */
+    completed: boolean;
   };
   nextReward?: {
     reward: Reward;
     pointsNeeded: number;
   };
+  /** The pinned savings goal, or null when nothing is pinned. Absent on older payloads. */
+  goal?: ChildGoal | null;
 }
 
 // ========== POINTS ==========
