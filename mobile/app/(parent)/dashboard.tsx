@@ -238,6 +238,38 @@ export default function ParentDashboard() {
         </Card>
       </Pressable>
 
+      {/*
+        The four lower-frequency screens, grouped rather than given tabs of their own — five tabs is
+        already the ceiling on a narrow phone.
+      */}
+      <Card>
+        <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>More</AppText>
+        <View style={styles.moreRow}>
+          <Button
+            label="This week"
+            variant="secondary"
+            onPress={() => router.push('/(parent)/calendar')}
+          />
+          <Button
+            label="Insights"
+            variant="secondary"
+            onPress={() => router.push('/(parent)/insights')}
+          />
+        </View>
+        <View style={styles.moreRow}>
+          <Button
+            label="Settings"
+            variant="secondary"
+            onPress={() => router.push('/(parent)/settings')}
+          />
+          <Button
+            label="Devices"
+            variant="secondary"
+            onPress={() => router.push('/(parent)/devices')}
+          />
+        </View>
+      </Card>
+
       <View style={styles.actions}>
         <Button label="Sign out" variant="secondary" onPress={() => void signOut()} />
       </View>
@@ -300,6 +332,7 @@ const styles = StyleSheet.create({
     marginTop: spacing[1],
   },
   actions: { marginTop: spacing[5] },
+  moreRow: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[2] },
   // The first row sits directly under the card title, where a divider reads as a stray line.
   firstChildRow: { borderTopWidth: 0, paddingTop: 0, marginTop: 0 },
 });
