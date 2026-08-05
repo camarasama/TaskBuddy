@@ -47,6 +47,6 @@
   },
   "overrides": {
     "sharp": "^0.35.3",
-    "postcss": "^8.5.22"
+    "postcss": "^8.5.23"
   }
 }
