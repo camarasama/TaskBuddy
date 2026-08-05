@@ -59,7 +59,25 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // via SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN at *build* time. Unset, the build still
   // succeeds — you just get less readable traces, which is a fair default for a token that must not
   // live in the repo.
-  plugins: ['expo-router', 'expo-secure-store', 'expo-font', '@sentry/react-native'],
+  plugins: [
+    'expo-router',
+    'expo-secure-store',
+    'expo-font',
+    '@sentry/react-native',
+    // QR onboarding: the child's app scans a code the parent shows. The permission string is written
+    // here rather than left to the plugin's default because it is shown verbatim in Android's dialog
+    // and, for a Families-policy app, a vague reason is a review risk. It names the only use.
+    [
+      'expo-camera',
+      {
+        cameraPermission:
+          'TaskBuddy uses the camera only to scan the sign-in code your parent shows you.',
+        // Explicitly off. The plugin would otherwise declare both, and asking a children's app for the
+        // microphone with no feature behind it is exactly what a Families reviewer looks for.
+        recordAudioAndroid: false,
+      },
+    ],
+  ],
   extra: {
     // Written by hand because `eas init` cannot edit a dynamic TypeScript config — it prints the ID
     // and stops. Without this, EAS builds have no project to attach to.

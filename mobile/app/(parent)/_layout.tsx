@@ -113,6 +113,14 @@ export default function ParentLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="gift-outline" size={size} color={color} />,
         }}
       />
+      {/*
+        Reachable, but not a tab. Six labels do not fit a narrow phone, and signed-in devices is a
+        screen a parent opens when something has happened rather than daily — it is linked from the
+        children screen. `href: null` is how expo-router keeps a route in the group without giving it a
+        tab; omitting the <Tabs.Screen> entirely would give it a default one instead.
+      */}
+      <Tabs.Screen name="devices" options={{ href: null }} />
+      <Tabs.Screen name="family-code" options={{ href: null }} />
     </Tabs>
   );
 }
