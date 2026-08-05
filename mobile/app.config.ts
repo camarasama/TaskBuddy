@@ -36,6 +36,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // it is the app's identity there, and changing it later means publishing a different app and
     // losing every install and review. Change it now or never.
     package: 'com.gettaskbuddy.app',
+    /**
+     * ⚠️ IGNORED while `eas.json` sets `cli.appVersionSource: "remote"` — which it does. EAS keeps
+     * the build number on its own servers and increments it per production build; this value is only
+     * a fallback for a local `expo run:android`.
+     *
+     * It used to be `local`, with `autoIncrement: true` on the production profile. That combination
+     * **cannot work with a dynamic TypeScript config**: incrementing means writing the new number
+     * back into this file, which EAS cannot parse or edit, and it fails the build outright with
+     * "autoIncrement option is not supported when using app.config.js". Remote versioning fixes that
+     * and also removes the standing trap that every Play upload after the first needed a hand-edited
+     * number or Play would reject it as a duplicate.
+     *
+     * The `version` string above (0.1.0) is still read from here — only the build number moved.
+     */
     versionCode: 1,
     adaptiveIcon: {
       backgroundColor: '#E6F4FE',
