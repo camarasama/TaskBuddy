@@ -76,14 +76,15 @@ describe('childLogin closes the family-code disclosure (F-10d)', () => {
 });
 
 describe('verification token is looked up by hash (F-7)', () => {
-  it('POST /verify-email queries the hashed token (with a legacy raw fallback)', async () => {
+  it('POST /verify-email queries the hashed token only — no raw fallback', async () => {
     (prisma.user.findFirst as jest.Mock).mockResolvedValue(null); // not found → 404, we assert the where
     const raw = 'raw-verification-token-xyz';
 
     await request(app).post('/api/v1/auth/verify-email').send({ token: raw });
 
     const where = (prisma.user.findFirst as jest.Mock).mock.calls[0][0].where;
-    expect(where.emailVerificationToken.in).toContain(hashToken(raw)); // hashed at rest
-    expect(where.emailVerificationToken.in).toContain(raw); // dual-read for pre-existing tokens
+    expect(where.emailVerificationToken).toBe(hashToken(raw)); // hashed at rest
+    // The transitional dual-read is gone: the raw value must never reach the query.
+    expect(JSON.stringify(where)).not.toContain(raw);
   });
 });

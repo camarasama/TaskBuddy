@@ -161,10 +161,10 @@ export class InviteService {
   async acceptInvite(input: AcceptInviteInput, ctx: SessionContext = {}) {
     const { token, firstName, lastName, password, dateOfBirth, phone, gender } = input;
 
-    // 1. Look up the invitation. Dual-read: the hashed form for tokens issued after this shipped,
-    // the raw form for any invite still in flight from before (they expire within days).
+    // 1. Look up the invitation by hash only (F-7). The transitional raw-token branch was removed
+    // once every pre-hashing invite had expired — see docs/DEPLOYMENT.md.
     const invitation = await prisma.familyInvitation.findFirst({
-      where: { token: { in: [hashToken(token), token] } },
+      where: { token: hashToken(token) },
       include: { family: true, invitedBy: true },
     });
 
@@ -334,7 +334,7 @@ export class InviteService {
   // Returns just enough info to render the accept page (family name, inviter name, email)
   async getInvitePreview(token: string) {
     const invitation = await prisma.familyInvitation.findFirst({
-      where: { token: { in: [hashToken(token), token] } },
+      where: { token: hashToken(token) }, // hashed lookup only (F-7)
       include: {
         family: { select: { familyName: true } },
         invitedBy: { select: { firstName: true, lastName: true } },
