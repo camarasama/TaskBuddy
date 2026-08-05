@@ -104,6 +104,38 @@ Web Push (`VAPID_*`), and Sentry (`SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`).
 `NEXT_PUBLIC_*` values are baked into the frontend bundle **at build time** — changing them
 requires a frontend rebuild, not just a restart.
 
+### Sentry source maps (frontend) — build-time only
+
+Three variables control whether browser stack traces are **readable**. They are needed by
+`npm run build:frontend`, and because this project builds **on the VPS**, they have to exist here —
+not just on a developer laptop:
+
+| Variable | Value |
+|---|---|
+| `SENTRY_ORG` | `evolution-prime-it-ltd` |
+| `SENTRY_PROJECT` | `taskbuddy-frontend` |
+| `SENTRY_AUTH_TOKEN` | an **organization** auth token (`sntrys_…`) with release/source-map write scope |
+
+Use an **organization** token, not a personal one — the same type the mobile app uses for its EAS
+secret. Org tokens embed their own region, so `sentry-cli` resolves the right endpoint without
+`SENTRY_URL` being set; do not add one. (Note the asymmetry: the *read* REST API for this org is
+`de.sentry.io`, but uploads via an org token are not configured that way.)
+
+**Without the token the build still succeeds** — it simply uploads nothing, and stack traces stay
+minified. That is deliberate: an absent secret must never break a deploy. It is also why the plugin's
+"No auth token provided" warning is left un-silenced, since it is the only signal that traces will be
+unreadable.
+
+⚠️ **The same absence also disables source-map *generation*, on purpose.** The Sentry plugin turns on
+browser source maps so it has something to upload; with no upload, nothing cleans them up and the
+`.map` files would be served publicly — publishing the app's source. `next.config.js` therefore sets
+`sourcemaps.disable` when no token is present. Verified both ways: a token-less build emits zero
+`.map` files, and a build with an *invalid* token generates them but still deletes them after the
+failed upload.
+
+The token is a write credential: keep it out of git, `chmod 600`, and rotate it if it is ever pasted
+somewhere it shouldn't be.
+
 The `.env` files are `chmod 600` owned by `taskbuddy`, so run manual scripts that read them as
 `sudo -u taskbuddy` (otherwise `dotenv` silently skips the unreadable file).
 
