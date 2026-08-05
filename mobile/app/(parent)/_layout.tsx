@@ -125,6 +125,10 @@ export default function ParentLayout() {
       <Tabs.Screen name="task-form" options={{ href: null }} />
       <Tabs.Screen name="reward-form" options={{ href: null }} />
       <Tabs.Screen name="child-form" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="co-parents" options={{ href: null }} />
+      <Tabs.Screen name="calendar" options={{ href: null }} />
+      <Tabs.Screen name="insights" options={{ href: null }} />
     </Tabs>
   );
 }
