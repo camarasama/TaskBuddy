@@ -12,23 +12,21 @@
  * would drift the moment points were spent, refunded, or reversed by the FR-03 revoke flow.
  */
 
+import type { ChildGoal } from '@taskbuddy/shared';
+
 import { prisma } from './database';
 import { NotFoundError } from '../middleware/errorHandler';
 
 /** Fallback when a child has no completed tasks to average — the seed packs' median. */
 const DEFAULT_POINTS_PER_TASK = 15;
 
-export interface ChildGoal {
-  rewardId: string;
-  name: string;
-  pointsCost: number;
-  pointsBalance: number;
-  pointsNeeded: number;
-  /** 0-100, clamped — a child who can already afford it sees a full bar, never 130%. */
-  percent: number;
-  /** Rough "about N tasks to go", from the child's own recent earning rate. */
-  tasksToGo: number;
-}
+/**
+ * Re-exported, not re-declared. The shape is part of the child dashboard's response contract, so it
+ * lives in `shared` where the web and mobile clients read the same definition — this file used to hold
+ * one of three identical copies. Imported *and* re-exported because `export … from` alone creates no
+ * local binding, and `getGoal` below annotates its return with it.
+ */
+export type { ChildGoal };
 
 /**
  * Estimate how many more tasks the child needs.

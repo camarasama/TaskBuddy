@@ -11,6 +11,7 @@
 import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
@@ -151,6 +152,24 @@ export default function Children() {
             </Card>
           )
         }
+        ListFooterComponent={
+          // The way into the P0-4 revoke controls. Here rather than in the tab bar because six tabs do
+          // not fit, and because "which devices are my children signed in on" is a question you ask
+          // while looking at your children.
+          <View style={styles.footerAction}>
+            <Button
+              label="Show family code"
+              variant="secondary"
+              onPress={() => router.push('/(parent)/family-code')}
+            />
+            <View style={styles.footerGap} />
+            <Button
+              label="Signed-in devices"
+              variant="secondary"
+              onPress={() => router.push('/(parent)/devices')}
+            />
+          </View>
+        }
       />
     </Screen>
   );
@@ -211,4 +230,6 @@ const styles = StyleSheet.create({
     marginTop: spacing[3],
   },
   centred: { paddingVertical: spacing[6], alignItems: 'center' },
+  footerAction: { marginTop: spacing[4] },
+  footerGap: { height: spacing[2] },
 });
