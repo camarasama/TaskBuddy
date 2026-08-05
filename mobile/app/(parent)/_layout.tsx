@@ -121,6 +121,7 @@ export default function ParentLayout() {
       */}
       <Tabs.Screen name="devices" options={{ href: null }} />
       <Tabs.Screen name="family-code" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

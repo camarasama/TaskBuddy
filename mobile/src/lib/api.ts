@@ -285,6 +285,25 @@ export interface RequestOptions {
    * means "wrong password", and refreshing in response to it would be nonsense.
    */
   session?: boolean;
+  /**
+   * Return the parsed body as-is instead of unwrapping `{ success, data }`.
+   *
+   * **`/notifications/*` is the one part of the API that does not use the envelope.** Its handlers
+   * answer with bare objects — `{ notifications, unreadCount, total, pagination }`,
+   * `{ count }`, `{ notification, unreadCount }` — and the web client reads them directly. Through
+   * the normal path those responses **throw on a 200**, because the envelope check below treats a
+   * missing `success` as a failure. That is not a hypothetical: it is why the notifications feature
+   * could not be built on mobile at all until this option existed.
+   *
+   * Deliberately an opt-in per call rather than a loosening of the envelope check. Making
+   * `success` optional would silently accept a malformed response from every other route, which is
+   * exactly the class of bug the check is there to catch. Normalising the backend instead would
+   * break the web, which already reads these bare.
+   *
+   * A raw call still gets the full session treatment — auth header, 401 refresh-and-retry, rate-limit
+   * handling — and still throws `ApiError` on a non-2xx. Only the unwrapping changes.
+   */
+  raw?: boolean;
 }
 
 /**
@@ -349,6 +368,22 @@ async function request<T>(path: string, options: RequestOptions = {}, isRetry = 
   } catch {
     // A non-JSON body means something upstream answered instead of the API — a proxy error page, a
     // captive portal. Fall through to the status-based message rather than crashing on parse.
+  }
+
+  // Raw callers are judged on the HTTP status alone — there is no envelope to consult. The error
+  // shape is still read opportunistically, since a failure from these routes may carry one.
+  if (options.raw) {
+    if (!response.ok) {
+      const error = (envelope as ApiEnvelope<T> | null)?.error;
+      throw new ApiError(
+        error?.message ?? `Request failed (${response.status})`,
+        response.status,
+        error?.code,
+        error?.details ?? [],
+        retryAfter(response)
+      );
+    }
+    return envelope as unknown as T;
   }
 
   if (!response.ok || !envelope?.success) {

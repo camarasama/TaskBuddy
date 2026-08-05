@@ -49,7 +49,23 @@ export function Button({
     >
       <View style={styles.content}>
         {busy && <ActivityIndicator size="small" color={foreground} />}
-        <AppText style={[styles.label, { color: foreground }]}>{label}</AppText>
+        {/*
+          One line, shrinking to fit rather than wrapping.
+
+          A button is a fixed-width target and its label is short by definition, so a wrap is always a
+          layout failure rather than long content: in the games grid's three columns "Locked" and
+          "Play" broke to "Loc / ked" and "Pla / y", which reads as a rendering bug. The 0.8 floor
+          keeps the text legible — below that it would be better to shorten the label than to shrink
+          it further.
+        */}
+        <AppText
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+          style={[styles.label, { color: foreground }]}
+        >
+          {label}
+        </AppText>
       </View>
     </Pressable>
   );

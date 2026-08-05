@@ -1,10 +1,12 @@
 /**
  * Child task list — the screen where the app's core loop actually happens.
  *
- * Two segments rather than two screens: **Mine** (what this child holds) and **Available** (the pool
- * they may claim from). They answer different questions — "what do I owe?" and "what can I pick up?" —
- * but a child moves between them constantly, and a tab each would push the rest of the shell's tabs off
- * a narrow phone.
+ * Four segments in one screen rather than four screens: **To do**, **Done**, **Returned** and
+ * **Available**. The first three mirror the web's tabs exactly — see the note on `Segment` below for
+ * why that parity turned out to be a correctness matter and not a styling one. **Available** is the
+ * claimable pool, which answers a different question ("what can I pick up?") but sits here because a
+ * child moves between the two constantly and a tab each would push the shell's real tabs off a narrow
+ * phone.
  *
  * ## Deliberate: no optimistic updates
  *
@@ -20,7 +22,15 @@
  * implementation of one rule, and the two would disagree the first time either moved.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
@@ -45,26 +55,61 @@ import { describeError } from '@/lib/errors';
 import { isDone } from '@/lib/taskStatus';
 import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
 
-type Segment = 'mine' | 'available';
+/**
+ * Segments mirror the web's tabs, and the parity is not cosmetic — it was a bug.
+ *
+ * The first version of this screen had one undifferentiated "My tasks" list, which produced two
+ * complaints on the first real use:
+ *
+ * 1. **"The same task repeats."** A daily recurring task has one `TaskAssignment` per day, and they
+ *    all carry the parent task's `dueDate`, so four days of "Brush teeth" render as four identical
+ *    rows. The web never showed that because its tabs split them by status. Grouping does the same
+ *    here, and each row now states which day it is for.
+ * 2. **"I rejected a task and can't see it."** `rejected` sorts LAST under the server's
+ *    `status: 'asc'` ordering (approved < completed < expired < in_progress < pending < rejected),
+ *    so a returned task sank to the bottom of a long list and off the first page. The web has a
+ *    dedicated **Returned** tab; without one, a parent's rejection was effectively invisible — the
+ *    single worst thing to lose, because it is the one status that asks the child to act again.
+ */
+type Segment = 'active' | 'completed' | 'returned' | 'available';
 
 const SEGMENTS: { key: Segment; label: string }[] = [
-  { key: 'mine', label: 'My tasks' },
+  { key: 'active', label: 'To do' },
+  { key: 'completed', label: 'Done' },
+  { key: 'returned', label: 'Returned' },
   { key: 'available', label: 'Available' },
 ];
 
-function SegmentChips({ value, onChange }: { value: Segment; onChange: (next: Segment) => void }) {
+function SegmentChips({
+  value,
+  counts,
+  onChange,
+}: {
+  value: Segment;
+  counts: Record<Segment, number>;
+  onChange: (next: Segment) => void;
+}) {
   const theme = useTheme();
 
   return (
-    <View style={styles.chipRow}>
+    // Horizontally scrollable: four chips with counts do not fit a narrow phone, and a wrapped
+    // second row of chips reads as a different control rather than more of the same one.
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.chipRow}
+    >
       {SEGMENTS.map((segment) => {
         const selected = segment.key === value;
+        const count = counts[segment.key];
         return (
           <Pressable
             key={segment.key}
             onPress={() => onChange(segment.key)}
             accessibilityRole="button"
             accessibilityState={{ selected }}
+            // The count is part of the name for a screen reader, not a separate unlabelled number.
+            accessibilityLabel={`${segment.label}, ${count}`}
             style={[
               styles.chip,
               {
@@ -80,11 +125,12 @@ function SegmentChips({ value, onChange }: { value: Segment; onChange: (next: Se
               ]}
             >
               {segment.label}
+              {count > 0 ? ` ${count}` : ''}
             </AppText>
           </Pressable>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -106,12 +152,26 @@ function AssignmentRow({
   const overdue = !done && isOverdue(task.dueDate);
   const due = dueLabel(task.dueDate);
 
+  /**
+   * Which day's instance this is.
+   *
+   * A recurring task has one assignment per day and every one of them carries the *parent task's*
+   * `dueDate`, so without this four days of "Brush teeth" are four rows reading "Tomorrow · 5 pts" —
+   * indistinguishable, and reported as the app duplicating tasks. `instanceDate` is the only field
+   * that separates them. Shown only when it differs from the due label, so a one-off task does not
+   * gain a redundant second date.
+   */
+  const forDay = dueLabel(item.instanceDate);
+  const showInstance = forDay !== null && forDay !== due;
+
   return (
     <Card>
       <AppText style={[styles.taskName, { color: theme.cardForeground }]}>{task.title}</AppText>
 
       <AppText style={[styles.meta, { color: overdue ? theme.destructive : theme.mutedForeground }]}>
-        {[due, `${task.pointsValue} pts`].filter(Boolean).join(' · ')}
+        {[showInstance ? `For ${forDay.toLowerCase()}` : due, `${task.pointsValue} pts`]
+          .filter(Boolean)
+          .join(' · ')}
       </AppText>
 
       {/* Status in words. A rejected task especially must not rely on colour — it is the one state
@@ -204,7 +264,7 @@ function AvailableRow({
 export default function ChildTasks() {
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const [segment, setSegment] = useState<Segment>('mine');
+  const [segment, setSegment] = useState<Segment>('active');
 
   /** The assignment whose completion sheet is open, plus its note draft. */
   const [completing, setCompleting] = useState<MyAssignment | null>(null);
@@ -253,17 +313,46 @@ export default function ChildTasks() {
   });
   const { mutateAsync: doClaim } = useMutation({ mutationFn: selfAssign });
 
+  /**
+   * Archived tasks are dropped, matching the web.
+   *
+   * A parent archiving a task does not delete the assignments already attached to it, so those rows
+   * keep arriving from the API. The child can do nothing with them — the action endpoints reject an
+   * archived task — so showing them is offering a button that cannot work.
+   */
   const assignments = useMemo(
-    () => mine.data?.pages.flatMap((p) => p.assignments) ?? [],
+    () =>
+      (mine.data?.pages.flatMap((p) => p.assignments) ?? []).filter(
+        (a) => a.task.status !== 'archived'
+      ),
     [mine.data]
   );
+
+  /** Split by status, exactly as the web's three tabs do. */
+  const byStatus = useMemo(
+    () => ({
+      active: assignments.filter((a) => a.status === 'pending' || a.status === 'in_progress'),
+      completed: assignments.filter((a) => a.status === 'completed' || a.status === 'approved'),
+      returned: assignments.filter((a) => a.status === 'rejected'),
+    }),
+    [assignments]
+  );
+
   const pool = useMemo(
     () => available.data?.pages.flatMap((p) => p.tasks) ?? [],
     [available.data]
   );
   const hasPendingPrimaries = available.data?.pages[0]?.hasPendingPrimaries ?? false;
 
-  const active = segment === 'mine' ? mine : available;
+  const counts: Record<Segment, number> = {
+    active: byStatus.active.length,
+    completed: byStatus.completed.length,
+    returned: byStatus.returned.length,
+    available: pool.length,
+  };
+
+  const shownAssignments = segment === 'available' ? [] : byStatus[segment];
+  const active = segment === 'available' ? available : mine;
 
   async function confirmComplete() {
     if (!completing) return;
@@ -286,7 +375,7 @@ export default function ChildTasks() {
   if (active.isPending) {
     return (
       <Screen>
-        <SegmentChips value={segment} onChange={setSegment} />
+        <SegmentChips value={segment} counts={counts} onChange={setSegment} />
         <Card>
           <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Loading…</AppText>
         </Card>
@@ -298,7 +387,7 @@ export default function ChildTasks() {
     const offline = active.error instanceof NetworkError;
     return (
       <Screen scroll>
-        <SegmentChips value={segment} onChange={setSegment} />
+        <SegmentChips value={segment} counts={counts} onChange={setSegment} />
         <Card>
           <AppText style={[styles.statusLine, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your tasks'}
@@ -316,7 +405,7 @@ export default function ChildTasks() {
 
   return (
     <Screen>
-      <SegmentChips value={segment} onChange={setSegment} />
+      <SegmentChips value={segment} counts={counts} onChange={setSegment} />
 
       {actionError !== null && (
         <Card style={{ borderColor: theme.destructive, borderWidth: 1 }}>
@@ -326,9 +415,9 @@ export default function ChildTasks() {
         </Card>
       )}
 
-      {segment === 'mine' ? (
+      {segment !== 'available' ? (
         <FlatList
-          data={assignments}
+          data={shownAssignments}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <AssignmentRow
@@ -348,7 +437,11 @@ export default function ChildTasks() {
           ListEmptyComponent={
             <Card>
               <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                No tasks yet. Check the Available tab for something to pick up.
+                {segment === 'active'
+                  ? "Nothing to do right now. Check Available for something to pick up."
+                  : segment === 'completed'
+                    ? "Nothing finished yet."
+                    : "Nothing has been sent back. Good going."}
               </AppText>
             </Card>
           }

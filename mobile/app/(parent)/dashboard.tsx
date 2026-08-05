@@ -21,6 +21,8 @@ import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
 import { dashboardQuery } from '@/lib/dashboardApi';
+import { unreadCountQuery } from '@/lib/notificationsApi';
+import { plural } from '@/lib/plural';
 import { describeError } from '@/lib/errors';
 import { useAuth } from '@/stores/auth';
 import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
@@ -78,6 +80,9 @@ export default function ParentDashboard() {
   const signOut = useAuth((state) => state.signOut);
 
   const { data, error, isPending, isError, refetch } = useQuery(dashboardQuery());
+  // Same cache entry the NotificationWatcher polls — no extra request, and the badge can never
+  // disagree with the toast that announced the arrival.
+  const unread = useQuery(unreadCountQuery()).data?.count ?? 0;
   const [refreshing, setRefreshing] = useState(false);
 
   /**
@@ -215,6 +220,24 @@ export default function ParentDashboard() {
       */}
       {/* The "View all tasks" / "Rewards" buttons that stood in for navigation are gone — the tab bar
           in (parent)/_layout.tsx covers it. The cards above stay tappable as shortcuts. */}
+      <Pressable
+        onPress={() => router.push('/(parent)/notifications')}
+        accessibilityRole="button"
+        accessibilityLabel={
+          unread === 0 ? 'Notifications, nothing new' : `Notifications, ${unread} unread`
+        }
+      >
+        <Card style={unread > 0 ? { borderColor: theme.primary, borderWidth: 2 } : undefined}>
+          <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>
+            Notifications
+          </AppText>
+          <AppText style={[styles.body, { color: theme.cardForeground }]}>
+            {unread > 0 ? plural(unread, 'unread message') : 'Nothing new.'}
+          </AppText>
+          <AppText style={[styles.body, { color: theme.primary }]}>Open →</AppText>
+        </Card>
+      </Pressable>
+
       <View style={styles.actions}>
         <Button label="Sign out" variant="secondary" onPress={() => void signOut()} />
       </View>
