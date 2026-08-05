@@ -64,10 +64,21 @@ function LevelButton({
 
   return (
     <View style={[styles.cell, { borderColor: locked ? theme.border : theme.primary }]}>
-      <AppText style={[styles.cellLabel, { color: theme.cardForeground }]}>
+      {/*
+        `adjustsFontSizeToFit` with a floor rather than a smaller fixed size: at three columns on a
+        360dp phone, "Intermediate" wrapped to "Intermedia / te" and the button labels broke to
+        "Loc / ked" and "Pla / y". Shrinking only the words that need it keeps the other two cells at
+        full size, where hardcoding a smaller size would shrink every label to fit the worst case.
+      */}
+      <AppText
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        style={[styles.cellLabel, { color: theme.cardForeground }]}
+      >
         {GAME_LEVEL_LABELS[level]}
       </AppText>
-      <AppText style={[styles.cellMeta, { color: theme.mutedForeground }]}>
+      <AppText style={[styles.cellMeta, { color: theme.mutedForeground }]} numberOfLines={2}>
         {reward.points} pts · {reward.xp} XP
       </AppText>
       <Button

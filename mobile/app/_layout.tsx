@@ -18,6 +18,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorScreen } from '@/components/ErrorScreen';
+import { NotificationWatcher } from '@/components/NotificationWatcher';
+import { ToastProvider } from '@/components/Toast';
 import { isRateLimited, SessionExpiredError } from '@/lib/api';
 import { initReporting, reportError } from '@/lib/reporting';
 import { useAuth } from '@/stores/auth';
@@ -86,7 +88,16 @@ function Routes() {
 
   if (status === 'loading') return <Splash />;
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <>
+      {/*
+        Renders nothing; polls the unread count and raises a toast when it grows. Mounted here rather
+        than per-shell so one watcher serves both roles and survives navigation between them.
+      */}
+      <NotificationWatcher />
+      <Stack screenOptions={{ headerShown: false }} />
+    </>
+  );
 }
 
 export default function RootLayout() {
@@ -96,7 +107,14 @@ export default function RootLayout() {
         {/* Outside <Routes> so the faces start loading during session bootstrap rather than after it. */}
         <FontProvider>
           <StatusBar style="auto" />
-          <Routes />
+          {/*
+            Outside <Routes> too, and inside SafeAreaProvider because the toast offsets itself by the
+            top inset. Wrapping the navigator means a toast survives a screen change — an action that
+            navigates on success can still confirm itself.
+          */}
+          <ToastProvider>
+            <Routes />
+          </ToastProvider>
         </FontProvider>
       </SafeAreaProvider>
     </QueryClientProvider>
