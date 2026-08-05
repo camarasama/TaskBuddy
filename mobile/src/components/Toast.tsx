@@ -41,10 +41,12 @@ interface ToastMessage {
   id: number;
   text: string;
   tone: ToastTone;
+  /** Run on tap, in place of merely dismissing. */
+  onPress?: () => void;
 }
 
 interface ToastApi {
-  show: (text: string, tone?: ToastTone) => void;
+  show: (text: string, tone?: ToastTone, onPress?: () => void) => void;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -97,7 +99,14 @@ function ToastView({ message, onDismiss }: { message: ToastMessage; onDismiss: (
         style,
       ]}
     >
-      <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss">
+      <Pressable
+        onPress={onDismiss}
+        accessibilityRole="button"
+        // A toast that announces something and then does nothing when tapped reads as broken — which
+        // is exactly how it was reported. When it carries an action, say so; otherwise tapping is
+        // only a way to get it out of the way, and the label should not promise more.
+        accessibilityLabel={message.onPress ? `${message.text}. Tap to open.` : 'Dismiss'}
+      >
         <AppText
           // Announced without stealing focus. `assertive` is deliberate for errors and arrivals
           // alike: a toast that a screen reader never reads is invisible to the user who most needs
@@ -118,12 +127,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const nextId = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const show = useCallback((text: string, tone: ToastTone = 'info') => {
+  const show = useCallback((text: string, tone: ToastTone = 'info', onPress?: () => void) => {
     // One at a time. A stack of toasts on a phone covers the screen it is meant to annotate, and the
     // realistic volume here is one every few minutes — the newest is always the one worth showing.
     if (timer.current) clearTimeout(timer.current);
     const id = nextId.current++;
-    setMessage({ id, text, tone });
+    setMessage({ id, text, tone, onPress });
     timer.current = setTimeout(() => setMessage(null), VISIBLE_MS);
   }, []);
 
@@ -134,7 +143,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       <View style={styles.host} pointerEvents="box-none">
         {message && (
-          <ToastView key={message.id} message={message} onDismiss={() => setMessage(null)} />
+          <ToastView
+            key={message.id}
+            message={message}
+            onDismiss={() => {
+              // Dismiss first, then act. Navigating while the toast is still mounted leaves it
+              // hanging over the destination for the rest of its timer.
+              const act = message.onPress;
+              if (timer.current) clearTimeout(timer.current);
+              setMessage(null);
+              act?.();
+            }}
+          />
         )}
       </View>
     </ToastContext.Provider>

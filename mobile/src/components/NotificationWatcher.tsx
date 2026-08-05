@@ -20,6 +20,7 @@
  * look, and the notifications screen is one tap away.
  */
 import { useEffect, useRef } from 'react';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { useToast } from '@/components/Toast';
@@ -30,6 +31,7 @@ import { useAuth } from '@/stores/auth';
 export function NotificationWatcher() {
   const status = useAuth((state) => state.status);
   const signedIn = status === 'signedIn';
+  const role = useAuth((state) => state.user?.role);
   const toast = useToast();
 
   const { data } = useQuery({ ...unreadCountQuery(), enabled: signedIn });
@@ -57,11 +59,23 @@ export function NotificationWatcher() {
     if (before === undefined || count <= before) return;
 
     const arrived = count - before;
+    /**
+     * Tapping opens the notifications centre.
+     *
+     * Without this the banner announced something and then did nothing when touched, which was
+     * reported as broken — and fairly: a notice about a new message that will not take you to it is
+     * worse than no notice. The destination is role-scoped because the two shells guard each other;
+     * pushing a parent into `(child)` would be bounced straight back to the chooser.
+     */
+    const destination =
+      role === 'child' ? '/(child)/me/notifications' : role === 'parent' ? '/(parent)/notifications' : null;
+
     toast.show(
       arrived === 1 ? 'You have a new notification' : `You have ${plural(arrived, 'new notification')}`,
-      'info'
+      'info',
+      destination ? () => router.push(destination) : undefined
     );
-  }, [count, signedIn, toast]);
+  }, [count, signedIn, role, toast]);
 
   return null;
 }
