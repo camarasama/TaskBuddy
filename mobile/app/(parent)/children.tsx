@@ -9,7 +9,7 @@
  * note further down.
  */
 import { useMemo } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -134,7 +134,15 @@ export default function Children() {
       <FlatList
         data={children}
         keyExtractor={(child) => child.id}
-        renderItem={({ item }) => <ChildCard child={item} />}
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => router.push({ pathname: '/(parent)/child-form', params: { id: item.id } })}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${item.firstName}`}
+          >
+            <ChildCard child={item} />
+          </Pressable>
+        )}
         ListHeaderComponent={header}
         refreshing={isRefetching}
         onRefresh={() => void refetch()}
@@ -147,7 +155,7 @@ export default function Children() {
           ) : (
             <Card>
               <AppText style={[styles.streakText, { color: theme.cardForeground }]}>
-                No children yet. Adding one is on the web for now.
+                No children yet. Tap "Add a child" to make one.
               </AppText>
             </Card>
           )
@@ -157,6 +165,8 @@ export default function Children() {
           // not fit, and because "which devices are my children signed in on" is a question you ask
           // while looking at your children.
           <View style={styles.footerAction}>
+            <Button label="Add a child" onPress={() => router.push('/(parent)/child-form')} />
+            <View style={styles.footerGap} />
             <Button
               label="Show family code"
               variant="secondary"

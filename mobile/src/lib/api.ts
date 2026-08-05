@@ -327,7 +327,17 @@ async function request<T>(path: string, options: RequestOptions = {}, isRetry = 
     Accept: 'application/json',
     'X-Client': CLIENT_HEADER,
   };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  /**
+   * `FormData` bodies are passed through untouched and **must not** carry a Content-Type.
+   *
+   * A multipart request needs a boundary parameter in that header, and only the fetch
+   * implementation knows the boundary it generated. Setting `multipart/form-data` by hand — or
+   * leaving the JSON default here — produces a request the server cannot parse, and multer answers
+   * with a confusing "no file uploaded" rather than a content-type error. `JSON.stringify` on a
+   * FormData would likewise yield `{}` and silently upload nothing.
+   */
+  const isMultipart = typeof FormData !== 'undefined' && body instanceof FormData;
+  if (body !== undefined && !isMultipart) headers['Content-Type'] = 'application/json';
 
   const token = session ? getAccessToken() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -337,7 +347,7 @@ async function request<T>(path: string, options: RequestOptions = {}, isRetry = 
     response = await fetch(`${API_URL}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isMultipart ? (body as FormData) : JSON.stringify(body),
       signal,
       // No `credentials` — see the note at the top of this file.
     });

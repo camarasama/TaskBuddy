@@ -1,0 +1,186 @@
+/**
+ * Parent create/update/delete for tasks, rewards and children.
+ *
+ * Every endpoint here already existed and is gated by `requireParent` on the server — none of this
+ * needed backend work. The app simply had no way to reach them, which is why a parent could read
+ * their family on a phone but not change anything.
+ *
+ * ## The input shapes are the server's Zod schemas, restated
+ *
+ * Deliberately restated rather than inferred from `shared`, because the *create* bodies are not the
+ * models: `difficulty` is derived server-side from `pointsValue` and must not be sent, `dueDate` is
+ * an ISO string rather than a Date, and several fields exist only on the way in. A screen typed
+ * against the model would compile and then be rejected at runtime.
+ *
+ * The validation rules that bite are noted on each field. They are the server's, and the forms
+ * pre-check the cheap ones so a parent gets an inline message instead of a round trip.
+ */
+import type { Reward, Task, User } from '@taskbuddy/shared';
+
+import { api } from './api';
+import { PARENT_DASHBOARD_KEY } from './dashboardApi';
+import { REWARDS_KEY } from './rewardsApi';
+import { TASKS_KEY } from './tasksApi';
+
+// ── Tasks ────────────────────────────────────────────────────────────────────
+
+export interface TaskInput {
+  /** 3–200 characters. */
+  title: string;
+  description?: string;
+  category?: string;
+  /** 5–1000. Difficulty is derived from this server-side — never send `difficulty`. */
+  pointsValue: number;
+  /** ISO 8601, and the server rejects anything not in the future. */
+  dueDate: string;
+  /** `primary` counts against the daily cap; `secondary` is bonus work. Defaults to primary. */
+  taskTag?: 'primary' | 'secondary';
+  requiresPhotoEvidence?: boolean;
+  estimatedMinutes?: number;
+  /** Child ids. An empty array creates an unassigned pool task, which is legitimate. */
+  assignedTo?: string[];
+  isRecurring?: boolean;
+  recurrencePattern?: string;
+}
+
+/** A single task, for populating the edit form. */
+export type TaskDetail = Task & {
+  creator: { id: string; firstName: string; lastName: string };
+  assignments: { id: string; childId: string; status: string }[];
+};
+
+/**
+ * Fetch one task.
+ *
+ * Deliberately a real request rather than digging the row out of the paginated list cache. The list
+ * is an infinite query keyed by its filters, so a cache read would only work when the form happened
+ * to be opened from a list loaded under exactly matching filters — correct by accident, and silently
+ * empty the rest of the time.
+ */
+export function fetchTask(id: string, signal?: AbortSignal): Promise<{ task: TaskDetail }> {
+  return api.get<{ task: TaskDetail }>(`/tasks/${id}`, { signal });
+}
+
+export function taskDetailQuery(id: string) {
+  return {
+    queryKey: ['tasks', 'detail', id] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) => fetchTask(id, signal),
+  };
+}
+
+export function createTask(input: TaskInput): Promise<{ task: Task }> {
+  return api.post<{ task: Task }>('/tasks', input);
+}
+
+export function updateTask(id: string, input: Partial<TaskInput>): Promise<{ task: Task }> {
+  return api.put<{ task: Task }>(`/tasks/${id}`, input);
+}
+
+/** Soft-delete. Existing assignments survive; the child simply stops seeing it. */
+export function deleteTask(id: string): Promise<unknown> {
+  return api.delete(`/tasks/${id}`);
+}
+
+// ── Rewards ──────────────────────────────────────────────────────────────────
+
+export interface RewardInput {
+  /** 2–100 characters. */
+  name: string;
+  description?: string;
+  /** 1–100000. */
+  pointsCost: number;
+  tier?: 'small' | 'medium' | 'large';
+  /** Must be a valid absolute URL — the server validates with `z.string().url()`. */
+  iconUrl?: string;
+  maxRedemptionsPerChild?: number;
+  maxRedemptionsTotal?: number;
+  /** ISO 8601 in the future, or null to clear. */
+  expiresAt?: string | null;
+  isCollaborative?: boolean;
+}
+
+export function createReward(input: RewardInput): Promise<{ reward: Reward }> {
+  return api.post<{ reward: Reward }>('/rewards', input);
+}
+
+export function updateReward(
+  id: string,
+  input: Partial<RewardInput> & { isActive?: boolean }
+): Promise<{ reward: Reward }> {
+  return api.put<{ reward: Reward }>(`/rewards/${id}`, input);
+}
+
+export function deleteReward(id: string): Promise<unknown> {
+  return api.delete(`/rewards/${id}`);
+}
+
+// ── Children ─────────────────────────────────────────────────────────────────
+
+export interface ChildInput {
+  firstName: string;
+  lastName: string;
+  /**
+   * The server enforces **10–16 years old** and rejects anything outside it. That is a product rule
+   * tied to the Families policy, not a typo guard, so the form states it rather than letting a
+   * parent discover it on submit.
+   */
+  dateOfBirth: string;
+  /**
+   * 3–20 characters, `[a-zA-Z0-9_]` only, and **unique within the family**. This is what the child
+   * types to sign in — two siblings called Sam need different handles, which is the whole reason the
+   * field exists separately from `firstName`.
+   */
+  username: string;
+  /** Exactly four digits. Optional on update; omit to leave the existing PIN alone. */
+  pin?: string;
+  email?: string;
+  gender?: 'boy' | 'girl';
+}
+
+/**
+ * Add a child.
+ *
+ * ⚠️ Can fail with **`CONSENT_REQUIRED`** rather than a generic 403. COPPA verifiable parental
+ * consent gates all child-data collection, and the code exists so the UI can route to the consent
+ * flow instead of showing "forbidden" to a parent who has done nothing wrong.
+ */
+export function addChild(input: ChildInput): Promise<{ child: User }> {
+  return api.post<{ child: User }>('/families/me/children', input);
+}
+
+export function updateChild(id: string, input: Partial<ChildInput>): Promise<{ child: User }> {
+  return api.put<{ child: User }>(`/families/me/children/${id}`, input);
+}
+
+/** Set or replace a child's avatar. Pass the URL returned by `uploadImage`. */
+export function setChildAvatar(id: string, avatarUrl: string): Promise<{ child: User }> {
+  return api.put<{ child: User }>(`/families/me/children/${id}`, { avatarUrl });
+}
+
+// ── Invalidation ─────────────────────────────────────────────────────────────
+
+/**
+ * Creating or editing anything moves the dashboard as well as its own list — task counts, the
+ * children summary and the week's totals all live there. Listed once so no screen has to remember.
+ */
+export const INVALIDATED_BY_PARENT_WRITE = [
+  [TASKS_KEY],
+  REWARDS_KEY,
+  PARENT_DASHBOARD_KEY,
+  ['children'],
+] as const;
+
+/**
+ * True when the server refused because parental consent is outstanding.
+ *
+ * Checked by code rather than by message: the text is user-facing and may be reworded, but
+ * `CONSENT_REQUIRED` is the contract.
+ */
+export function isConsentRequired(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === 'CONSENT_REQUIRED'
+  );
+}

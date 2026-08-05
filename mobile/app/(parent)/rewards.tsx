@@ -9,7 +9,8 @@
  * settled something they had not, with a child who knows they did not.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -203,6 +204,10 @@ export default function Rewards() {
           {loading ? 'Loading…' : `${rewards.length} in the shop`}
         </AppText>
 
+        <View style={styles.headerAction}>
+          <Button label="New reward" onPress={() => router.push('/(parent)/reward-form')} />
+        </View>
+
         {actionError !== null && (
           <Card style={{ borderColor: theme.destructive }}>
             <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
@@ -248,7 +253,19 @@ export default function Rewards() {
                 </AppText>
               </Card>
             ) : (
-              rewards.map((reward) => <RewardRow key={reward.id} reward={reward} />)
+              rewards.map((reward) => (
+                // Tapping edits it — the catalogue is the only route into the edit form.
+                <Pressable
+                  key={reward.id}
+                  onPress={() =>
+                    router.push({ pathname: '/(parent)/reward-form', params: { id: reward.id } })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${reward.name}`}
+                >
+                  <RewardRow reward={reward} />
+                </Pressable>
+              ))
             )}
           </>
         )}
@@ -258,6 +275,7 @@ export default function Rewards() {
 }
 
 const styles = StyleSheet.create({
+  headerAction: { marginBottom: 12 },
   content: { paddingBottom: spacing[6] },
   title: {
     fontSize: fontSize['2xl'].fontSize,

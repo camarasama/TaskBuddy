@@ -77,6 +77,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         recordAudioAndroid: false,
       },
     ],
+    // Choosing a child's profile picture. Both strings are written out because Android shows them
+    // verbatim, and a Families-policy app asking for photo access without naming the reason is a
+    // review risk. Note the picker is used ONLY for a parent setting an avatar — children never
+    // reach it, which is why the wording says so.
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'TaskBuddy lets a parent choose a profile picture for their child from this device.',
+        cameraPermission:
+          'TaskBuddy lets a parent take a profile picture for their child.',
+      },
+    ],
   ],
   extra: {
     // Written by hand because `eas init` cannot edit a dynamic TypeScript config — it prints the ID

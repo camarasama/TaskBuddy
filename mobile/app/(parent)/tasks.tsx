@@ -9,6 +9,7 @@
  * phone is slow in a way that is hard to walk back once screens depend on the shape.
  */
 import { useCallback, useMemo, useState } from 'react';
+import { router } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -170,6 +171,9 @@ export default function ParentTasks() {
         {isPending ? 'Loading…' : `${total} ${total === 1 ? 'task' : 'tasks'}`}
       </AppText>
       <FilterChips value={status} onChange={setStatus} />
+      <View style={styles.headerAction}>
+        <Button label="New task" onPress={() => router.push('/(parent)/task-form')} />
+      </View>
     </View>
   );
 
@@ -193,7 +197,17 @@ export default function ParentTasks() {
       <FlatList
         data={tasks}
         keyExtractor={(task) => task.id}
-        renderItem={({ item }) => <TaskRow task={item} />}
+        renderItem={({ item }) => (
+          // Tapping a row edits it. The list is the only route into the edit form, so without this
+          // a parent could create tasks on the phone but never change one.
+          <Pressable
+            onPress={() => router.push({ pathname: '/(parent)/task-form', params: { id: item.id } })}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${item.title}`}
+          >
+            <TaskRow task={item} />
+          </Pressable>
+        )}
         ListHeaderComponent={header}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.4}
@@ -246,6 +260,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: spacing[2],
   },
+  headerAction: { marginBottom: spacing[3] },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
   chip: {
     minHeight: minTouchTarget,
