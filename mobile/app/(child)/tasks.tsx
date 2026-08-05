@@ -97,6 +97,11 @@ function SegmentChips({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      // `flexGrow: 0` stops the ScrollView claiming the leftover vertical space of its parent, and
+      // `alignItems: 'center'` stops the chips stretching to whatever height it ends up with. Without
+      // both, a horizontal ScrollView's content container defaults to `align-items: stretch` and the
+      // chips render as full-height pills down the screen — which is exactly what shipped.
+      style={styles.chipScroller}
       contentContainerStyle={styles.chipRow}
     >
       {SEGMENTS.map((segment) => {
@@ -149,7 +154,6 @@ function AssignmentRow({
   const theme = useTheme();
   const { task, status } = item;
   const done = isDone(status);
-  const overdue = !done && isOverdue(task.dueDate);
   const due = dueLabel(task.dueDate);
 
   /**
@@ -158,20 +162,28 @@ function AssignmentRow({
    * A recurring task has one assignment per day and every one of them carries the *parent task's*
    * `dueDate`, so without this four days of "Brush teeth" are four rows reading "Tomorrow · 5 pts" —
    * indistinguishable, and reported as the app duplicating tasks. `instanceDate` is the only field
-   * that separates them. Shown only when it differs from the due label, so a one-off task does not
-   * gain a redundant second date.
+   * that separates them, and for a recurring instance it *is* the day the work is owed, so it
+   * replaces the parent's due date rather than sitting alongside it.
+   *
+   * Used bare, with **no "For " prefix**. `dueLabel` already returns whole phrases — "Today",
+   * "Tomorrow", "3 days overdue" — so prefixing produced "For 3 days overdue". It shipped that way.
    */
-  const forDay = dueLabel(item.instanceDate);
-  const showInstance = forDay !== null && forDay !== due;
+  const instanceLabel = dueLabel(item.instanceDate);
+  const showInstance = instanceLabel !== null && instanceLabel !== due;
+  const dateLabel = showInstance ? instanceLabel : due;
+
+  // Overdue is judged on whichever date the row is actually showing, so the colour cannot disagree
+  // with the words next to it.
+  const showOverdue = !done && isOverdue(showInstance ? item.instanceDate : task.dueDate);
 
   return (
     <Card>
       <AppText style={[styles.taskName, { color: theme.cardForeground }]}>{task.title}</AppText>
 
-      <AppText style={[styles.meta, { color: overdue ? theme.destructive : theme.mutedForeground }]}>
-        {[showInstance ? `For ${forDay.toLowerCase()}` : due, `${task.pointsValue} pts`]
-          .filter(Boolean)
-          .join(' · ')}
+      <AppText
+        style={[styles.meta, { color: showOverdue ? theme.destructive : theme.mutedForeground }]}
+      >
+        {[dateLabel, `${task.pointsValue} pts`].filter(Boolean).join(' · ')}
       </AppText>
 
       {/* Status in words. A rejected task especially must not rely on colour — it is the one state
@@ -537,7 +549,8 @@ export default function ChildTasks() {
 }
 
 const styles = StyleSheet.create({
-  chipRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[3] },
+  chipScroller: { flexGrow: 0, marginBottom: spacing[3] },
+  chipRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   chip: {
     paddingHorizontal: spacing[3],
     minHeight: minTouchTarget,
