@@ -1563,3 +1563,84 @@ export const webhooksApi = {
   remove: (id: string) =>
     request<ApiResponse<{ deleted: boolean }>>(`/webhooks/${id}`, { method: 'DELETE' }),
 };
+
+// ─── Closed-test roster (admin) ──────────────────────────────────────────────
+//
+// Play's production-access gate needs 12 testers opted in for 14 consecutive days. The failure mode
+// is not technical — people agree to help and never complete the opt-in — so the roster exists to
+// make that visible rather than to store contact details for their own sake.
+
+export type TesterStatus = 'invited' | 'opted_in' | 'active' | 'declined';
+
+export interface TesterActivity {
+  hasAccount: boolean;
+  userId: string | null;
+  signedUpAt: string | null;
+  lastLoginAt: string | null;
+  actionCount: number;
+  recentActions: { action: string; resourceType: string; createdAt: string }[];
+}
+
+export interface TesterRow {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  status: TesterStatus;
+  invitedAt: string | null;
+  lastRemindedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  activity: TesterActivity;
+}
+
+export interface TesterSummary {
+  total: number;
+  /** Counts `active` only — Play counts testers *opted in*, not invited. */
+  optedIn: number;
+  required: number;
+  shortfall: number;
+  withAccount: number;
+  neverInvited: number;
+}
+
+export interface TesterInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  status?: TesterStatus;
+  notes?: string;
+}
+
+export const testersApi = {
+  list: () =>
+    request<ApiResponse<{ testers: TesterRow[]; summary: TesterSummary }>>('/admin/testers'),
+
+  create: (input: TesterInput) =>
+    request<ApiResponse<{ tester: TesterRow }>>('/admin/testers', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  update: (id: string, input: Partial<TesterInput>) =>
+    request<ApiResponse<{ tester: TesterRow }>>(`/admin/testers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
+  remove: (id: string) =>
+    request<ApiResponse<{ deleted: boolean }>>(`/admin/testers/${id}`, { method: 'DELETE' }),
+
+  /**
+   * Both of these 400 with a readable message when `PLAY_OPT_IN_URL` is unset on the server — the
+   * link is issued by Play Console when the closed track is created and cannot be derived, and a
+   * wrong link in a one-shot invitation is worse than no email.
+   */
+  invite: (id: string) =>
+    request<ApiResponse<{ tester: TesterRow }>>(`/admin/testers/${id}/invite`, { method: 'POST' }),
+
+  remind: (id: string) =>
+    request<ApiResponse<{ tester: TesterRow }>>(`/admin/testers/${id}/remind`, { method: 'POST' }),
+};

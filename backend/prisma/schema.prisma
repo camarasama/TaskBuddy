@@ -126,6 +126,8 @@ model User {
   @@index([role])
   @@index([username])
   @@map("users")
+  /// Set when a closed-test tester signs up with the email on their roster entry. See `Tester`.
+  testerRecord Tester?
 }
 
 model ChildProfile {
@@ -1143,4 +1145,68 @@ model ChildCosmetic {
   @@unique([childId, itemId])
   @@index([childId, isEquipped])
   @@map("child_cosmetics")
+}
+
+/// A person recruited for the Play closed test (Phase 1 exit criterion).
+///
+/// Deliberately NOT a `User`. A tester is a person the owner is tracking through a recruitment and
+/// engagement process; they may never sign up, may sign up weeks later, or may sign up with a
+/// different address. Modelling them as a User would mean creating accounts for people who have not
+/// consented to one, and would put unverified rows in the table that authentication trusts.
+///
+/// The link to an actual account is therefore resolved by EMAIL, lazily, and stored once found —
+/// see `userId`. A null `userId` means "has not signed up with this address (yet)", which is exactly
+/// the state the closed-test roster needs to make visible.
+///
+/// ⚠️ This holds personal data about ADULTS who are not TaskBuddy users, which PRIVACY.md does not
+/// currently describe. It needs a paragraph there before the roster is populated with real people.
+model Tester {
+  id        String  @id @default(uuid())
+  firstName String  @map("first_name")
+  lastName  String  @map("last_name")
+  /// Unique: the address is the join key to `users`, so two rows for one address would make the
+  /// activity view ambiguous.
+  email     String  @unique
+  /// Optional and, at the time of writing, unused — nothing in this stack sends SMS. Kept nullable
+  /// rather than required so a roster can be complete without collecting a number that has no
+  /// purpose; collecting personal data with no use is the weakest position under GDPR.
+  phone     String?
+
+  /// Where they are in the recruitment funnel. Not derived from `userId`, because "invited" and
+  /// "declined" are facts about the conversation, not about the database.
+  status    TesterStatus @default(invited)
+
+  /// Set to the matching `users.id` once someone signs up with this email. Nullable forever if they
+  /// never do. `onDelete: SetNull` so deleting a user account does not delete the recruitment record.
+  /// `@unique` because this is one-to-one: an account belongs to at most one roster entry. Postgres
+  /// treats NULLs as distinct, so any number of not-yet-signed-up testers coexist under the index —
+  /// the same property the child-username index relies on.
+  userId    String?  @unique @map("user_id")
+
+  /// When the invite email was last sent, and the reminder. Separate columns because "never invited"
+  /// and "invited but not reminded" are different states the admin screen has to distinguish.
+  invitedAt      DateTime? @map("invited_at")
+  lastRemindedAt DateTime? @map("last_reminded_at")
+
+  /// Free-text, for the owner. e.g. "cousin, Android 12, said he'd start Monday".
+  notes     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("testers")
+}
+
+enum TesterStatus {
+  /// On the roster; no invite sent yet.
+  invited
+  /// Invite email sent, waiting for them to opt in on Play.
+  opted_in
+  /// Confirmed opted in on the Play track — the state that counts toward the 12-tester requirement.
+  active
+  /// Said no, or went quiet. Kept rather than deleted so the roster remembers who was asked.
+  declined
 }

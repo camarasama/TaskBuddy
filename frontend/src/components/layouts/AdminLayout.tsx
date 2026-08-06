@@ -10,6 +10,7 @@
  *   Users        /admin/users
  *   Achievements /admin/achievements
  *   Reports      /admin/reports      ← M10 addition
+ *   Testers      /admin/testers      ← closed-test roster
  *   Audit Log    /admin/audit-log
  *   Emails       /admin/emails
  */
@@ -37,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Achievements', href: '/admin/achievements', icon: '🏆' },
   { label: 'Games',        href: '/admin/games',        icon: '🎮' },
   { label: 'Funnel',       href: '/admin/funnel',       icon: '📉' },
+  { label: 'Testers',      href: '/admin/testers',      icon: '🧪' },
   { label: 'Reports',      href: '/admin/reports',      icon: '📈' },
   { label: 'Audit Log',    href: '/admin/audit-log',    icon: '📋' },
   { label: 'Emails',       href: '/admin/emails',       icon: '✉️' },

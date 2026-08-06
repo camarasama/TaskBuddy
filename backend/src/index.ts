@@ -18,6 +18,7 @@ import { apiRouter } from './routes';
 import { initScheduler } from './services/scheduler';
 // M8 - Admin router mounted at /api/v1/admin
 import { adminRouter } from './routes/admin';
+import { adminTestersRouter } from './routes/adminTesters';
 import { adminGamesRouter } from './routes/adminGames';
 import { templatesRouter } from './routes/templates';
 import { trackRouter } from './routes/track';
@@ -180,6 +181,9 @@ app.use('/api/v1', apiRouter);
 // Games CRUD mounts FIRST: adminRouter has no /games routes, but mounting the more specific path
 // ahead of it keeps this independent of any future wildcard there.
 app.use('/api/v1/admin/games', adminGamesRouter);
+// Same reasoning as /games above: the more specific path mounts first, so this stays independent of
+// anything adminRouter might later match.
+app.use('/api/v1/admin/testers', adminTestersRouter);
 app.use('/api/v1/admin', adminRouter);
 // M10 - Phase 4: Reports (parent + admin) and in-app notifications
 app.use('/api/v1/reports', reportsRouter);
