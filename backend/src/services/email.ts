@@ -40,7 +40,11 @@ export type EmailTriggerType =
   | 'child_welcome'
   | 'child_profile_updated'
   | 'child_locked'
-  | 'admin_created';
+  | 'admin_created'
+  // Closed-test recruitment. Both are admin-scoped (familyId null) and go to people who may have no
+  // account at all, so they always send with skipPreferenceCheck.
+  | 'tester_invite'
+  | 'tester_reminder';
 
 // ─── Input types ─────────────────────────────────────────────────────────────
 
