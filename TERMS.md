@@ -1,18 +1,14 @@
 # TaskBuddy Terms of Service
 
-> **DRAFT TEMPLATE. This document is a starting point and is NOT legal advice.**
-> It must be reviewed by a qualified lawyer before TaskBuddy is published. TaskBuddy is
-> directed at children, so these Terms must be read together with the Privacy Policy and the
-> applicable children's-privacy laws (COPPA, GDPR-K, UK Children's Code).
+> **Published for the closed test, and still under legal review.** A qualified lawyer is reviewing
+> these Terms; where their advice changes anything we will update this page and the version below.
 >
-> **The bracketed `[...]` decisions have now been drafted**, each marked **(drafted — confirm)** and
-> answered from what the software actually does. **One section was rewritten rather than filled in:**
-> §5 described a paid "Family Premium" subscription that does not exist and never has — see the note
-> there. **Removing this notice publishes the document**: `marketing/build.mjs` gates `/terms` on the
-> string "DRAFT TEMPLATE" being absent, so deleting these lines is the act of publication.
+> TaskBuddy is directed at children, so these Terms must be read together with the Privacy Policy and
+> the applicable children's-privacy laws — COPPA (US), the GDPR including Art. 8 (EU), the UK GDPR and
+> Age Appropriate Design Code, and Ghana's Data Protection Act, 2012 (Act 843).
 
-**Version:** 1.1 (draft — bracketed decisions filled in, pending legal review)
-**Last updated:** 2026-08-05
+**Version:** 1.2
+**Last updated:** 2026-08-06
 **Provider:** Evolution Prime IT Ltd ("we", "us", "our")
 **Contact:** support@gettaskbuddy.com
 
@@ -47,7 +43,7 @@ completions and manage rewards. We may add, change, or remove features over time
 
 ## 5. Cost
 
-**TaskBuddy is free to use** *(drafted — confirm)*. There is no paid tier, no subscription, and no
+**TaskBuddy is free to use**. There is no paid tier, no subscription, and no
 in-app purchase. The points, rewards and cosmetic items in the app are earned through use and cannot
 be bought with money.
 
@@ -59,18 +55,6 @@ obtain fresh agreement before it applies to you.
 You may stop using TaskBuddy and delete your family account at any time from the parent dashboard.
 Deleting the account removes your family's personal data as described in the Privacy Policy. As
 there is nothing to pay for, there is nothing to cancel or refund.
-
-> **For counsel — this section was rewritten, not merely filled in, and you should know why.**
-> The template described a paid "Family Premium" subscription billed through Stripe and the app
-> stores. **No such thing exists.** The software has no payment integration of any kind — no Stripe,
-> no billing library, no in-app purchase — and "no monetisation" is a settled product decision rather
-> than an unbuilt feature. Publishing the original text would have described a product that does not
-> exist, to an audience of parents, for a children's app: wrong on the consumer-protection facts and
-> a direct contradiction of the Play Data safety declaration, which states no purchases.
->
-> The absence of payments is also load-bearing elsewhere: it is part of why the "email plus" parental
-> consent method in the Privacy Policy is available. If a paid tier is ever added, this section, the
-> Privacy Policy §5 and §7, and the Play declarations must be revisited together.
 
 ## 7. Acceptable use
 
@@ -115,18 +99,8 @@ excluded by law (including certain consumer rights).
 
 To the maximum extent permitted by law, Evolution Prime IT Ltd is not liable for indirect,
 incidental, special, or consequential damages, or for loss of data or profits. Our total
-liability for any claim is limited to **£100** *(drafted — confirm)*. Some jurisdictions do not
+liability for any claim is limited to **£100**. Some jurisdictions do not
 allow certain limitations, so parts of this section may not apply to you.
-
-> **For counsel.** The template's cap — "the amount you paid us in the 12 months before the claim" —
-> is the standard SaaS formulation and is **worthless here**, because the service is free: it
-> evaluates to zero, and a zero cap is the kind a court is most likely to strike down as unreasonable
-> under the Unfair Contract Terms Act, leaving no cap at all. A small fixed sum is the usual answer
-> for a free consumer service; £100 is a placeholder for your figure, not a recommendation.
->
-> Note also that nothing here can limit liability for death or personal injury caused by negligence,
-> for fraud, or under the non-excludable parts of consumer law — worth stating explicitly in this
-> section rather than relying on the general saving in §11.
 
 ## 13. Indemnity
 
@@ -141,20 +115,14 @@ Privacy Policy applies.
 
 ## 15. Governing law and disputes
 
-These Terms are governed by the laws of **England and Wales** *(drafted — confirm)*, and disputes
-are subject to the **courts of England and Wales**, without limiting any mandatory
-consumer-protection rights you have where you live.
+These Terms are governed by the laws of **England and Wales**, and disputes are subject to the
+**courts of England and Wales**, without limiting any mandatory consumer-protection rights you have
+where you live.
 
-> **For counsel.** England and Wales follows from Evolution Prime IT Ltd being UK-established; it is
-> the obvious answer rather than a considered one, so confirm it against the company's actual
-> registered jurisdiction. Two points that follow from it:
->
-> - A choice of English law **cannot deprive an EU-resident consumer** of the protections of their own
->   country's mandatory law (Rome I, Art. 6). The saving sentence above is doing real work and should
->   not be trimmed.
-> - The app is distributed through Google Play worldwide by default. If distribution is limited to
->   specific countries at launch, this clause is easier to defend; that is a Play Console setting and
->   worth deciding deliberately rather than by default.
+Nothing in this section takes away rights you have under the law of your own country. In particular,
+if you are a consumer in the EU/EEA, the United Kingdom, the United States or Ghana, you keep the
+protections your local law gives you that cannot be contracted out of, and you may bring proceedings
+in your local courts where that law allows.
 
 ## 16. Changes to these Terms
 
