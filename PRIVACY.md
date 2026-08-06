@@ -7,7 +7,7 @@
 > TaskBuddy is directed at children and is subject to COPPA (US), the GDPR including Art. 8 (EU), the
 > UK GDPR and Age Appropriate Design Code, and Ghana's Data Protection Act, 2012 (Act 843).
 
-**Version:** 1.2
+**Version:** 1.3
 **Last updated:** 2026-08-06
 **Provider:** Evolution Prime IT Ltd ("we", "us", "our")
 **Contact:** privacy@gettaskbuddy.com
@@ -40,8 +40,11 @@ We practise data minimisation — we collect only what the feature needs.
 **Parent/guardian account**
 - Name, email address, password (stored only as a salted hash — never in plain text).
 - Optional: profile avatar and relationship to child.
-- **No billing details.** TaskBuddy is free and has no payment path, so we never collect or store
-  card numbers or any other payment information (see §7).
+- **No billing details today.** TaskBuddy is currently free and has no payment path, so we do not
+  collect or store card numbers or any other payment information. If paid features are introduced,
+  payment will be handled by a payment provider (for purchases made through the Google Play Store,
+  by Google) — **we would still never receive or store your full card number** — and this policy and
+  the processor list in §7 will be updated before any charge is taken.
 
 **Child profile (created by the parent)**
 - Display name or username, age band (not full date of birth where avoidable), optional avatar.
@@ -130,9 +133,10 @@ data for their own purposes:
 - **Transactional email:** Zoho ZeptoMail.
 - **Error monitoring:** Sentry — configured with personally identifiable information collection
   **switched off** (`sendDefaultPii: false`), on both the server and the mobile app.
-- **Payments: none.** TaskBuddy has no paid features, no subscriptions and no in-app purchases. The
-  points and cosmetic items in the app are earned in-app and cannot be bought; there is no
-  real-money path anywhere in the product.
+- **Payments: none at present.** TaskBuddy currently has no paid features, no subscriptions and no
+  in-app purchases, so there is no payment processor in this list. Points and cosmetic items are
+  earned in-app and cannot be bought. If that changes, the payment provider will be named here and
+  this policy updated **before** any charge is taken.
 
 Each processor is bound by a data-processing agreement. We do not otherwise disclose personal
 data except to comply with the law, enforce our terms, or in a business transfer (with notice).

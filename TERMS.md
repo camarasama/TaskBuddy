@@ -7,7 +7,7 @@
 > the applicable children's-privacy laws — COPPA (US), the GDPR including Art. 8 (EU), the UK GDPR and
 > Age Appropriate Design Code, and Ghana's Data Protection Act, 2012 (Act 843).
 
-**Version:** 1.2
+**Version:** 1.3
 **Last updated:** 2026-08-06
 **Provider:** Evolution Prime IT Ltd ("we", "us", "our")
 **Contact:** support@gettaskbuddy.com
@@ -43,18 +43,46 @@ completions and manage rewards. We may add, change, or remove features over time
 
 ## 5. Cost
 
-**TaskBuddy is free to use**. There is no paid tier, no subscription, and no
-in-app purchase. The points, rewards and cosmetic items in the app are earned through use and cannot
-be bought with money.
+**TaskBuddy is free to use today.** There is currently no paid tier, no subscription and no in-app
+purchase. The points, rewards and cosmetic items in the app are earned through use and cannot be
+bought with money.
 
-If we ever introduce a paid feature we will publish revised Terms and, where the law requires,
-obtain fresh agreement before it applies to you.
+### 5.1 If we introduce paid features
 
-## 6. Cancellation
+We may add paid features in future. **Nothing in this section applies until we do**, and we will not
+begin charging without telling you first. When paid features exist, these rules will govern them:
+
+- **We will publish revised Terms and give you notice before any charge applies to you**, and will
+  obtain fresh agreement where the law requires it. Continuing to use the free service will never, by
+  itself, enrol you in a paid one.
+- **Anything you already have stays free.** Features available to you without charge at the time a
+  paid tier launches will remain available to you without charge. We will not take away something you
+  already rely on in order to sell it back.
+- **Only an adult account holder can buy anything.** Purchasing will sit behind the parent account,
+  never a child profile. Children will not be able to trigger a payment, and we will not use a
+  child's activity or data to prompt anyone toward a purchase (see the Privacy Policy).
+- **Points and in-app items will stay earnable, not purchasable.** Points, rewards and cosmetics are
+  earned by completing tasks. We will not sell them for money, and we will not let money substitute
+  for the effort the app exists to encourage.
+- **Purchases made through the Google Play Store are billed by Google** and are additionally governed
+  by Google's terms; their refund rules apply alongside the rights below.
+- **Prices, what each plan includes, and any trial terms will be shown before you pay**, never after.
+
+### 5.2 Cancelling and refunds, when paid features exist
+
+You will be able to cancel at any time. Paid access will continue to the end of the period you have
+already paid for and will not renew after that. Refunds will follow the rules of the channel you
+bought through, **plus any statutory rights you cannot be asked to give up** — including, for
+consumers in the EU/EEA and the UK, the right to withdraw from a distance contract within the period
+your law provides.
+
+## 6. Cancellation and deleting your account
 
 You may stop using TaskBuddy and delete your family account at any time from the parent dashboard.
-Deleting the account removes your family's personal data as described in the Privacy Policy. As
-there is nothing to pay for, there is nothing to cancel or refund.
+Deleting the account removes your family's personal data as described in the Privacy Policy.
+
+While the service is free there is nothing to cancel or refund. If you hold a paid subscription when
+you delete your account, §5.2 applies.
 
 ## 7. Acceptable use
 
