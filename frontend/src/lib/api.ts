@@ -72,6 +72,8 @@ import type {
   WebhookSubscriptionSummary,
   TaskComment,
   ChildGoal,
+  ChildPinResetCompleteRequest,
+  ChildPinResetCompleteResponse,
 } from '@taskbuddy/shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -384,6 +386,16 @@ export const authApi = {
     request<ApiResponse<{ message: string }>>('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ token, newPassword }),
+    }),
+
+  // Unauthenticated counterpart to resetPassword, for the child-forgot-their-PIN flow (U3). The
+  // server deliberately returns the SAME 401 message for an expired token and one that never
+  // existed - see ChildPinResetCompleteResponse - so this helper does not (and must not) attempt
+  // to distinguish them either; it only relays whatever the server said.
+  completeChildPinReset: (token: string, newPin: string) =>
+    request<ApiResponse<ChildPinResetCompleteResponse>>('/auth/child/pin-reset/complete', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPin } satisfies ChildPinResetCompleteRequest),
     }),
 
   // Cookie-authenticated (FR-02) → must carry the CSRF proof.
