@@ -85,7 +85,9 @@ From the parent dashboard, a parent can at any time:
 - **Review** all data held about their family;
 - **Correct** child profile details;
 - **Export** the family's data (machine-readable JSON);
-- **Delete** a child profile or the whole family account;
+- **Delete** a child profile, a co-parent's access, or a pending invitation;
+- **Delete the whole family account** by emailing privacy@gettaskbuddy.com — see
+  [how to delete your account](https://gettaskbuddy.com/delete-account);
 - **Withdraw consent** (which results in deletion of the child's data).
 
 ## 6. Data retention and deletion
