@@ -99,6 +99,33 @@
     // RE-TRIAGE: remove when xcode ships a release depending on uuid >= 11.1.1, or when Expo
     // drops xcode from @expo/config-plugins. Re-examine immediately if uuid ever appears outside
     // the xcode path — `npm ls uuid --all` showed exactly one consumer when this was triaged.
-    "GHSA-w5hq-g745-h8pq"
+    "GHSA-w5hq-g745-h8pq",
+
+    // DEP-10 — image-size: infinite-loop DoS in the ICNS parser (GHSA-w3rx-r6r6-pgpr) and in the
+    // JXL/HEIF parsers (GHSA-5p2g-fcmc-qvqq). Both high, range <=2.0.2. Surfaced 2026-08-07.
+    //
+    // NO FIX EXISTS — not "no compatible fix", none at all: 2.0.2 is the latest published version
+    // and the advisory range covers every release ever cut. An override has nothing to point at.
+    // npm's suggested remedy is expo@53.0.27, a four-major DOWNGRADE from SDK 57.
+    //
+    // NOT REACHABLE, for reasons that are independent:
+    //   1. BUILD-TIME ONLY. The sole consumer is metro@0.84.4, the React Native bundler —
+    //      `npm ls image-size --all` shows exactly one path. Metro runs on the build machine, is
+    //      never bundled into the shipped app, and is absent from the backend and web frontend.
+    //   2. THE INPUTS ARE OURS. Both advisories need a malformed ICNS/JXL/HEIF file. Metro only
+    //      measures images committed to this repo. No user, child or attacker can hand it one.
+    //      Child-uploaded evidence photos are decoded by sharp, in the backend, on another machine
+    //      — a different library on a different host, and it is patched (see DEP-07 above).
+    //   3. The worst case is therefore a hung EAS build, not a production outage.
+    //
+    // RE-TRIAGE: remove when image-size publishes a release above 2.0.2 carrying the fix, or when
+    // metro drops it. Re-examine immediately if image-size ever gains a consumer outside metro.
+    "GHSA-w3rx-r6r6-pgpr",
+    "GHSA-5p2g-fcmc-qvqq"
+
+    // nanoid (GHSA-2v37-7h3g-55p8, high, <3.3.17) surfaced alongside DEP-10 and is deliberately
+    // NOT here — it was FIXED. `npm update nanoid` took the tree to 3.3.18. It was runtime-reachable
+    // in the mobile app via expo-router, not merely a build dependency, so allowlisting it would
+    // have been the wrong call even though the loop needs a custom generator to trigger.
   ]
 }
