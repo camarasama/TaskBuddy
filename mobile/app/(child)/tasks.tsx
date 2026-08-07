@@ -332,13 +332,22 @@ export default function ChildTasks() {
    * keep arriving from the API. The child can do nothing with them — the action endpoints reject an
    * archived task — so showing them is offering a button that cannot work.
    */
-  const assignments = useMemo(
-    () =>
-      (mine.data?.pages.flatMap((p) => p.assignments) ?? []).filter(
-        (a) => a.task.status !== 'archived'
-      ),
-    [mine.data]
-  );
+  const assignments = useMemo(() => {
+    const flat = (mine.data?.pages.flatMap((p) => p.assignments) ?? []).filter(
+      (a) => a.task.status !== 'archived'
+    );
+
+    /**
+     * Dedupe by id across pages.
+     *
+     * The cause of the duplicate rows a child reported was server-side — `/tasks/assignments/me`
+     * paged over a non-unique sort, so one row could be returned by two pages — and that is fixed
+     * at source. This stays as a floor: concatenating independently fetched pages can never be
+     * assumed to produce a set, and the failure mode here is a visibly duplicated task plus
+     * colliding React keys, which is worse than the cost of a Map.
+     */
+    return [...new Map(flat.map((a) => [a.id, a])).values()];
+  }, [mine.data]);
 
   /** Split by status, exactly as the web's three tabs do. */
   const byStatus = useMemo(
