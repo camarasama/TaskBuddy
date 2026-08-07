@@ -152,6 +152,22 @@ export default function ChildLogin() {
         <Button label="Let's go" onPress={submit} busy={busy} disabled={!canSubmit} />
       </View>
 
+      {/*
+        `push`, matching parent login's "Forgotten your password?" link, so the hardware back button
+        returns here rather than leaving the app — forgot-pin is a detour from signing in, not a
+        replacement for it.
+      */}
+      <Pressable
+        onPress={() => router.push('/forgot-pin')}
+        accessibilityRole="button"
+        style={styles.link}
+        disabled={busy}
+      >
+        <AppText style={[styles.linkText, { color: theme.mutedForeground }]}>
+          I forgot my PIN
+        </AppText>
+      </Pressable>
+
       {onboarded && (
         // For a phone handed to a sibling, or a parent resetting the device. Understated on purpose —
         // it is a rare action, and a prominent "forget" beside a login form invites mis-taps.

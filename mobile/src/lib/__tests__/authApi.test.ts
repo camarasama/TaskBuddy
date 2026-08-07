@@ -228,6 +228,50 @@ describe('password reset', () => {
   });
 });
 
+describe('child PIN reset', () => {
+  it('posts the family code and username, unauthenticated', async () => {
+    const auth = setup({
+      success: true,
+      data: { message: "If that family and child match, a reset link has been sent to the family's parents." },
+    });
+
+    await auth.requestChildPinReset('BLUE-LION-42', 'ama_k');
+
+    expect(calls[0]).toMatchObject({
+      method: 'POST',
+      url: 'https://api.example.test/api/v1/auth/child/pin-reset/request',
+    });
+    expect(calls[0].body).toEqual({ familyCode: 'BLUE-LION-42', childIdentifier: 'ama_k' });
+    expect(calls[0].headers).not.toHaveProperty('Authorization');
+  });
+
+  it('resolves the same message for a family/child pair that does not exist', async () => {
+    // The backend answers 200 identically either way (anti-enumeration); this asserts the client
+    // does not add a branch of its own on top of an envelope that carries no signal to branch on.
+    const message = "If that family and child match, a reset link has been sent to the family's parents.";
+    const auth = setup({ success: true, data: { message } });
+
+    const result = await auth.requestChildPinReset('BLUE-LION-42', 'no-such-child');
+
+    expect(result).toEqual({ message });
+  });
+
+  it('surfaces a transport failure rather than swallowing it', async () => {
+    const auth = setup({ success: true, data: { message: 'unused' } });
+    /* eslint-disable-next-line @typescript-eslint/no-require-imports */
+    const apiModule = require('../api') as typeof import('../api');
+    global.fetch = jest.fn(async () => {
+      throw new TypeError('Network request failed');
+    }) as unknown as typeof fetch;
+
+    // A dead network must not resolve like the 200 case above — the screen depends on this
+    // throwing so it can tell "we heard nothing" apart from "we heard the generic success".
+    await expect(auth.requestChildPinReset('BLUE-LION-42', 'ama_k')).rejects.toBeInstanceOf(
+      apiModule.NetworkError
+    );
+  });
+});
+
 describe('email verification', () => {
   it('posts the token', async () => {
     const auth = setup({ success: true, data: { message: 'Email verified successfully' } });
