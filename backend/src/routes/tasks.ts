@@ -201,7 +201,10 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
       orderBy: [
         { dueDate: 'asc' },
         { createdAt: 'desc' },
+        { id: 'asc' },
       ],
+      // `distinct` only dedupes WITHIN a page, so it never protected against the cross-page
+      // repetition the `id` tiebreak above fixes.
       distinct: ['id'],
     });
 
@@ -586,9 +589,24 @@ taskRouter.get('/assignments/me', async (req, res, next) => {
         },
         evidence: true,
       },
+      /**
+       * The final `id` is load-bearing, and its absence was a reported bug: a child saw the same
+       * recurring task twice on their task list.
+       *
+       * `status` and `instanceDate` do not identify a row. A daily recurring task produces one
+       * assignment per day, all `pending`, and any two tasks owed on the same day tie on both
+       * columns. SQL leaves tied rows in no defined order, so each page is a fresh, independently
+       * ordered query — OFFSET 20 can begin above where OFFSET 0 stopped, repeating a row on
+       * page 2 and silently dropping another. The client `flatMap`s the pages together and the
+       * repeat becomes a duplicate row on screen.
+       *
+       * A unique last key makes the total order deterministic, which is what makes offset paging
+       * coherent at all. Any paginated query in this file needs one.
+       */
       orderBy: [
         { status: 'asc' },
         { instanceDate: 'desc' },
+        { id: 'asc' },
       ],
     });
 
@@ -869,7 +887,11 @@ taskRouter.get('/assignments/pending', requireParent, async (req, res, next) => 
         },
         evidence: true,
       },
-      orderBy: { completedAt: 'asc' },
+      // Ties on `completedAt` are ordinary — auto-approve and a parent working through the queue
+      // both stamp several rows at once — and here a mis-paged row is not cosmetic: an assignment
+      // dropped between pages never appears in the queue at all, so the child's work is silently
+      // never approved. See GET /assignments/me for the mechanism.
+      orderBy: [{ completedAt: 'asc' }, { id: 'asc' }],
     });
 
     for (const a of assignments) {

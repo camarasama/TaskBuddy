@@ -87,9 +87,12 @@ rewardRouter.get('/', async (req, res, next) => {
           select: { redemptions: true },
         },
       },
+      // Two rewards in the same tier at the same cost is the normal case, not an edge one, so the
+      // unique `id` tiebreak is what keeps them off two pages at once.
       orderBy: [
         { tier: 'asc' },
         { pointsCost: 'asc' },
+        { id: 'asc' },
       ],
     });
 
@@ -472,7 +475,8 @@ rewardRouter.get('/redemptions/history', async (req, res, next) => {
           select: { id: true, firstName: true, lastName: true },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      // Unique tiebreak — see GET /tasks/assignments/me.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
 
     res.json({

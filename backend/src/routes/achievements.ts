@@ -22,10 +22,14 @@ achievementRouter.get('/', requireChild, async (req, res, next) => {
     const achievements = await prisma.achievement.findMany({
       skip,
       take,
+      // `id` last is not decoration: without a unique final key, rows tying on every other column
+      // have no defined order, and OFFSET/LIMIT can then hand the same row to two pages while
+      // dropping another. See the note on GET /tasks/assignments/me.
       orderBy: [
         { category: 'asc' },
         { tier: 'asc' },
         { name: 'asc' },
+        { id: 'asc' },
       ],
     });
 

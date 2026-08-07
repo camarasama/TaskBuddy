@@ -49,7 +49,10 @@ notificationsRouter.get('/', async (req: Request, res: Response) => {
     const [notifications, unreadCount, total] = await Promise.all([
       prisma.notification.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        // `id` breaks ties on `createdAt`, which are common here rather than theoretical: a
+        // createMany fanning one event out to several users stamps them all in the same
+        // millisecond. Without it, paging can repeat one and skip another.
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take,
       }),
