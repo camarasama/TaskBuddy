@@ -28,6 +28,16 @@ const DRAFT_MARKER = 'DRAFT TEMPLATE';
 const LEGAL = [
   { source: 'PRIVACY.md', out: 'privacy.html', title: 'Privacy Policy', link: '/privacy' },
   { source: 'TERMS.md', out: 'terms.html', title: 'Terms of Service', link: '/terms' },
+  /**
+   * Required by Google Play. The Data safety form demands a publicly reachable URL that names the
+   * app, gives the steps to request deletion, and states what is deleted versus kept — and Play
+   * shows the link on the store listing, so it has to stand on its own for someone who has already
+   * uninstalled and cannot reach the in-app control.
+   *
+   * It carries no DRAFT TEMPLATE gate, unlike the two above: it describes what the software already
+   * does rather than making legal commitments, so there is nothing for counsel to clear first.
+   */
+  { source: 'ACCOUNT_DELETION.md', out: 'delete-account.html', title: 'Delete your account', link: '/delete-account' },
 ];
 
 function layout({ title, body }) {
