@@ -18,7 +18,7 @@ import {
   ForbiddenError,
 } from '../middleware/errorHandler';
 import type { TokenPayload } from '../middleware/auth';
-import { getAgeGroup } from '@taskbuddy/shared';
+import { getAgeGroup, VALIDATION } from '@taskbuddy/shared';
 import { generateFamilyCode } from '../utils/familyCode';
 
 const SALT_ROUNDS = 12;
@@ -31,6 +31,21 @@ const PASSWORD_RESET_TTL_MS = 60 * 60_000; // 1 hour
 // as a real one. Must be a *valid* cost-SALT_ROUNDS hash (of a discarded random value) — a
 // malformed placeholder can be rejected early, which reintroduces the timing signal.
 const DUMMY_PIN_HASH = '$2b$12$EyVh6/LfhPIbYirhFUUBsOgDr0YQGNrAuZ/EgL6CrOBsrhfRRLtY2';
+
+// Child PIN-reset links are single-use and short-lived, same reasoning and same duration as
+// PASSWORD_RESET_TTL_MS: a leaked reset email (a child's inbox is far more likely to be shared or
+// left open than a parent's) should not remain actionable for long.
+const CHILD_PIN_RESET_TTL_MS = 60 * 60_000; // 1 hour
+
+// Sentinels used by requestChildPinReset() when no real family/child matches the request, so that
+// path performs the *exact same* database queries — same shape, same index, same row count — as a
+// real match. This is the same fix as DUMMY_PIN_HASH above, applied to the write side instead of
+// the compare side: childLogin already learned that skipping work on a miss (there, a bcrypt
+// compare; here, a lookup or a write) returns measurably faster and leaks which (familyCode,
+// childIdentifier) pairs exist. Neither UUID needs to exist — findFirst/updateMany against an
+// absent id costs an index probe either way, real or fake.
+const DUMMY_FAMILY_ID = '00000000-0000-0000-0000-000000000000';
+const DUMMY_CHILD_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 // Credentials here are weak by design (child PINs are 4 digits), so an unthrottled account is
 // brute-forceable and *some* lockout is required. But locking on the first failure let anyone
@@ -707,6 +722,135 @@ export class AuthService {
       familyId: user.familyId,
       ipAddress: ctx.ip,
     });
+  }
+
+  /**
+   * Child-initiated PIN reset — the child forgot their PIN, so unlike setupPin() (a parent acting on
+   * an authenticated session) this is reached with no session at all: just a family code and the
+   * child's login handle, exactly what childLogin() takes minus the PIN itself.
+   *
+   * NO ENUMERATION ORACLE. This is the single most important property of this method, more so than
+   * of createPasswordResetToken() above: an oracle here enumerates which *children* exist, and a
+   * wrong family code paired with a real child's username reveals a real kid's existence to a
+   * stranger. So — unlike createPasswordResetToken(), which returns null on a miss and lets its
+   * caller (routes/auth.ts) send a generic response — this method never returns anything the caller
+   * could branch on, and it does not short-circuit ANY step when the lookup misses:
+   *
+   *   1. The family lookup always runs (cheap, and there is nothing else to key the next step on).
+   *   2. The child lookup always runs too, even when the family lookup missed — falling back to
+   *      DUMMY_FAMILY_ID so the query has the same shape either way. childLogin() gets to skip its
+   *      equivalent lookup on a miss because the bcrypt compare a few lines later dominates the
+   *      timing budget regardless; this method has no such expensive step to hide behind, so it
+   *      cannot afford that shortcut.
+   *   3. The token write always runs, via updateMany() (never update(), which would throw on a
+   *      missing row) against the real child's userId or DUMMY_CHILD_USER_ID.
+   *
+   * Only the fire-and-forget parent email is genuinely conditional on a real match — and being
+   * fire-and-forget (never awaited), its cost falls outside the window bounded by this method's
+   * returned promise, so it does not reach the HTTP response as a timing signal.
+   */
+  async requestChildPinReset(familyCode: string, childIdentifier: string): Promise<void> {
+    const family = await prisma.family.findFirst({
+      where: {
+        familyCode: { equals: familyCode.toUpperCase(), mode: 'insensitive' },
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    // Username only — mirrors childLogin()'s lookup exactly (see the comment there): matching on
+    // firstName too made the lookup ambiguous between siblings sharing a name.
+    const child = await prisma.user.findFirst({
+      where: {
+        familyId: family?.id ?? DUMMY_FAMILY_ID,
+        role: 'child',
+        deletedAt: null,
+        username: childIdentifier.trim().toLowerCase(),
+      },
+      include: { childProfile: true },
+    });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + CHILD_PIN_RESET_TTL_MS);
+
+    // updateMany, not update: a real update() throws (Prisma P2025) when its `where` matches no
+    // row, which for the dummy target would happen on every single non-matching request — turning
+    // "no such child" into a thrown exception is exactly the branch-on-existence this method exists
+    // to avoid. updateMany() just reports affectedCount: 0 and moves on.
+    await prisma.childProfile.updateMany({
+      where: { userId: child?.id ?? DUMMY_CHILD_USER_ID },
+      data: { pinResetTokenHash: tokenHash, pinResetExpiresAt: expiresAt },
+    });
+
+    if (family && child?.childProfile) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      void EmailService.sendToFamilyParents({
+        familyId: family.id,
+        triggerType: 'child_pin_reset_requested',
+        // Personalise by parent, same as notifyParentsOfChildLock — the child's first name is
+        // fine in a subject line the family already expects (they set up the family code), it is
+        // not the enumeration surface; the request endpoint's response is.
+        subjectBuilder: () => `${child.firstName} forgot their TaskBuddy PIN`,
+        templateData: {
+          childFirstName: child.firstName,
+          resetUrl: `${frontendUrl}/child-pin-reset?token=${token}`,
+          expiryHours: CHILD_PIN_RESET_TTL_MS / 60 / 60_000,
+        },
+        referenceType: 'child_pin_reset',
+      }).catch((err) =>
+        // Never log the token or which child — only that a send attempt failed.
+        console.error('[auth] child PIN reset email failed:', (err as Error)?.message),
+      );
+    }
+  }
+
+  /**
+   * Complete a child-initiated PIN reset: validate the token, set the new PIN, consume the token,
+   * and revoke the child's existing sessions. Mirrors resetPassword() above — including the single
+   * generic error for "unknown" and "expired" alike, so the completion endpoint cannot be used to
+   * tell those two cases apart either.
+   *
+   * "Invalidate any other outstanding tokens for this child" (see the route) falls out of the
+   * storage shape rather than needing separate code: pinResetTokenHash is a single column, so
+   * requestChildPinReset() already overwrote any earlier token the moment this one was issued —
+   * there is never more than one valid token per child to invalidate.
+   */
+  async completeChildPinReset(token: string, newPin: string): Promise<void> {
+    if (!VALIDATION.PIN.PATTERN.test(newPin)) {
+      throw new ValidationError('PIN must be exactly 4 digits');
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const profile = await prisma.childProfile.findFirst({
+      where: { pinResetTokenHash: tokenHash },
+      select: { userId: true, pinResetExpiresAt: true },
+    });
+
+    // One error for "no such token" and "expired token" alike (F-10 pattern from resetPassword) —
+    // a distinct message for either would tell an attacker a stale link was at least real once.
+    if (!profile || !profile.pinResetExpiresAt || profile.pinResetExpiresAt < new Date()) {
+      throw new UnauthorizedError('Invalid or expired reset link');
+    }
+
+    const pinHash = await bcrypt.hash(newPin, SALT_ROUNDS);
+    await prisma.childProfile.update({
+      where: { userId: profile.userId },
+      data: {
+        pinHash,
+        // Consumed: nulling the hash means this exact token can never match a future lookup again
+        // (Postgres NULL is never equal to anything, including another NULL), so a replay of the
+        // same link — or a second submission of the same request — fails the same way an unknown
+        // token would.
+        pinResetTokenHash: null,
+        pinResetExpiresAt: null,
+      },
+    });
+
+    // A changed PIN invalidates existing sessions — same reasoning as setupPin() (the parent-driven
+    // equivalent): a device that captured the old PIN, or a lingering token, must not keep acting as
+    // this child once the PIN has been reset out from under it.
+    await SessionService.revokeAllForUser(profile.userId, 'pin_reset');
   }
 
   // Refresh access token

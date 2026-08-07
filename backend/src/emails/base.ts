@@ -29,6 +29,7 @@ import { buildCoParentInvite } from './coParentInvite';
 import { buildEmailVerification } from './emailVerification';
 import { buildPasswordReset } from './passwordReset';
 import { buildChildAccountLocked } from './childAccountLocked';
+import { buildChildPinReset } from './childPinReset';
 import { buildTesterInvite } from './testerInvite';
 import { buildTesterReminder } from './testerReminder';
 import { buildAdminCreated } from './adminCreated';
@@ -197,6 +198,8 @@ export async function renderTemplate(
       return buildCoParentInvite(data as any);
     case 'child_locked':
       return buildChildAccountLocked(data as any);
+    case 'child_pin_reset_requested':
+      return buildChildPinReset(data as any);
     case 'admin_created':
       return buildAdminCreated(data as any);
     case 'tester_invite':

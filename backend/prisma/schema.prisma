@@ -158,6 +158,15 @@ model ChildProfile {
   /// for exactly that reason; a photo cannot be, so a parent is the gate instead.
   pendingAvatarUrl    String?   @map("pending_avatar_url")
   pendingAvatarAt     DateTime? @map("pending_avatar_at")
+  /// Child-initiated PIN reset (mirrors User.passwordResetTokenHash / passwordResetExpiresAt for
+  /// the parent flow). One column, not a token table: a fresh request overwrites the previous
+  /// value, so an old emailed link is automatically invalidated the moment a new one is issued —
+  /// there is never more than one valid token per child. Hashed at rest (sha256) so a DB leak
+  /// does not hand out working reset links. Deliberately NOT unique — AuthService.requestChildPinReset
+  /// runs an `updateMany` keyed on a fixed sentinel userId when no real child matches, so the write
+  /// always executes with the same shape and cost whether or not the request was real.
+  pinResetTokenHash   String?   @map("pin_reset_token_hash")
+  pinResetExpiresAt   DateTime? @map("pin_reset_expires_at")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 

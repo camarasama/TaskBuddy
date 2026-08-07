@@ -106,6 +106,31 @@ export interface SetupPinRequest {
   pin: string;
 }
 
+// Child-initiated PIN reset (the child forgot their PIN and has no session — contrast with
+// SetupPinRequest above, which a signed-in parent uses). POST /auth/child/pin-reset/request then
+// POST /auth/child/pin-reset/complete.
+export interface ChildPinResetRequestRequest {
+  familyCode: string;
+  childIdentifier: string; // the child's username — same field childLogin() matches on
+}
+
+// Deliberately just a message. The backend returns this EXACT shape (status, body key, and
+// message text) whether or not the family/child pair exists — anti-enumeration is a property of
+// the response, so do not special-case this type or add an optional field a client could branch
+// on (there is nothing else the server will ever send here).
+export interface ChildPinResetRequestResponse {
+  message: string;
+}
+
+export interface ChildPinResetCompleteRequest {
+  token: string;
+  newPin: string;
+}
+
+export interface ChildPinResetCompleteResponse {
+  message: string;
+}
+
 // ========== FAMILY ==========
 
 export interface AddChildRequest {
