@@ -12,8 +12,18 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { authApi, ApiError } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { VALIDATION } from '@taskbuddy/shared';
 
-const MIN_PASSWORD_LENGTH = 8;
+/**
+ * The floor the SERVER enforces for a NEW password, imported rather than restated.
+ *
+ * This was hardcoded to 8 in three separate files while every route that *sets* a password
+ * validates against `VALIDATION.PASSWORD.NEW_MIN_LENGTH`, which is 10. (8 is `MIN_LENGTH` — the
+ * legacy floor kept so existing passwords still log in.) The form accepted 8 characters, told the
+ * user it was fine, and the API then rejected it: a signup that fails after you press the button,
+ * with a message from the server rather than the field.
+ */
+const MIN_PASSWORD_LENGTH = VALIDATION.PASSWORD.NEW_MIN_LENGTH;
 
 const resetSchema = z
   .object({

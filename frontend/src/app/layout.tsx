@@ -36,7 +36,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0ea5e9',
+  themeColor: '#2b7f91', // brand teal, primary-500 — see shared/src/design/tokens.ts
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,

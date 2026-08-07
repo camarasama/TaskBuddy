@@ -8,7 +8,19 @@
  *
  * Deliberately read-only for now. Approving from here needs the evidence viewer, which is its own
  * screen; this one links into it once that exists.
+ *
+ * ## Where the colour goes
+ *
+ * A parent's screen is a status board, so the accents mark *kind* rather than celebrate: gold for
+ * points, green for finished work, xp-purple for rewards spent, teal for the app's own actions. They
+ * are carried by the icons only. The numbers beside them stay `theme.foreground`, because a
+ * mid-ramp accent on a white card in light mode and a slate-800 one in dark cannot clear AA in both
+ * — and these are 20dp figures a parent reads at a glance, not decoration.
  */
+// The family's own module, not the `@expo/vector-icons` barrel — that barrel bundles all 20 icon
+// fonts. Same rule as the tab bar in `_layout.tsx`.
+import Ionicons from '@expo/vector-icons/Ionicons';
+import type { ComponentProps } from 'react';
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
@@ -18,6 +30,7 @@ import type { ParentDashboardResponse } from '@taskbuddy/shared';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { CardHeading } from '@/components/CardHeading';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
 import { dashboardQuery } from '@/lib/dashboardApi';
@@ -25,15 +38,26 @@ import { unreadCountQuery } from '@/lib/notificationsApi';
 import { plural } from '@/lib/plural';
 import { describeError } from '@/lib/errors';
 import { useAuth } from '@/stores/auth';
-import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, palette, spacing, useTheme } from '@/theme';
 
 type Child = ParentDashboardResponse['children'][number];
 
-function Stat({ label, value }: { label: string; value: number }) {
+type IoniconName = ComponentProps<typeof Ionicons>['name'];
+
+function Stat({ label, value, icon, tint }: { label: string; value: number; icon: IoniconName; tint: string }) {
   const theme = useTheme();
   return (
     <View style={styles.stat}>
-      <AppText style={[styles.statValue, { color: theme.foreground }]}>{value}</AppText>
+      <View style={styles.statHead}>
+        <Ionicons
+          name={icon}
+          size={16}
+          color={tint}
+          importantForAccessibility="no"
+          accessibilityElementsHidden
+        />
+        <AppText style={[styles.statValue, { color: theme.foreground }]}>{value}</AppText>
+      </View>
       <AppText style={[styles.statLabel, { color: theme.mutedForeground }]} numberOfLines={2}>
         {label}
       </AppText>
@@ -53,9 +77,18 @@ function ChildRow({ child, first }: { child: Child; first: boolean }) {
           {profile.avatarEmoji ? `${profile.avatarEmoji} ` : ''}
           {user.firstName}
         </AppText>
-        <AppText style={[styles.childMeta, { color: theme.mutedForeground }]}>
-          Level {profile.level} · {profile.pointsBalance} pts
-        </AppText>
+        <View style={styles.childPoints}>
+          <Ionicons
+            name="star"
+            size={14}
+            color={palette.gold[600]}
+            importantForAccessibility="no"
+            accessibilityElementsHidden
+          />
+          <AppText style={[styles.childMeta, { color: theme.mutedForeground }]}>
+            Level {profile.level} · {profile.pointsBalance} pts
+          </AppText>
+        </View>
       </View>
 
       <AppText style={[styles.childMeta, { color: theme.mutedForeground }]}>
@@ -162,7 +195,13 @@ export default function ParentDashboard() {
             pendingApprovals.length > 0 ? { borderColor: theme.primary, borderWidth: 2 } : undefined
           }
         >
-          <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>Approvals</AppText>
+          {/* Amber while something is waiting, green once the queue is empty — the card's own
+              border already carries the urgency, this just stops the heading contradicting it. */}
+          <CardHeading
+            icon={pendingApprovals.length > 0 ? 'time' : 'checkmark-done'}
+            label="Approvals"
+            tint={pendingApprovals.length > 0 ? palette.warning[600] : palette.success[600]}
+          />
           {pendingApprovals.length === 0 ? (
             <AppText style={[styles.body, { color: theme.cardForeground }]}>
               Nothing waiting. You&apos;re all caught up.
@@ -187,9 +226,11 @@ export default function ParentDashboard() {
         accessibilityLabel={`Children, ${children.length}`}
       >
         <Card>
-          <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>
-            {children.length === 1 ? 'Child' : 'Children'}
-          </AppText>
+          <CardHeading
+            icon="people"
+            label={children.length === 1 ? 'Child' : 'Children'}
+            tint={theme.primary}
+          />
           {children.length === 0 ? (
             <AppText style={[styles.body, { color: theme.cardForeground }]}>
               No children added yet. You can add them on the web for now.
@@ -204,12 +245,32 @@ export default function ParentDashboard() {
       </Pressable>
 
       <Card>
-        <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>This week</AppText>
+        <CardHeading icon="stats-chart" label="This week" tint={theme.primary} />
         <View style={styles.statRow}>
-          <Stat label="Tasks done" value={weeklyStats.tasksCompleted} />
-          <Stat label="Tasks created" value={weeklyStats.tasksCreated} />
-          <Stat label="Points earned" value={weeklyStats.pointsEarned} />
-          <Stat label="Rewards" value={weeklyStats.rewardsRedeemed} />
+          <Stat
+            label="Tasks done"
+            value={weeklyStats.tasksCompleted}
+            icon="checkmark-circle"
+            tint={palette.success[600]}
+          />
+          <Stat
+            label="Tasks created"
+            value={weeklyStats.tasksCreated}
+            icon="add-circle"
+            tint={theme.primary}
+          />
+          <Stat
+            label="Points earned"
+            value={weeklyStats.pointsEarned}
+            icon="star"
+            tint={palette.gold[600]}
+          />
+          <Stat
+            label="Rewards"
+            value={weeklyStats.rewardsRedeemed}
+            icon="gift"
+            tint={palette.xp[600]}
+          />
         </View>
       </Card>
 
@@ -228,9 +289,11 @@ export default function ParentDashboard() {
         }
       >
         <Card style={unread > 0 ? { borderColor: theme.primary, borderWidth: 2 } : undefined}>
-          <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>
-            Notifications
-          </AppText>
+          <CardHeading
+            icon={unread > 0 ? 'notifications' : 'notifications-outline'}
+            label="Notifications"
+            tint={unread > 0 ? theme.primary : undefined}
+          />
           <AppText style={[styles.body, { color: theme.cardForeground }]}>
             {unread > 0 ? plural(unread, 'unread message') : 'Nothing new.'}
           </AppText>
@@ -243,7 +306,7 @@ export default function ParentDashboard() {
         already the ceiling on a narrow phone.
       */}
       <Card>
-        <AppText style={[styles.cardTitle, { color: theme.mutedForeground }]}>More</AppText>
+        <CardHeading icon="apps" label="More" />
         <View style={styles.moreRow}>
           <Button
             label="This week"
@@ -304,6 +367,7 @@ const styles = StyleSheet.create({
   },
   statRow: { flexDirection: 'row', flexWrap: 'wrap' },
   stat: { width: '50%', paddingVertical: spacing[2], paddingRight: spacing[2] },
+  statHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   statValue: {
     fontSize: fontSize.xl.fontSize,
     lineHeight: fontSize.xl.lineHeight,
@@ -314,7 +378,9 @@ const styles = StyleSheet.create({
   childHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
+    // Centre rather than baseline: the points side is now a row containing an icon, and a View has
+    // no baseline for RN to align against — it falls back to the bottom edge and the name sits high.
+    alignItems: 'center',
     marginBottom: spacing[1],
     gap: spacing[2],
   },
@@ -325,6 +391,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   childMeta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
+  childPoints: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], flexShrink: 0 },
   childWaiting: {
     fontSize: fontSize.sm.fontSize,
     lineHeight: fontSize.sm.lineHeight,

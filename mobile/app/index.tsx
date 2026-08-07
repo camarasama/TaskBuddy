@@ -13,6 +13,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 
 import { Button } from '@/components/Button';
+import { Logo } from '@/components/Logo';
 import { Screen } from '@/components/Screen';
 import { CONFIG_ERRORS } from '@/lib/config';
 import { useAuth } from '@/stores/auth';
@@ -40,7 +41,13 @@ export default function RoleChooser() {
 
   return (
     <Screen scroll center>
-      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>TaskBuddy</AppText>
+      {/*
+        The lockup already contains the wordmark, so there is no text heading under it — a rendered
+        "TaskBuddy" beneath a logo that reads "TaskBuddy" looks like a mistake. That also flips the
+        image to ANNOUNCED rather than decorative: it is now the only place the app's name exists on
+        this screen, and hiding it would leave a screen-reader user with an unnamed app.
+      */}
+      <Logo width={156} />
       <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
         Family tasks, rewards and a bit of friendly competition.
       </AppText>
@@ -81,12 +88,14 @@ export default function RoleChooser() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: fontSize['4xl'].fontSize, lineHeight: fontSize['4xl'].lineHeight, fontWeight: fontWeight.bold },
+  // Centred to sit under the logo. The notices and buttons below stay full-width and left-aligned —
+  // this is the tagline of a lockup, not a centred screen.
   subtitle: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     marginTop: spacing[2],
     marginBottom: spacing[8],
+    textAlign: 'center',
   },
   notice: {
     borderWidth: 1,

@@ -41,18 +41,56 @@ export type ColorRamp = Record<ColorStep, string>;
  * where the colour *is* the meaning.
  */
 export const palette = {
-  /** Brand. Friendly blue; also the focus-ring and primary-action colour. */
+  /**
+   * Brand teal, matched to the logo. Also the focus-ring and primary-action colour.
+   *
+   * ## Why 400 and 500 are different jobs
+   *
+   * The logo's teal is **`400` (#4aa8bd)** — that is the colour the mark is actually drawn in, and
+   * the one to reach for when something should *look* like the brand.
+   *
+   * It is **not** the primary action colour, because white text on it measures **2.75:1** and AA
+   * needs 4.5. `500` (#2b7f91) is the same hue carried darker until white text clears the bar at
+   * **4.62:1**. So a filled button uses 500 and reads as brand-coloured; a decorative fill with dark
+   * text on it can use 400.
+   *
+   * This replaced a sky blue (`#0ea5e9`) that matched nothing in the logo and failed AA at 2.77:1 —
+   * a failure the token test used to exclude by name, with a note saying it belonged to the
+   * accessibility pass. This is that pass, and the test now asserts the pair instead of excusing it.
+   *
+   * Dark mode maps `primary` to **400** against a slate-900 foreground (6.48:1), which is why 400
+   * has to stay light enough to carry dark text.
+   */
   primary: {
-    50: '#f0f9ff',
-    100: '#e0f2fe',
-    200: '#bae6fd',
-    300: '#7dd3fc',
-    400: '#38bdf8',
-    500: '#0ea5e9',
-    600: '#0284c7',
-    700: '#0369a1',
-    800: '#075985',
-    900: '#0c4a6e',
+    50: '#f0fafc',
+    100: '#d8f1f6',
+    200: '#b0e2ec',
+    300: '#7ccbdc',
+    400: '#4aa8bd',
+    500: '#2b7f91',
+    600: '#22697a',
+    700: '#1d5563',
+    800: '#1a454f',
+    900: '#173943',
+  },
+  /**
+   * The logo figure's peach. Decorative only — an accent beside the teal, never a text colour.
+   *
+   * Every step below 500 is far too light for white text (400 measures 2.00:1) and is intended to
+   * be used the way the logo uses it: a warm fill with dark text or a dark glyph on top, where it
+   * gives 8.93:1 against slate-900.
+   */
+  peach: {
+    50: '#fef6ef',
+    100: '#fdead9',
+    200: '#fbd3b0',
+    300: '#f8b981',
+    400: '#f0a868',
+    500: '#e68d42',
+    600: '#cf7328',
+    700: '#a95a20',
+    800: '#8a4a1e',
+    900: '#723f1c',
   },
   /** Completion / approval. */
   success: {
@@ -119,18 +157,25 @@ export const palette = {
     800: '#1e293b',
     900: '#0f172a',
   },
-  /** Errors and destructive actions. Matches Tailwind's `red`. */
+  /**
+   * Errors and rejections. No longer a straight copy of Tailwind's `red` — see below.
+   *
+   * `500` was `#ef4444`, which carries white text at only **3.76:1** — the second of the two AA
+   * failures the token test used to exclude by name. The ramp is shifted one step darker from 400
+   * up, putting `#dc2626` at 500 for **4.83:1**. The lighter tints are unchanged, so anything using
+   * destructive-50/100 as a background tint looks the same.
+   */
   destructive: {
     50: '#fef2f2',
     100: '#fee2e2',
     200: '#fecaca',
     300: '#fca5a5',
     400: '#f87171',
-    500: '#ef4444',
-    600: '#dc2626',
-    700: '#b91c1c',
-    800: '#991b1b',
-    900: '#7f1d1d',
+    500: '#dc2626',
+    600: '#b91c1c',
+    700: '#991b1b',
+    800: '#7f1d1d',
+    900: '#671717',
   },
 } as const satisfies Record<string, ColorRamp>;
 
@@ -349,7 +394,8 @@ export const minTouchTarget = 44;
  * these colours — Tailwind builds the `box-shadow` strings in `tailwind.config.ts`.
  */
 export const glow = {
-  primary: 'rgba(14, 165, 233, 0.3)',
+  // Tracks primary-500 (#2b7f91). A glow left on the old sky blue would halo every teal button.
+  primary: 'rgba(43, 127, 145, 0.3)',
   success: 'rgba(34, 197, 94, 0.3)',
   gold: 'rgba(234, 179, 8, 0.3)',
   xp: 'rgba(168, 85, 247, 0.3)',

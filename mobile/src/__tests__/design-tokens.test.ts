@@ -142,27 +142,30 @@ describe('accessibility floors', () => {
   }
 
   /**
-   * Body-text pairings only. Measured ratios, light / dark:
+   * Text-on-background pairings that must clear AA.
    *
-   *   foreground on appBackground        17.06 / 17.06
-   *   foreground on background           17.85 / 17.06
-   *   cardForeground on card             17.85 / 13.98
-   *   mutedForeground on appBackground    4.55 / 6.96   ← light passes by 0.05
-   *   mutedForeground on card             4.76 / 5.71
+   * **The two button pairs used to be excluded here, and are not any more.** The old note said white
+   * on primary-500 (2.77:1) and white on destructive-500 (3.76:1) were pre-existing web properties
+   * that "belong to the Phase 3 accessibility pass". That pass has happened: the primary ramp moved
+   * to the brand teal with 500 darkened until white clears 4.5, and destructive shifted one step so
+   * 500 is #dc2626. Asserting them is the only thing that stops the next palette edit quietly
+   * reintroducing the failure.
    *
-   * `mutedForeground` in light mode clears AA by a hair. That is not slack to spend: darkening the
-   * backdrop or lightening slate-500 even one step drops it below 4.5 and this test will say so.
+   * Measured, light / dark:
    *
-   * **Deliberately excluded — two pairs that already fail AA on the web today:**
+   *   foreground on appBackground          17.06 / 17.06
+   *   foreground on background             17.85 / 17.06
+   *   cardForeground on card               17.85 / 13.98
+   *   mutedForeground on appBackground      4.55 / 6.96   ← light passes by 0.05
+   *   mutedForeground on card               4.76 / 5.71
+   *   primaryForeground on primary          4.62 / 6.48
+   *   destructiveForeground on destructive  4.83 / 4.83
    *
-   *   primaryForeground on primary        2.77 / 8.33
-   *   destructiveForeground on destructive 3.76 / 3.76
+   * `mutedForeground` in light mode still clears AA by a hair. That is not slack to spend:
+   * darkening the backdrop or lightening slate-500 one step drops it below 4.5 and this test says so.
    *
-   * White on primary-500 and white on red-500 are pre-existing properties of `.btn-primary` and the
-   * destructive styles, not something these tokens introduced — the compiled CSS is unchanged.
-   * Asserting them would fail on day one. Both clear the 3:1 bar for *large* text, so button labels
-   * at 18px+ bold are compliant; small labels are not. Fixing it means moving a brand colour, which
-   * is a design decision, so it belongs to the Phase 3 accessibility pass.
+   * Note `primary` is a *different ramp step* per theme — 500 in light, 400 in dark against a
+   * slate-900 foreground — which is why both directions have to be measured rather than assumed.
    */
   const pairs: readonly [keyof typeof themes.light, keyof typeof themes.light][] = [
     ['foreground', 'appBackground'],
@@ -170,6 +173,8 @@ describe('accessibility floors', () => {
     ['cardForeground', 'card'],
     ['mutedForeground', 'appBackground'],
     ['mutedForeground', 'card'],
+    ['primaryForeground', 'primary'],
+    ['destructiveForeground', 'destructive'],
   ];
 
   it.each(['light', 'dark'] as const)('%s meets AA (4.5:1) for body text', (name) => {

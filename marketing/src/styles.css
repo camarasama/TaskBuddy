@@ -2,10 +2,13 @@
    the app look like one product. Self-contained: no external fonts, scripts, or images. */
 
 :root {
-  --brand-400: #38bdf8;
-  --brand-500: #0ea5e9;
-  --brand-600: #0284c7;
-  --brand-700: #0369a1;
+  /* Brand teal, mirroring shared/src/design/tokens.ts. 400 is the logo's own colour; 500 is the
+     same hue darkened until white text on it clears WCAG AA (4.62:1). Was a sky blue that matched
+     nothing in the logo and failed AA at 2.77:1. */
+  --brand-400: #4aa8bd;
+  --brand-500: #2b7f91;
+  --brand-600: #22697a;
+  --brand-700: #1d5563;
   --success-500: #22c55e;
   --warning-500: #f59e0b;
 

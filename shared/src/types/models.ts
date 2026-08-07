@@ -13,7 +13,18 @@ export type UserRole = 'parent' | 'child' | 'admin';
 export type AgeGroup = '10-12' | '13-16';
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';
 export type TaskStatus = 'active' | 'paused' | 'archived';
-export type AssignmentStatus = 'pending' | 'in_progress' | 'completed' | 'approved' | 'rejected';
+/**
+ * 'expired' has always existed in the Prisma enum but was missing here, so no client could name the
+ * state the expiry cron writes. It is a terminal, system-set status — nothing but the cron produces
+ * it, and it means the instance's own day (plus the family's grace) ran out unfinished.
+ */
+export type AssignmentStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'completed'
+  | 'approved'
+  | 'rejected'
+  | 'expired';
 
 /**
  * TransactionType - M7 update
