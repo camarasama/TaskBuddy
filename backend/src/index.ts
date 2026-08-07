@@ -174,6 +174,10 @@ app.use('/api/v1', globalLimiter);
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/v1/auth/child/login', authLimiter);
 app.use('/api/v1/auth/admin/register', authLimiter);
+// Same guessable-credential shape as child/login (family code + child username, no PIN) — same
+// limiter. /child/pin-reset/complete is NOT here: its input is a 256-bit random token, not a
+// guessable credential, so it needs no dedicated limiter — same reasoning as /reset-password.
+app.use('/api/v1/auth/child/pin-reset/request', authLimiter);
 
 // API routes
 app.use('/api/v1', apiRouter);

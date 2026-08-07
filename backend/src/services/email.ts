@@ -40,6 +40,11 @@ export type EmailTriggerType =
   | 'child_welcome'
   | 'child_profile_updated'
   | 'child_locked'
+  // A child requested a PIN reset (child-initiated, unauthenticated — see
+  // AuthService.requestChildPinReset). Sent to every parent in the family, never to the child: a
+  // forgotten-PIN link that could complete the reset must reach an adult, not the account that is
+  // currently locked out of itself.
+  | 'child_pin_reset_requested'
   | 'admin_created'
   // Closed-test recruitment. Both are admin-scoped (familyId null) and go to people who may have no
   // account at all, so they always send with skipPreferenceCheck.

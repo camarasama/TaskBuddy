@@ -139,6 +139,20 @@ const setupPinSchema = z.object({
   pin: z.string().regex(VALIDATION.PIN.PATTERN, 'PIN must be exactly 4 digits'),
 });
 
+// Deliberately the SAME shape as childLoginSchema minus `pin` and `deviceId` — this is the
+// unauthenticated "I forgot my PIN" counterpart to child login, so it takes exactly what child
+// login takes to identify the child, and nothing that could identify the requester as anything
+// more privileged than "knows the family code and a child's username".
+const childPinResetRequestSchema = z.object({
+  familyCode: z.string().min(1).max(50).transform((val) => val.toUpperCase().trim()),
+  childIdentifier: z.string().min(1),
+});
+
+const childPinResetCompleteSchema = z.object({
+  token: z.string().min(1),
+  newPin: z.string().regex(VALIDATION.PIN.PATTERN, 'PIN must be exactly 4 digits'),
+});
+
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
   newPassword: z.string().min(VALIDATION.PASSWORD.NEW_MIN_LENGTH),
@@ -527,6 +541,55 @@ authRouter.post('/child/pin/setup', authenticate, validateBody(setupPinSchema), 
     next(error);
   }
 });
+
+// ── Child-initiated PIN reset ─────────────────────────────────────────────────
+// A child who forgot their PIN cannot authenticate to ask a parent to reset it (that's the
+// existing /child/pin/setup route above, gated by `authenticate` + a parent session) — this is the
+// unauthenticated counterpart, reached from the sign-in screen. Rate-limited the same way
+// /child/login is (see index.ts: authLimiter is mounted on this path too), for the same reason:
+// the input here — a family code plus a child's username — is exactly as guessable as a login
+// attempt, just without a PIN to also brute-force.
+
+// POST /auth/child/pin-reset/request - Request a PIN-reset email for a child (unauthenticated)
+authRouter.post(
+  '/child/pin-reset/request',
+  validateBody(childPinResetRequestSchema),
+  async (req, res, next) => {
+    try {
+      await authService.requestChildPinReset(req.body.familyCode, req.body.childIdentifier);
+
+      // Identical response whether or not the family/child pair exists — this route must NEVER
+      // branch on anything the service could tell it, because the service deliberately returns
+      // nothing to branch on (see AuthService.requestChildPinReset for the anti-enumeration
+      // reasoning in full). An oracle here enumerates children, not adults.
+      res.json({
+        success: true,
+        data: {
+          message: "If that family and child match, a reset link has been sent to the family's parents.",
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// POST /auth/child/pin-reset/complete - Complete a child PIN reset with the emailed token
+authRouter.post(
+  '/child/pin-reset/complete',
+  validateBody(childPinResetCompleteSchema),
+  async (req, res, next) => {
+    try {
+      await authService.completeChildPinReset(req.body.token, req.body.newPin);
+      res.json({
+        success: true,
+        data: { message: 'PIN reset successfully. You can now sign in with your new PIN.' },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // POST /auth/family/regenerate-code - Regenerate memorable family code (parent only)
 authRouter.post('/family/regenerate-code', authenticate, async (req, res, next) => {
