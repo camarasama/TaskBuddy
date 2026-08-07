@@ -20,11 +20,19 @@
  *
  * A task with nobody assigned becomes a pool task children can claim — that is a real product
  * feature, not an incomplete form, so the button never blocks on it.
+ *
+ * ## Templates are an input path, not a second way to create a task (U5)
+ *
+ * Picking one only *fills these fields*; nothing is created until the parent submits, and everything
+ * stays editable afterwards. Hence create-only: on an edit it would overwrite a real task's values,
+ * which is not what "start from" means. Backing out must stay as easy as choosing, so the sheet closes
+ * on Android back, on the backdrop, and on a button.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TaskTemplateRow } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -42,10 +50,13 @@ import {
   updateTask,
   type TaskInput,
 } from '@/lib/parentWriteApi';
+import { fillFromTaskTemplate, taskTemplatesQuery } from '@/lib/templatesApi';
 import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
 
 const MIN_POINTS = 5;
 const MAX_POINTS = 1000;
+/** The server's cap on `estimatedMinutes` (8 hours). Below it, anything from 1 is accepted. */
+const MAX_MINUTES = 480;
 
 /** Days from now, offered as chips. Typing a date on a phone is miserable and error-prone. */
 const DUE_PRESETS: { label: string; days: number }[] = [
@@ -93,6 +104,8 @@ export default function TaskForm() {
   const [dueDays, setDueDays] = useState(1);
   const [assigned, setAssigned] = useState<string[]>([]);
   const [requiresPhoto, setRequiresPhoto] = useState(false);
+  const [minutes, setMinutes] = useState('');
+  const [picking, setPicking] = useState(false);
   /**
    * Populated once, when the fetch lands.
    *
@@ -112,13 +125,38 @@ export default function TaskForm() {
     setPoints(String(existing.pointsValue));
     setAssigned(existing.assignments?.map((a) => a.childId) ?? []);
     setRequiresPhoto(existing.requiresPhotoEvidence ?? false);
+    setMinutes(existing.estimatedMinutes ? String(existing.estimatedMinutes) : '');
   }, [existing]);
+
+  // Fetched only once the sheet is opened. `enabled` matters more than it looks: the form is opened
+  // far more often than the sheet, and the rate limiter is 100 requests per 15 minutes keyed on IP —
+  // one bucket for the whole household. Keyed on the first assigned child so the rows suit their age.
+  const templates = useQuery({ ...taskTemplatesQuery(assigned[0]), enabled: picking && !editing });
+  const templateRows = templates.data?.templates ?? [];
 
   const pointsValue = Number.parseInt(points, 10);
   const pointsValid =
     Number.isInteger(pointsValue) && pointsValue >= MIN_POINTS && pointsValue <= MAX_POINTS;
   const titleValid = title.trim().length >= 3 && title.trim().length <= 200;
-  const canSubmit = titleValid && pointsValid && !busy;
+  /** Blank is valid — it means "no estimate", which is what most tasks have. */
+  const minutesValue = Number.parseInt(minutes, 10);
+  const minutesValid =
+    minutes.trim() === '' ||
+    (Number.isInteger(minutesValue) && minutesValue >= 1 && minutesValue <= MAX_MINUTES);
+  const canSubmit = titleValid && pointsValid && minutesValid && !busy;
+
+  // Copy a template's values in, then get out of the way. Nothing is created and nothing is remembered,
+  // so editing afterwards never writes back to the template. Assignment is left alone on purpose —
+  // whoever the parent already ticked is their choice, not the template's.
+  function applyTemplate(template: TaskTemplateRow) {
+    const fill = fillFromTaskTemplate(template);
+    setTitle(fill.title);
+    setDescription(fill.description);
+    setPoints(fill.points);
+    setMinutes(fill.estimatedMinutes);
+    setRequiresPhoto(fill.requiresPhotoEvidence);
+    setPicking(false);
+  }
 
   const invalidate = useCallback(async () => {
     await Promise.all(
@@ -147,6 +185,8 @@ export default function TaskForm() {
       dueDate: dueDateFor(dueDays),
       assignedTo: assigned,
       requiresPhotoEvidence: requiresPhoto,
+      // Omitted rather than sent as 0 when blank — the server rejects 0 and ignores an absent value.
+      estimatedMinutes: minutesValid && minutes.trim() !== '' ? minutesValue : undefined,
     };
 
     try {
@@ -189,6 +229,13 @@ export default function TaskForm() {
           {editing ? 'Edit task' : 'New task'}
         </AppText>
 
+        {/* Create only — see the top of the file. Ignoring it and typing into the fields is the same form. */}
+        {!editing && (
+          <View style={styles.templateCta}>
+            <Button label="Start from a template" variant="secondary" onPress={() => setPicking(true)} disabled={busy} />
+          </View>
+        )}
+
         <Field
           label="What needs doing?"
           value={title}
@@ -214,6 +261,16 @@ export default function TaskForm() {
           keyboardType="number-pad"
           editable={!busy}
           hint={`${MIN_POINTS}–${MAX_POINTS}. Difficulty is worked out from this.`}
+        />
+
+        <Field
+          label="How long will it take? (optional)"
+          value={minutes}
+          onChangeText={(next) => setMinutes(next.replace(/\D/g, ''))}
+          keyboardType="number-pad"
+          editable={!busy}
+          hint={minutesValid ? 'Minutes. Leave blank if you’d rather not say.' : undefined}
+          error={minutesValid ? undefined : `Between 1 and ${MAX_MINUTES} minutes`}
         />
 
         <AppText style={[styles.label, { color: theme.foreground }]}>Due</AppText>
@@ -334,6 +391,55 @@ export default function TaskForm() {
           )}
         </View>
       </ScrollView>
+
+      {/* Android back and a backdrop tap both dismiss it: a sheet that closes only via its own button
+          reads as a frozen app, and backing out empty-handed has to stay easy. */}
+      <Modal visible={picking} transparent animationType="slide" onRequestClose={() => setPicking(false)}>
+        <Pressable
+          style={styles.backdrop}
+          accessibilityRole="button"
+          accessibilityLabel="Close templates"
+          onPress={() => setPicking(false)}
+        />
+        <View style={[styles.sheet, { backgroundColor: theme.card }]}>
+          <AppText style={[styles.sheetTitle, { color: theme.cardForeground }]}>Start from a template</AppText>
+          <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+            Pick one to fill the form. You can change anything before saving.
+          </AppText>
+
+          <ScrollView style={styles.sheetList}>
+            {templates.isPending ? (
+              <AppText style={[styles.hint, { color: theme.mutedForeground }]}>Loading…</AppText>
+            ) : templates.isError ? (
+              <AppText accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
+                {describeError(templates.error)}
+              </AppText>
+            ) : templateRows.length === 0 ? (
+              <AppText style={[styles.hint, { color: theme.mutedForeground }]}>Nothing here yet.</AppText>
+            ) : (
+              templateRows.map((template) => (
+                <Pressable
+                  key={template.id}
+                  onPress={() => applyTemplate(template)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${template.name}, ${template.suggestedPoints} points`}
+                  style={[styles.templateRow, { borderColor: theme.border }]}
+                >
+                  <AppText style={[styles.templateName, { color: theme.cardForeground }]}>{template.name}</AppText>
+                  <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+                    {template.suggestedPoints} points
+                    {template.estimatedMinutes ? ` · ${template.estimatedMinutes} min` : ''}
+                    {template.ageRange ? ` · ages ${template.ageRange}` : ''}
+                  </AppText>
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
+
+          {/* Backing out with no template chosen must be as easy as choosing one. */}
+          <Button label="No thanks" variant="secondary" onPress={() => setPicking(false)} />
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -371,4 +477,22 @@ const styles = StyleSheet.create({
   checkLabel: { fontSize: fontSize.base.fontSize, flexShrink: 1 },
   actions: { marginTop: spacing[5], marginBottom: spacing[6] },
   gap: { height: spacing[2] },
+  templateCta: { marginBottom: spacing[4] },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: { padding: spacing[5], borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
+  sheetTitle: {
+    fontSize: fontSize.lg.fontSize,
+    fontWeight: fontWeight.bold,
+    marginBottom: spacing[1],
+  },
+  /** Capped so a long library scrolls inside the sheet instead of pushing the exit button off-screen. */
+  sheetList: { maxHeight: 320, marginVertical: spacing[3] },
+  templateRow: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing[3],
+    marginBottom: spacing[2],
+    minHeight: minTouchTarget,
+  },
+  templateName: { fontSize: fontSize.base.fontSize, fontWeight: fontWeight.medium },
 });

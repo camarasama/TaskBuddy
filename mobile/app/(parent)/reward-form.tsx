@@ -17,11 +17,19 @@
  * A collaborative reward pools points from every child rather than being bought by one. It is a real
  * flag on the model (FR-09) and the child shop already renders its progress bar, so the toggle is
  * offered here with one line of explanation.
+ *
+ * ## Preset ideas are an input path, not a second way to create a reward (U5)
+ *
+ * Same rule as the task form: picking one only fills these fields, nothing is created until submit,
+ * and the sheet is offered on create only — on an edit it would overwrite a live reward's own name and
+ * price. The presets arrive ranked by what families actually redeem (U19), so the order is meaningful
+ * and is left exactly as the server sent it.
  */
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { RankedRewardPreset } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -38,7 +46,8 @@ import {
   type RewardInput,
 } from '@/lib/parentWriteApi';
 import { rewardsQuery } from '@/lib/rewardsApi';
-import { fontSize, fontWeight, minTouchTarget, spacing, useTheme } from '@/theme';
+import { fillFromRewardPreset, rewardPresetsQuery } from '@/lib/templatesApi';
+import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
 
 /** Blank means "no cap". Parsed to undefined so the server stores null rather than 0. */
 function optionalCount(raw: string): number | undefined {
@@ -71,8 +80,28 @@ export default function RewardForm() {
     existing?.maxRedemptionsTotal ? String(existing.maxRedemptionsTotal) : ''
   );
   const [collaborative, setCollaborative] = useState(existing?.isCollaborative ?? false);
+  const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetched only once the sheet is opened — the form is opened far more often than the ideas are
+  // asked for, and every request comes out of a rate-limit bucket shared by the whole household.
+  const presets = useQuery({ ...rewardPresetsQuery(), enabled: picking && !editing });
+  const presetRows = presets.data?.presets ?? [];
+
+  /**
+   * Copy a preset's values in and close.
+   *
+   * The caps and the collaborative flag are deliberately left alone: a preset has no opinion on them,
+   * and clearing what the parent already typed would be a surprise rather than a pre-fill.
+   */
+  function applyPreset(preset: RankedRewardPreset) {
+    const fill = fillFromRewardPreset(preset);
+    setName(fill.name);
+    setDescription(fill.description);
+    setCost(fill.cost);
+    setPicking(false);
+  }
 
   const pointsCost = Number.parseInt(cost, 10);
   const costValid = Number.isInteger(pointsCost) && pointsCost >= 1 && pointsCost <= 100000;
@@ -141,6 +170,21 @@ export default function RewardForm() {
         <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
           {editing ? 'Edit reward' : 'New reward'}
         </AppText>
+
+        {/* Create only — see the note at the top on why an edit must not be overwritten. */}
+        {!editing && (
+          <>
+            <Button
+              label="Need ideas?"
+              variant="secondary"
+              onPress={() => setPicking(true)}
+              disabled={busy}
+            />
+            <AppText style={[styles.hint, { color: theme.mutedForeground }, styles.afterButton]}>
+              Or just fill it in yourself.
+            </AppText>
+          </>
+        )}
 
         <Field
           label="What is it?"
@@ -232,6 +276,65 @@ export default function RewardForm() {
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={picking}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPicking(false)}
+      >
+        <Pressable
+          style={styles.backdrop}
+          accessibilityRole="button"
+          accessibilityLabel="Close ideas"
+          onPress={() => setPicking(false)}
+        />
+        <View style={[styles.sheet, { backgroundColor: theme.card }]}>
+          <AppText style={[styles.sheetTitle, { color: theme.cardForeground }]}>Reward ideas</AppText>
+          <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+            Pick one to fill the form. You can change anything before saving.
+          </AppText>
+
+          <ScrollView style={styles.sheetList}>
+            {presets.isPending ? (
+              <AppText style={[styles.hint, { color: theme.mutedForeground }]}>Loading…</AppText>
+            ) : presets.isError ? (
+              <AppText accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
+                {describeError(presets.error)}
+              </AppText>
+            ) : presetRows.length === 0 ? (
+              <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+                No ideas available right now.
+              </AppText>
+            ) : (
+              presetRows.map((preset) => (
+                <Pressable
+                  key={preset.name}
+                  onPress={() => applyPreset(preset)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${preset.name}, ${preset.pointsCost} points`}
+                  style={[styles.presetRow, { borderColor: theme.border }]}
+                >
+                  <AppText style={[styles.presetName, { color: theme.cardForeground }]}>
+                    {preset.name}
+                  </AppText>
+                  <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+                    {preset.pointsCost} points
+                    {/* Say WHY it sits where it does — an unexplained order just looks arbitrary. */}
+                    {preset.familyRedemptions > 0
+                      ? ` · redeemed ${preset.familyRedemptions}× here`
+                      : ''}
+                    {preset.alreadyAdded ? ' · you already have this one' : ''}
+                  </AppText>
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
+
+          {/* Backing out with no preset chosen must be as easy as choosing one. */}
+          <Button label="No thanks" variant="secondary" onPress={() => setPicking(false)} />
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -255,4 +358,28 @@ const styles = StyleSheet.create({
   checkLabel: { fontSize: fontSize.base.fontSize, flexShrink: 1 },
   actions: { marginTop: spacing[5], marginBottom: spacing[6] },
   gap: { height: spacing[2] },
+  afterButton: { marginTop: spacing[2], marginBottom: spacing[4] },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: {
+    padding: spacing[5],
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+  },
+  sheetTitle: {
+    fontSize: fontSize.lg.fontSize,
+    lineHeight: fontSize.lg.lineHeight,
+    fontWeight: fontWeight.bold,
+    marginBottom: spacing[1],
+  },
+  /** Capped so a long list scrolls inside the sheet instead of pushing the exit button off-screen. */
+  sheetList: { maxHeight: 320, marginVertical: spacing[3] },
+  presetRow: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[3],
+    marginBottom: spacing[2],
+    minHeight: minTouchTarget,
+  },
+  presetName: { fontSize: fontSize.base.fontSize, fontWeight: fontWeight.medium },
 });

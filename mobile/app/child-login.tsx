@@ -23,6 +23,7 @@ import { router } from 'expo-router';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
+import { Logo } from '@/components/Logo';
 import { Screen } from '@/components/Screen';
 import { describeError } from '@/lib/errors';
 import { getStoredFamilyCode, setStoredFamilyCode } from '@/lib/familyCodeStore';
@@ -88,6 +89,7 @@ export default function ChildLogin() {
 
   return (
     <Screen scroll center>
+      <Logo width={128} />
       <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>
         Sign in
       </AppText>

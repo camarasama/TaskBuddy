@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
 import { setToken } from '@/lib/api';
+import { VALIDATION } from '@taskbuddy/shared';
 
 interface InvitePreview {
   familyName: string;
@@ -35,7 +36,16 @@ interface FormErrors {
   confirmPassword?: string;
 }
 
-const MIN_PASSWORD_LENGTH = 8;
+/**
+ * The floor the SERVER enforces for a NEW password, imported rather than restated.
+ *
+ * This was hardcoded to 8 in three separate files while every route that *sets* a password
+ * validates against `VALIDATION.PASSWORD.NEW_MIN_LENGTH`, which is 10. (8 is `MIN_LENGTH` — the
+ * legacy floor kept so existing passwords still log in.) The form accepted 8 characters, told the
+ * user it was fine, and the API then rejected it: a signup that fails after you press the button,
+ * with a message from the server rather than the field.
+ */
+const MIN_PASSWORD_LENGTH = VALIDATION.PASSWORD.NEW_MIN_LENGTH;
 
 // Use NEXT_PUBLIC_API_URL for all fetch calls so the page works over ngrok too.
 // In .env.local set: NEXT_PUBLIC_API_URL=https://xxxx.ngrok-free.app/api/v1
@@ -359,7 +369,7 @@ function AcceptInviteInner() {
                   </label>
                   <Input
                     type="password"
-                    placeholder="At least 8 characters"
+                    placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                     value={form.password}
                     onChange={(e) => setField('password', e.target.value)}
                     error={errors.password}

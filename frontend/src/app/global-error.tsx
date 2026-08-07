@@ -77,7 +77,7 @@ export default function GlobalError({
               padding: '0 1.5rem',
               border: 'none',
               borderRadius: '0.5rem',
-              background: '#0ea5e9',
+              background: '#2b7f91', // brand teal (primary-500), hardcoded: this screen renders without the token pipeline
               color: '#fff',
               fontSize: '1rem',
               fontWeight: 600,

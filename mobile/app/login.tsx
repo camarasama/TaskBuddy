@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
+import { Logo } from '@/components/Logo';
 import { Screen } from '@/components/Screen';
 import { describeError } from '@/lib/errors';
 import { useAuth } from '@/stores/auth';
@@ -50,6 +51,7 @@ export default function ParentLogin() {
 
   return (
     <Screen scroll center>
+      <Logo width={128} />
       <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Parent sign-in</AppText>
 
       <Field
@@ -87,6 +89,36 @@ export default function ParentLogin() {
       <View style={styles.actions}>
         <Button label="Sign in" onPress={submit} busy={busy} disabled={!canSubmit} />
       </View>
+
+      {/*
+        The three ways out of this screen, in the order a stuck user wants them: the password they
+        cannot remember, the account they have not made, and the way back.
+
+        `push` rather than `replace` for the first two, so the hardware back button returns here
+        instead of leaving the app — both screens are detours from signing in, not replacements
+        for it.
+      */}
+      <Pressable
+        onPress={() => router.push('/forgot-password')}
+        accessibilityRole="button"
+        style={styles.backLink}
+        disabled={busy}
+      >
+        <AppText style={[styles.backText, { color: theme.mutedForeground }]}>
+          Forgotten your password?
+        </AppText>
+      </Pressable>
+
+      <Pressable
+        onPress={() => router.push('/register')}
+        accessibilityRole="button"
+        style={styles.backLink}
+        disabled={busy}
+      >
+        <AppText style={[styles.backText, { color: theme.mutedForeground }]}>
+          New here? Create a family account
+        </AppText>
+      </Pressable>
 
       <Pressable
         onPress={() => router.back()}

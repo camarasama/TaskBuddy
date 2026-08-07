@@ -52,7 +52,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
      */
     versionCode: 1,
     adaptiveIcon: {
-      backgroundColor: '#E6F4FE',
+      // Tinted from the brand teal (primary-50, #f0fafc) rather than the Expo template's blue.
+      // The adaptive foreground is transparent, so this is what shows through the launcher's mask —
+      // leaving it sky-blue would have framed a teal logo in the old palette.
+      backgroundColor: '#f0fafc',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
@@ -62,6 +65,53 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   web: {
     favicon: './assets/favicon.png',
   },
+  /**
+   * EAS Update (over-the-air JS/asset updates).
+   *
+   * Why this exists: build queues on this account run 130–200 minutes, and the Play closed test is
+   * 14 days long. A JS-only fix published here reaches installed apps in minutes. Anything that
+   * touches NATIVE code (a new native module, a config-plugin change, an SDK bump) still requires a
+   * real build — an OTA update cannot ship native code.
+   *
+   * The URL is the standard EAS Update endpoint for this project. The UUID is the same one as
+   * `extra.eas.projectId` below and must stay identical to it; the project ID is permanent, so this
+   * is a fixed value rather than a drift risk.
+   *
+   * Defaults left alone deliberately: `checkAutomatically` stays ON_LOAD and
+   * `fallbackToCacheTimeout` stays 0, so a cold start never blocks on the network. The app launches
+   * the bundle it already has and applies any newly downloaded update on the NEXT launch. That means
+   * a published fix reaches a tester on their second app open, which is the right trade — the
+   * alternative is a startup that stalls on a bad connection.
+   */
+  updates: {
+    url: 'https://u.expo.dev/2788418b-e7dd-46b0-9dc9-b812b038308e',
+  },
+  /**
+   * ⚠️ The safety interlock for the above. The runtime version identifies the NATIVE side of a
+   * build. The client sends it when asking for an update, and the server only hands back updates
+   * that declare the same runtime version — so a JS bundle built against different native code is
+   * REFUSED rather than downloaded into a binary that cannot run it (which is a hard crash on
+   * launch, on a tester's phone, with no way for us to take it back).
+   *
+   * Policy chosen: `appVersion`. The runtime version becomes the `version` string above ("0.1.0"),
+   * so the rule is: **bump `version` whenever native code changes**, and old binaries stop being
+   * offered new JS automatically.
+   *
+   * Why not `fingerprint`, which derives the runtime version from a hash of the native project and
+   * would enforce this without anyone remembering to bump anything? Because fingerprint only works
+   * if the machine PUBLISHING the update computes byte-identical inputs to the machine that BUILT
+   * the binary — and this is a hoisted monorepo where those inputs are known to be unstable
+   * (duplicate React versions, and the patch drift across expo/expo-constants/expo-linking/
+   * expo-router that `expo-doctor` reports). A fingerprint mismatch fails silently: the update
+   * publishes fine and simply never reaches a single tester, with no error anywhere. During a
+   * 14-day test that failure mode is far more expensive than the discipline of bumping a version.
+   *
+   * `appVersion` also lines up with something already true here: `version` is shipped to the backend
+   * as `extra.clientVersion` for the force-upgrade gate (P0-2), so bumping it is already part of
+   * releasing a new binary. Revisit `fingerprint` once the monorepo's native dependency tree is
+   * clean.
+   */
+  runtimeVersion: { policy: 'appVersion' },
   // `expo-font` is listed because `expo install` asks for it. Fonts are still loaded at runtime via
   // `useFonts()` rather than embedded through the plugin's `fonts` option — runtime loading is what
   // works in Expo Go, which is how the app is being tested until a development build exists.
