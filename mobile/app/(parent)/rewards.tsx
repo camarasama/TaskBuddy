@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { Chip } from '@/components/Chip';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
 import { asDate } from '@/lib/dates';
@@ -50,12 +51,14 @@ function RedemptionRow({
   const asked = when(item.createdAt);
 
   return (
-    <Card style={{ borderColor: theme.primary }}>
+    // `pending`, not a hand-picked border colour: a redemption sitting here is, structurally, exactly
+    // the same "waiting on a parent decision/action" state as an approval, warm until it is handed over.
+    <Card status="pending">
       <View style={styles.rowHeader}>
         <AppText style={[styles.itemTitle, { color: theme.cardForeground }]} numberOfLines={2}>
           {item.reward.name}
         </AppText>
-        <AppText style={[styles.cost, { color: theme.foreground }]}>{item.pointsSpent} pts</AppText>
+        <Chip label={`${item.pointsSpent} pts`} variant="gold" />
       </View>
 
       <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
@@ -95,7 +98,7 @@ function RewardRow({ reward }: { reward: ParentReward }) {
         <AppText style={[styles.itemTitle, { color: theme.cardForeground }]} numberOfLines={2}>
           {reward.name}
         </AppText>
-        <AppText style={[styles.cost, { color: theme.foreground }]}>{reward.pointsCost} pts</AppText>
+        <Chip label={`${reward.pointsCost} pts`} variant="gold" />
       </View>
 
       {reward.description ? (
@@ -209,7 +212,9 @@ export default function Rewards() {
         </View>
 
         {actionError !== null && (
-          <Card style={{ borderColor: theme.destructive }}>
+          // `late` is the only red in the four-value status enum; reused here purely for its colour
+          // (destructive[500]), not because a fulfilment error is a "late" task in the assignment sense.
+          <Card status="late">
             <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
               {actionError}
             </AppText>
@@ -314,11 +319,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
-  },
-  cost: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.base.lineHeight,
-    fontWeight: fontWeight.bold,
   },
   meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
   notes: {

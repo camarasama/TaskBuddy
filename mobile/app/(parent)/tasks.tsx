@@ -15,14 +15,22 @@ import { AppText } from '@/components/AppText';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
+import { Card, type CardStatus } from '@/components/Card';
+import { Chip } from '@/components/Chip';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
 import { dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { parentTasksQuery, type ParentTask, type TaskFilters } from '@/lib/tasksApi';
-import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
 
+/**
+ * `'all'` or a status. `TaskFilters` also has a `childId` param the backend already accepts, so
+ * per-child filtering is possible without any backend change, it is just not wired into this chip row.
+ * An earlier pass replaced the status chips with per-child ones, which turned out to be a real
+ * capability loss (a parent could no longer reach a paused or archived task from here at all), so
+ * that stays reverted until per-child filtering can be added alongside status rather than instead of it.
+ */
 type StatusFilter = TaskFilters['status'] | 'all';
 
 const FILTERS: { key: StatusFilter; label: string }[] = [
@@ -39,40 +47,43 @@ function FilterChips({
   value: StatusFilter;
   onChange: (next: StatusFilter) => void;
 }) {
-  const theme = useTheme();
-
   return (
     <View style={styles.chipRow}>
-      {FILTERS.map((filter) => {
-        const selected = filter.key === value;
-        return (
-          <Pressable
-            key={filter.key}
-            onPress={() => onChange(filter.key)}
-            accessibilityRole="button"
-            // Announces which chip is active; a background colour alone tells a screen reader nothing.
-            accessibilityState={{ selected }}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: selected ? theme.primary : theme.card,
-                borderColor: selected ? theme.primary : theme.border,
-              },
-            ]}
-          >
-            <AppText
-              style={[
-                styles.chipLabel,
-                { color: selected ? theme.primaryForeground : theme.cardForeground },
-              ]}
-            >
-              {filter.label}
-            </AppText>
-          </Pressable>
-        );
-      })}
+      {FILTERS.map((filter) => (
+        <Chip
+          key={filter.key}
+          label={filter.label}
+          // Settled pairing for a filter chip: `primary` (filled) for the selected one, `info` (tinted)
+          // for the rest. Left undecided by the primitives unit, now fixed here for every filter chip
+          // in the app.
+          variant={filter.key === value ? 'primary' : 'info'}
+          selected={filter.key === value}
+          onPress={() => onChange(filter.key)}
+        />
+      ))}
     </View>
   );
+}
+
+/**
+ * A task's stripe, matching the same states the dashboard's approval queue uses: `late` beats
+ * `pending` beats no stripe at all, and a task is never both. `done` is deliberately not derived here:
+ * "all assignments approved" would need to special-case an unassigned task (zero assignments is not
+ * the same as zero *un*approved ones), and the row already says the approved count in words via
+ * `assignmentSummary`, so a green stripe would be repeating rather than adding information.
+ */
+function taskCardStatus(task: ParentTask): CardStatus | undefined {
+  if (isOverdue(task.dueDate) && task.status === 'active') return 'late';
+  if (task.assignments.some((assignment) => assignment.status === 'completed')) return 'pending';
+  return undefined;
+}
+
+/** 0 sorts first. Late beats pending beats everything else, matching `taskCardStatus`'s own priority. */
+function taskPriority(task: ParentTask): number {
+  const status = taskCardStatus(task);
+  if (status === 'late') return 0;
+  if (status === 'pending') return 1;
+  return 2;
 }
 
 /**
@@ -100,7 +111,7 @@ function TaskRow({ task }: { task: ParentTask }) {
   const overdue = isOverdue(task.dueDate) && task.status === 'active';
 
   return (
-    <Card>
+    <Card status={taskCardStatus(task)}>
       <View style={styles.rowHeader}>
         <AppText style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
           {task.title}
@@ -140,7 +151,7 @@ export default function ParentTasks() {
   const theme = useTheme();
   const [status, setStatus] = useState<StatusFilter>('all');
 
-  // `all` means "send no status param" — the backend has no 'all' value and rejects one.
+  // `all` means "send no status param": the backend has no 'all' value and rejects one.
   const filters = useMemo<TaskFilters>(() => (status === 'all' ? {} : { status }), [status]);
 
   const {
@@ -155,7 +166,15 @@ export default function ParentTasks() {
     isFetchingNextPage,
   } = useInfiniteQuery(parentTasksQuery(filters));
 
-  const tasks = useMemo(() => data?.pages.flatMap((page) => page.tasks) ?? [], [data]);
+  // Sorted, not just fetched-order: the redesign wants late and pending tasks to read first. This only
+  // reorders whichever page(s) are already loaded, it does not ask the server for a different order,
+  // so a task that arrives on a later page can still appear above one already on screen. Acceptable for
+  // a family's task list (rarely more than one page deep) but worth knowing about before this pattern
+  // is copied onto a longer list.
+  const tasks = useMemo(() => {
+    const flat = data?.pages.flatMap((page) => page.tasks) ?? [];
+    return [...flat].sort((a, b) => taskPriority(a) - taskPriority(b));
+  }, [data]);
   const total = data?.pages[0]?.pagination.total ?? 0;
 
   const onEndReached = useCallback(() => {
@@ -263,14 +282,6 @@ const styles = StyleSheet.create({
   },
   headerAction: { marginBottom: spacing[3] },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
-  chip: {
-    minHeight: minTouchTarget,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[4],
-    borderRadius: radius.full,
-    borderWidth: 1,
-  },
-  chipLabel: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.medium },
   listContent: { paddingBottom: spacing[6] },
   rowHeader: {
     flexDirection: 'row',

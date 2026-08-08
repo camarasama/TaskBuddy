@@ -1,21 +1,20 @@
 /**
- * Parent dashboard — the first screen with real data.
+ * Parent dashboard: the first screen with real data.
  *
- * Shape follows the web's parent dashboard: the approval queue first (it is the only thing here that
- * is *blocking* someone else), then the children, then the week's totals. Ordering by urgency rather
- * than by data-model tidiness is the point — a parent opening this app mid-morning wants to know
- * whether a child is waiting on them.
+ * Shape follows the redesign brief: a headline stat row, then the approval queue (the only thing here
+ * that is *blocking* someone else), then per-child progress, then the week's totals. Ordering by
+ * urgency rather than by data-model tidiness is the point, a parent opening this app mid-morning wants
+ * to know whether a child is waiting on them before anything else loads their attention.
  *
  * Deliberately read-only for now. Approving from here needs the evidence viewer, which is its own
  * screen; this one links into it once that exists.
  *
  * ## Where the colour goes
  *
- * A parent's screen is a status board, so the accents mark *kind* rather than celebrate: gold for
- * points, green for finished work, xp-purple for rewards spent, teal for the app's own actions. They
- * are carried by the icons only. The numbers beside them stay `theme.foreground`, because a
- * mid-ramp accent on a white card in light mode and a slate-800 one in dark cannot clear AA in both
- * — and these are 20dp figures a parent reads at a glance, not decoration.
+ * Colour now encodes *state*, not mood: the "To approve" tile and the waiting-on-you cards read warm
+ * (`warning`) because they need a decision, the empty/settled states read `success` green, and points
+ * read `gold`. The state lives on the `Card` stripe and the `StatTile` tint, not on the numbers
+ * themselves, so a mid-ramp accent never has to clear AA against body text.
  */
 // The family's own module, not the `@expo/vector-icons` barrel — that barrel bundles all 20 icon
 // fonts. Same rule as the tab bar in `_layout.tsx`.
@@ -28,14 +27,18 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import type { ParentDashboardResponse } from '@taskbuddy/shared';
 
+import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CardHeading } from '@/components/CardHeading';
+import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
+import { StatTile } from '@/components/StatTile';
 import { NetworkError } from '@/lib/api';
 import { dashboardQuery } from '@/lib/dashboardApi';
 import { unreadCountQuery } from '@/lib/notificationsApi';
 import { plural } from '@/lib/plural';
+import { completionPercent } from '@/lib/taskStatus';
 import { describeError } from '@/lib/errors';
 import { useAuth } from '@/stores/auth';
 import { fontSize, fontWeight, palette, spacing, useTheme } from '@/theme';
@@ -65,44 +68,42 @@ function Stat({ label, value, icon, tint }: { label: string; value: number; icon
   );
 }
 
-function ChildRow({ child, first }: { child: Child; first: boolean }) {
+/**
+ * One child's row in the per-child progress section.
+ *
+ * The redesign spec calls this "weekly progress", but `ParentDashboardResponse` only carries
+ * `todaysTasks` / `completedToday` per child (see `shared/src/types/api.ts`), there is no per-child
+ * weekly figure anywhere in this payload, only the family-wide `weeklyStats` below. Drawing the bar
+ * from today's ratio and labelling it "weekly" would show a number that is not actually weekly, so this
+ * renders what the data actually is (today's completion) rather than mislabel it. See the report for
+ * this unit; a real weekly-per-child figure needs a backend change, which is out of scope here.
+ */
+function ChildProgressRow({ child, first }: { child: Child; first: boolean }) {
   const theme = useTheme();
   const { user, profile } = child;
-  const waiting = child.pendingApproval > 0;
+  // Same helper the child-side screens use for their own completion bars, so a 0-of-0 day reads as 0%
+  // here exactly like it does there, rather than two independently-written NaN guards drifting apart.
+  const percent = completionPercent(child.completedToday, child.todaysTasks);
 
   return (
     <View style={[styles.childRow, { borderTopColor: theme.border }, first && styles.firstChildRow]}>
       <View style={styles.childHeader}>
-        <AppText style={[styles.childName, { color: theme.cardForeground }]}>
-          {profile.avatarEmoji ? `${profile.avatarEmoji} ` : ''}
-          {user.firstName}
-        </AppText>
-        <View style={styles.childPoints}>
-          <Ionicons
-            name="star"
-            size={14}
-            color={palette.gold[600]}
-            importantForAccessibility="no"
-            accessibilityElementsHidden
-          />
+        <Avatar seed={user.id} name={user.firstName} size={32} />
+        <View style={styles.childHeaderText}>
+          <AppText style={[styles.childName, { color: theme.cardForeground }]}>{user.firstName}</AppText>
           <AppText style={[styles.childMeta, { color: theme.mutedForeground }]}>
             Level {profile.level} · {profile.pointsBalance} pts
+            {profile.currentStreakDays > 0 ? ` · ${profile.currentStreakDays}-day streak` : ''}
           </AppText>
         </View>
       </View>
 
-      <AppText style={[styles.childMeta, { color: theme.mutedForeground }]}>
-        {child.completedToday} of {child.todaysTasks} done today
-        {profile.currentStreakDays > 0 ? ` · ${profile.currentStreakDays}-day streak` : ''}
-      </AppText>
-
-      {waiting && (
-        // Stated in words as well as colour — colour alone fails for anyone who cannot distinguish it,
-        // and this is the row's most important fact.
-        <AppText style={[styles.childWaiting, { color: theme.primary }]}>
-          {child.pendingApproval} waiting for your approval
-        </AppText>
-      )}
+      <ProgressBar
+        percent={percent}
+        variant="completion"
+        label={`${user.firstName}, ${child.completedToday} of ${child.todaysTasks} tasks done today`}
+        style={styles.childProgressBar}
+      />
     </View>
   );
 }
@@ -164,6 +165,14 @@ export default function ParentDashboard() {
   }
 
   const { children, pendingApprovals, weeklyStats, family } = data;
+  // Family totals for the headline row. Computed here rather than asked of the server: both are cheap
+  // reductions over data this screen already has, and adding a second endpoint call for two sums would
+  // be exactly the kind of new data-fetching this visual-only unit is not meant to introduce.
+  const doneToday = children.reduce((sum, child) => sum + child.completedToday, 0);
+  // Points sitting unspent across every child's balance right now, not points awarded this week (that
+  // is `weeklyStats.pointsEarned` below). Named and labelled "held", not "out": "out" reads as "given
+  // out" to a parent, and that number moves the opposite way from this one the moment a child spends.
+  const pointsHeld = children.reduce((sum, child) => sum + child.profile.pointsBalance, 0);
 
   return (
     <Screen
@@ -180,7 +189,20 @@ export default function ParentDashboard() {
       <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>{greeting}</AppText>
       <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>{family.familyName}</AppText>
 
-      {/* First, because it is the only item here that is blocking somebody else. */}
+      {/* Headline row: what needs the parent right now, above the fold. Three tiles, three stops for a
+          screen reader, not four unlabelled numbers: StatTile has no accessibilityLabel prop of its
+          own to override, it always announces "{value} {label}", so "Points held" is chosen so that
+          concatenation itself reads unambiguously (e.g. "12 Points held"). */}
+      <View style={styles.statTileRow}>
+        <StatTile value={pendingApprovals.length} label="To approve" variant="warning" />
+        <StatTile value={doneToday} label="Done today" variant="success" />
+        <StatTile value={pointsHeld} label="Points held" variant="gold" />
+      </View>
+
+      {/* First, because it is the only item here that is blocking somebody else. One navigation
+          target for the whole queue, same as before this redesign: only the inside is now one
+          pending-status card per item instead of a single summary card. */}
+      <AppText style={[styles.sectionTitle, { color: theme.foreground }]}>Waiting on you</AppText>
       <Pressable
         onPress={() => router.push('/(parent)/approvals')}
         accessibilityRole="button"
@@ -190,54 +212,53 @@ export default function ParentDashboard() {
             : `Approvals, ${pendingApprovals.length} waiting`
         }
       >
-        <Card
-          style={
-            pendingApprovals.length > 0 ? { borderColor: theme.primary, borderWidth: 2 } : undefined
-          }
-        >
-          {/* Amber while something is waiting, green once the queue is empty — the card's own
-              border already carries the urgency, this just stops the heading contradicting it. */}
-          <CardHeading
-            icon={pendingApprovals.length > 0 ? 'time' : 'checkmark-done'}
-            label="Approvals"
-            tint={pendingApprovals.length > 0 ? palette.warning[600] : palette.success[600]}
-          />
-          {pendingApprovals.length === 0 ? (
+        {pendingApprovals.length === 0 ? (
+          // Settled reads green, not the warm "pending" stripe: colour encodes state here, and an
+          // empty queue is the "done" state, not a quiet version of "waiting".
+          <Card status="done">
             <AppText style={[styles.body, { color: theme.cardForeground }]}>
               Nothing waiting. You&apos;re all caught up.
             </AppText>
-          ) : (
-            <>
-              <AppText style={[styles.bigNumber, { color: theme.foreground }]}>
-                {pendingApprovals.length}
+          </Card>
+        ) : (
+          pendingApprovals.map((approval) => (
+            <Card key={approval.id} status="pending">
+              <View style={styles.rowHeader}>
+                <AppText
+                  style={[styles.approvalTitle, { color: theme.cardForeground }]}
+                  numberOfLines={2}
+                >
+                  {approval.task.title}
+                </AppText>
+                <AppText style={[styles.points, { color: theme.foreground }]}>
+                  {approval.task.pointsValue} pts
+                </AppText>
+              </View>
+              <AppText style={[styles.body, { color: theme.mutedForeground }]}>
+                {approval.child.firstName} · waiting for your review
               </AppText>
-              <AppText style={[styles.body, { color: theme.cardForeground }]}>
-                {pendingApprovals.length === 1 ? 'task is' : 'tasks are'} waiting for you to review.
-              </AppText>
-            </>
-          )}
-          <AppText style={[styles.body, { color: theme.primary }]}>Review →</AppText>
-        </Card>
+            </Card>
+          ))
+        )}
       </Pressable>
 
+      {/* Same single navigation target as before (children list); the content inside is now each
+          child's own-day completion bar rather than a paragraph of stats. See ChildProgressRow for
+          why this says "today" and not "weekly". */}
+      <AppText style={[styles.sectionTitle, { color: theme.foreground }]}>Progress today</AppText>
       <Pressable
         onPress={() => router.push('/(parent)/children')}
         accessibilityRole="button"
         accessibilityLabel={`Children, ${children.length}`}
       >
         <Card>
-          <CardHeading
-            icon="people"
-            label={children.length === 1 ? 'Child' : 'Children'}
-            tint={theme.primary}
-          />
           {children.length === 0 ? (
             <AppText style={[styles.body, { color: theme.cardForeground }]}>
               No children added yet. You can add them on the web for now.
             </AppText>
           ) : (
             children.map((child, index) => (
-              <ChildRow key={child.user.id} child={child} first={index === 0} />
+              <ChildProgressRow key={child.user.id} child={child} first={index === 0} />
             ))
           )}
           <AppText style={[styles.body, { color: theme.primary }]}>See details →</AppText>
@@ -288,7 +309,10 @@ export default function ParentDashboard() {
           unread === 0 ? 'Notifications, nothing new' : `Notifications, ${unread} unread`
         }
       >
-        <Card style={unread > 0 ? { borderColor: theme.primary, borderWidth: 2 } : undefined}>
+        {/* `info`, not `pending`: unread notifications are not an assignment awaiting the parent's
+            decision the way an approval is, they share the app's own teal rather than the warm
+            "needs you" colour. */}
+        <Card status={unread > 0 ? 'info' : undefined}>
           <CardHeading
             icon={unread > 0 ? 'notifications' : 'notifications-outline'}
             label="Notifications"
@@ -360,9 +384,30 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   body: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  bigNumber: {
-    fontSize: fontSize['4xl'].fontSize,
-    lineHeight: fontSize['4xl'].lineHeight,
+  sectionTitle: {
+    fontSize: fontSize.base.fontSize,
+    lineHeight: fontSize.base.lineHeight,
+    fontWeight: fontWeight.semibold,
+    marginBottom: spacing[2],
+    marginTop: spacing[1],
+  },
+  statTileRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[5] },
+  rowHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing[3],
+    marginBottom: spacing[1],
+  },
+  approvalTitle: {
+    flex: 1,
+    fontSize: fontSize.base.fontSize,
+    lineHeight: fontSize.base.lineHeight,
+    fontWeight: fontWeight.semibold,
+  },
+  points: {
+    fontSize: fontSize.sm.fontSize,
+    lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.bold,
   },
   statRow: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -377,27 +422,20 @@ const styles = StyleSheet.create({
   childRow: { borderTopWidth: 1, paddingTop: spacing[3], marginTop: spacing[3] },
   childHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    // Centre rather than baseline: the points side is now a row containing an icon, and a View has
-    // no baseline for RN to align against — it falls back to the bottom edge and the name sits high.
+    // Centre rather than baseline: the avatar is a fixed-size square and a View has no baseline for RN
+    // to align against, it falls back to the bottom edge and the name sits high.
     alignItems: 'center',
-    marginBottom: spacing[1],
-    gap: spacing[2],
+    gap: spacing[3],
+    marginBottom: spacing[2],
   },
+  childHeaderText: { flex: 1 },
   childName: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
-    flexShrink: 1,
   },
   childMeta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  childPoints: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], flexShrink: 0 },
-  childWaiting: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    fontWeight: fontWeight.semibold,
-    marginTop: spacing[1],
-  },
+  childProgressBar: { marginTop: spacing[1] },
   actions: { marginTop: spacing[5] },
   moreRow: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[2] },
   // The first row sits directly under the card title, where a divider reads as a stray line.
