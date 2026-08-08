@@ -169,7 +169,10 @@ export default function ParentDashboard() {
   // reductions over data this screen already has, and adding a second endpoint call for two sums would
   // be exactly the kind of new data-fetching this visual-only unit is not meant to introduce.
   const doneToday = children.reduce((sum, child) => sum + child.completedToday, 0);
-  const pointsOut = children.reduce((sum, child) => sum + child.profile.pointsBalance, 0);
+  // Points sitting unspent across every child's balance right now, not points awarded this week (that
+  // is `weeklyStats.pointsEarned` below). Named and labelled "held", not "out": "out" reads as "given
+  // out" to a parent, and that number moves the opposite way from this one the moment a child spends.
+  const pointsHeld = children.reduce((sum, child) => sum + child.profile.pointsBalance, 0);
 
   return (
     <Screen
@@ -187,12 +190,13 @@ export default function ParentDashboard() {
       <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>{family.familyName}</AppText>
 
       {/* Headline row: what needs the parent right now, above the fold. Three tiles, three stops for a
-          screen reader (StatTile already combines each value and label into one accessibilityLabel), not
-          four unlabelled numbers. */}
+          screen reader, not four unlabelled numbers: StatTile has no accessibilityLabel prop of its
+          own to override, it always announces "{value} {label}", so "Points held" is chosen so that
+          concatenation itself reads unambiguously (e.g. "12 Points held"). */}
       <View style={styles.statTileRow}>
         <StatTile value={pendingApprovals.length} label="To approve" variant="warning" />
         <StatTile value={doneToday} label="Done today" variant="success" />
-        <StatTile value={pointsOut} label="Points out" variant="gold" />
+        <StatTile value={pointsHeld} label="Points held" variant="gold" />
       </View>
 
       {/* First, because it is the only item here that is blocking somebody else. One navigation

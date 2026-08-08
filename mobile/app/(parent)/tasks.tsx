@@ -12,13 +12,12 @@ import { useCallback, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
 import { Card, type CardStatus } from '@/components/Card';
 import { Chip } from '@/components/Chip';
 import { Screen } from '@/components/Screen';
-import { type ChildMember, childrenQuery } from '@/lib/childrenApi';
 import { NetworkError } from '@/lib/api';
 import { dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
@@ -26,42 +25,40 @@ import { parentTasksQuery, type ParentTask, type TaskFilters } from '@/lib/tasks
 import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
 
 /**
- * `'all'` or a child's id. The redesign brief replaces the old status chips (All/Active/Paused/
- * Archived) with per-child ones, so filtering by status is no longer reachable from this screen's
- * chip row. `childId` already exists on `TaskFilters` and the backend already accepts it (it just had
- * no UI here before), so this reuses an existing filter rather than adding a new one.
+ * `'all'` or a status. `TaskFilters` also has a `childId` param the backend already accepts, so
+ * per-child filtering is possible without any backend change, it is just not wired into this chip row.
+ * An earlier pass replaced the status chips with per-child ones, which turned out to be a real
+ * capability loss (a parent could no longer reach a paused or archived task from here at all), so
+ * that stays reverted until per-child filtering can be added alongside status rather than instead of it.
  */
-type ChildFilter = 'all' | string;
+type StatusFilter = TaskFilters['status'] | 'all';
+
+const FILTERS: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'active', label: 'Active' },
+  { key: 'paused', label: 'Paused' },
+  { key: 'archived', label: 'Archived' },
+];
 
 function FilterChips({
-  familyChildren,
   value,
   onChange,
 }: {
-  // Named `familyChildren`, not `children` — this is a data prop (the family's kids), and naming it
-  // `children` would read as the JSX children slot this component does not have.
-  familyChildren: ChildMember[];
-  value: ChildFilter;
-  onChange: (next: ChildFilter) => void;
+  value: StatusFilter;
+  onChange: (next: StatusFilter) => void;
 }) {
   return (
     <View style={styles.chipRow}>
-      <Chip
-        label="All"
-        // Settled pairing for a filter chip: `primary` (filled) for the selected one, `info` (tinted)
-        // for the rest. Left undecided by the primitives unit, now fixed here for every filter chip
-        // in the app.
-        variant={value === 'all' ? 'primary' : 'info'}
-        selected={value === 'all'}
-        onPress={() => onChange('all')}
-      />
-      {familyChildren.map((child) => (
+      {FILTERS.map((filter) => (
         <Chip
-          key={child.id}
-          label={child.firstName}
-          variant={value === child.id ? 'primary' : 'info'}
-          selected={value === child.id}
-          onPress={() => onChange(child.id)}
+          key={filter.key}
+          label={filter.label}
+          // Settled pairing for a filter chip: `primary` (filled) for the selected one, `info` (tinted)
+          // for the rest. Left undecided by the primitives unit, now fixed here for every filter chip
+          // in the app.
+          variant={filter.key === value ? 'primary' : 'info'}
+          selected={filter.key === value}
+          onPress={() => onChange(filter.key)}
         />
       ))}
     </View>
@@ -152,19 +149,10 @@ function TaskRow({ task }: { task: ParentTask }) {
 
 export default function ParentTasks() {
   const theme = useTheme();
-  const [childFilter, setChildFilter] = useState<ChildFilter>('all');
+  const [status, setStatus] = useState<StatusFilter>('all');
 
-  // The chip row needs the family's children regardless of which page of tasks is loaded (a child with
-  // no tasks yet must still get a chip), so this is its own query rather than derived from `tasks`.
-  // Same `childrenQuery()` the children screen already uses, so it is very likely already warm in the
-  // cache by the time a parent reaches this tab.
-  const childrenList = useQuery(childrenQuery());
-
-  // `all` means "send no childId param": the backend has no 'all' value and rejects one.
-  const filters = useMemo<TaskFilters>(
-    () => (childFilter === 'all' ? {} : { childId: childFilter }),
-    [childFilter]
-  );
+  // `all` means "send no status param": the backend has no 'all' value and rejects one.
+  const filters = useMemo<TaskFilters>(() => (status === 'all' ? {} : { status }), [status]);
 
   const {
     data,
@@ -188,10 +176,6 @@ export default function ParentTasks() {
     return [...flat].sort((a, b) => taskPriority(a) - taskPriority(b));
   }, [data]);
   const total = data?.pages[0]?.pagination.total ?? 0;
-  const selectedChildName =
-    childFilter === 'all'
-      ? null
-      : (childrenList.data?.find((child) => child.id === childFilter)?.firstName ?? null);
 
   const onEndReached = useCallback(() => {
     // Guarded: FlatList fires this repeatedly while near the end, and without the check every fire
@@ -205,11 +189,7 @@ export default function ParentTasks() {
       <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
         {isPending ? 'Loading…' : `${total} ${total === 1 ? 'task' : 'tasks'}`}
       </AppText>
-      <FilterChips
-        familyChildren={childrenList.data ?? []}
-        value={childFilter}
-        onChange={setChildFilter}
-      />
+      <FilterChips value={status} onChange={setStatus} />
       <View style={styles.headerAction}>
         <Button label="New task" onPress={() => router.push('/(parent)/task-form')} />
       </View>
@@ -262,9 +242,9 @@ export default function ParentTasks() {
           ) : (
             <Card>
               <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                {selectedChildName === null
+                {status === 'all'
                   ? 'No tasks yet. You can create them on the web for now.'
-                  : `No tasks for ${selectedChildName}.`}
+                  : `No ${status} tasks.`}
               </AppText>
             </Card>
           )
