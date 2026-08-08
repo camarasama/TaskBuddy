@@ -164,8 +164,11 @@ export default function Register() {
       useAuth.setState({ status: 'signedIn', user: result.user, offline: false });
 
       toast.show('Account created. Check your email to verify the address.', 'success');
-      // The role chooser redirects into the parent shell on its own.
-      router.replace('/');
+      // Straight into the setup wizard rather than through the role chooser (U6): this route only
+      // ever creates parents (see the note above), so there is no role left to infer, and a family
+      // with an empty dashboard is exactly the activation drop-off the wizard exists to prevent.
+      // `welcome.tsx` is fully skippable and never re-forced on a later sign-in — see its own header.
+      router.replace('/(parent)/welcome');
     } catch (caught) {
       const fromServer = fieldErrors(caught);
       setFields(fromServer);
