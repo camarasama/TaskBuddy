@@ -1,49 +1,41 @@
 /**
  * Child home.
  *
- * Ordered by what a child actually opens the app to see, which is not the same order the parent
- * dashboard uses. A parent wants to know who is blocked on them; a child wants to know how many points
- * they have and how close they are to the thing they are saving for. So: balance, then goal, then
- * today's tasks, then the softer stuff.
+ * Ordered by what a child actually opens the app to see: who-they-are (hero), balance (wallet),
+ * streak, goal, today's tasks, then the softer stuff.
  *
- * ## Two things this screen deliberately does not do
+ * **Never renders evidence photos.** The child payload includes evidence rows but the route does not
+ * presign their URLs, so they are storage keys rather than fetchable links — see `childDashboardApi.ts`.
  *
- * **It never renders evidence photos.** The child payload includes evidence rows but the route does not
- * presign their URLs, so they are storage keys rather than fetchable links — see the note in
- * `childDashboardApi.ts`. Rendering them would produce broken images, not a privacy leak, but it is
- * worth knowing which of the two it is.
+ * **States every status in words, not only colour.** A streak at risk, an overdue task and a completed
+ * one are distinguishable without perceiving hue.
  *
- * **It states every status in words, not only colour.** A streak at risk, an overdue task and a
- * completed one are distinguishable without perceiving hue. Families reviewers check this, and it is
- * the right thing regardless.
+ * ## Why the hero has no "X to level N" bar
  *
- * ## The colour on this screen, and why some of it does not come from `useTheme()`
- *
- * The points card is filled with `theme.primary` and every word on it is `theme.primaryForeground`.
- * That pair is the one the token test measures in both appearances, so the hero card cannot drift
- * out of contrast without a test going red — which is the whole reason it is a semantic pair rather
- * than a teal picked by eye.
- *
- * The chips *on* that fill are the exception, and deliberately **not** theme-dependent: a chip sits on
- * teal, not on the screen, and teal is teal in both appearances. Each is a pale `palette` step
- * carrying a dark one from the same ramp — `xp` for the level, `peach` for the streak, `warning` for
- * the at-risk note — which is around 9:1 whatever the OS setting is. Swapping the ink for
- * `theme.foreground` would put slate-50 on peach in dark mode, at 2.00:1. Do not "simplify" these
- * into semantic roles.
+ * The redesign brief asks for an XP progress bar and an "X to level N" line. The API sends neither, and
+ * this screen deliberately does not compute them — `childrenApi.ts` (the parent's children list) hit
+ * this already: `backend/src/utils/gamification.ts` and `backend/src/services/achievements.ts` compute
+ * level progress with two different formulas over two different XP fields, and `experiencePoints`
+ * (meant to reset on level-up per the schema comment) never actually resets — every approval increments
+ * it and `totalXpEarned` by the same amount, forever. A bar built from either would eventually disagree
+ * with the level the server stored, worse than no bar on a screen a child reads literally. `profile.level`
+ * alone is exactly what the server computed, so that is all the hero claims.
  */
 // From the family's own module, never the `@expo/vector-icons` barrel — the barrel bundles all 20
 // icon fonts on an app whose audience is families with cheap phones and metered data.
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ComponentProps } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useState } from 'react';
 import { RefreshControl, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { ChildDashboardResponse } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
+import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CardHeading } from '@/components/CardHeading';
+import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
 import { childDashboardQuery } from '@/lib/childDashboardApi';
@@ -51,71 +43,136 @@ import { dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { completionPercent, isDone } from '@/lib/taskStatus';
 import { useAuth } from '@/stores/auth';
-import { fontSize, fontWeight, palette, radius, spacing, useTheme } from '@/theme';
+import { elevation, fontSize, fontWeight, onGradient, palette, radius, spacing, useTheme } from '@/theme';
 
 type TodaysTask = ChildDashboardResponse['todaysTasks'][number];
 
-type IoniconName = ComponentProps<typeof Ionicons>['name'];
-
 /**
- * One fact from the points card — the level, or the streak — as a pill on the teal fill.
- *
- * `fill` and `ink` are always two steps of the same ramp, a pale one and a dark one, for the reason
- * in the header: this pill's background is teal in both appearances, so its text colour must not
- * follow the OS appearance or it inverts into a contrast failure exactly half the time.
+ * The masthead: who this is and what level they are. Fixed brand gradient (see `onGradient` in
+ * `theme/index.ts`). Two nested views for the same reason `Card` uses them: the shadow needs the outer
+ * view, and the circle needs an inner `overflow: 'hidden'` view or it squares off the rounded corners.
  */
-function StatChip(props: { icon: IoniconName; label: string; fill: string; ink: string }) {
-  const { icon, label, fill, ink } = props;
+function Hero({ level, name, seed, avatarEmoji }: {
+  level: number;
+  name: string;
+  seed: string;
+  avatarEmoji?: string | null;
+}) {
   return (
-    <View style={[styles.chip, { backgroundColor: fill }]}>
-      <Ionicons
-        name={icon}
-        size={14}
-        color={ink}
-        importantForAccessibility="no"
-        accessibilityElementsHidden
-      />
-      <AppText style={[styles.chipLabel, { color: ink }]}>{label}</AppText>
+    <View style={[styles.heroOuter, elevation.lift]}>
+      {/* {0,0}->{1,1} approximates CSS's 135deg (top-left to bottom-right). */}
+      <LinearGradient
+        colors={[palette.xp[600], palette.xp[500], palette.primary[500]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroGradient}
+      >
+        {/* Decorative circle bleeding off the corner, so it is hidden from the accessibility tree. */}
+        <View
+          style={styles.heroCircle}
+          pointerEvents="none"
+          importantForAccessibility="no"
+          accessibilityElementsHidden
+        />
+        <View style={styles.heroRow}>
+          <Avatar seed={seed} name={name} size={56} />
+          <View style={styles.heroText}>
+            <AppText variant="display" style={[styles.heroGreeting, { color: onGradient }]}>
+              {avatarEmoji ? `${avatarEmoji} ` : ''}Hi {name}!
+            </AppText>
+            {/* The level, promoted to an object rather than a number in a chip row. */}
+            <AppText variant="display" style={[styles.heroLevel, { color: onGradient }]}>
+              Level {level}
+            </AppText>
+          </View>
+        </View>
+      </LinearGradient>
     </View>
   );
 }
 
-/**
- * A plain progress bar.
- *
- * Built from two Views rather than a dependency: an animated bar would mean reanimated, which is a
- * native module and the one that crashed Phase 0. Celebrations are a deliberate, separately-tested
- * step later in this phase — not something to smuggle in through a progress bar.
- */
-function ProgressBar({
-  percent,
-  label,
-  color,
-}: {
-  percent: number;
-  label: string;
-  /**
-   * Fill colour. Defaults to the brand teal; pass a gamification accent where the bar is measuring
-   * one particular thing — gold for points saved towards a reward, green for tasks finished.
-   */
-  color?: string;
-}) {
-  const theme = useTheme();
-  // Clamped rather than trusted: `goal.percent` is already clamped server-side, but the task counter
-  // below computes its own and a division by zero would render a NaN-width bar.
-  const width = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
+/** The single most looked-at element on the child side. Fixed gold gradient; text is dark gold
+ *  (`gold[800]`), never white — see the hard rule that gold's light steps cannot carry white text. */
+function Wallet({ pointsBalance }: { pointsBalance: number }) {
+  return (
+    <View style={[styles.walletOuter, elevation.lift]}>
+      <LinearGradient
+        colors={[palette.gold[300], palette.gold[500]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.walletGradient}
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={`${pointsBalance} points to spend`}
+      >
+        <AppText style={[styles.walletLabel, { color: palette.gold[800] }]}>Points to spend</AppText>
+        <AppText variant="display" style={[styles.walletValue, { color: palette.gold[800] }]}>
+          {pointsBalance}
+        </AppText>
+      </LinearGradient>
+    </View>
+  );
+}
+
+/** One line, per the redesign brief. The at-risk note folds into the same line as words rather than a
+ *  second coloured block, matching the "one line" constraint and this screen's status-in-words rule. */
+function StreakBanner({ current, atRisk }: { current: number; atRisk: boolean }) {
+  if (current <= 0) return null;
+
+  const label = atRisk
+    ? `${current}-day streak, finish a task today to keep it!`
+    : `${current}-day streak`;
 
   return (
     <View
-      style={[styles.progressTrack, { backgroundColor: theme.muted }]}
-      accessibilityRole="progressbar"
+      style={[styles.streakBanner, { backgroundColor: palette.peach[100] }]}
+      accessible
+      accessibilityRole="text"
       accessibilityLabel={label}
-      accessibilityValue={{ min: 0, max: 100, now: Math.round(width) }}
     >
-      <View
-        style={[styles.progressFill, { backgroundColor: color ?? theme.primary, width: `${width}%` }]}
+      {/* peach[800], not the peach[500] the spec asked for. Measured on the peach[100] ground:
+          500 gives 2.17:1 and 700 gives 4.30:1, both under the 4.5:1 AA minimum; 800 gives 5.83:1.
+          The ramp's own comment in tokens.ts already warns that peach's light steps are decorative
+          and not text colours, so the spec was contradicting the palette it was written from. The
+          flame icon follows the text so the two do not drift apart. */}
+      <Ionicons
+        name="flame"
+        size={18}
+        color={palette.peach[800]}
+        importantForAccessibility="no"
+        accessibilityElementsHidden
       />
+      <AppText style={[styles.streakText, { color: palette.peach[800] }]} numberOfLines={1}>
+        {label}
+      </AppText>
     </View>
+  );
+}
+
+/** The 32dp tick. Decorative here, not a control — this preview never took an action, and adding a tap
+ *  target that did something new would be a behaviour change, not a restyle. Filled when done, else a
+ *  ring, red when overdue; the words beside it carry the actual meaning. */
+function TaskTick({ done, overdue }: { done: boolean; overdue: boolean }) {
+  const theme = useTheme();
+
+  if (done) {
+    return (
+      <View
+        style={[styles.tick, styles.tickDone, { backgroundColor: palette.success[500] }]}
+        importantForAccessibility="no"
+        accessibilityElementsHidden
+      >
+        <Ionicons name="checkmark" size={18} color={onGradient} />
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={[styles.tick, { borderColor: overdue ? theme.destructive : theme.border }]}
+      importantForAccessibility="no"
+      accessibilityElementsHidden
+    />
   );
 }
 
@@ -126,27 +183,9 @@ function TaskRow({ item, first }: { item: TodaysTask; first: boolean }) {
   const overdue = !done && isOverdue(task.dueDate);
   const due = dueLabel(task.dueDate);
 
-  /*
-    The glyph repeats what the row already says in words — it is reinforcement, not the message, so
-    losing it to a missing font or an unperceived hue costs nothing. `success[600]` rather than a
-    lighter step because it has to stay visible on a white card *and* on the slate-800 one.
-  */
-  const mark: { icon: IoniconName; color: string } = done
-    ? { icon: 'checkmark-circle', color: palette.success[600] }
-    : overdue
-      ? { icon: 'alert-circle', color: theme.destructive }
-      : { icon: 'ellipse-outline', color: theme.mutedForeground };
-
   return (
     <View style={[styles.taskRow, { borderTopColor: theme.border }, first && styles.firstRow]}>
-      <Ionicons
-        name={mark.icon}
-        size={20}
-        color={mark.color}
-        style={styles.taskMark}
-        importantForAccessibility="no"
-        accessibilityElementsHidden
-      />
+      <TaskTick done={done} overdue={overdue} />
       <View style={styles.taskText}>
         <AppText
           style={[
@@ -190,13 +229,13 @@ export default function ChildDashboard() {
     }
   }, [refetch]);
 
-  const greeting = `Hi ${user?.firstName ?? 'there'}!`;
+  const name = user?.firstName ?? 'there';
 
   if (isPending) {
     return (
       <Screen>
         <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>
-          {greeting}
+          Hi {name}!
         </AppText>
         <Card>
           <AppText style={[styles.body, { color: theme.mutedForeground }]}>Loading…</AppText>
@@ -210,9 +249,9 @@ export default function ChildDashboard() {
     return (
       <Screen scroll>
         <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>
-          {greeting}
+          Hi {name}!
         </AppText>
-        <Card>
+        <Card status="late">
           <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your points'}
           </AppText>
@@ -244,55 +283,14 @@ export default function ChildDashboard() {
         />
       }
     >
-      <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>
-        {profile.avatarEmoji ? `${profile.avatarEmoji} ` : ''}
-        {greeting}
-      </AppText>
-
-      {/*
-        The number the app exists to show, and the only card on the screen that is not white. Filled
-        with `theme.primary` and lettered in `theme.primaryForeground` — the one pair the token test
-        measures in both appearances, so this card cannot fall out of contrast silently.
-      */}
-      <Card style={{ backgroundColor: theme.primary, borderColor: theme.primary }}>
-        <CardHeading icon="star" label="Your points" color={theme.primaryForeground} />
-        <AppText style={[styles.bigNumber, { color: theme.primaryForeground }]}>
-          {profile.pointsBalance}
-        </AppText>
-        <View style={styles.chipRow}>
-          <StatChip
-            icon="trending-up"
-            label={`Level ${profile.level}`}
-            fill={palette.xp[100]}
-            ink={palette.xp[900]}
-          />
-          {streak.current > 0 && (
-            <StatChip
-              icon="flame"
-              label={`${streak.current}-day streak`}
-              fill={palette.peach[200]}
-              ink={palette.peach[900]}
-            />
-          )}
-        </View>
-        {streak.atRisk && (
-          // Amber rather than the destructive red it used to be: red on teal is the one combination
-          // this fill cannot carry, and "at risk" is a warning anyway, not a failure. The words stay
-          // the message — see the header note on stating status without relying on hue.
-          <View style={[styles.riskNote, { backgroundColor: palette.warning[100] }]}>
-            <Ionicons
-              name="alert-circle"
-              size={16}
-              color={palette.warning[700]}
-              importantForAccessibility="no"
-              accessibilityElementsHidden
-            />
-            <AppText style={[styles.warning, { color: palette.warning[900] }]}>
-              Your streak ends today unless you finish a task.
-            </AppText>
-          </View>
-        )}
-      </Card>
+      <Hero
+        level={profile.level}
+        name={name}
+        seed={user?.id ?? 'child'}
+        avatarEmoji={profile.avatarEmoji}
+      />
+      <Wallet pointsBalance={profile.pointsBalance} />
+      <StreakBanner current={streak.current} atRisk={streak.atRisk} />
 
       {/* "I'm saving for…" — the goal-gradient card. Only when something is pinned. */}
       {goal && (
@@ -301,9 +299,8 @@ export default function ChildDashboard() {
           <AppText style={[styles.goalName, { color: theme.cardForeground }]}>{goal.name}</AppText>
           <ProgressBar
             percent={goal.percent}
+            variant="points"
             label={`${goal.name}, ${Math.round(goal.percent)} percent saved`}
-            // Gold: this bar measures points saved, and points are gold everywhere else in the app.
-            color={palette.gold[500]}
           />
           <AppText style={[styles.body, { color: theme.mutedForeground }]}>
             {goal.pointsNeeded === 0
@@ -328,8 +325,8 @@ export default function ChildDashboard() {
             </AppText>
             <ProgressBar
               percent={taskPercent}
+              variant="completion"
               label={`Today's tasks, ${doneToday} of ${todaysTasks.length} done`}
-              color={palette.success[500]}
             />
             {todaysTasks.map((item, index) => (
               <TaskRow key={item.assignment.id} item={item} first={index === 0} />
@@ -381,12 +378,8 @@ export default function ChildDashboard() {
                 importantForAccessibility="no"
                 accessibilityElementsHidden
               />
-              {/*
-                Name only. `Achievement.iconUrl` is a genuine image URL (the admin form validates it
-                with `z.string().url()` and renders an <img>), not an emoji — putting it in a Text node
-                would print the URL. The achievements screen renders it properly, with a fallback for
-                the many achievements that have none.
-              */}
+              {/* Name only. `Achievement.iconUrl` is a real image URL, not an emoji — printing it in a
+                  Text node would show the URL. The achievements screen renders it properly. */}
               <View style={styles.taskText}>
                 <AppText style={[styles.taskName, { color: theme.cardForeground }]}>
                   {entry.achievement.name}
@@ -397,8 +390,7 @@ export default function ChildDashboard() {
         </Card>
       )}
 
-      {/* Sign-out lives on the Me tab. The home tab is for what a child came here to do, and a control
-          that ends the session sitting under their points balance is an odd place for it. */}
+      {/* Sign-out lives on the Me tab, not here under the points balance. */}
     </Screen>
   );
 }
@@ -418,61 +410,87 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   body: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  warning: {
+  heroOuter: { borderRadius: radius.xl, marginBottom: spacing[4] },
+  heroGradient: {
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+    padding: spacing[5],
+  },
+  heroCircle: {
+    position: 'absolute',
+    top: -60,
+    right: -50,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: onGradient,
+    opacity: 0.15,
+  },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  heroText: { flex: 1 },
+  heroGreeting: {
+    fontSize: fontSize.lg.fontSize,
+    lineHeight: fontSize.lg.lineHeight,
+    fontWeight: fontWeight.semibold,
+  },
+  heroLevel: {
+    fontSize: fontSize['2xl'].fontSize,
+    lineHeight: fontSize['2xl'].lineHeight,
+    fontWeight: fontWeight.bold,
+    marginTop: spacing[1],
+  },
+  walletOuter: { borderRadius: radius.xl, marginBottom: spacing[4] },
+  walletGradient: {
+    borderRadius: radius.xl,
+    padding: spacing[5],
+    alignItems: 'center',
+  },
+  walletLabel: {
     fontSize: fontSize.sm.fontSize,
     lineHeight: fontSize.sm.lineHeight,
     fontWeight: fontWeight.semibold,
-    // Shares the amber note's row with the icon, so it takes the leftover width rather than pushing
-    // a long sentence off the card.
-    flexShrink: 1,
   },
-  riskNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing[2],
-    borderRadius: radius.md,
-    padding: spacing[3],
-    marginTop: spacing[3],
+  walletValue: {
+    fontSize: fontSize['2xl'].fontSize,
+    lineHeight: fontSize['2xl'].lineHeight,
+    fontWeight: fontWeight.bold,
+    marginTop: spacing[1],
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[3] },
-  chip: {
+  streakBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[1],
+    gap: spacing[2],
+    borderRadius: radius.md,
+    paddingVertical: spacing[2],
     paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1],
-    borderRadius: radius.full,
+    marginBottom: spacing[4],
   },
-  chipLabel: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.semibold },
-  bigNumber: {
-    fontSize: fontSize['4xl'].fontSize,
-    lineHeight: fontSize['4xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-  },
+  streakText: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.semibold, flexShrink: 1 },
   goalName: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
     marginBottom: spacing[2],
   },
-  progressTrack: {
-    height: spacing[2],
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    marginVertical: spacing[2],
-  },
-  progressFill: { height: '100%', borderRadius: radius.full },
   taskRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing[3],
     borderTopWidth: 1,
     paddingTop: spacing[3],
     marginTop: spacing[3],
   },
   firstRow: { borderTopWidth: 0, paddingTop: 0, marginTop: spacing[2] },
-  // Nudged down to sit on the first line of the title rather than above it — the glyph's box is
-  // taller than its ink, so aligning the boxes leaves it looking high.
+  tick: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tickDone: { borderWidth: 0 },
+  // Nudged down to sit on the title's first line rather than above it.
   taskMark: { marginTop: 2 },
   taskText: { flex: 1 },
   taskName: {

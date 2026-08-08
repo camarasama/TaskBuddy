@@ -2,28 +2,25 @@
  * The child's reward shop.
  *
  * Two segments: **Shop** (what can be bought) and **Mine** (what has been bought and whether it has
- * actually arrived). The second matters more than it looks — a redemption is a promise a parent owes,
- * and a child with no way to see "you said yes but haven't given it to me" has no way to chase it.
+ * actually arrived) — a redemption is a promise a parent owes, and a child with no way to see "you
+ * said yes but haven't given it to me" has no way to chase it.
  *
- * ## Ordering
+ * **Ordering.** Affordable rewards first, under "You can get these now": a shop sorted by price alone
+ * opens on things the child cannot have, the opposite of motivating. The pinned goal leads regardless.
  *
- * Affordable rewards first. A shop sorted by price alone opens on things the child cannot have, which
- * is the opposite of motivating; sorted by affordability, the top of the list is always actionable. The
- * pinned goal is lifted above everything regardless, because it is the one the child chose.
- *
- * ## Deliberate: redeeming asks first
- *
- * Spending points is irreversible from the child's side. A confirm step on a scrolling list of tappable
- * cards is the difference between a considered purchase and a mis-tap that costs three weeks of chores.
+ * **Deliberate: redeeming asks first.** Spending points is irreversible from the child's side, and a
+ * confirm step is the difference between a considered purchase and a mis-tap costing weeks of chores.
  */
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ChildGoal } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Celebration } from '@/components/Celebration';
+import { clampPercent, ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
 import { childDashboardQuery } from '@/lib/childDashboardApi';
@@ -85,10 +82,18 @@ function SegmentChips({ value, onChange }: { value: Segment; onChange: (next: Se
   );
 }
 
+/** A plain uppercase section label, matching `CardHeading`'s scale without the icon — these sections
+ *  are named by list position, not by a gamification accent. */
+function SectionHeader({ title }: { title: string }) {
+  const theme = useTheme();
+  return <AppText style={[styles.sectionHeader, { color: theme.mutedForeground }]}>{title}</AppText>;
+}
+
 function RewardRow({
   reward,
   pointsBalance,
   isGoal,
+  goalInfo,
   busy,
   onRedeem,
   onToggleWish,
@@ -97,6 +102,9 @@ function RewardRow({
   reward: ChildReward;
   pointsBalance: number;
   isGoal: boolean;
+  /** The server-computed goal figures, reused verbatim when this row IS the pinned goal so the number
+   *  here can never disagree with the one the dashboard just showed. */
+  goalInfo: ChildGoal | null;
   busy: boolean;
   onRedeem: () => void;
   onToggleWish: () => void;
@@ -104,9 +112,19 @@ function RewardRow({
 }) {
   const theme = useTheme();
   const blocked = redeemBlockedReason(reward, pointsBalance);
+  const pointsShort = Math.max(0, reward.pointsCost - pointsBalance);
+  // "Saving up" only makes sense when points are the one thing standing in the way — an expired,
+  // sold-out, or per-child-limit reward stays blocked no matter how many points arrive, so a progress
+  // bar there would promise something more points cannot deliver.
+  const savingUp = pointsShort > 0 && !reward.isExpired && !reward.isSoldOut && reward.remainingForChild !== 0;
+  const percent =
+    isGoal && goalInfo
+      ? goalInfo.percent
+      : clampPercent(reward.pointsCost > 0 ? (pointsBalance / reward.pointsCost) * 100 : 100);
+  const pointsToGo = isGoal && goalInfo ? goalInfo.pointsNeeded : pointsShort;
 
   return (
-    <Card style={isGoal ? { borderColor: theme.primary, borderWidth: 2 } : undefined}>
+    <Card status={isGoal ? 'info' : undefined}>
       {isGoal && (
         <AppText style={[styles.badge, { color: theme.primary }]}>YOU&apos;RE SAVING FOR THIS</AppText>
       )}
@@ -125,7 +143,21 @@ function RewardRow({
         </AppText>
       )}
 
-      {blocked && <AppText style={[styles.meta, { color: theme.mutedForeground }]}>{blocked}</AppText>}
+      {savingUp ? (
+        <>
+          <ProgressBar
+            percent={percent}
+            variant="points"
+            label={`${reward.name}, ${Math.round(percent)} percent saved`}
+            style={styles.rewardProgress}
+          />
+          <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
+            {pointsToGo} points to go
+          </AppText>
+        </>
+      ) : (
+        blocked && <AppText style={[styles.meta, { color: theme.mutedForeground }]}>{blocked}</AppText>
+      )}
 
       <View style={styles.rowActions}>
         <Button label="Get it" onPress={onRedeem} disabled={busy || blocked !== null} />
@@ -149,8 +181,8 @@ function RewardRow({
 function RedemptionRow({ item }: { item: MyRedemption }) {
   const theme = useTheme();
 
-  // Said plainly. "pending"/"approved" are internal words; what a child wants to know is whether the
-  // thing is coming.
+  // Said plainly: "pending"/"approved" are internal words, and what a child wants to know is whether
+  // the thing is coming.
   const line =
     item.status === 'fulfilled'
       ? 'Received'
@@ -187,7 +219,8 @@ export default function ChildRewards() {
   const dashboard = useQuery(childDashboardQuery());
 
   const pointsBalance = dashboard.data?.profile.pointsBalance ?? 0;
-  const goalRewardId = dashboard.data?.goal?.rewardId ?? null;
+  const goal = dashboard.data?.goal ?? null;
+  const goalRewardId = goal?.rewardId ?? null;
 
   const invalidate = useCallback(async () => {
     await Promise.all(
@@ -221,17 +254,44 @@ export default function ChildRewards() {
     mutationFn: ({ id, pin }: { id: string; pin: boolean }) => (pin ? setGoal(id) : clearGoal()),
   });
 
-  /** Goal first, then what the child can actually afford, then the rest by price. */
-  const rewards = useMemo(() => {
-    const list = [...(shop.data?.rewards ?? [])];
-    return list.sort((a, b) => {
-      if (a.id === goalRewardId) return -1;
-      if (b.id === goalRewardId) return 1;
-      const aAfford = redeemBlockedReason(a, pointsBalance) === null;
-      const bAfford = redeemBlockedReason(b, pointsBalance) === null;
-      if (aAfford !== bAfford) return aAfford ? -1 : 1;
-      return a.pointsCost - b.pointsCost;
-    });
+  /**
+   * The goal (if pinned) leads regardless of affordability, because it is the one the child chose.
+   * Everything else buckets into three named sections, each sorted cheapest-first: what they can
+   * afford now, what they're saving for, and what more points would not unlock anyway. Affordable
+   * always renders before saving-up, which always renders before the rest — a wall of locked items
+   * up top reads as "no" to a child, so the unlockable ones never get pushed below it.
+   */
+  const shopRows = useMemo(() => {
+    const list = shop.data?.rewards ?? [];
+    const goalReward = list.find((r) => r.id === goalRewardId) ?? null;
+    const rest = list.filter((r) => r.id !== goalRewardId);
+
+    const byPrice = (a: ChildReward, b: ChildReward) => a.pointsCost - b.pointsCost;
+    const affordable = rest.filter((r) => redeemBlockedReason(r, pointsBalance) === null).sort(byPrice);
+    const savingUp = rest
+      .filter((r) => {
+        const blocked = redeemBlockedReason(r, pointsBalance);
+        return blocked !== null && !r.isExpired && !r.isSoldOut && r.remainingForChild !== 0;
+      })
+      .sort(byPrice);
+    const unavailable = rest
+      .filter((r) => r.isExpired || r.isSoldOut || r.remainingForChild === 0)
+      .sort(byPrice);
+
+    type Row =
+      | { kind: 'header'; key: string; title: string }
+      | { kind: 'reward'; key: string; reward: ChildReward };
+    const rows: Row[] = [];
+    if (goalReward) rows.push({ kind: 'reward', key: goalReward.id, reward: goalReward });
+    const section = (title: string, items: ChildReward[]) => {
+      if (items.length === 0) return;
+      rows.push({ kind: 'header', key: `header-${title}`, title });
+      rows.push(...items.map((reward) => ({ kind: 'reward' as const, key: reward.id, reward })));
+    };
+    section('You can get these now', affordable);
+    section('Saving up', savingUp);
+    section('Not available right now', unavailable);
+    return rows;
   }, [shop.data, goalRewardId, pointsBalance]);
 
   const active = segment === 'shop' ? shop : mine;
@@ -242,8 +302,7 @@ export default function ChildRewards() {
     const ok = await runAction(confirming.id, () => doRedeem(confirming.id));
     if (ok) {
       setConfirming(null);
-      // The points are genuinely gone at this point, but the *thing* is not in hand — a parent still
-      // has to fulfil it. The wording tracks that rather than implying it has arrived.
+      // Points are gone, but the *thing* is not in hand yet — wording tracks that, not "arrived".
       setCelebrating({ message: 'Got it!', detail: `${name} is on its way` });
     }
   }
@@ -288,7 +347,7 @@ export default function ChildRewards() {
       </AppText>
 
       {actionError !== null && (
-        <Card style={{ borderColor: theme.destructive, borderWidth: 1 }}>
+        <Card status="late">
           <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
             {actionError}
           </AppText>
@@ -297,25 +356,30 @@ export default function ChildRewards() {
 
       {segment === 'shop' ? (
         <FlatList
-          data={rewards}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <RewardRow
-              reward={item}
-              pointsBalance={pointsBalance}
-              isGoal={item.id === goalRewardId}
-              busy={actingId === item.id}
-              onRedeem={() => setConfirming(item)}
-              onToggleWish={() =>
-                void runAction(item.id, () => doWish({ id: item.id, on: !item.wishlisted }))
-              }
-              onToggleGoal={() =>
-                void runAction(item.id, () =>
-                  doGoal({ id: item.id, pin: item.id !== goalRewardId })
-                )
-              }
-            />
-          )}
+          data={shopRows}
+          keyExtractor={(row) => row.key}
+          renderItem={({ item: row }) =>
+            row.kind === 'header' ? (
+              <SectionHeader title={row.title} />
+            ) : (
+              <RewardRow
+                reward={row.reward}
+                pointsBalance={pointsBalance}
+                isGoal={row.reward.id === goalRewardId}
+                goalInfo={goal}
+                busy={actingId === row.reward.id}
+                onRedeem={() => setConfirming(row.reward)}
+                onToggleWish={() =>
+                  void runAction(row.reward.id, () => doWish({ id: row.reward.id, on: !row.reward.wishlisted }))
+                }
+                onToggleGoal={() =>
+                  void runAction(row.reward.id, () =>
+                    doGoal({ id: row.reward.id, pin: row.reward.id !== goalRewardId })
+                  )
+                }
+              />
+            )
+          }
           ListEmptyComponent={
             <Card>
               <AppText style={[styles.meta, { color: theme.cardForeground }]}>
@@ -387,6 +451,15 @@ export default function ChildRewards() {
 }
 
 const styles = StyleSheet.create({
+  sectionHeader: {
+    fontSize: fontSize.xs.fontSize,
+    fontWeight: fontWeight.bold,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginTop: spacing[4],
+    marginBottom: spacing[2],
+  },
+  rewardProgress: { marginTop: spacing[2] },
   chipRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[3] },
   chip: {
     paddingHorizontal: spacing[3],
