@@ -129,6 +129,7 @@ export default function ParentLayout() {
       <Tabs.Screen name="co-parents" options={{ href: null }} />
       <Tabs.Screen name="calendar" options={{ href: null }} />
       <Tabs.Screen name="insights" options={{ href: null }} />
+      <Tabs.Screen name="reports" options={{ href: null }} />
     </Tabs>
   );
 }
