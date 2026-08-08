@@ -1,14 +1,13 @@
 // Shared constants
 
 // Gamification constants
+//
+// There is deliberately NO `LEVEL` block here. It used to hold a polynomial curve
+// (XP = BASE_XP * level^GROWTH_FACTOR) that disagreed with the exponential curve the backend
+// actually levels children by, and the one consumer read it over the wrong field on top of that.
+// The level curve has exactly one home: `xpRequiredForLevel` / `calculateLevelFromXp` in
+// `backend/src/utils/gamification.ts`. Do not re-add a copy here.
 export const GAMIFICATION = {
-  // Level progression: XP = BASE_XP * level^GROWTH_FACTOR
-  LEVEL: {
-    BASE_XP: 100,
-    GROWTH_FACTOR: 1.5,
-    MAX_LEVEL: 100,
-  },
-
   // Streak bonuses
   STREAK: {
     MULTIPLIER: 0.05, // 5% bonus per streak day

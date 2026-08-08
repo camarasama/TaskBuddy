@@ -16,6 +16,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
@@ -50,6 +51,7 @@ export default function Leaderboard() {
   if (isPending) {
     return (
       <Screen>
+        <BackLink label="Back to Me" href="/(child)/me" />
         <Card>
           <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Loading…</AppText>
         </Card>
@@ -61,6 +63,7 @@ export default function Leaderboard() {
     const offline = error instanceof NetworkError;
     return (
       <Screen scroll>
+        <BackLink label="Back to Me" href="/(child)/me" />
         <Card>
           <AppText style={[styles.name, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load the leaderboard'}
@@ -80,6 +83,7 @@ export default function Leaderboard() {
   if (!data.enabled) {
     return (
       <Screen>
+        <BackLink label="Back to Me" href="/(child)/me" />
         <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
           Leaderboard
         </AppText>
@@ -95,6 +99,7 @@ export default function Leaderboard() {
 
   return (
     <Screen>
+      <BackLink label="Back to Me" href="/(child)/me" />
       <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
         This week
       </AppText>

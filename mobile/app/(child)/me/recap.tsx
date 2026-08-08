@@ -12,6 +12,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
@@ -38,6 +39,7 @@ export default function Recap() {
   if (isPending) {
     return (
       <Screen>
+        <BackLink label="Back to Me" href="/(child)/me" />
         <Card>
           <AppText style={[styles.body, { color: theme.mutedForeground }]}>Loading…</AppText>
         </Card>
@@ -49,6 +51,7 @@ export default function Recap() {
     const offline = error instanceof NetworkError;
     return (
       <Screen scroll>
+        <BackLink label="Back to Me" href="/(child)/me" />
         <Card>
           <AppText style={[styles.title, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your week'}
@@ -69,6 +72,7 @@ export default function Recap() {
 
   return (
     <Screen>
+      <BackLink label="Back to Me" href="/(child)/me" />
       <ScrollView>
         <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
           Your week

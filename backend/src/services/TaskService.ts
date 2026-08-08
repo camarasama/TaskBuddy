@@ -266,7 +266,6 @@ export class TaskService {
         const baseXp = GAMIFICATION_M7.TASK_XP[difficulty] ?? GAMIFICATION_M7.TASK_XP.medium;
         const basePoints = assignment.task.pointsValue;
         const newPointsBalance = profile.pointsBalance + basePoints;
-        const newXp = profile.experiencePoints + baseXp;
         const newTotalXpEarned = profile.totalXpEarned + baseXp;
         const oldLevel = profile.level;
 
@@ -282,7 +281,8 @@ export class TaskService {
               pointsBalance: newPointsBalance,
               totalPointsEarned: { increment: basePoints },
               totalTasksCompleted: { increment: 1 },
-              experiencePoints: newXp,
+              // `experiencePoints` is deliberately absent: `checkAndApplyLevelUp` below derives it
+              // from `totalXpEarned`. See the header note in `levelService.ts`.
               totalXpEarned: newTotalXpEarned,
             },
           });
@@ -387,7 +387,6 @@ export class TaskService {
       const baseXp = GAMIFICATION_M7.TASK_XP[difficulty] ?? GAMIFICATION_M7.TASK_XP.medium;
       const basePoints = assignment.task.pointsValue;
       const newPointsBalance = profile.pointsBalance + basePoints;
-      const newXp = profile.experiencePoints + baseXp;
       const newTotalXpEarned = profile.totalXpEarned + baseXp;
       const oldLevel = profile.level;
 
@@ -403,7 +402,7 @@ export class TaskService {
             pointsBalance: newPointsBalance,
             totalPointsEarned: { increment: basePoints },
             totalTasksCompleted: { increment: 1 },
-            experiencePoints: newXp,
+            // Derived by `checkAndApplyLevelUp` below, same as the auto-approve path above.
             totalXpEarned: newTotalXpEarned,
           },
         });
@@ -681,7 +680,16 @@ export class TaskService {
           pointsBalance: newBalance,
           totalPointsEarned: { decrement: points },
           totalTasksCompleted: { decrement: 1 },
-          experiencePoints: { decrement: xp },
+          /**
+           * Clamped, not `{ decrement: xp }`.
+           *
+           * `experiencePoints` is the remainder within the current level, so it is routinely smaller
+           * than the XP being reversed. Revoking a 35 XP task from a child sitting 10 XP into a new
+           * level drove it to -25, and the bar rendered empty or inverted. The level is deliberately
+           * left alone here (see the note on this method), so the remainder cannot simply be
+           * re-derived from `totalXpEarned` either; flooring at zero is the honest answer.
+           */
+          experiencePoints: Math.max(0, profile.experiencePoints - xp),
           totalXpEarned: { decrement: xp },
         },
       });

@@ -96,7 +96,12 @@ function ChildLayoutInner({ children }: { children: ReactNode }) {
 
   const profile = (user as any)?.childProfile ?? (user as any)?.profile;
   const points = livePoints;
-  const xp = profile?.experiencePoints ?? 0;
+  // `totalXpEarned`, the lifetime figure, because that is what `levelFromXp` consumes: it subtracts a
+  // level's cost at a time until the remainder no longer covers one. Passing `experiencePoints`
+  // (the within-level remainder, which the backend now genuinely resets on level-up) would pin this
+  // header to Level 1 forever. The fallback keeps older cached profiles rendering, and matches what
+  // the child dashboard already does.
+  const xp = profile?.totalXpEarned ?? profile?.experiencePoints ?? 0;
   const streak = profile?.currentStreakDays ?? 0;
 
   const { level, currentXp, nextLevelXp } = levelFromXp(xp);

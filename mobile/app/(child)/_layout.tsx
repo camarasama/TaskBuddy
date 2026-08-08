@@ -25,7 +25,7 @@
 // From the family's own module, never the `@expo/vector-icons` barrel — the barrel bundles all 20 icon
 // fonts (+400KB) on an app whose audience is families with cheap phones and metered data.
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 
 import { useAuth } from '@/stores/auth';
@@ -88,6 +88,18 @@ export default function ChildLayout() {
       />
       <Tabs.Screen
         name="me"
+        /**
+         * Pressing "Me" always opens the hub, never the sub-screen the child left open.
+         *
+         * React Navigation preserves each tab's stack, which is the right default for a tab you
+         * *work* in, but the four screens behind Me are reference material reached from the hub, so
+         * restoring one means the tab labelled "Me" opens on Notifications until something resets it.
+         * That is precisely how this was reported.
+         *
+         * Deliberately not applied to the Games tab: its stack holds `play`, and a child who checks
+         * their points mid-quiz should come back to the quiz.
+         */
+        listeners={{ tabPress: () => router.navigate('/(child)/me') }}
         options={{
           title: 'Me',
           tabBarIcon: ({ color, size }) => (
