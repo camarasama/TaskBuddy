@@ -24,6 +24,8 @@ export {
   type SemanticTheme,
 } from '@taskbuddy/shared';
 
+export { elevation } from './elevation';
+
 /**
  * The active theme for this render.
  *
@@ -33,3 +35,16 @@ export {
 export function useTheme(): SemanticTheme {
   return themes[useColorScheme() === 'dark' ? 'dark' : 'light'];
 }
+
+/**
+ * Fixed white, for text or icons drawn on a fixed brand gradient (an avatar initial, a hero card)
+ * that does not follow the light/dark surface swap.
+ *
+ * `theme.primaryForeground` is the wrong source for this: dark mode deliberately flips it to a dark
+ * colour, because dark mode also lightens `primary` itself (500 to 400) to clear contrast against a
+ * slate-900 screen, so primary-on-primary text needs to go dark to match. A gradient avatar's fill
+ * never lightens the same way, so its initial must stay white in both themes. This reuses the
+ * literal already registered as `themes.light.primaryForeground` in tokens.ts rather than typing a
+ * new hex code here, which is exactly what the hex-literal guard exists to catch.
+ */
+export const onGradient = themes.light.primaryForeground;
