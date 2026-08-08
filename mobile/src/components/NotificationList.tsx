@@ -22,6 +22,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import type { Notification } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
@@ -82,7 +83,20 @@ function Row({
   );
 }
 
-export function NotificationList({ role }: { role: 'parent' | 'child' }) {
+/**
+ * `back` is required, not optional.
+ *
+ * Both routes that render this list are pushed on top of something, and both stacks run with
+ * `headerShown: false`, so without an explicit control there is no way off this screen. Making the
+ * prop mandatory is what stops a third caller from shipping the same dead end.
+ */
+export function NotificationList({
+  role,
+  back,
+}: {
+  role: 'parent' | 'child';
+  back: { label: string; href: string };
+}) {
   const theme = useTheme();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -136,6 +150,7 @@ export function NotificationList({ role }: { role: 'parent' | 'child' }) {
   if (list.isPending) {
     return (
       <Screen>
+        <BackLink label={back.label} href={back.href} />
         <Card>
           <AppText style={[styles.body, { color: theme.mutedForeground }]}>Loading…</AppText>
         </Card>
@@ -147,6 +162,7 @@ export function NotificationList({ role }: { role: 'parent' | 'child' }) {
     const offline = list.error instanceof NetworkError;
     return (
       <Screen scroll>
+        <BackLink label={back.label} href={back.href} />
         <Card>
           <AppText style={[styles.title, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load notifications'}
@@ -164,6 +180,7 @@ export function NotificationList({ role }: { role: 'parent' | 'child' }) {
 
   return (
     <Screen>
+      <BackLink label={back.label} href={back.href} />
       <View style={styles.headRow}>
         <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
           Notifications

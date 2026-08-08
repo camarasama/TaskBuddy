@@ -5,5 +5,7 @@
 import { NotificationList } from '@/components/NotificationList';
 
 export default function ParentNotifications() {
-  return <NotificationList role="parent" />;
+  return (
+    <NotificationList role="parent" back={{ label: 'Back to Dashboard', href: '/(parent)/dashboard' }} />
+  );
 }

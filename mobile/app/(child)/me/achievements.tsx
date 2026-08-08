@@ -11,6 +11,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
@@ -49,6 +50,7 @@ export default function Achievements() {
   if (isPending) {
     return (
       <Screen>
+        <BackLink label="Back to Me" href="/(child)/me" />
         <Card>
           <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Loading…</AppText>
         </Card>
@@ -60,6 +62,7 @@ export default function Achievements() {
     const offline = error instanceof NetworkError;
     return (
       <Screen scroll>
+        <BackLink label="Back to Me" href="/(child)/me" />
         <Card>
           <AppText style={[styles.name, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load achievements'}
@@ -77,6 +80,7 @@ export default function Achievements() {
 
   return (
     <Screen>
+      <BackLink label="Back to Me" href="/(child)/me" />
       <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
         {data.stats.unlocked} of {data.stats.total}
       </AppText>

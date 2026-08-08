@@ -4,5 +4,5 @@
 import { NotificationList } from '@/components/NotificationList';
 
 export default function ChildNotifications() {
-  return <NotificationList role="child" />;
+  return <NotificationList role="child" back={{ label: 'Back to Me', href: '/(child)/me' }} />;
 }

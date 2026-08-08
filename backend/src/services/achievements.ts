@@ -1,23 +1,6 @@
 import { prisma } from './database';
-import { GAMIFICATION } from '@taskbuddy/shared';
-
-/**
- * Calculate the child's level from their total XP.
- * Level formula: XP needed for level N = BASE_XP * N^GROWTH_FACTOR
- */
-function calculateLevel(totalXp: number): number {
-  const { BASE_XP, GROWTH_FACTOR, MAX_LEVEL } = GAMIFICATION.LEVEL;
-  let level = 1;
-  let xpNeeded = 0;
-
-  while (level < MAX_LEVEL) {
-    xpNeeded += Math.floor(BASE_XP * Math.pow(level, GROWTH_FACTOR));
-    if (totalXp < xpNeeded) break;
-    level++;
-  }
-
-  return level;
-}
+import { calculateLevelFromXp } from '../utils/gamification';
+import { checkAndApplyLevelUp } from './levelService';
 
 export interface UnlockedAchievement {
   id: string;
@@ -54,8 +37,15 @@ export async function checkAndUnlockAchievements(childId: string): Promise<Unloc
 
   if (lockedAchievements.length === 0) return [];
 
-  // Build current stats for checking criteria
-  const currentLevel = calculateLevel(profile.experiencePoints);
+  /**
+   * Build current stats for checking criteria.
+   *
+   * `totalXpEarned` and the shared curve, NOT `experiencePoints` and a local one. The old code read
+   * the within-level remainder (a number that is *supposed* to fall back to near zero on every
+   * level-up) through a second, polynomial curve, so `level_reached` was judged against a level
+   * nobody else in the system agreed with.
+   */
+  const currentLevel = calculateLevelFromXp(profile.totalXpEarned).level;
 
   // Count total reward redemptions (non-cancelled)
   const redemptionCount = await prisma.rewardRedemption.count({
@@ -146,7 +136,10 @@ export async function checkAndUnlockAchievements(childId: string): Promise<Unloc
       data: {
         pointsBalance: { increment: totalBonusPoints },
         totalPointsEarned: { increment: totalBonusPoints },
-        experiencePoints: { increment: totalBonusXp },
+        // `totalXpEarned`, which drives the level, and NOT `experiencePoints`. This block used to
+        // increment only the latter, so achievement XP was awarded, displayed, and then never
+        // counted toward a single level-up. `levelService` owns both projections; see the call below.
+        totalXpEarned: { increment: totalBonusXp },
       },
     });
 
@@ -164,6 +157,11 @@ export async function checkAndUnlockAchievements(childId: string): Promise<Unloc
         },
       });
     }
+
+    // Achievement XP can itself carry a child over a level boundary, so the level has to be
+    // rechecked here rather than only in the task-approval path. Safe from recursion: the level
+    // service awards points and never unlocks achievements.
+    await checkAndApplyLevelUp(childId, profile.level);
   }
 
   return newlyUnlocked;
@@ -203,7 +201,8 @@ export async function checkEarlyBirdAchievement(childId: string): Promise<Unlock
       data: {
         pointsBalance: { increment: achievement.pointsReward },
         totalPointsEarned: { increment: achievement.pointsReward },
-        experiencePoints: { increment: achievement.xpReward },
+        // See the note on the same field in `checkAndUnlockAchievements`.
+        totalXpEarned: { increment: achievement.xpReward },
       },
     });
 
@@ -220,6 +219,9 @@ export async function checkEarlyBirdAchievement(childId: string): Promise<Unlock
         },
       });
     }
+
+    // The update above does not touch `level`, so the value it returns is still the pre-award level.
+    await checkAndApplyLevelUp(childId, updatedProfile.level);
   }
 
   return {

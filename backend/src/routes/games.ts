@@ -16,6 +16,7 @@
 
 import { Router } from 'express';
 import { prisma } from '../services/database';
+import { checkAndApplyLevelUp } from '../services/levelService';
 import { authenticate, requireChild } from '../middleware/auth';
 import {
   ValidationError,
@@ -599,7 +600,8 @@ gamesRouter.post('/sessions/:id/submit', async (req, res, next) => {
             data: {
               pointsBalance: newBalance,
               totalPointsEarned: { increment: pointsAwarded },
-              experiencePoints: { increment: xpAwarded },
+              // `experiencePoints` is derived by `checkAndApplyLevelUp` at the end of this
+              // transaction; see the header note in `levelService.ts`.
               totalXpEarned: { increment: xpAwarded },
             },
           });
@@ -618,6 +620,16 @@ gamesRouter.post('/sessions/:id/submit', async (req, res, next) => {
               },
             });
           }
+
+          /**
+           * Game XP counts toward the level like any other XP.
+           *
+           * It did not before: this route incremented the XP totals and stopped, so a child whose
+           * quizzes carried them over a threshold stayed at the old level until the next task
+           * approval happened to run the check. Passing `tx` keeps the level, the remainder and the
+           * milestone-bonus ledger entry inside this transaction with the award itself.
+           */
+          await checkAndApplyLevelUp(childId, profile.level, tx);
         }
       }
     });

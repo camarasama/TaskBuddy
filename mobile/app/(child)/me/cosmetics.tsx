@@ -16,6 +16,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
@@ -126,6 +127,7 @@ export default function Cosmetics() {
   if (isPending) {
     return (
       <Screen>
+        <BackLink label="Back to Me" href="/(child)/me" />
         <Card>
           <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Loading…</AppText>
         </Card>
@@ -137,6 +139,7 @@ export default function Cosmetics() {
     const offline = error instanceof NetworkError;
     return (
       <Screen scroll>
+        <BackLink label="Back to Me" href="/(child)/me" />
         <Card>
           <AppText style={[styles.name, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your look'}
@@ -154,6 +157,7 @@ export default function Cosmetics() {
 
   return (
     <Screen>
+      <BackLink label="Back to Me" href="/(child)/me" />
       <ScrollView>
         <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
           Your look

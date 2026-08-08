@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { GAME_CATEGORY_LABELS, GAME_LEVEL_LABELS, type GameHistoryEntry } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
@@ -62,6 +63,7 @@ export default function GameHistory() {
   if (isPending) {
     return (
       <Screen>
+        <BackLink label="Back to Games" href="/(child)/games" />
         <Card>
           <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Loading…</AppText>
         </Card>
@@ -73,6 +75,7 @@ export default function GameHistory() {
     const offline = error instanceof NetworkError;
     return (
       <Screen scroll>
+        <BackLink label="Back to Games" href="/(child)/games" />
         <Card>
           <AppText style={[styles.title, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your games'}
@@ -90,6 +93,7 @@ export default function GameHistory() {
 
   return (
     <Screen>
+      <BackLink label="Back to Games" href="/(child)/games" />
       <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
         Past games
       </AppText>
