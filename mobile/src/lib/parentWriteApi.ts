@@ -15,9 +15,10 @@
  * The validation rules that bite are noted on each field. They are the server's, and the forms
  * pre-check the cheap ones so a parent gets an inline message instead of a round trip.
  */
-import type { Reward, Task, User } from '@taskbuddy/shared';
+import type { Reward, Task, TaskAssignment, TaskComment, TaskEvidence, User } from '@taskbuddy/shared';
 
 import { api } from './api';
+import { APPROVALS_KEY } from './approvalsApi';
 import { PARENT_DASHBOARD_KEY } from './dashboardApi';
 import { REWARDS_KEY } from './rewardsApi';
 import { TASKS_KEY } from './tasksApi';
@@ -43,10 +44,21 @@ export interface TaskInput {
   recurrencePattern?: string;
 }
 
-/** A single task, for populating the edit form. */
+/**
+ * A single task, as `GET /tasks/:id` actually returns it.
+ *
+ * Widened from the original `{ id, childId, status }` assignment shape — that was enough for the edit
+ * form (which only needs `childId` to prefill the picker), but the same query now backs the read-only
+ * detail screen, which needs the full assignment: who has it, evidence (photos/notes, presigned by
+ * `withEvidenceUrlsList()` server-side — never re-derive a URL client-side), and the child's display
+ * name. A wider type is a safe superset for the form's narrower usage.
+ */
 export type TaskDetail = Task & {
   creator: { id: string; firstName: string; lastName: string };
-  assignments: { id: string; childId: string; status: string }[];
+  assignments: (TaskAssignment & {
+    child: { id: string; firstName: string; lastName: string; avatarUrl?: string | null };
+    evidence: TaskEvidence[];
+  })[];
 };
 
 /**
@@ -80,6 +92,24 @@ export function updateTask(id: string, input: Partial<TaskInput>): Promise<{ tas
 export function deleteTask(id: string): Promise<unknown> {
   return api.delete(`/tasks/${id}`);
 }
+
+/**
+ * Put a completed/approved/rejected assignment back to `pending`, clearing its completion, approval
+ * and any points/xp already awarded. The server only allows this from those three statuses — a
+ * `pending`/`in_progress` one is a 409, which the caller surfaces rather than swallows.
+ */
+export function resetAssignment(assignmentId: string): Promise<{ assignment: TaskAssignment }> {
+  return api.put<{ assignment: TaskAssignment }>(`/tasks/assignments/${assignmentId}/reset`);
+}
+
+/**
+ * Every query key a reset can invalidate.
+ *
+ * Wider than just the task detail: a reset can pull a `completed` assignment back out of the
+ * approvals queue (nothing left to approve) and always changes what the list/dashboard show for that
+ * task, so all three go stale the same way an approve/reject does (see `INVALIDATED_BY_APPROVAL`).
+ */
+export const INVALIDATED_BY_RESET = [APPROVALS_KEY, ['dashboard', 'parent'], ['tasks']] as const;
 
 // ── Rewards ──────────────────────────────────────────────────────────────────
 
@@ -155,6 +185,33 @@ export function updateChild(id: string, input: Partial<ChildInput>): Promise<{ c
 /** Set or replace a child's avatar. Pass the URL returned by `uploadImage`. */
 export function setChildAvatar(id: string, avatarUrl: string): Promise<{ child: User }> {
   return api.put<{ child: User }>(`/families/me/children/${id}`, { avatarUrl });
+}
+
+// ── Comments (FR-11) ─────────────────────────────────────────────────────────
+//
+// One thread per assignment, visible to any parent in the family and to the child who owns it. No
+// socket wiring here the way the web has (`useSocket`) — mobile has no socket client at all, so the
+// detail screen re-fetches after posting instead of listening for a live event. That means a
+// co-parent's comment typed at the same moment will not appear until the next visit, which is a real
+// gap against the web, not an oversight.
+
+/** Server caps a comment at 1000 characters; the client trims before sending. */
+export function fetchComments(
+  assignmentId: string,
+  signal?: AbortSignal
+): Promise<{ comments: TaskComment[] }> {
+  return api.get<{ comments: TaskComment[] }>(`/tasks/assignments/${assignmentId}/comments`, {
+    signal,
+  });
+}
+
+export function postComment(
+  assignmentId: string,
+  content: string
+): Promise<{ comment: TaskComment }> {
+  return api.post<{ comment: TaskComment }>(`/tasks/assignments/${assignmentId}/comments`, {
+    content,
+  });
 }
 
 // ── Invalidation ─────────────────────────────────────────────────────────────

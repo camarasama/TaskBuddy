@@ -137,6 +137,78 @@ describe('children', () => {
   });
 });
 
+describe('resetAssignment', () => {
+  it('PUTs to the reset endpoint with no body', async () => {
+    const api = setup({ success: true, data: { assignment: { id: 'a1', status: 'pending' } } });
+
+    const result = await api.resetAssignment('a1');
+
+    expect(calls[0]).toMatchObject({
+      method: 'PUT',
+      url: expect.stringMatching(/\/tasks\/assignments\/a1\/reset$/),
+    });
+    expect(result.assignment.status).toBe('pending');
+  });
+
+  it('surfaces the conflict when the assignment is not in a resettable status', async () => {
+    // The server only allows this from completed/approved/rejected; pending/in_progress is a 409 the
+    // detail screen must show, not swallow into a silently no-op button.
+    const api = setup(
+      { success: false, error: { message: 'Only completed, approved, or rejected assignments can be reset' } },
+      409
+    );
+
+    await expect(api.resetAssignment('a1')).rejects.toMatchObject({ name: 'ApiError', status: 409 });
+  });
+});
+
+describe('INVALIDATED_BY_RESET', () => {
+  it('covers approvals, the dashboard and the task list', async () => {
+    // A reset can pull a `completed` row back out of the approvals queue and changes what the
+    // dashboard/list show for the task — under-invalidating leaves a parent looking at stale counts
+    // they would believe.
+    const api = setup();
+
+    const keys = api.INVALIDATED_BY_RESET.map((k) => JSON.stringify(k));
+
+    expect(keys).toContain(JSON.stringify(['approvals', 'pending']));
+    expect(keys).toContain(JSON.stringify(['dashboard', 'parent']));
+    expect(keys).toContain(JSON.stringify(['tasks']));
+  });
+});
+
+describe('comments', () => {
+  it('reads a thread from the assignment-scoped endpoint', async () => {
+    const api = setup({
+      success: true,
+      data: { comments: [{ id: 'c1', assignmentId: 'a1', authorId: 'u1', content: 'Nice work', createdAt: '2026-08-01T00:00:00.000Z' }] },
+    });
+
+    const result = await api.fetchComments('a1');
+
+    expect(calls[0]).toMatchObject({
+      method: 'GET',
+      url: expect.stringMatching(/\/tasks\/assignments\/a1\/comments$/),
+    });
+    expect(result.comments[0].content).toBe('Nice work');
+  });
+
+  it('posts a comment to the same endpoint', async () => {
+    const api = setup({
+      success: true,
+      data: { comment: { id: 'c2', assignmentId: 'a1', authorId: 'u1', content: 'Thanks!', createdAt: '2026-08-01T00:00:00.000Z' } },
+    });
+
+    await api.postComment('a1', 'Thanks!');
+
+    expect(calls[0]).toMatchObject({
+      method: 'POST',
+      url: expect.stringMatching(/\/tasks\/assignments\/a1\/comments$/),
+    });
+    expect(calls[0].body).toEqual({ content: 'Thanks!' });
+  });
+});
+
 describe('isConsentRequired', () => {
   it('recognises the COPPA refusal by code, not by message', async () => {
     // The message is user-facing and may be reworded; the code is the contract. Getting this wrong
