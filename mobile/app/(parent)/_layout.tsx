@@ -119,6 +119,7 @@ export default function ParentLayout() {
         children screen. `href: null` is how expo-router keeps a route in the group without giving it a
         tab; omitting the <Tabs.Screen> entirely would give it a default one instead.
       */}
+      <Tabs.Screen name="welcome" options={{ href: null }} />
       <Tabs.Screen name="devices" options={{ href: null }} />
       <Tabs.Screen name="family-code" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
