@@ -29,8 +29,17 @@ import buildConfigUntyped from '../../app.config';
 // app.config.ts imports `ExpoConfig`/`ConfigContext` only as types (for its exported function's
 // signature), which jest's babel transform strips — so a plain static import works here, unlike the
 // `.env`-dependent modules in lib/__tests__/config.test.ts that need `require` for `resetModules()`.
+/**
+ * Only the fields these tests actually read are declared. A plugin entry is either a bare name or a
+ * `[name, options]` tuple, and the options bag is intentionally loose: it is plugin-defined config,
+ * not something this repo owns a type for, so pinning a shape here would be inventing a contract.
+ */
+type PluginEntry = string | [string, Record<string, unknown>];
+
 const buildConfig = buildConfigUntyped as unknown as (ctx: { config: Record<string, unknown> }) => {
   icon: string;
+  userInterfaceStyle: string;
+  plugins?: PluginEntry[];
   android: {
     adaptiveIcon: {
       backgroundColor: string;
@@ -86,14 +95,48 @@ describe('app icon assets', () => {
   });
 });
 
-describe('splash-icon.png', () => {
-  // Contradicts the naive assumption that every adaptive-icon-shaped asset in assets/ is wired into
-  // app.config.ts: this repo has no `splash` key in the Expo config at all (no splash screen is
-  // configured), so splash-icon.png is not referenced by app.config.ts today. Asserting that it IS
-  // referenced would make this test fail against current, correct behaviour. If a splash screen is
-  // added later, extend the assertions above rather than resurrecting this file's old shape.
-  it('is present on disk even though app.config.ts does not currently reference it', () => {
-    const absolute = join(MOBILE_ROOT, 'assets', 'splash-icon.png');
+/**
+ * The splash screen.
+ *
+ * This block previously asserted the OPPOSITE — that `splash-icon.png` existed on disk while being
+ * referenced by nothing — because for a long time it was. There was no splash configuration at all,
+ * so the app opened on a blank default screen. That is now fixed, and these assertions exist so it
+ * cannot regress to "the asset is present, therefore it must be wired", which is exactly the
+ * inference that let the gap survive review.
+ */
+describe('splash screen', () => {
+  const splashPlugin = () => {
+    const entry = (resolved().plugins ?? []).find(
+      (p): p is [string, Record<string, unknown>] =>
+        Array.isArray(p) && p[0] === 'expo-splash-screen',
+    );
+    return entry?.[1];
+  };
+
+  it('is configured at all — the whole point of this block', () => {
+    expect(splashPlugin()).toBeDefined();
+  });
+
+  it('points at an image that exists on disk and is not empty', () => {
+    const image = splashPlugin()!.image as string;
+    const absolute = join(MOBILE_ROOT, image.replace(/^\.\//, ''));
+
     expect(existsSync(absolute)).toBe(true);
+    expect(statSync(absolute).size).toBeGreaterThan(0);
+  });
+
+  it('uses the brand teal, matching the adaptive icon background', () => {
+    // Continuity: the launcher icon and the screen it opens into must be the same colour, or the
+    // launch reads as two unrelated surfaces.
+    expect(splashPlugin()!.backgroundColor).toBe(palette.primary[50]);
+  });
+
+  it('has a dark variant, because userInterfaceStyle is automatic', () => {
+    // Without this a dark-mode phone gets a bright flash before the themed UI paints — the exact
+    // transition a splash screen is supposed to prevent.
+    const dark = splashPlugin()!.dark as { backgroundColor?: string } | undefined;
+
+    expect(resolved().userInterfaceStyle).toBe('automatic');
+    expect(dark?.backgroundColor).toBe(palette.slate[900]);
   });
 });

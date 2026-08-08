@@ -128,6 +128,41 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-secure-store',
     'expo-font',
     '@sentry/react-native',
+    /**
+     * The launch screen.
+     *
+     * Until now there was NO splash configuration at all: `assets/splash-icon.png` sat in the repo
+     * referenced by nothing, so the app opened on a blank default screen and the first thing a new
+     * tester saw was a white flash rather than the product. It was invisible in review precisely
+     * because the asset file existed — the only way to catch it was to resolve the config and look
+     * for the key.
+     *
+     * Colours are written as literals rather than imported from `@taskbuddy/shared`. This file is
+     * evaluated by the Expo CLI and by EAS *before* the workspace is necessarily built, so importing
+     * from the shared package risks a build that fails on a missing `shared/dist` — a bad trade for
+     * avoiding two duplicated strings. `app-config.test.ts` asserts both values still equal their
+     * design tokens, so the duplication cannot drift silently.
+     *
+     * `dark` is set because `userInterfaceStyle` is `automatic`: without it, a dark-mode phone gets
+     * a bright #f0fafc flash before the themed UI paints, which is the exact jarring transition a
+     * splash screen exists to prevent.
+     */
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/splash-icon.png',
+        // palette.primary[50] — the same brand teal as the adaptive icon background, so the launcher
+        // icon and the screen it opens into are continuous rather than two different colours.
+        backgroundColor: '#f0fafc',
+        imageWidth: 200,
+        dark: {
+          image: './assets/splash-icon.png',
+          // palette.slate[900] === themes.dark.background
+          backgroundColor: '#0f172a',
+          imageWidth: 200,
+        },
+      },
+    ],
     // QR onboarding: the child's app scans a code the parent shows. The permission string is written
     // here rather than left to the plugin's default because it is shown verbatim in Android's dialog
     // and, for a Families-policy app, a vague reason is a review risk. It names the only use.
