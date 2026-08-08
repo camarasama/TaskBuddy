@@ -118,6 +118,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
    * A protection that depends on remembering to bump a string is not a protection, and this repo
    * had already forgotten four times.
    *
+   * ## The one rule that makes this safe: publish with the same environment you built with
+   *
+   * `eas fingerprint:compare --build-id <id>` was run against the 2026-08-08 preview build to check
+   * the instability worry directly. The fingerprint did NOT drift from the monorepo's dependency
+   * tree at all. The only differences were the policy line itself and a MISSING `extra.sentryDsn`,
+   * because `SENTRY_DSN` is an EAS environment variable that a bare local run does not resolve.
+   *
+   * That is the whole hazard, and it is avoidable: the app config is a fingerprint input, EAS
+   * environment variables feed the app config, so publishing without the environment the binary was
+   * built with produces a different hash and an update that never matches. Always
+   * `eas update --environment production` (or the environment matching the target channel), and
+   * confirm with `eas fingerprint:compare` before trusting a publish. `EAS_SKIP_AUTO_FINGERPRINT=1`
+   * exists but must not be used here, it skips the very check that catches this.
+   *
    * ⚠️ **Changing this orphans every existing install.** The runtime version stops being "0.1.0" and
    * becomes a hash, so binaries built before this commit (including the versionCode 4 `.aab`) can
    * never be sent another OTA. A fresh production build is required, not optional.
