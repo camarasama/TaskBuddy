@@ -120,7 +120,7 @@ function StreakBanner({ current, atRisk }: { current: number; atRisk: boolean })
   if (current <= 0) return null;
 
   const label = atRisk
-    ? `${current}-day streak — finish a task today to keep it!`
+    ? `${current}-day streak, finish a task today to keep it!`
     : `${current}-day streak`;
 
   return (
@@ -130,14 +130,19 @@ function StreakBanner({ current, atRisk }: { current: number; atRisk: boolean })
       accessibilityRole="text"
       accessibilityLabel={label}
     >
+      {/* peach[800], not the peach[500] the spec asked for. Measured on the peach[100] ground:
+          500 gives 2.17:1 and 700 gives 4.30:1, both under the 4.5:1 AA minimum; 800 gives 5.83:1.
+          The ramp's own comment in tokens.ts already warns that peach's light steps are decorative
+          and not text colours, so the spec was contradicting the palette it was written from. The
+          flame icon follows the text so the two do not drift apart. */}
       <Ionicons
         name="flame"
         size={18}
-        color={palette.peach[500]}
+        color={palette.peach[800]}
         importantForAccessibility="no"
         accessibilityElementsHidden
       />
-      <AppText style={[styles.streakText, { color: palette.peach[500] }]} numberOfLines={1}>
+      <AppText style={[styles.streakText, { color: palette.peach[800] }]} numberOfLines={1}>
         {label}
       </AppText>
     </View>
