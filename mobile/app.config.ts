@@ -89,29 +89,57 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   /**
    * ⚠️ The safety interlock for the above. The runtime version identifies the NATIVE side of a
    * build. The client sends it when asking for an update, and the server only hands back updates
-   * that declare the same runtime version — so a JS bundle built against different native code is
+   * that declare the same runtime version, so a JS bundle built against different native code is
    * REFUSED rather than downloaded into a binary that cannot run it (which is a hard crash on
    * launch, on a tester's phone, with no way for us to take it back).
    *
-   * Policy chosen: `appVersion`. The runtime version becomes the `version` string above ("0.1.0"),
-   * so the rule is: **bump `version` whenever native code changes**, and old binaries stop being
-   * offered new JS automatically.
+   * Policy: `fingerprint`. The runtime version is a hash of the native project, so it moves by
+   * itself the moment a native module is added, and no human has to remember anything.
    *
-   * Why not `fingerprint`, which derives the runtime version from a hash of the native project and
-   * would enforce this without anyone remembering to bump anything? Because fingerprint only works
-   * if the machine PUBLISHING the update computes byte-identical inputs to the machine that BUILT
-   * the binary — and this is a hoisted monorepo where those inputs are known to be unstable
-   * (duplicate React versions, and the patch drift across expo/expo-constants/expo-linking/
-   * expo-router that `expo-doctor` reports). A fingerprint mismatch fails silently: the update
-   * publishes fine and simply never reaches a single tester, with no error anywhere. During a
-   * 14-day test that failure mode is far more expensive than the discipline of bumping a version.
+   * ## This reverses an earlier, deliberate choice. The reasoning is worth keeping.
    *
-   * `appVersion` also lines up with something already true here: `version` is shipped to the backend
-   * as `extra.clientVersion` for the force-upgrade gate (P0-2), so bumping it is already part of
-   * releasing a new binary. Revisit `fingerprint` once the monorepo's native dependency tree is
-   * clean.
+   * It was `appVersion` (the runtime version being the `version` string, "0.1.0") on the grounds
+   * that fingerprint only works if the machine PUBLISHING an update computes the same inputs as the
+   * machine that BUILT the binary, and this hoisted monorepo has known-unstable inputs (duplicate
+   * React, patch drift across expo/expo-constants/expo-linking/expo-router). That concern is real
+   * and was demonstrated: a locally computed fingerprint on 2026-08-08 did not match the one EAS
+   * recorded for the same commit.
+   *
+   * What changed is the reading of WHICH failure is worse, not the facts:
+   *
+   *  - Fingerprint's failure is an update that does not arrive. Annoying, recoverable, and visible:
+   *    `eas update` reports when no build matches a runtime version.
+   *  - `appVersion`'s failure is a crash loop. `version` had sat at "0.1.0" since the first build
+   *    while FOUR native modules landed (expo-file-system, expo-sharing, expo-splash-screen,
+   *    expo-linear-gradient), so the interlock it describes was not actually holding: an OTA
+   *    referencing any of them would have been served to an older binary and hard-crashed it on
+   *    launch. Unrecoverable remotely, on a roster of testers that can only be spent once.
+   *
+   * A protection that depends on remembering to bump a string is not a protection, and this repo
+   * had already forgotten four times.
+   *
+   * ## The one rule that makes this safe: publish with the same environment you built with
+   *
+   * `eas fingerprint:compare --build-id <id>` was run against the 2026-08-08 preview build to check
+   * the instability worry directly. The fingerprint did NOT drift from the monorepo's dependency
+   * tree at all. The only differences were the policy line itself and a MISSING `extra.sentryDsn`,
+   * because `SENTRY_DSN` is an EAS environment variable that a bare local run does not resolve.
+   *
+   * That is the whole hazard, and it is avoidable: the app config is a fingerprint input, EAS
+   * environment variables feed the app config, so publishing without the environment the binary was
+   * built with produces a different hash and an update that never matches. Always
+   * `eas update --environment production` (or the environment matching the target channel), and
+   * confirm with `eas fingerprint:compare` before trusting a publish. `EAS_SKIP_AUTO_FINGERPRINT=1`
+   * exists but must not be used here, it skips the very check that catches this.
+   *
+   * ⚠️ **Changing this orphans every existing install.** The runtime version stops being "0.1.0" and
+   * becomes a hash, so binaries built before this commit (including the versionCode 4 `.aab`) can
+   * never be sent another OTA. A fresh production build is required, not optional.
+   *
+   * `version` is unaffected and still ships to the backend as `extra.clientVersion` for the
+   * force-upgrade gate (P0-2). The two were only ever coupled by the old policy.
    */
-  runtimeVersion: { policy: 'appVersion' },
+  runtimeVersion: { policy: 'fingerprint' },
   // `expo-font` is listed because `expo install` asks for it. Fonts are still loaded at runtime via
   // `useFonts()` rather than embedded through the plugin's `fonts` option — runtime loading is what
   // works in Expo Go, which is how the app is being tested until a development build exists.
