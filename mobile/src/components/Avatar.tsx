@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, type ViewStyle } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { fontWeight, onGradient, palette, radius } from '@/theme';
+import { fontWeight, onGradient, palette } from '@/theme';
 
 /** Cycled by `avatarGradientIndex`. Order is meaningful only in that it is stable: do not reorder. */
 const GRADIENTS: [string, string][] = [
@@ -56,7 +56,11 @@ export function Avatar({ seed, name, size = DEFAULT_SIZE, style }: AvatarProps) 
     <LinearGradient
       testID="avatar-gradient"
       colors={[start, end]}
-      style={[styles.base, { width: size, height: size, borderRadius: radius.md }, style]}
+      // Circular, not a rounded square. The web's Avatar is `rounded-full` in every one of its three
+      // usages, so a squircle here would make the same child look like a different component on the
+      // two clients. `size / 2` rather than a radius token: the scale has no step that stays circular
+      // as `size` changes, and a fixed 6dp on a 34dp avatar reads as a square with the corners filed.
+      style={[styles.base, { width: size, height: size, borderRadius: size / 2 }, style]}
       accessible
       accessibilityRole="image"
       accessibilityLabel={name}

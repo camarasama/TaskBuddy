@@ -82,11 +82,17 @@ export function Card({ children, style, status }: CardProps) {
 
 const styles = StyleSheet.create({
   surface: {
-    borderRadius: radius.xl,
+    // radius.lg (16), not xl (24). 16 is exactly Tailwind's `rounded-2xl`, the roundest card the web
+    // uses, and the web's own cards are mostly rounded-lg/xl (8 and 12). A 24dp card is rounder than
+    // anything on the web and the two clients would visibly disagree.
+    borderRadius: radius.lg,
     marginBottom: spacing[4],
   },
   clip: {
-    borderRadius: radius.xl,
+    // radius.lg (16), not xl (24). 16 is exactly Tailwind's `rounded-2xl`, the roundest card the web
+    // uses, and the web's own cards are mostly rounded-lg/xl (8 and 12). A 24dp card is rounder than
+    // anything on the web and the two clients would visibly disagree.
+    borderRadius: radius.lg,
     overflow: 'hidden',
   },
   padding: {
