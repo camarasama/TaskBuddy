@@ -19,6 +19,7 @@ import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   GAME_CATEGORY_LABELS,
   GAME_LEVEL_LABELS,
@@ -33,7 +34,63 @@ import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
 import { describeError } from '@/lib/errors';
 import { cooldownLabel, gamesQuery, groupByCategory, type CategoryGroup } from '@/lib/gamesApi';
-import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
+import {
+  elevation,
+  fontSize,
+  fontWeight,
+  minTouchTarget,
+  onGradient,
+  palette,
+  radius,
+  spacing,
+  useTheme,
+} from '@/theme';
+
+/**
+ * Today's featured pick, per the redesign brief: one gradient CTA above the plain grid. There is no
+ * server concept of a "pick of the day" — this rotates deterministically through whatever is playable
+ * right now (not on cooldown, has an authored game), keyed by the day so it holds steady all day and
+ * changes tomorrow. Returns null when nothing is playable, rather than featuring a locked cell.
+ */
+function pickTodaysGame(groups: CategoryGroup[]): { category: CategoryGroup['category']; game: GameDefinition } | null {
+  const playable = groups
+    .filter((g) => !g.onCooldown)
+    .flatMap((g) => g.levels.flatMap((cell) => (cell.game ? [{ category: g.category, game: cell.game }] : [])));
+  if (playable.length === 0) return null;
+
+  const dayIndex = Math.floor(Date.now() / 86_400_000);
+  return playable[dayIndex % playable.length];
+}
+
+/** The gradient CTA. Fixed brand surface, not a themed one — same reasoning as the child dashboard's
+ *  hero and wallet. */
+function TodaysPick({ category, game, onPlay }: {
+  category: CategoryGroup['category'];
+  game: GameDefinition;
+  onPlay: (game: GameDefinition) => void;
+}) {
+  const reward = GAME_REWARDS[game.level];
+
+  return (
+    <View style={[styles.pickOuter, elevation.lift]}>
+      <LinearGradient
+        colors={[palette.primary[500], palette.xp[600]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.pickGradient}
+      >
+        <AppText style={[styles.pickLabel, { color: onGradient }]}>Today's pick</AppText>
+        <AppText variant="display" style={[styles.pickTitle, { color: onGradient }]}>
+          {GAME_CATEGORY_LABELS[category]} · {GAME_LEVEL_LABELS[game.level]}
+        </AppText>
+        <AppText style={[styles.pickReward, { color: onGradient }]}>
+          {reward.points} pts · {reward.xp} XP
+        </AppText>
+        <Button label="Play now" variant="secondary" onPress={() => onPlay(game)} />
+      </LinearGradient>
+    </View>
+  );
+}
 
 function LevelButton({
   game,
@@ -185,6 +242,7 @@ export default function GamePicker() {
   }
 
   const groups = groupByCategory(data.games);
+  const todaysPick = pickTodaysGame(groups);
 
   return (
     <Screen>
@@ -201,6 +259,10 @@ export default function GamePicker() {
         <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>
           Play a game
         </AppText>
+
+        {todaysPick && (
+          <TodaysPick category={todaysPick.category} game={todaysPick.game} onPlay={onPlay} />
+        )}
 
         {groups.map((group) => (
           <CategoryRow key={group.category} group={group} onPlay={onPlay} />
@@ -223,6 +285,27 @@ const styles = StyleSheet.create({
     fontSize: fontSize['2xl'].fontSize,
     lineHeight: fontSize['2xl'].lineHeight,
     fontWeight: fontWeight.bold,
+    marginBottom: spacing[4],
+  },
+  pickOuter: { borderRadius: radius.xl, marginBottom: spacing[4] },
+  pickGradient: { borderRadius: radius.xl, padding: spacing[5] },
+  pickLabel: {
+    fontSize: fontSize.xs.fontSize,
+    fontWeight: fontWeight.bold,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: spacing[1],
+  },
+  pickTitle: {
+    fontSize: fontSize.xl.fontSize,
+    lineHeight: fontSize.xl.lineHeight,
+    fontWeight: fontWeight.bold,
+  },
+  pickReward: {
+    fontSize: fontSize.sm.fontSize,
+    lineHeight: fontSize.sm.lineHeight,
+    fontWeight: fontWeight.semibold,
+    marginTop: spacing[1],
     marginBottom: spacing[4],
   },
   categoryHeader: {
