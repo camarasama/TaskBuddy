@@ -10,7 +10,14 @@
  * nonsense, and on a rotating-token backend it would also be destructive.
  */
 import { VALIDATION } from '@taskbuddy/shared';
-import type { ChildLoginRequest, ChildProfile, LoginRequest, User } from '@taskbuddy/shared';
+import type {
+  ChildLoginRequest,
+  ChildPinResetRequestRequest,
+  ChildPinResetRequestResponse,
+  ChildProfile,
+  LoginRequest,
+  User,
+} from '@taskbuddy/shared';
 
 import { ApiError, api } from './api';
 import { asDate } from './dates';
@@ -345,6 +352,27 @@ export function resetPassword(token: string, newPassword: string): Promise<{ mes
     { token, newPassword },
     { session: false }
   );
+}
+
+// ─── Child PIN reset ──────────────────────────────────────────────────────────
+
+/**
+ * Ask a family's parents to help a child who has forgotten their PIN.
+ *
+ * **Always answers 200** with the identical message whether or not `familyCode`/`childIdentifier`
+ * match a real child — same anti-enumeration contract as `requestPasswordReset` above, and for the
+ * same reason: a "no such child" branch here would let anyone brute-force usernames against a family
+ * code with no rate-limit-independent signal. The child never sets the new PIN themselves — a parent
+ * does, on the web, from the emailed link — so there is no completion call in this file for U4.
+ */
+export function requestChildPinReset(
+  familyCode: string,
+  childIdentifier: string
+): Promise<ChildPinResetRequestResponse> {
+  const body: ChildPinResetRequestRequest = { familyCode, childIdentifier };
+  return api.post<ChildPinResetRequestResponse>('/auth/child/pin-reset/request', body, {
+    session: false,
+  });
 }
 
 // ─── Email verification ──────────────────────────────────────────────────────
