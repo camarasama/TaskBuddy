@@ -123,6 +123,7 @@ export default function ParentLayout() {
       <Tabs.Screen name="family-code" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="task-form" options={{ href: null }} />
+      <Tabs.Screen name="task-detail" options={{ href: null }} />
       <Tabs.Screen name="reward-form" options={{ href: null }} />
       <Tabs.Screen name="child-form" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />

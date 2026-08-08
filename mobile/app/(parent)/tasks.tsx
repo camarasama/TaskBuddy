@@ -198,12 +198,13 @@ export default function ParentTasks() {
         data={tasks}
         keyExtractor={(task) => task.id}
         renderItem={({ item }) => (
-          // Tapping a row edits it. The list is the only route into the edit form, so without this
-          // a parent could create tasks on the phone but never change one.
+          // Tapping a row opens the read-first detail screen (state, evidence, comments), not the
+          // edit form directly — a parent checking who has a task should not land in an editable form
+          // by accident. The detail screen's own "Edit" button is the route into task-form.
           <Pressable
-            onPress={() => router.push({ pathname: '/(parent)/task-form', params: { id: item.id } })}
+            onPress={() => router.push({ pathname: '/(parent)/task-detail', params: { id: item.id } })}
             accessibilityRole="button"
-            accessibilityLabel={`Edit ${item.title}`}
+            accessibilityLabel={`View ${item.title}`}
           >
             <TaskRow task={item} />
           </Pressable>
