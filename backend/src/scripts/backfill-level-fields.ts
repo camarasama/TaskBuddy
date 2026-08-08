@@ -24,6 +24,12 @@
  * A child's level can only rise here, never fall - which is the right direction to be wrong in for a
  * change that lands on real children's profiles.
  */
+// MUST come first, and must not be "cleaned up" as an unused import. `services/database` builds the
+// PrismaClient at module load and reads DATABASE_URL from the environment, but nothing in that path
+// loads `.env`. Only `../config` calls `dotenv.config()`. Without this line the script runs as the
+// taskbuddy user, finds no DATABASE_URL, and dies before touching a single row. Every other script
+// in this directory opens the same way for the same reason.
+import '../config';
 import { prisma } from '../services/database';
 import { calculateLevelFromXp } from '../utils/gamification';
 
