@@ -12,67 +12,81 @@ import { useCallback, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
+import { Card, type CardStatus } from '@/components/Card';
+import { Chip } from '@/components/Chip';
 import { Screen } from '@/components/Screen';
+import { type ChildMember, childrenQuery } from '@/lib/childrenApi';
 import { NetworkError } from '@/lib/api';
 import { dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { parentTasksQuery, type ParentTask, type TaskFilters } from '@/lib/tasksApi';
-import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
 
-type StatusFilter = TaskFilters['status'] | 'all';
-
-const FILTERS: { key: StatusFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active' },
-  { key: 'paused', label: 'Paused' },
-  { key: 'archived', label: 'Archived' },
-];
+/**
+ * `'all'` or a child's id. The redesign brief replaces the old status chips (All/Active/Paused/
+ * Archived) with per-child ones, so filtering by status is no longer reachable from this screen's
+ * chip row. `childId` already exists on `TaskFilters` and the backend already accepts it (it just had
+ * no UI here before), so this reuses an existing filter rather than adding a new one.
+ */
+type ChildFilter = 'all' | string;
 
 function FilterChips({
+  familyChildren,
   value,
   onChange,
 }: {
-  value: StatusFilter;
-  onChange: (next: StatusFilter) => void;
+  // Named `familyChildren`, not `children` — this is a data prop (the family's kids), and naming it
+  // `children` would read as the JSX children slot this component does not have.
+  familyChildren: ChildMember[];
+  value: ChildFilter;
+  onChange: (next: ChildFilter) => void;
 }) {
-  const theme = useTheme();
-
   return (
     <View style={styles.chipRow}>
-      {FILTERS.map((filter) => {
-        const selected = filter.key === value;
-        return (
-          <Pressable
-            key={filter.key}
-            onPress={() => onChange(filter.key)}
-            accessibilityRole="button"
-            // Announces which chip is active; a background colour alone tells a screen reader nothing.
-            accessibilityState={{ selected }}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: selected ? theme.primary : theme.card,
-                borderColor: selected ? theme.primary : theme.border,
-              },
-            ]}
-          >
-            <AppText
-              style={[
-                styles.chipLabel,
-                { color: selected ? theme.primaryForeground : theme.cardForeground },
-              ]}
-            >
-              {filter.label}
-            </AppText>
-          </Pressable>
-        );
-      })}
+      <Chip
+        label="All"
+        // Settled pairing for a filter chip: `primary` (filled) for the selected one, `info` (tinted)
+        // for the rest. Left undecided by the primitives unit, now fixed here for every filter chip
+        // in the app.
+        variant={value === 'all' ? 'primary' : 'info'}
+        selected={value === 'all'}
+        onPress={() => onChange('all')}
+      />
+      {familyChildren.map((child) => (
+        <Chip
+          key={child.id}
+          label={child.firstName}
+          variant={value === child.id ? 'primary' : 'info'}
+          selected={value === child.id}
+          onPress={() => onChange(child.id)}
+        />
+      ))}
     </View>
   );
+}
+
+/**
+ * A task's stripe, matching the same states the dashboard's approval queue uses: `late` beats
+ * `pending` beats no stripe at all, and a task is never both. `done` is deliberately not derived here:
+ * "all assignments approved" would need to special-case an unassigned task (zero assignments is not
+ * the same as zero *un*approved ones), and the row already says the approved count in words via
+ * `assignmentSummary`, so a green stripe would be repeating rather than adding information.
+ */
+function taskCardStatus(task: ParentTask): CardStatus | undefined {
+  if (isOverdue(task.dueDate) && task.status === 'active') return 'late';
+  if (task.assignments.some((assignment) => assignment.status === 'completed')) return 'pending';
+  return undefined;
+}
+
+/** 0 sorts first. Late beats pending beats everything else, matching `taskCardStatus`'s own priority. */
+function taskPriority(task: ParentTask): number {
+  const status = taskCardStatus(task);
+  if (status === 'late') return 0;
+  if (status === 'pending') return 1;
+  return 2;
 }
 
 /**
@@ -100,7 +114,7 @@ function TaskRow({ task }: { task: ParentTask }) {
   const overdue = isOverdue(task.dueDate) && task.status === 'active';
 
   return (
-    <Card>
+    <Card status={taskCardStatus(task)}>
       <View style={styles.rowHeader}>
         <AppText style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
           {task.title}
@@ -138,10 +152,19 @@ function TaskRow({ task }: { task: ParentTask }) {
 
 export default function ParentTasks() {
   const theme = useTheme();
-  const [status, setStatus] = useState<StatusFilter>('all');
+  const [childFilter, setChildFilter] = useState<ChildFilter>('all');
 
-  // `all` means "send no status param" — the backend has no 'all' value and rejects one.
-  const filters = useMemo<TaskFilters>(() => (status === 'all' ? {} : { status }), [status]);
+  // The chip row needs the family's children regardless of which page of tasks is loaded (a child with
+  // no tasks yet must still get a chip), so this is its own query rather than derived from `tasks`.
+  // Same `childrenQuery()` the children screen already uses, so it is very likely already warm in the
+  // cache by the time a parent reaches this tab.
+  const childrenList = useQuery(childrenQuery());
+
+  // `all` means "send no childId param": the backend has no 'all' value and rejects one.
+  const filters = useMemo<TaskFilters>(
+    () => (childFilter === 'all' ? {} : { childId: childFilter }),
+    [childFilter]
+  );
 
   const {
     data,
@@ -155,8 +178,20 @@ export default function ParentTasks() {
     isFetchingNextPage,
   } = useInfiniteQuery(parentTasksQuery(filters));
 
-  const tasks = useMemo(() => data?.pages.flatMap((page) => page.tasks) ?? [], [data]);
+  // Sorted, not just fetched-order: the redesign wants late and pending tasks to read first. This only
+  // reorders whichever page(s) are already loaded, it does not ask the server for a different order,
+  // so a task that arrives on a later page can still appear above one already on screen. Acceptable for
+  // a family's task list (rarely more than one page deep) but worth knowing about before this pattern
+  // is copied onto a longer list.
+  const tasks = useMemo(() => {
+    const flat = data?.pages.flatMap((page) => page.tasks) ?? [];
+    return [...flat].sort((a, b) => taskPriority(a) - taskPriority(b));
+  }, [data]);
   const total = data?.pages[0]?.pagination.total ?? 0;
+  const selectedChildName =
+    childFilter === 'all'
+      ? null
+      : (childrenList.data?.find((child) => child.id === childFilter)?.firstName ?? null);
 
   const onEndReached = useCallback(() => {
     // Guarded: FlatList fires this repeatedly while near the end, and without the check every fire
@@ -170,7 +205,11 @@ export default function ParentTasks() {
       <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
         {isPending ? 'Loading…' : `${total} ${total === 1 ? 'task' : 'tasks'}`}
       </AppText>
-      <FilterChips value={status} onChange={setStatus} />
+      <FilterChips
+        familyChildren={childrenList.data ?? []}
+        value={childFilter}
+        onChange={setChildFilter}
+      />
       <View style={styles.headerAction}>
         <Button label="New task" onPress={() => router.push('/(parent)/task-form')} />
       </View>
@@ -223,9 +262,9 @@ export default function ParentTasks() {
           ) : (
             <Card>
               <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                {status === 'all'
+                {selectedChildName === null
                   ? 'No tasks yet. You can create them on the web for now.'
-                  : `No ${status} tasks.`}
+                  : `No tasks for ${selectedChildName}.`}
               </AppText>
             </Card>
           )
@@ -263,14 +302,6 @@ const styles = StyleSheet.create({
   },
   headerAction: { marginBottom: spacing[3] },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
-  chip: {
-    minHeight: minTouchTarget,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[4],
-    borderRadius: radius.full,
-    borderWidth: 1,
-  },
-  chipLabel: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.medium },
   listContent: { paddingBottom: spacing[6] },
   rowHeader: {
     flexDirection: 'row',
