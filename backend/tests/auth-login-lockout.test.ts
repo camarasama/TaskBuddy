@@ -66,6 +66,21 @@ describe('AuthService.childLogin — PIN comparison is constant-work', () => {
   });
 });
 
+/**
+ * Hashed ONCE for the whole file rather than per call.
+ *
+ * The PIN and the cost factor are identical on every invocation, so re-hashing produced an identical
+ * string at a cost of ~300ms a time. That was not free: the escalating-lockout test below calls this
+ * five times inside its loop, and with five real `bcrypt.compare` calls on top it pushed a single
+ * test past Jest's 5s default and made the suite fail intermittently under parallel load — passing in
+ * isolation, failing in a full run, which is the most expensive kind of flake to diagnose.
+ *
+ * The real hash is deliberately KEPT (not stubbed). These tests exercise the genuine compare path,
+ * including the dummy-hash branch that fixed the childLogin timing leak — replacing bcrypt with a
+ * fake here would delete the only coverage that fix has.
+ */
+const PIN_HASH = bcrypt.hash('4321', 12);
+
 async function childWith(overrides: Record<string, unknown>) {
   return {
     id: 'child-1',
@@ -74,7 +89,7 @@ async function childWith(overrides: Record<string, unknown>) {
     lockedUntil: null,
     failedLoginAttempts: 0,
     lastFailedLoginAt: null,
-    childProfile: { pinHash: await bcrypt.hash('4321', 12), ageGroup: 'child' },
+    childProfile: { pinHash: await PIN_HASH, ageGroup: 'child' },
     ...overrides,
   };
 }
@@ -121,7 +136,10 @@ describe('AuthService.childLogin — lockout is progressive, not instant', () =>
 
     // 1min → 5min → 15min → 60min, then held at the 60min ceiling.
     expect(durations).toEqual([1, 5, 15, 60, 60]);
-  });
+    // Five real bcrypt compares at cost 12 is inherently ~2s of honest work, so this one test gets
+    // headroom over Jest's 5s default. Hoisting PIN_HASH removed the other ~1.5s; the remainder is
+    // the compare path these tests exist to cover and must not be stubbed away to go faster.
+  }, 20_000);
 
   it('starts counting fresh when the previous failure has decayed', async () => {
     const longAgo = new Date(Date.now() - 2 * 60 * 60_000);
