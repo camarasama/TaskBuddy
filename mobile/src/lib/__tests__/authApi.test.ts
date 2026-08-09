@@ -9,7 +9,7 @@
  *   - accept-invite says `phone`, register says `phoneNumber`. Neither is a typo.
  *   - an untouched optional field must be *absent*, not `''` — an empty string fails the E.164
  *     regex and the gender enum, so a blank field would reject an otherwise perfect form.
- *   - the floor for a new password is 10, not the 8 the web's pages still advertise.
+ *   - the floor for a new password comes from the shared constant, never a literal in a screen.
  *   - a sign-up whose token could not reach the keystore must fail loudly, exactly as login does;
  *     otherwise the app reports success and the session is gone at the next launch.
  */
