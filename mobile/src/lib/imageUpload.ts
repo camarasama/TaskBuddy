@@ -20,14 +20,9 @@
 import * as ImagePicker from 'expo-image-picker';
 
 import { api } from './api';
+import { buildPhotoForm, type PickedImage } from './photoForm';
 
-/** What the picker gave back, before upload. */
-export interface PickedImage {
-  uri: string;
-  /** Best-effort from the picker; defaults to JPEG, which is what the compressor below emits. */
-  mimeType: string;
-  fileName: string;
-}
+export type { PickedImage } from './photoForm';
 
 /**
  * Ask for a photo, from the library.
@@ -62,16 +57,44 @@ export async function pickImage(): Promise<PickedImage | null> {
   };
 }
 
+/**
+ * Ask for a photo of something that just happened, from the camera or the library.
+ *
+ * Separate from `pickImage` rather than an option on it, because every choice differs. No
+ * `allowsEditing` and no square crop: a photo of a tidied room is evidence, and forcing a child to
+ * crop it to a circle-shaped avatar frame would cut the proof out of the picture. Quality is a little
+ * higher too, since a parent has to be able to actually see whether the job was done.
+ *
+ * Returns null when the child backs out or refuses permission. Both are ordinary: a supervised device
+ * can refuse the camera outright and the child cannot grant it themselves, so the caller must always
+ * leave a way to finish the task without a photo.
+ */
+export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedImage | null> {
+  const permission =
+    source === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) return null;
+
+  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.8 };
+  const result =
+    source === 'camera'
+      ? await ImagePicker.launchCameraAsync(options)
+      : await ImagePicker.launchImageLibraryAsync(options);
+
+  if (result.canceled || result.assets.length === 0) return null;
+
+  const asset = result.assets[0];
+  return {
+    uri: asset.uri,
+    mimeType: asset.mimeType ?? 'image/jpeg',
+    fileName: asset.fileName ?? `evidence-${Date.now()}.jpg`,
+  };
+}
+
 /** Upload a picked image; resolves to its public URL. */
 export async function uploadImage(image: PickedImage): Promise<string> {
-  const form = new FormData();
-  form.append('photo', {
-    uri: image.uri,
-    name: image.fileName,
-    type: image.mimeType,
-  } as unknown as Blob);
-
-  const result = await api.post<{ url: string }>('/auth/upload-image', form);
+  const result = await api.post<{ url: string }>('/auth/upload-image', buildPhotoForm(image));
   return result.url;
 }
 

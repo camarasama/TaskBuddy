@@ -24,6 +24,7 @@ import type { Task, TaskAssignment, TaskEvidence } from '@taskbuddy/shared';
 
 import { api } from './api';
 import { CHILD_DASHBOARD_KEY } from './childDashboardApi';
+import { buildPhotoForm, type PickedImage } from './photoForm';
 import type { PaginationMeta } from './tasksApi';
 
 /** Team progress, attached to any assignment or task whose `isTeamTask` is set (U17). */
@@ -149,6 +150,22 @@ export function startAssignment(assignmentId: string): Promise<unknown> {
 export function completeAssignment(assignmentId: string, note?: string): Promise<unknown> {
   const trimmed = note?.trim();
   return api.put(`/tasks/assignments/${assignmentId}/complete`, trimmed ? { note: trimmed } : {});
+}
+
+/**
+ * Attach a photo to an assignment.
+ *
+ * Upload first, complete second, and do NOT pass the returned URL to `completeAssignment`. The upload
+ * endpoint already writes the `TaskEvidence` row against this assignment, so the photo is attached the
+ * moment this resolves. The web passes a `photoUrl` to its complete call, but `completeTaskSchema`
+ * accepts only `note` and `completedAt` and Zod strips the rest, so that argument has never done
+ * anything — copying it here would look meaningful and be dead.
+ *
+ * Objects live in the private evidence bucket; reads come back as short-lived presigned URLs, which is
+ * why nothing here holds on to a link.
+ */
+export function uploadEvidence(assignmentId: string, image: PickedImage): Promise<unknown> {
+  return api.post(`/tasks/assignments/${assignmentId}/upload`, buildPhotoForm(image));
 }
 
 /** Claim a task from the pool. Every guard is server-side; a 409 here is a real answer, not a bug. */
