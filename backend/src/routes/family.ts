@@ -362,10 +362,33 @@ familyRouter.post('/me/children', requireParent, validateBody(addChildSchema), a
     // collection. The CONSENT_REQUIRED code lets the UI route to the consent screen rather than
     // showing a generic 403.
     if (!(await ConsentService.hasVerifiedConsent(req.familyId!))) {
+      // Send the email here, on first refusal, because nothing else ever does. Registration does
+      // not request consent, so before this the 403 told a parent to check an inbox that no email
+      // had been sent to, and the only screen that could fix it was one they had no reason to
+      // visit. `getStatus` reports an expired pending request as 'none', so this also recovers a
+      // family whose link timed out.
+      const { status } = await ConsentService.getStatus(req.familyId!);
+      let emailed = false;
+      if (status === 'none') {
+        try {
+          await ConsentService.requestConsent({
+            familyId: req.familyId!,
+            parentId: req.user!.userId,
+          });
+          emailed = true;
+        } catch (err) {
+          // A failed send must not change the outcome. The gate still refuses, and the parent can
+          // retry from the consent screen; swallowing it here only costs them one extra tap.
+          console.error('[family] consent auto-request failed:', (err as Error)?.message);
+        }
+      }
+
       throw new AppError(
         403,
         'CONSENT_REQUIRED',
-        'Please confirm you are the parent before adding a child. We have sent you an email, or you can request a new one from Settings.',
+        emailed
+          ? "We've emailed you a link to confirm you're the parent. Follow it and you can add your children straight away."
+          : 'Please follow the link we emailed you to confirm you are the parent. You can send a new one if it has gone astray.',
       );
     }
 
