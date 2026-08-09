@@ -9,7 +9,7 @@
  *   - accept-invite says `phone`, register says `phoneNumber`. Neither is a typo.
  *   - an untouched optional field must be *absent*, not `''` — an empty string fails the E.164
  *     regex and the gender enum, so a blank field would reject an otherwise perfect form.
- *   - the floor for a new password is 10, not the 8 the web's pages still advertise.
+ *   - the floor for a new password comes from the shared constant, never a literal in a screen.
  *   - a sign-up whose token could not reach the keystore must fail loudly, exactly as login does;
  *     otherwise the app reports success and the session is gone at the next launch.
  */
@@ -468,12 +468,13 @@ describe('fieldErrors', () => {
 });
 
 describe('the rules mirrored from the server schemas', () => {
-  it('holds new passwords to 10 characters, not the 8 the web pages advertise', () => {
-    // VALIDATION.PASSWORD.MIN_LENGTH (8) is the legacy floor for *existing* passwords and login.
-    // Every route that sets a new one uses NEW_MIN_LENGTH. Do not "fix" this back to 8.
+  it('mirrors the server floor for new passwords rather than hardcoding one', () => {
+    // Was 10, lowered to 8 on 2026-08-09 to sit on the NIST/OWASP baseline. What matters here is
+    // that the screens read NEW_MIN_LENGTH from shared: a hardcoded number drifts from the API and
+    // the form ends up promising something the server rejects after the button press.
     const auth = setup({ success: true, data: {} });
 
-    expect(auth.NEW_PASSWORD_MIN_LENGTH).toBe(10);
+    expect(auth.NEW_PASSWORD_MIN_LENGTH).toBe(8);
   });
 
   it('accepts someone exactly 18 today and refuses them one day short', () => {
