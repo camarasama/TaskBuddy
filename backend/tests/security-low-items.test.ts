@@ -7,13 +7,20 @@ import { isPasswordBreached } from '../src/utils/passwordBreach';
 describe('password length floors are pinned (F-10i)', () => {
   // Two constants exist on purpose: raising the floor for everyone would have locked out every
   // parent holding a valid 8- or 9-character password. Neither value was pinned by a test, so a
-  // refactor collapsing them — in either direction — was silent. It is not silent now.
+  // refactor collapsing them, in either direction, was silent. It is not silent now.
+  //
+  // The values are equal as of 2026-08-09 (the new-password floor came down from 10 to 8). That
+  // makes the pair look redundant, which is exactly when someone deletes one of them. Do not: the
+  // point is that they can diverge again, upward, without locking anyone out.
   it('keeps the legacy floor at 8 for existing passwords / login', () => {
     expect(VALIDATION.PASSWORD.MIN_LENGTH).toBe(8);
   });
 
-  it('requires 10 characters for NEW passwords (register, change, reset)', () => {
-    expect(VALIDATION.PASSWORD.NEW_MIN_LENGTH).toBe(10);
+  it('requires 8 characters for NEW passwords (register, change, reset)', () => {
+    // 8 is the NIST SP 800-63B and OWASP ASVS minimum. Below it we would be under every published
+    // baseline while holding children's personal data, which is the bar COPPA §312.8 judges us on.
+    expect(VALIDATION.PASSWORD.NEW_MIN_LENGTH).toBe(8);
+    expect(VALIDATION.PASSWORD.NEW_MIN_LENGTH).toBeGreaterThanOrEqual(8);
   });
 
   it('never lets the new-password floor slip below the legacy one', () => {

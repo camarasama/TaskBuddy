@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import request from 'supertest';
+import { VALIDATION } from '@taskbuddy/shared';
 
 // Mock the collaborators so the reset logic can be exercised without a database, SMTP, or the
 // real session store. Only the pieces these tests assert on are provided.
@@ -118,21 +119,27 @@ describe('AuthService.resetPassword', () => {
   });
 });
 
-describe('POST /auth/reset-password enforces the 10-character floor (F-10i)', () => {
-  // Proves the constant is actually wired into the route schema, not merely defined.
-  it('rejects a 9-character new password', async () => {
+describe('POST /auth/reset-password enforces the new-password floor (F-10i)', () => {
+  // Proves the constant is actually wired into the route schema, not merely defined. The lengths
+  // are derived from it rather than written out, so changing the policy moves this boundary with
+  // it instead of failing here. The value itself is pinned in security-low-items.test.ts, which is
+  // where a deliberate change has to be acknowledged.
+  const floor = VALIDATION.PASSWORD.NEW_MIN_LENGTH;
+  const ofLength = (n: number) => 'Aa1!'.padEnd(n, 'x').slice(0, n);
+
+  it('rejects a new password one character below the floor', async () => {
     const res = await request(app)
       .post('/api/v1/auth/reset-password')
-      .send({ token: 'a'.repeat(64), newPassword: 'Short123!' }); // 9 chars
+      .send({ token: 'a'.repeat(64), newPassword: ofLength(floor - 1) });
     expect(res.status).toBe(400);
     expect(updateUser).not.toHaveBeenCalled();
   });
 
-  it('accepts a 10-character new password (length is not what blocks it)', async () => {
+  it('accepts one exactly at the floor (length is not what blocks it)', async () => {
     findUser.mockResolvedValue(null); // unknown token → 404, i.e. it got past validation
     const res = await request(app)
       .post('/api/v1/auth/reset-password')
-      .send({ token: 'a'.repeat(64), newPassword: 'Short123!!' }); // 10 chars
+      .send({ token: 'a'.repeat(64), newPassword: ofLength(floor) });
     expect(res.status).not.toBe(400);
   });
 });

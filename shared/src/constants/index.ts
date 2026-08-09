@@ -48,7 +48,14 @@ export const VALIDATION = {
   },
   PASSWORD: {
     MIN_LENGTH: 8,          // legacy floor (existing passwords, login)
-    NEW_MIN_LENGTH: 10,     // F-10: stronger floor for NEW passwords (register/change/reset)
+    // Floor for NEW passwords (register/change/reset). F-10 set this to 10, which was our own
+    // choice and not required by anything: NIST SP 800-63B and OWASP ASVS both put the minimum at
+    // 8, GDPR Art. 32 and COPPA §312.8 name no length at all, and Play has no rule here. Lowered
+    // to 8 on 2026-08-09 to sit exactly on that baseline. Kept as a separate constant from
+    // MIN_LENGTH even though the values now match, because they answer different questions: this
+    // one can be raised later without locking out parents already holding a valid 8-character
+    // password, which is the whole reason the pair exists.
+    NEW_MIN_LENGTH: 8,
     CHILD_MIN_LENGTH: 6,
   },
   USERNAME: {

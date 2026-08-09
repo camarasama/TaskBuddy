@@ -468,12 +468,13 @@ describe('fieldErrors', () => {
 });
 
 describe('the rules mirrored from the server schemas', () => {
-  it('holds new passwords to 10 characters, not the 8 the web pages advertise', () => {
-    // VALIDATION.PASSWORD.MIN_LENGTH (8) is the legacy floor for *existing* passwords and login.
-    // Every route that sets a new one uses NEW_MIN_LENGTH. Do not "fix" this back to 8.
+  it('mirrors the server floor for new passwords rather than hardcoding one', () => {
+    // Was 10, lowered to 8 on 2026-08-09 to sit on the NIST/OWASP baseline. What matters here is
+    // that the screens read NEW_MIN_LENGTH from shared: a hardcoded number drifts from the API and
+    // the form ends up promising something the server rejects after the button press.
     const auth = setup({ success: true, data: {} });
 
-    expect(auth.NEW_PASSWORD_MIN_LENGTH).toBe(10);
+    expect(auth.NEW_PASSWORD_MIN_LENGTH).toBe(8);
   });
 
   it('accepts someone exactly 18 today and refuses them one day short', () => {
