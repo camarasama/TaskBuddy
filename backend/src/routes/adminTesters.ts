@@ -257,7 +257,14 @@ adminTestersRouter.post('/:id/invite', validateParams(idParam), async (req, res,
       toUserId: null,
       familyId: null,
       subject: `Would you help me test ${APP_NAME}?`,
-      templateData: { firstName: tester.firstName, optInUrl: optInUrl(), appName: APP_NAME },
+      templateData: {
+        firstName: tester.firstName,
+        // Named in the body: the track admits by email list, so a phone signed in to any other
+        // Google account reports the app as unavailable, and that is the usual reason it fails.
+        email: tester.email,
+        optInUrl: optInUrl(),
+        appName: APP_NAME,
+      },
       // They have no family record, so there are no notification preferences to consult.
       skipPreferenceCheck: true,
     });
@@ -290,7 +297,7 @@ adminTestersRouter.post('/:id/remind', validateParams(idParam), async (req, res,
     const tester = await prisma.tester.findUnique({ where: { id: req.params.id } });
     if (!tester) throw new NotFoundError('Tester not found');
 
-    // Which reminder to send depends on where they actually got stuck — someone who never opted in
+    // Which reminder to send depends on where they actually got stuck. Someone who never got in
     // needs the link again; someone who did needs to know that *opening the app* is what counts.
     const activity = await withActivity(tester);
 
@@ -304,6 +311,7 @@ adminTestersRouter.post('/:id/remind', validateParams(idParam), async (req, res,
         : `One step left to join the ${APP_NAME} test`,
       templateData: {
         firstName: tester.firstName,
+        email: tester.email,
         optInUrl: optInUrl(),
         appName: APP_NAME,
         hasSignedIn: activity.hasAccount,

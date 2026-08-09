@@ -61,8 +61,13 @@ const BRAND_LOGO_URL = `${APP_URL}/logo-mark.png`;
  * Wraps inner content HTML in the full branded email shell.
  * Inner content should be one or more <tr> rows that go inside the
  * main content table (already inside the white card).
+ *
+ * `footerNote` overrides the default "you are a parent in a family" footer. Almost every email goes
+ * to a parent with an account, so that default is right. The closed-test invitations are the
+ * exception: those people have no family and usually no account at all, so the default would state
+ * something untrue and point them at a settings page they cannot log in to.
  */
-export function baseLayout(innerContent: string, previewText = ''): string {
+export function baseLayout(innerContent: string, previewText = '', footerNote?: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -102,10 +107,13 @@ export function baseLayout(innerContent: string, previewText = ''): string {
           <tr>
             <td style="padding:24px 40px 32px;border-top:1px solid #f1f5f9;">
               <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;text-align:center;">
-                You're receiving this because you are a parent in a ${BRAND_NAME} family.<br>
+                ${
+                  footerNote ??
+                  `You're receiving this because you are a parent in a ${BRAND_NAME} family.<br>
                 To change notification preferences, visit your
                 <a href="${process.env.FRONTEND_URL || process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:3000'}/parent/settings"
-                   style="color:${BRAND_COLOR};text-decoration:none;">Family Settings</a>.
+                   style="color:${BRAND_COLOR};text-decoration:none;">Family Settings</a>.`
+                }
               </p>
             </td>
           </tr>

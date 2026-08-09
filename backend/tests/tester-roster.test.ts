@@ -12,6 +12,10 @@
  *    the entire point of the feature.
  *  - **Invites refuse to send without `PLAY_OPT_IN_URL`.** The link is issued by Play Console and
  *    cannot be derived. An invitation is a one-shot message; sending a broken one wastes it.
+ *  - **Both emails carry the tester's own address.** The track admits by email list, so the app is
+ *    visible only to that exact Google account and a mismatch is the usual reason a tester never
+ *    gets in. `base.ts` dispatches templates through `data as any`, so nothing but a test stops the
+ *    field being dropped and the copy rendering a bare "signed in as ".
  */
 
 jest.mock('../src/services/database', () => ({
@@ -192,6 +196,8 @@ describe('invitations', () => {
         // No family record means no notification preferences to consult; without this the send is
         // silently dropped.
         skipPreferenceCheck: true,
+        // The address is named in the body, not just used to route the email.
+        templateData: expect.objectContaining({ email: 'ada@example.test' }),
       }),
     );
   });
@@ -203,14 +209,17 @@ describe('reminders adapt to where the tester actually got stuck', () => {
     p.tester.findUnique.mockResolvedValue(tester());
   });
 
-  it('tells someone with no account that enrolment is the missing step', async () => {
+  it('tells someone with no account which Google account the test is tied to', async () => {
     const res = await request(buildApp()).post('/testers/11111111-1111-4111-8111-111111111111/remind');
 
     expect(res.status).toBe(200);
     expect(EmailService.send).toHaveBeenCalledWith(
       expect.objectContaining({
         triggerType: 'tester_reminder',
-        templateData: expect.objectContaining({ hasSignedIn: false }),
+        templateData: expect.objectContaining({
+          hasSignedIn: false,
+          email: 'ada@example.test',
+        }),
       }),
     );
   });
