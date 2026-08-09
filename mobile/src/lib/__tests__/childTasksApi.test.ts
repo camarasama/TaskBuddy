@@ -45,7 +45,14 @@ function setup(body: unknown, status = 200) {
     calls.push({
       url: String(url),
       method: init.method ?? 'GET',
-      body: init.body === undefined ? undefined : JSON.parse(String(init.body)),
+      // FormData is passed through untouched: the evidence upload sends multipart, and
+      // JSON.parse-ing it would throw before the assertion could look at the field name.
+      body:
+        init.body === undefined
+          ? undefined
+          : init.body instanceof FormData
+            ? init.body
+            : JSON.parse(String(init.body)),
     });
     return {
       ok: status >= 200 && status < 300,
@@ -207,5 +214,35 @@ describe('INVALIDATED_BY_TASK_ACTION', () => {
     expect(tasks.INVALIDATED_BY_TASK_ACTION).toContainEqual(tasks.MY_ASSIGNMENTS_KEY);
     expect(tasks.INVALIDATED_BY_TASK_ACTION).toContainEqual(tasks.AVAILABLE_TASKS_KEY);
     expect(tasks.INVALIDATED_BY_TASK_ACTION).toContainEqual(['dashboard', 'child']);
+  });
+});
+
+describe('uploadEvidence', () => {
+  it('posts multipart to the assignment upload endpoint under the field multer expects', async () => {
+    // The field name is the whole contract: `uploadPhoto.single('photo')` answers "No file uploaded"
+    // for anything else, which reads as a broken camera rather than a wrong key.
+    const tasks = setup({ success: true, data: { evidence: { id: 'e1', fileUrl: 'https://signed' } } });
+
+    await tasks.uploadEvidence('a1', {
+      uri: 'file:///tmp/kitchen.jpg',
+      mimeType: 'image/jpeg',
+      fileName: 'kitchen.jpg',
+    });
+
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].url).toMatch(/\/tasks\/assignments\/a1\/upload$/);
+    expect(calls[0].body).toBeInstanceOf(FormData);
+    expect((calls[0].body as FormData).get('photo')).toBeTruthy();
+  });
+
+  it('does NOT send the photo URL on to complete', async () => {
+    // The upload already wrote the evidence row against the assignment. The web passes a `photoUrl`
+    // to its complete call and `completeTaskSchema` strips it, so copying that would be dead weight
+    // that looks meaningful.
+    const tasks = setup({ success: true, data: {} });
+
+    await tasks.completeAssignment('a1', 'all done');
+
+    expect(calls[0].body).toEqual({ note: 'all done' });
   });
 });

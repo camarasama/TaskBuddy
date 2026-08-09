@@ -1,0 +1,1182 @@
+<title>TaskBuddy User Manual v3.0 — Tester Edition</title>
+
+<style>
+  /* ---------------------------------------------------------------------
+     Palette is lifted from the product's own ramps in
+     shared/src/design/tokens.ts, not invented: primary is the logo teal,
+     peach is the app's warm secondary, gold and purple are the existing
+     points and XP accents. Light palette is defined on bare :root so the
+     un-stamped (system) state always resolves.
+     --------------------------------------------------------------------- */
+  :root {
+    --ground:      #fbfdfe;
+    --surface:     #ffffff;
+    --surface-2:   #f0fafc;
+    --surface-3:   #f1f5f9;
+    --ink:         #0f172a;
+    --ink-soft:    #475569;
+    --ink-faint:   #64748b;
+    --rule:        #dbe7ea;
+    --rule-soft:   #e9eef0;
+
+    --accent:      #2b7f91;
+    --accent-deep: #1d5563;
+    --accent-lite: #4aa8bd;
+
+    --parent:      #22697a;
+    --parent-bg:   #f0fafc;
+    --child:       #b35f1d;
+    --child-bg:    #fef6ef;
+    --child-rail:  #f0a868;
+
+    --points:      #a16207;
+    --xp:          #7e22ce;
+    --warn:        #b45309;
+    --warn-bg:     #fffbeb;
+    --warn-rule:   #f59e0b;
+    --stop:        #b91c1c;
+    --stop-bg:     #fef2f2;
+
+    --shadow: 0 1px 2px rgba(15,23,42,.05), 0 8px 24px -16px rgba(15,23,42,.25);
+
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --serif: ui-serif, Georgia, "Iowan Old Style", "Noto Serif", "Times New Roman", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0b1418;
+      --surface:     #101d22;
+      --surface-2:   #14262c;
+      --surface-3:   #172b31;
+      --ink:         #e8f1f3;
+      --ink-soft:    #a8bdc3;
+      --ink-faint:   #8aa2a9;
+      --rule:        #223c44;
+      --rule-soft:   #1b3037;
+
+      --accent:      #4aa8bd;
+      --accent-deep: #7ccbdc;
+      --accent-lite: #7ccbdc;
+
+      --parent:      #7ccbdc;
+      --parent-bg:   #14262c;
+      --child:       #f0a868;
+      --child-bg:    #2a1f14;
+      --child-rail:  #cf7328;
+
+      --points:      #facc15;
+      --xp:          #d8b4fe;
+      --warn:        #fbbf24;
+      --warn-bg:     #241d0e;
+      --warn-rule:   #b45309;
+      --stop:        #fca5a5;
+      --stop-bg:     #2a1414;
+
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #0b1418;
+    --surface:     #101d22;
+    --surface-2:   #14262c;
+    --surface-3:   #172b31;
+    --ink:         #e8f1f3;
+    --ink-soft:    #a8bdc3;
+    --ink-faint:   #8aa2a9;
+    --rule:        #223c44;
+    --rule-soft:   #1b3037;
+
+    --accent:      #4aa8bd;
+    --accent-deep: #7ccbdc;
+    --accent-lite: #7ccbdc;
+
+    --parent:      #7ccbdc;
+    --parent-bg:   #14262c;
+    --child:       #f0a868;
+    --child-bg:    #2a1f14;
+    --child-rail:  #cf7328;
+
+    --points:      #facc15;
+    --xp:          #d8b4fe;
+    --warn:        #fbbf24;
+    --warn-bg:     #241d0e;
+    --warn-rule:   #b45309;
+    --stop:        #fca5a5;
+    --stop-bg:     #2a1414;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+  }
+
+  /* ---- masthead ---- */
+  .masthead {
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-2);
+    margin-bottom: 3rem;
+  }
+  .masthead .wrap { padding-top: 3.5rem; padding-bottom: 2.5rem; }
+  .eyebrow {
+    font-family: var(--sans);
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-family: var(--sans);
+    font-size: clamp(2.1rem, 6vw, 3rem);
+    line-height: 1.08;
+    font-weight: 700;
+    letter-spacing: -.025em;
+    margin: 0 0 .75rem;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.15rem;
+    color: var(--ink-soft);
+    margin: 0 0 1.75rem;
+    max-width: 34rem;
+  }
+  .meta {
+    font-family: var(--sans);
+    font-size: .8rem;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--rule);
+  }
+  .meta b { color: var(--ink-soft); font-weight: 600; }
+
+  /* ---- headings ---- */
+  h2 {
+    font-family: var(--sans);
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    line-height: 1.2;
+    margin: 3.5rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--ink);
+    text-wrap: balance;
+  }
+  h2 .num {
+    display: block;
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    margin-bottom: .5rem;
+  }
+  h3 {
+    font-family: var(--sans);
+    font-size: 1.1rem;
+    font-weight: 650;
+    letter-spacing: -.01em;
+    margin: 2.25rem 0 .6rem;
+    text-wrap: balance;
+  }
+  h4 {
+    font-family: var(--sans);
+    font-size: .95rem;
+    font-weight: 650;
+    margin: 1.5rem 0 .4rem;
+    color: var(--ink);
+  }
+
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  strong { font-weight: 650; }
+  ul, ol { margin: 0 0 1rem; padding-left: 1.3rem; }
+  li { margin-bottom: .4rem; }
+  li::marker { color: var(--accent); }
+
+  /* ---- role chips + rails ---- */
+  .role {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: .2rem .5rem;
+    border-radius: 3px;
+    vertical-align: .18em;
+    margin-left: .5rem;
+  }
+  .role-parent { background: var(--parent-bg); color: var(--parent); border: 1px solid var(--rule); }
+  .role-child  { background: var(--child-bg);  color: var(--child);  border: 1px solid var(--rule); }
+
+  .part-parent h3 { border-left: 3px solid var(--accent-lite); padding-left: .75rem; margin-left: -.75rem; }
+  .part-child  h3 { border-left: 3px solid var(--child-rail);  padding-left: .75rem; margin-left: -.75rem; }
+
+  /* ---- callouts ---- */
+  .note, .tester, .gap {
+    font-family: var(--sans);
+    font-size: .92rem;
+    line-height: 1.6;
+    padding: .9rem 1.1rem;
+    margin: 1.25rem 0;
+    border-left: 3px solid;
+    border-radius: 0 4px 4px 0;
+  }
+  .note   { background: var(--surface-2); border-color: var(--accent-lite); color: var(--ink-soft); }
+  .tester { background: var(--surface-3); border-color: var(--ink-faint);   color: var(--ink-soft); }
+  .gap    { background: var(--warn-bg);   border-color: var(--warn-rule);   color: var(--ink-soft); }
+  .note p:last-child, .tester p:last-child, .gap p:last-child { margin-bottom: 0; }
+  .note b, .tester b, .gap b { color: var(--ink); }
+  .gap b { color: var(--warn); }
+  .callout-label {
+    display: block;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin-bottom: .3rem;
+  }
+  .note .callout-label   { color: var(--accent); }
+  .tester .callout-label { color: var(--ink-faint); }
+  .gap .callout-label    { color: var(--warn); }
+
+  /* ---- tables ---- */
+  .scroll { overflow-x: auto; margin: 1.25rem 0; border: 1px solid var(--rule); border-radius: 4px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 30rem;
+    font-family: var(--sans);
+    font-size: .88rem;
+    font-variant-numeric: tabular-nums;
+    background: var(--surface);
+  }
+  th {
+    text-align: left;
+    font-weight: 650;
+    font-size: .72rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--surface-2);
+    padding: .6rem .85rem;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td { padding: .6rem .85rem; border-bottom: 1px solid var(--rule-soft); color: var(--ink-soft); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { color: var(--ink); font-weight: 550; }
+
+  /* ---- table of contents ---- */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .toc h2 {
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border: 0;
+    margin: 0 0 .75rem;
+    padding: 0;
+  }
+  .toc ol { list-style: none; padding: 0; margin: 0; font-family: var(--sans); font-size: .92rem; }
+  .toc li { margin-bottom: .3rem; display: flex; gap: .7rem; }
+  .toc .n { color: var(--ink-faint); font-variant-numeric: tabular-nums; min-width: 1.2rem; }
+  .toc a { text-decoration: none; color: var(--ink); }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  /* ---- problem/solution pairs ---- */
+  .pairs { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; margin: 1.5rem 0; }
+  .pair { background: var(--surface); padding: 1.1rem 1.25rem; }
+  .pair .p {
+    font-family: var(--sans);
+    font-size: .95rem;
+    font-weight: 650;
+    color: var(--ink);
+    margin: 0 0 .35rem;
+  }
+  .pair .s { font-size: .95rem; color: var(--ink-soft); margin: 0; }
+  .pair .s::before {
+    content: "TaskBuddy";
+    font-family: var(--sans);
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: .2rem;
+  }
+
+  /* ---- currency inline markers ---- */
+  .pts { color: var(--points); font-weight: 650; font-family: var(--sans); font-size: .92em; }
+  .xpc { color: var(--xp);     font-weight: 650; font-family: var(--sans); font-size: .92em; }
+
+  kbd {
+    font-family: var(--sans);
+    font-size: .85em;
+    font-weight: 600;
+    background: var(--surface-3);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: .05em .4em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  hr { border: 0; border-top: 1px solid var(--rule); margin: 3rem 0; }
+
+  footer {
+    font-family: var(--sans);
+    font-size: .85rem;
+    color: var(--ink-faint);
+    border-top: 1px solid var(--rule);
+    padding-top: 1.5rem;
+    margin-top: 4rem;
+  }
+
+  @media (max-width: 34rem) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 1.1rem 4rem; }
+    h2 { font-size: 1.35rem; }
+  }
+
+  /* ---------------------------------------------------------------------
+     Print / PDF. The light palette is restated here rather than inherited,
+     because the PDF is generated headlessly and must never pick up a dark
+     OS preference and render dark ink on a dark ground.
+     --------------------------------------------------------------------- */
+  @page {
+    size: A4;
+    margin: 18mm 16mm 20mm;
+  }
+
+  @media print {
+    :root {
+      --ground:      #ffffff;
+      --surface:     #ffffff;
+      --surface-2:   #f4fafb;
+      --surface-3:   #f6f8f9;
+      --ink:         #0f172a;
+      --ink-soft:    #334155;
+      --ink-faint:   #64748b;
+      --rule:        #cbd9dd;
+      --rule-soft:   #e2e8f0;
+      --accent:      #1d5563;
+      --accent-deep: #1d5563;
+      --accent-lite: #4aa8bd;
+      --parent:      #1d5563;
+      --parent-bg:   #f0fafc;
+      --child:       #8f4c17;
+      --child-bg:    #fdf4ec;
+      --child-rail:  #cf7328;
+      --points:      #854d0e;
+      --xp:          #6b21a8;
+      --warn:        #92400e;
+      --warn-bg:     #fffbeb;
+      --warn-rule:   #d97706;
+      --stop:        #991b1b;
+      --shadow:      none;
+    }
+
+    body {
+      background: #ffffff;
+      font-size: 10.5pt;
+      line-height: 1.5;
+    }
+
+    .wrap { max-width: none; padding: 0; margin: 0; }
+
+    /* Cover: the masthead gets the first page to itself. */
+    .masthead {
+      background: none;
+      border-bottom: 0;
+      margin: 0;
+      break-after: page;
+    }
+    .masthead .wrap { padding: 0; }
+    .masthead h1 { font-size: 34pt; margin-top: 38mm; }
+    .standfirst { font-size: 13pt; max-width: none; }
+    .meta { display: block; }
+    .meta span { display: block; margin-bottom: .2rem; }
+
+    .toc { break-after: page; box-shadow: none; }
+
+    h2 {
+      break-before: page;
+      break-after: avoid;
+      font-size: 17pt;
+      margin-top: 0;
+      padding-top: 0;
+    }
+    /* The first section follows the contents page; no blank sheet before it. */
+    #why { break-before: auto; }
+    h3, h4 { break-after: avoid; }
+    h3 { font-size: 12pt; margin-top: 16pt; }
+
+    /* Nothing that reads as one unit may be split across a sheet. */
+    .note, .tester, .gap, .pair, tr, li { break-inside: avoid; }
+    table { break-inside: auto; }
+    thead { display: table-header-group; }
+    .scroll { overflow: visible; break-inside: auto; }
+    table { min-width: 0; font-size: 9.5pt; }
+    th { white-space: normal; }
+
+    .pairs { break-inside: avoid; }
+
+    a { color: var(--ink); text-decoration: none; }
+    .toc a { color: var(--ink); }
+
+    footer { break-inside: avoid; }
+  }
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">User Manual · Version 3.0 · Tester Edition</p>
+    <h1>TaskBuddy</h1>
+    <p class="standfirst">
+      Chores, rewards and progress for families with children aged 10 to 16.
+      This edition covers the Android app you have been invited to test, for both parents and children.
+    </p>
+    <div class="meta">
+      <span><b>For</b> closed-test participants</span>
+      <span><b>Covers</b> Android app + web</span>
+      <span><b>Replaces</b> manual v2.0 (web only)</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <nav class="toc" aria-label="Contents">
+    <h2>Contents</h2>
+    <ol>
+      <li><span class="n">1</span><a href="#why">Why TaskBuddy exists</a></li>
+      <li><span class="n">2</span><a href="#testers">If you are one of our testers</a></li>
+      <li><span class="n">3</span><a href="#how">How TaskBuddy works</a></li>
+      <li><span class="n">4</span><a href="#parent">Parent guide</a></li>
+      <li><span class="n">5</span><a href="#child">Child guide</a></li>
+      <li><span class="n">6</span><a href="#economy">Points, XP and levels</a></li>
+      <li><span class="n">7</span><a href="#privacy">Privacy and safety</a></li>
+      <li><span class="n">8</span><a href="#known">Known gaps in this build</a></li>
+      <li><span class="n">9</span><a href="#trouble">Troubleshooting</a></li>
+      <li><span class="n">10</span><a href="#glossary">Glossary</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============================================================ -->
+  <h2 id="why"><span class="num">Section 1</span>Why TaskBuddy exists</h2>
+
+  <p>
+    Almost every household with school-age children runs the same failed experiment. Someone draws up a
+    chore chart. It works for about two weeks. Then it stops being updated, nobody can remember who did
+    what, and the whole thing collapses back into asking three times and doing it yourself.
+  </p>
+
+  <p>
+    The chart is not the problem. The problem is that a chart records intentions and nothing else. It
+    cannot tell you whether the bin actually went out, it gives a child nothing back for the effort,
+    and it turns every disagreement into one person's word against another's.
+  </p>
+
+  <h3>The five things that actually go wrong</h3>
+
+  <div class="pairs">
+    <div class="pair">
+      <p class="p">Nobody can prove what happened, so every week ends in an argument.</p>
+      <p class="s">Every task is submitted by the child and approved or returned by a parent. The record is kept, so "I did do it" stops being a matter of memory.</p>
+    </div>
+    <div class="pair">
+      <p class="p">Effort is invisible. A child tidies up for a month and has nothing to show for it.</p>
+      <p class="s">Approved work pays experience points that fill a level bar and never go away, plus spendable points. Progress is visible on the child's home screen the moment a parent approves.</p>
+    </div>
+    <div class="pair">
+      <p class="p">Pocket money is disconnected from contribution, so it stops meaning anything.</p>
+      <p class="s">Parents set the rewards and what they cost. Children choose what to save towards, and see exactly how far off they are.</p>
+    </div>
+    <div class="pair">
+      <p class="p">Motivation collapses the first time a child misses a day.</p>
+      <p class="s">Streaks come with a grace period, and a long streak earns a freeze that absorbs one missed day automatically. One bad evening does not undo three weeks.</p>
+    </div>
+    <div class="pair">
+      <p class="p">The apps that exist are built for five-year-olds or for office workers.</p>
+      <p class="s">TaskBuddy is built for 10 to 16 specifically. No sticker charts, no cartoon animals, and no project-management vocabulary either.</p>
+    </div>
+  </div>
+
+  <h3>What we deliberately did not build</h3>
+
+  <p>
+    A rewards app can very easily turn into a slot machine. Two decisions push against that, and they
+    are the ones we most want tested.
+  </p>
+
+  <ul>
+    <li>
+      <strong>Games cannot out-earn chores.</strong> The quiz games pay real points, but spendable
+      points are capped at once per subject per day, and the amounts are set so that a full day of
+      nothing but quizzes earns less than a normal day of chores. Playing instead of helping is not a
+      winning strategy, by design.
+    </li>
+    <li>
+      <strong>There is no way to spend real money anywhere in the app.</strong> Not on points, not on
+      avatar items, not on anything. Every reward comes from a parent, and every cosmetic comes from
+      points that were earned.
+    </li>
+  </ul>
+
+  <div class="note">
+    <span class="callout-label">The one-sentence version</span>
+    <p>TaskBuddy turns household chores into something a child can see themselves getting better at, and gives the parent a record instead of an argument.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="testers"><span class="num">Section 2</span>If you are one of our testers</h2>
+
+  <p>
+    Thank you. TaskBuddy is in a <strong>closed test</strong> on Google Play, which means the app is
+    not publicly listed and is visible only to the Google accounts we have added to the tester list.
+  </p>
+
+  <h3>Getting the app</h3>
+
+  <ol>
+    <li>Open the link from the invitation email <strong>on your Android phone</strong>.</li>
+    <li>
+      Make sure the phone is signed in to Google with <strong>the exact address the invitation was sent
+      to</strong>. This is the single most common thing that goes wrong. On any other Google account the
+      Play page will say the app is not available, which means the account is wrong, not that anything
+      is broken.
+    </li>
+    <li>Tap Install. There is no separate step to accept or confirm.</li>
+  </ol>
+
+  <div class="tester">
+    <span class="callout-label">What we most need from you</span>
+    <p>
+      Open the app on a few different days rather than exploring it thoroughly once. Google counts days
+      with activity, and a habit app can only really be judged over a week. If something is confusing,
+      that is a finding worth reporting, not a mistake on your part.
+    </p>
+  </div>
+
+  <h3>Reporting a problem</h3>
+
+  <p>Whatever you can give us is useful. What helps most:</p>
+
+  <ul>
+    <li>What you were trying to do, and what happened instead.</li>
+    <li>Whether you were the parent or the child at the time.</li>
+    <li>Roughly when it happened, so we can find it in the logs.</li>
+    <li>A screenshot, if the screen looked wrong.</li>
+  </ul>
+
+  <p>
+    Please read <a href="#known">section 8</a> first. One thing is known to be missing in this build
+    and is already on the list, so there is no need to report it.
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="how"><span class="num">Section 3</span>How TaskBuddy works</h2>
+
+  <h3>The loop</h3>
+
+  <p>
+    A parent creates a task and assigns it to a child. The child does it in real life and marks it
+    complete in the app. The parent gets a notification, opens Approvals, and either approves it or
+    sends it back with a note. On approval the child immediately receives their <span class="xpc">XP</span>
+    and <span class="pts">points</span>, along with any level-up, badge, streak or team bonus that the
+    approval triggered.
+  </p>
+
+  <p>That cycle is the whole product. Everything else supports it.</p>
+
+  <h3>Two currencies, on purpose</h3>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Currency</th><th>Earned</th><th>Spent</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>XP</td>
+          <td>On approval, and from games</td>
+          <td><strong>Never</strong></td>
+          <td>Fills the level bar. Permanent record of everything a child has done.</td>
+        </tr>
+        <tr>
+          <td>Points</td>
+          <td>On approval, plus level-up, streak, game and teamwork bonuses</td>
+          <td>In the reward shop and on avatar items</td>
+          <td>The spendable currency.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Keeping them separate means a child saving up for something expensive never has to choose between
+    levelling up and buying it. Spending points does not cost them progress.
+  </p>
+
+  <h3>Who can do what</h3>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Role</th><th>Signs in with</th><th>Can</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Parent</td>
+          <td>Email and password</td>
+          <td>Everything: tasks, rewards, approvals, children, settings, reports</td>
+        </tr>
+        <tr>
+          <td>Co&#8209;parent</td>
+          <td>Email and password</td>
+          <td>The same as a parent. Only the original account holder can remove a co-parent.</td>
+        </tr>
+        <tr>
+          <td>Child</td>
+          <td>Family code, username and a 4-digit PIN</td>
+          <td>Their own tasks, rewards, games and profile. No email address needed.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Android app or website</h3>
+
+  <p>
+    Both work, on the same account, at the same time. The Android app is what you are testing and it
+    covers the whole loop, including photos. The website adds a couple of things the phone does not
+    have, listed in <a href="#known">section 8</a>.
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="parent"><span class="num">Section 4</span>Parent guide<span class="role role-parent">Parent</span></h2>
+
+  <div class="part-parent">
+
+  <h3>4.1 Creating your account</h3>
+
+  <ol>
+    <li>Open the app and choose <kbd>I'm a parent</kbd>, then <kbd>Create an account</kbd>.</li>
+    <li>Enter your name, email, date of birth, family name and a password. Passwords must be at least <strong>8 characters</strong>, and we refuse any password known to have appeared in a public breach.</li>
+    <li>Verify your email using the link we send you.</li>
+    <li>A <strong>family code</strong> is generated for your household, in the style <kbd>MEGA-VIPER-8481</kbd>. Your children use it to sign in. You can see it any time under Children.</li>
+  </ol>
+
+  <h3>4.2 Confirming you are the parent</h3>
+
+  <p>
+    Before you can add a child, we need a verified record that a parent agreed to it. This is a legal
+    requirement for holding data about children, and it is a one-off step for the whole family.
+  </p>
+
+  <ol>
+    <li>Fill in the add-child form as normal and submit it.</li>
+    <li>The app will tell you that confirmation is needed, and <strong>send you the email automatically</strong> at that moment.</li>
+    <li>Tap <kbd>Confirm I'm the parent</kbd> to see the status screen, where you can also send a fresh email if the first went astray.</li>
+    <li>Follow the link in the email. Come back to the app and add your child.</li>
+  </ol>
+
+  <div class="note">
+    <span class="callout-label">Note</span>
+    <p>The confirmation link is single-use and expires. If yours has timed out, just try adding a child again and a new email is sent.</p>
+  </div>
+
+  <h3>4.3 The setup guide</h3>
+
+  <p>
+    A four-step guide walks you through adding a child, creating a task and approving it. The last step
+    is worth doing rather than skipping: it seeds a task the child has already "finished" and hands you
+    the approve button, so you see the full loop, with real points, in the first minute. Your progress
+    is saved on the server, so you can close the app and a co-parent sees the same checklist.
+  </p>
+
+  <h3>4.4 The five tabs</h3>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Tab</th><th>What it is for</th></tr></thead>
+      <tbody>
+        <tr><td>Home</td><td>Approvals waiting on you, a card per child with level, points, streak and how they are tracking, current goals, recent comments, notifications</td></tr>
+        <tr><td>Tasks</td><td>Create tasks and browse everything assigned</td></tr>
+        <tr><td>Approvals</td><td>The queue of submitted work. A child cannot progress until you act</td></tr>
+        <tr><td>Children</td><td>Add and edit children, PINs, quiet hours, report cards, the family code QR and signed-in devices</td></tr>
+        <tr><td>Rewards</td><td>Create rewards and handle redemptions</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Settings, Calendar, Insights, Reports, Co-parents and the consent screen are all reached from within
+    those tabs rather than sitting on the bar, because six tabs do not fit comfortably on a phone.
+  </p>
+
+  <h3>4.5 Adding a child</h3>
+
+  <p>From Children, tap <kbd>Add a child</kbd>. You will need:</p>
+
+  <ul>
+    <li><strong>First and last name.</strong></li>
+    <li><strong>A username</strong>, 3 to 20 characters, letters, numbers and underscore only. This is what they type to sign in, so two siblings both called Sam need different ones.</li>
+    <li><strong>Date of birth.</strong> TaskBuddy is for ages 10 to 16 and this is enforced.</li>
+    <li><strong>A 4-digit PIN.</strong> When editing later, leaving the PIN blank keeps the existing one rather than clearing it.</li>
+  </ul>
+
+  <p>No email address is needed for a child, and they never receive email from us.</p>
+
+  <h3>4.6 Getting your child signed in</h3>
+
+  <p>
+    From Children, open the <strong>family code</strong> screen. It shows a QR code and the code as text
+    underneath.
+  </p>
+
+  <ul>
+    <li>On a phone, your child taps <kbd>Scan my parent's code</kbd> and points their camera at it.</li>
+    <li>If the camera is unavailable or refused, they can type the code instead. The QR is a shortcut, never the only way in.</li>
+    <li>For the website, read the code out. Web child login has no QR.</li>
+  </ul>
+
+  <p>The same screen lists signed-in devices for you and your children, and lets you sign a device out. Co-parents cannot be signed out from here, deliberately.</p>
+
+  <h3>4.7 Creating tasks</h3>
+
+  <ul>
+    <li>Give it a title, description and a points value. Difficulty follows from the points automatically.</li>
+    <li>Choose <strong>primary</strong> (must-do) or <strong>bonus</strong>. Bonus tasks stay locked for a child until their primary tasks for the day are done.</li>
+    <li>Optionally set a start time, an estimated duration and a due date.</li>
+    <li>Assign it to one or more children.</li>
+    <li><kbd>Browse ideas</kbd> opens a library of ready-made chores grouped by age and room. Picking one fills the form and you can change anything before saving.</li>
+  </ul>
+
+  <h4>Team-up tasks</h4>
+  <p>
+    Assign two or more children to one job. Each child still earns the full points for their own work,
+    and the teamwork bonus is paid on top, to everyone, once every member has been approved. Nobody
+    earns less for co-operating and nobody is rewarded for going last.
+  </p>
+
+  <h4>Limits that are deliberate</h4>
+  <ul>
+    <li>A child can hold at most <strong>3 active assignments</strong>, and only <strong>1 primary at a time</strong>. This is a focus guard, not a technical limit.</li>
+    <li>If a new task overlaps something already scheduled for that child, you are shown the clash and can adjust or proceed anyway.</li>
+    <li>Tasks can repeat daily, weekly, on weekdays or at weekends. New instances are generated automatically each night.</li>
+  </ul>
+
+  <h3>4.8 Approving work</h3>
+
+  <p>
+    You get a notification as soon as a child submits. Open Approvals, review what they sent, then
+    approve or return it with a written note. Approving pays out everything at once: points, XP,
+    level-up, badges, streak and any team bonus. Returning it puts the task back with your feedback so
+    they can fix it and resubmit.
+  </p>
+
+  <div class="note">
+    <span class="callout-label">Note</span>
+    <p>If a co-parent has already handled a submission, the screen tells you who dealt with it rather than showing an error.</p>
+  </div>
+
+  <h3>4.9 Rewards</h3>
+
+  <ul>
+    <li>Set what each reward costs in points, how many times each child may claim it, and optionally a household-wide limit and an expiry date.</li>
+    <li><kbd>Browse ideas</kbd> offers ready-made suggestions ordered by what families actually redeem.</li>
+    <li>A <strong>collaborative reward</strong> is funded by several children pooling points towards one goal. When you create it you choose who receives it: shared with the family, or one child you nominate once it is funded.</li>
+    <li>When a child redeems something you are notified. Mark it fulfilled once you have actually delivered it.</li>
+  </ul>
+
+  <h3>4.10 Calendar, Insights and Reports</h3>
+
+  <ul>
+    <li><strong>Calendar</strong> shows the week with your children as columns, and flags two tasks that overlap for the same child.</li>
+    <li><strong>Insights</strong> answers what a table cannot: which days actually work for your family, which tasks are quietly never completed, and whether the points you award have drifted out of step with what your rewards cost.</li>
+    <li><strong>Reports</strong> covers task completion, the points ledger, redemptions, engagement and streaks, achievements, the leaderboard, overdue tasks, execution time and games.</li>
+  </ul>
+
+  <div class="note">
+    <span class="callout-label">Reports work differently on the phone</span>
+    <p>
+      In the app, Reports is a download screen: you choose the filters and it hands you a CSV or PDF to
+      open or share. There is no on-screen chart or table. That is a deliberate decision rather than
+      something missing. Use the website if you want to read a report on screen.
+    </p>
+  </div>
+
+  <p>
+    From a child's page you can also download a one-page <strong>monthly report card</strong>: their
+    streaks, badges, growth against the previous month and a note from you. It is meant to be shared
+    with a co-parent or a grandparent.
+  </p>
+
+  <h3>4.11 Notifications, quiet hours and schooltime</h3>
+
+  <p>
+    Settings controls which emails you receive. Separately, each child has a <strong>quiet hours</strong>
+    window overnight and an optional <strong>schooltime</strong> window on chosen weekdays, during which
+    their device will not buzz.
+  </p>
+
+  <div class="note">
+    <span class="callout-label">Set your time zone first</span>
+    <p>
+      Quiet hours are read in your family time zone, so set that in Settings before relying on them.
+      Notifications still arrive in the app during a quiet window, they simply do not interrupt, and
+      nothing is delivered late in a burst afterwards.
+    </p>
+  </div>
+
+  <p>
+    TaskBuddy also limits itself: beyond one lifecycle email a day and three a week, further
+    non-essential emails are held back. Account emails such as verification, password reset, consent,
+    invitations and security notices are never held back, and neither is your Monday summary.
+  </p>
+
+  <h3>4.12 Settings and co-parents</h3>
+
+  <ul>
+    <li><strong>Family code</strong> — view or regenerate. Regenerating stops the old code working immediately.</li>
+    <li><strong>Time zone</strong> — used by quiet hours and schooltime.</li>
+    <li><strong>Streak grace period</strong> — extra hours past midnight that still count towards the previous day.</li>
+    <li><strong>Leaderboard</strong> — turn sibling rankings on or off for the whole family.</li>
+    <li><strong>Daily game points cap</strong> — the most a child can earn from games in one day.</li>
+    <li><strong>Two-factor authentication</strong> — add a one-time code from an authenticator app to your sign-in.</li>
+    <li><strong>Invite a co-parent</strong> — they receive a secure link valid for 7 days, and once accepted have equal access.</li>
+    <li><strong>Webhooks and referrals</strong> — send TaskBuddy events to another service, and share a referral link. Referrals earn a badge, never points.</li>
+  </ul>
+
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="child"><span class="num">Section 5</span>Child guide<span class="role role-child">Child</span></h2>
+
+  <div class="part-child">
+
+  <p>
+    This part is written for you. TaskBuddy is where you pick up jobs, get them signed off, level up and
+    spend what you earn.
+  </p>
+
+  <h3>5.1 Signing in</h3>
+
+  <ol>
+    <li>Open the app and choose <kbd>I'm a kid</kbd>.</li>
+    <li>Tap <kbd>Scan my parent's code</kbd> and point the camera at the QR code your parent shows you. The app will ask for camera permission at that moment, not before.</li>
+    <li>If there is no camera, or you would rather type, ask your parent to read the family code out.</li>
+    <li>Enter your username and your 4-digit PIN.</li>
+  </ol>
+
+  <p>Your session stays signed in, so you do not have to do this every time. If you forget your PIN, tap <kbd>Forgot PIN</kbd> and your parent will be told.</p>
+
+  <h3>5.2 Your five tabs</h3>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Tab</th><th>What is there</th></tr></thead>
+      <tbody>
+        <tr><td>Home</td><td>Your level and XP bar, points, streak, today's tasks and your goal</td></tr>
+        <tr><td>Tasks</td><td>Everything assigned to you, plus bonus tasks you can claim</td></tr>
+        <tr><td>Rewards</td><td>What you can spend points on</td></tr>
+        <tr><td>Games</td><td>Quizzes that earn extra points and XP</td></tr>
+        <tr><td>Me</td><td>Badges, avatar items, ranking, your week and notifications</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.3 Doing a task</h3>
+
+  <ol>
+    <li>Open Tasks and read what is being asked.</li>
+    <li>Tap <kbd>Start</kbd> when you begin, so the time you spend is recorded.</li>
+    <li>Do the job in real life.</li>
+    <li>Tick it off. You can add a short note if you want to tell your parent something about it.</li>
+    <li>If the task asks for a photo, take one or pick one from your gallery before you send it.</li>
+    <li>It moves to waiting for approval until a parent reviews it.</li>
+  </ol>
+
+  <div class="note">
+    <span class="callout-label">Photos</span>
+    <p>
+      Some tasks ask for a photo so your grown-up can see the job is done. Tap <b>Take a photo</b> or
+      <b>Choose a photo</b> in the box that appears when you tick the task off. If your phone will not
+      let the app use the camera, you can still finish the task without one.
+    </p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Status</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><td>Pending</td><td>Assigned to you and waiting to be done</td></tr>
+        <tr><td>In progress</td><td>You have started it</td></tr>
+        <tr><td>Submitted</td><td>Waiting for a parent to approve</td></tr>
+        <tr><td>Approved</td><td>Done. Your XP and points have been added</td></tr>
+        <tr><td>Returned</td><td>A parent sent it back with feedback. Read it, fix it, resubmit</td></tr>
+        <tr><td>Overdue</td><td>The due date passed before it was completed</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Primary and bonus tasks</h4>
+  <p>Primary tasks are the ones that must be done. Bonus tasks unlock once your primary tasks for the day are finished, and you claim them yourself from the available list.</p>
+
+  <h4>Team-up tasks</h4>
+  <p>Some tasks are shared with a brother or sister. You each get the full points for your own work, and everyone gets the teamwork bonus once all of you have been approved.</p>
+
+  <div class="note">
+    <span class="callout-label">Lost signal?</span>
+    <p>You can still start and complete tasks. They are saved on your phone and sent automatically when you are back online, so nothing is lost on a patchy connection.</p>
+  </div>
+
+  <h3>5.4 Rewards</h3>
+
+  <ul>
+    <li>Rewards you can afford are highlighted. The others show how many more points you need.</li>
+    <li>Tap the heart to add something to your <strong>wishlist</strong>, so your parents know what you actually want.</li>
+    <li>Set one as your <strong>goal</strong> and your progress towards it shows on your home screen.</li>
+    <li>Tap redeem to claim it. Your points are deducted and a parent is told to deliver it.</li>
+  </ul>
+
+  <p>
+    Some rewards are shared, so you and your siblings can each put points in until it is paid for. A
+    reward can also show as sold out if the family limit has been reached, or expired if its date has
+    passed.
+  </p>
+
+  <h3>5.5 Games</h3>
+
+  <p>
+    Six subjects — maths, science, geography, vocabulary, grammar and puzzles — each at three levels:
+    beginner, intermediate and hard. You can pick any level at any age. The questions rotate, so coming
+    back tomorrow gives you a fresh set.
+  </p>
+
+  <ul>
+    <li>You find out straight away whether an answer was right, and what the correct one was.</li>
+    <li>Answers lock once chosen, so take your time.</li>
+    <li>You need to get at least <strong>3 out of 5</strong> right for a game to pay anything at all. Below that, clicking at random earns nothing.</li>
+    <li>Above that, points scale with how many you got right, and XP is paid in full.</li>
+  </ul>
+
+  <div class="note">
+    <span class="callout-label">How much games actually pay</span>
+    <p>
+      Beginner pays <span class="pts">2 points</span>, intermediate <span class="pts">3</span>, hard
+      <span class="pts">4</span>. Spendable points are paid <strong>once per subject per day</strong>. Play the
+      same subject again and you still earn <span class="xpc">XP</span>, just not more points. Your
+      parents also set a daily cap on total game points.
+    </p>
+  </div>
+
+  <p>Games are meant to top up what you earn from chores, not replace it. Review and history screens let you go back over questions you got wrong.</p>
+
+  <h3>5.6 Me</h3>
+
+  <ul>
+    <li><strong>Achievements</strong> — badges unlock automatically when you hit a milestone.</li>
+    <li><strong>Avatar items</strong> — bought with points you earned. Wearing a new hat takes the old one off, but you still own it. Nothing here costs real money and nothing ever will.</li>
+    <li><strong>Leaderboard</strong> — how you and your siblings compare. Your parents can switch this off.</li>
+    <li><strong>My week</strong> — what you finished, your best day, your streak and new badges. Look for it at the weekend.</li>
+    <li><strong>Notifications</strong> — everything the app has told you.</li>
+  </ul>
+
+  <h3>5.7 Streaks</h3>
+
+  <p>
+    Your streak counts days in a row where you finished at least one task. Reach 7, 14, 30 or 100 days
+    and you get a celebration. Keep a long streak going and you earn a <strong>streak freeze</strong>,
+    which covers one missed day automatically. Your longest streak is always kept, even if the current
+    one breaks.
+  </p>
+
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="economy"><span class="num">Section 6</span>Points, XP and levels</h2>
+
+  <p>Everything that pays out, in one place.</p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Source</th><th>Points</th><th>XP</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Approved task</td><td>Set by the parent</td><td>Scales with difficulty</td><td>Paid the instant a parent approves</td></tr>
+        <tr><td>Early completion</td><td>Bonus</td><td>—</td><td>Finishing ahead of the due date</td></tr>
+        <tr><td>Streak</td><td>Bonus</td><td>—</td><td>For consecutive active days</td></tr>
+        <tr><td>Level-up</td><td>Bonus</td><td>—</td><td>Each new level pays out</td></tr>
+        <tr><td>Team-up task</td><td>Full points each, plus a shared bonus</td><td>Yes</td><td>Bonus pays once every member is approved</td></tr>
+        <tr><td>Game</td><td>2 beginner · 3 intermediate · 4 hard</td><td>Yes</td><td>Points once per subject per day; later plays earn XP only. Minimum 3 of 5 correct. Family daily cap applies.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <span class="callout-label">If a balance ever looks wrong</span>
+    <p>Every single points movement is written to a ledger. The points ledger report shows exactly where each point came from and went, with a running balance.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="privacy"><span class="num">Section 7</span>Privacy and safety</h2>
+
+  <ul>
+    <li><strong>Verified parental consent</strong> is required before any child account can be created, and it is checked on the server every time, not just in the app.</li>
+    <li><strong>Children have no email address</strong> in TaskBuddy and are never emailed.</li>
+    <li><strong>Photos a child submits are private.</strong> They are stored so that only your family can retrieve them.</li>
+    <li><strong>A child's chosen profile picture is held for parent approval</strong> before it becomes visible.</li>
+    <li><strong>No real-money purchases exist anywhere in the app</strong>, and no advertising.</li>
+    <li><strong>You can export everything.</strong> A parent can download a full JSON bundle of the family's data.</li>
+    <li><strong>Sessions are visible and revocable.</strong> The devices screen lists every signed-in device for you and your children.</li>
+  </ul>
+
+  <p>Parents are told plainly in the app that they can see when a child signs in and roughly what they do, because monitoring anyone without saying so is not something we are willing to do.</p>
+
+  <!-- ============================================================ -->
+  <h2 id="known"><span class="num">Section 8</span>Known gaps in this build</h2>
+
+  <p>One known gap, already on the list. No need to report it.</p>
+
+  <div class="gap">
+    <span class="callout-label">Avatar item artwork</span>
+    <p>
+      <b>Avatar items show as their names rather than pictures.</b> Buying, owning and equipping all work
+      correctly; the artwork simply has not shipped yet.
+    </p>
+  </div>
+
+  <p>Two more differences worth knowing, which are decisions rather than gaps:</p>
+
+  <ul>
+    <li><strong>Reports in the app download a file</strong> rather than displaying on screen. See 4.10.</li>
+    <li><strong>Children have no comment thread in the app.</strong> They can add a note when completing a task, and comment threads are on the website.</li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <h2 id="trouble"><span class="num">Section 9</span>Troubleshooting</h2>
+
+  <h3>Getting the app<span class="role role-parent">Parent</span></h3>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td>Play says the app is not available</td><td>Your phone is almost certainly signed in to a different Google account. It must be the exact address the invitation was sent to</td></tr>
+        <tr><td>I cannot find the invitation</td><td>Check spam. Ask us to resend it</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Parents<span class="role role-parent">Parent</span></h3>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td>I cannot add a child</td><td>Parental consent has to be confirmed first. Submitting the form sends the email automatically; tap <kbd>Confirm I'm the parent</kbd> to check the status or resend</td></tr>
+        <tr><td>The consent email never arrived</td><td>Check spam, then open the consent screen and send a new one. The old link stops working when you do</td></tr>
+        <tr><td>My child cannot sign in</td><td>Check the family code under Children, and their username and PIN. Regenerating the code stops the old one working immediately</td></tr>
+        <tr><td>I forgot my password</td><td>Use <kbd>Forgot password</kbd> on the sign-in screen. New passwords must be at least 8 characters</td></tr>
+        <tr><td>A task has no photo</td><td>The child submitted without one. The app asks but does not force it, since a device can refuse the camera. Return the task and ask them to resubmit</td></tr>
+        <tr><td>My child got no notification</td><td>Check their quiet hours and your family time zone. The alert is still in the app</td></tr>
+        <tr><td>The team bonus was not paid</td><td>It pays only once every member has been approved, not merely submitted</td></tr>
+        <tr><td>Points look wrong</td><td>Download the points ledger report. Every movement is listed with a running balance</td></tr>
+        <tr><td>An email never arrived</td><td>Check spam, then Settings. Non-essential emails are also capped at one a day</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Children<span class="role role-child">Child</span></h3>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td>The camera will not scan the code</td><td>Ask your parent to read the code out and type it instead. It works exactly the same</td></tr>
+        <tr><td>I cannot see any bonus tasks</td><td>Finish your primary tasks for today first</td></tr>
+        <tr><td>My task came back</td><td>Open it, read the feedback, fix it and resubmit</td></tr>
+        <tr><td>My points did not go up</td><td>Points arrive when a parent approves. Give it a moment, then refresh</td></tr>
+        <tr><td>The game gave me no points</td><td>You need at least 3 of 5 right. You may also have already earned points in that subject today, or hit the daily cap</td></tr>
+        <tr><td>I answered by accident</td><td>Answers lock once chosen. The next question is a fresh start</td></tr>
+        <tr><td>I lost my streak</td><td>A streak freeze covers one missed day if you have earned one. Your longest streak is always kept</td></tr>
+        <tr><td>A reward says sold out</td><td>The family limit was reached. Ask a parent whether it can be raised</td></tr>
+        <tr><td>My tasks will not submit</td><td>If you are offline they are saved and sent automatically when you reconnect</td></tr>
+        <tr><td>I forgot my PIN</td><td>Tap <kbd>Forgot PIN</kbd>. Your parent is told and can reset it</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="glossary"><span class="num">Section 10</span>Glossary</h2>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>XP</td><td>Earned on approval and from games, fills the level bar, cannot be spent</td></tr>
+        <tr><td>Points</td><td>Earned on approval, spent in the reward shop and on avatar items</td></tr>
+        <tr><td>Level</td><td>A rank that rises as the XP bar fills. Each level-up pays bonus points</td></tr>
+        <tr><td>Streak</td><td>Consecutive days with at least one completed task</td></tr>
+        <tr><td>Streak freeze</td><td>Earned by keeping a long streak, covers one missed day automatically</td></tr>
+        <tr><td>Grace period</td><td>Extra hours past midnight that still count towards the previous day</td></tr>
+        <tr><td>Primary task</td><td>A must-do task. Bonus tasks stay locked until these are done</td></tr>
+        <tr><td>Bonus task</td><td>An optional task a child claims once their primary tasks are finished</td></tr>
+        <tr><td>Team-up task</td><td>One task shared by two or more children, with a bonus once all are approved</td></tr>
+        <tr><td>Family code</td><td>The memorable code children use to sign in, shown as text and as a QR</td></tr>
+        <tr><td>Co-parent</td><td>A second adult with equal access to the family account</td></tr>
+        <tr><td>Wishlist</td><td>Rewards a child has marked as wanted, visible to parents</td></tr>
+        <tr><td>Goal</td><td>The one reward a child is currently saving towards</td></tr>
+        <tr><td>Collaborative reward</td><td>A reward several children fund together</td></tr>
+        <tr><td>Quiet hours</td><td>A window during which notifications will not buzz a child's device</td></tr>
+        <tr><td>Schooltime</td><td>A second quiet window applying only on chosen weekdays</td></tr>
+        <tr><td>Badge</td><td>Unlocked automatically when a child reaches a milestone</td></tr>
+        <tr><td>Report card</td><td>A shareable one-page monthly PDF summary for one child</td></tr>
+        <tr><td>Parental consent</td><td>The verified record that a parent agreed, required before any child can be added</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    <p>
+      TaskBuddy — Family Task Management. User manual v3.0, tester edition.
+      Supersedes v2.0, which covered the website only.
+    </p>
+  </footer>
+
+</div>

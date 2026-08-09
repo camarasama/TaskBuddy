@@ -14,7 +14,7 @@
  * here would be a second implementation of one rule, disagreeing the first time either moved.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -32,11 +32,13 @@ import {
   myAssignmentsQuery,
   selfAssign,
   startAssignment,
+  uploadEvidence,
   type ChildTask,
   type MyAssignment,
 } from '@/lib/childTasksApi';
 import { dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
+import { pickPhoto, type PickedImage } from '@/lib/imageUpload';
 import { isDone } from '@/lib/taskStatus';
 import { fontSize, fontWeight, minTouchTarget, onGradient, palette, radius, spacing, useTheme } from '@/theme';
 
@@ -187,11 +189,9 @@ function AssignmentRow(
           {status === 'in_progress' && (
             <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>Started</AppText>
           )}
-          {/* Honest about a real gap: the server does not enforce this, so completing without a photo
-              succeeds. Camera capture arrives later in this phase. */}
           {task.requiresPhotoEvidence && !done && (
             <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>
-              This one asks for a photo. You can add one on the website for now.
+              This one asks for a photo.
             </AppText>
           )}
           {/* `Start` survives as a secondary control — see the note on `TaskTick`. */}
@@ -251,6 +251,11 @@ export default function ChildTasks() {
   /** The assignment whose completion sheet is open, plus its note draft. */
   const [completing, setCompleting] = useState<MyAssignment | null>(null);
   const [note, setNote] = useState('');
+  /** The photo chosen in the sheet, not yet uploaded. Cleared whenever the sheet opens or closes. */
+  const [photo, setPhoto] = useState<PickedImage | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  /** Set when the camera or library was refused, so the sheet can say so instead of doing nothing. */
+  const [photoRefused, setPhotoRefused] = useState(false);
   /** Which row is mid-request, so only that row disables rather than the whole list. */
   const [actingId, setActingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -330,13 +335,56 @@ export default function ChildTasks() {
   const shownAssignments = segment === 'available' ? [] : byStatus[segment];
   const active = segment === 'available' ? available : mine;
 
+  /** Every open starts clean: a photo left over from the last task would attach to this one. */
+  function openSheet(item: MyAssignment) {
+    setNote('');
+    setPhoto(null);
+    setPhotoRefused(false);
+    setCompleting(item);
+  }
+
+  function closeSheet() {
+    setCompleting(null);
+    setPhoto(null);
+    setPhotoRefused(false);
+  }
+
+  /** Open the camera or the library, and remember what came back. */
+  async function choosePhoto(source: 'camera' | 'library') {
+    setPhotoBusy(true);
+    setPhotoRefused(false);
+    setActionError(null);
+    try {
+      const picked = await pickPhoto(source);
+      // null is a cancel or a refusal, and the two are indistinguishable from here. Saying "you can
+      // still finish without it" covers both and is true either way.
+      if (picked) setPhoto(picked);
+      else setPhotoRefused(true);
+    } catch (caught) {
+      setActionError(describeError(caught));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
   async function confirmComplete() {
     if (!completing) return;
     const points = completing.task.pointsValue;
-    const ok = await runAction(completing.id, () => doComplete({ id: completing.id, text: note }));
+    const chosen = photo;
+
+    // Photo first: the upload writes the evidence row against this assignment, so a failure here must
+    // NOT go on to submit. Completing is what a parent sees; submitting a photo-required task with the
+    // photo silently dropped is worse than not submitting at all, because it looks finished.
+    const ok = await runAction(completing.id, async () => {
+      if (chosen) await uploadEvidence(completing.id, chosen);
+      return doComplete({ id: completing.id, text: note });
+    });
+
     if (ok) {
       setCompleting(null);
       setNote('');
+      setPhoto(null);
+      setPhotoRefused(false);
       // Worded as pending, not as earned — the points are not banked until a parent approves.
       setCelebrating({ message: 'Nice work!', detail: `${points} points once it's approved` });
     }
@@ -392,7 +440,7 @@ export default function ChildTasks() {
               item={item}
               busy={actingId === item.id}
               onStart={() => void runAction(item.id, () => doStart(item.id))}
-              onComplete={() => { setNote(''); setCompleting(item); }}
+              onComplete={() => { openSheet(item); }}
             />
           )}
           onEndReached={() => {
@@ -445,7 +493,7 @@ export default function ChildTasks() {
         visible={completing !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => setCompleting(null)}
+        onRequestClose={closeSheet}
       >
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalSheet, { backgroundColor: theme.card }]}>
@@ -463,8 +511,53 @@ export default function ChildTasks() {
               maxLength={500}
               editable={actingId === null}
             />
+
+            {/* Offered only where the task asks for one. Never a gate: the server does not require a
+                photo either, and a refused camera on a supervised device would otherwise trap a child
+                in a task they cannot submit. */}
+            {completing?.task.requiresPhotoEvidence && (
+              <View style={styles.photoBlock}>
+                <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
+                  {photo
+                    ? 'Photo ready to send.'
+                    : 'This one asks for a photo, so your grown-up can see it is done.'}
+                </AppText>
+
+                {photo && (
+                  <Image
+                    source={{ uri: photo.uri }}
+                    style={styles.photoPreview}
+                    accessibilityLabel="The photo you chose"
+                  />
+                )}
+
+                <View style={styles.rowActions}>
+                  <Button
+                    label={photo ? 'Take a different one' : 'Take a photo'}
+                    variant="secondary"
+                    onPress={() => void choosePhoto('camera')}
+                    busy={photoBusy}
+                    disabled={actingId !== null}
+                  />
+                  <Button
+                    label="Choose a photo"
+                    variant="secondary"
+                    onPress={() => void choosePhoto('library')}
+                    busy={photoBusy}
+                    disabled={actingId !== null}
+                  />
+                </View>
+
+                {photoRefused && !photo && (
+                  <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>
+                    No photo added. You can still finish the task without one.
+                  </AppText>
+                )}
+              </View>
+            )}
+
             <View style={styles.rowActions}>
-              <Button label="Cancel" variant="secondary" onPress={() => setCompleting(null)} disabled={actingId !== null} />
+              <Button label="Cancel" variant="secondary" onPress={closeSheet} disabled={actingId !== null} />
               <Button label="Yes, I'm done" onPress={() => void confirmComplete()} busy={actingId !== null} />
             </View>
           </View>
@@ -491,6 +584,10 @@ const styles = StyleSheet.create({
   meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
   statusLine: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[2] },
   rowActions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
+  photoBlock: { marginTop: spacing[3], gap: spacing[1] },
+  // 4:3 rather than square: the picker no longer crops, so a portrait shot would otherwise be
+  // squashed in the preview and look like the upload had damaged it.
+  photoPreview: { width: '100%', aspectRatio: 4 / 3, borderRadius: radius.md, marginTop: spacing[2] },
   actions: { marginTop: spacing[4] },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   modalSheet: { padding: spacing[5], borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, gap: spacing[1] },
