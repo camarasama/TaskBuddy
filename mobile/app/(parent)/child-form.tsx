@@ -16,8 +16,13 @@
  *
  * COPPA verifiable parental consent gates all child-data collection, and adding a child is refused
  * until it completes. The server sends a distinct code precisely so the UI can explain rather than
- * show "forbidden" to a parent who has done nothing wrong — consent is completed by email, on the
- * web, so this points there instead of pretending the app can resolve it.
+ * show "forbidden" to a parent who has done nothing wrong.
+ *
+ * The refusal now offers a way out instead of describing one. It routes to `(parent)/consent`, and
+ * the server sends the consent email on this first refusal, so the "check your email" instruction
+ * refers to a message that actually exists. Previously it did not: nothing in registration
+ * requested consent, so the text sent parents to an empty inbox and, failing that, to the website,
+ * which is no help at all on a mobile-only install.
  */
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -225,9 +230,16 @@ export default function ChildForm() {
         {consentNeeded && (
           <Card style={{ borderColor: theme.primary, borderWidth: 2 }}>
             <AppText style={[styles.hint, { color: theme.cardForeground }]}>
-              Before adding a child we need to confirm you&apos;re their parent. Check your email for
-              the confirmation link, or open TaskBuddy on the website to send a new one.
+              {error ??
+                'Before adding a child we need to confirm you’re their parent. Check your email for the confirmation link.'}
             </AppText>
+            <View style={styles.gap} />
+            <Button
+              label="Confirm I'm the parent"
+              variant="secondary"
+              onPress={() => router.push('/(parent)/consent')}
+              disabled={busy}
+            />
           </Card>
         )}
 
