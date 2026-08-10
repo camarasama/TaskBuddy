@@ -13,13 +13,15 @@
  * assumed, since the two raw exceptions elsewhere in the API make that the one detail worth checking
  * per endpoint rather than per module.
  *
- * `/verify` is deliberately **not** ported here. On the web it is a second page reached by opening the
- * emailed link in a browser, which is where `ConsentService`'s `appUrl()` points it — a plain HTTPS
- * URL, not a deep link back into this app. Making the native app open on that link would need a
- * registered URL scheme / App Link and a `(parent)/consent/confirm` route to catch it, which is new
- * native surface this port is not adding (see the file's scope note). The parent finishes
- * verification in whatever browser their phone already has; this screen only needs to reflect the
- * result of that, via `status`.
+ * `/verify` **is** ported now. It was left out originally because catching the emailed HTTPS link
+ * needed an Android App Link and a route at the web's own path, which that port was not adding. Both
+ * exist as of the App Links work: `app/parent/consent/confirm.tsx` matches
+ * `/parent/consent/confirm` exactly, because an App Link is matched on the real URL path and the
+ * `(parent)` group contributes nothing to it.
+ *
+ * It is called with `session: false`. The parent following this link on their phone may have no
+ * TaskBuddy session on that device, and possession of the single-use token is the proof — sending an
+ * Authorization header would be pointless, and refresh-then-retry on a 401 would be actively wrong.
  */
 import { api } from './api';
 
@@ -66,4 +68,14 @@ export interface RequestConsentResponse {
  */
 export function requestConsent(): Promise<RequestConsentResponse> {
   return api.post<RequestConsentResponse>('/consent/request');
+}
+
+/**
+ * Complete verification from the emailed token.
+ *
+ * PUBLIC: no session, by design. Idempotent server-side — a second tap on the same link resolves
+ * rather than failing, so a parent who double-taps is not told their link is broken.
+ */
+export function verifyConsent(token: string): Promise<{ status: 'verified' }> {
+  return api.post<{ status: 'verified' }>('/consent/verify', { token }, { session: false });
 }

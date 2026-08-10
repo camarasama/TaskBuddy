@@ -61,6 +61,56 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    /**
+     * Android App Links: the emailed HTTPS links open the app instead of a browser.
+     *
+     * ## Scoped to four paths on purpose, never the whole host
+     *
+     * Claiming `app.gettaskbuddy.com` wholesale would hand the app every marketing page, every
+     * `/parent/*` notification link and anything added to the site later — including addresses this
+     * app has no route for, which resolve to a blank screen. A link that opens the app and then does
+     * nothing is worse than one that opens the browser and works. So each prefix below is listed
+     * only because a route exists at exactly that path and can complete the action:
+     *
+     *   /reset-password         → app/reset-password.tsx      (reads ?token=)
+     *   /verify-email           → app/verify-email.tsx        (reads ?token=)
+     *   /invite/accept          → app/invite/accept.tsx       (alias of accept-invite)
+     *   /parent/consent/confirm → app/parent/consent/confirm.tsx
+     *
+     * The last two are literal directories rather than screens inside `(parent)`, because a
+     * parenthesised segment is a *group* and contributes nothing to the URL — `(parent)/consent.tsx`
+     * serves `/consent`, which is not what any email says. See those files for the full note.
+     *
+     * ## `autoVerify` needs a file that does not exist yet
+     *
+     * ⚠️ Verification only succeeds once `https://app.gettaskbuddy.com/.well-known/assetlinks.json`
+     * serves this package's **Play app-signing** SHA-256. The template is committed at
+     * `frontend/public/.well-known/assetlinks.json` with a placeholder. The fingerprint must come
+     * from Play Console → Setup → App integrity → App signing key certificate, **not** the local
+     * upload key: with Play App Signing the two differ, and using the upload key's fingerprint fails
+     * verification silently. Until the real value is deployed, these links keep opening the browser,
+     * which is the correct fallback rather than a breakage.
+     *
+     * ⚠️ This is native manifest config, so it cannot ship as an OTA. It needs a new build, a new
+     * versionCode and another Play review, and it moves the runtime fingerprint — the new build
+     * becomes the OTA target.
+     *
+     * Diagnose on a device with:
+     *   adb shell pm get-app-links com.gettaskbuddy.app
+     */
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [
+          { scheme: 'https', host: 'app.gettaskbuddy.com', pathPrefix: '/reset-password' },
+          { scheme: 'https', host: 'app.gettaskbuddy.com', pathPrefix: '/verify-email' },
+          { scheme: 'https', host: 'app.gettaskbuddy.com', pathPrefix: '/invite/accept' },
+          { scheme: 'https', host: 'app.gettaskbuddy.com', pathPrefix: '/parent/consent/confirm' },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
   },
   web: {
     favicon: './assets/favicon.png',
