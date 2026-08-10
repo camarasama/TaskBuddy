@@ -30,6 +30,14 @@ interface ScreenProps {
    * passing one without it would silently do nothing.
    */
   refreshControl?: ScrollViewProps['refreshControl'];
+  /**
+   * Pinned to the screen rather than the content, rendered as a sibling of the body.
+   *
+   * Anything absolutely positioned inside `children` sits inside the ScrollView when `scroll` is on,
+   * so it scrolls away with the content — which defeats the point of pinning it. This slot is
+   * outside that, so it stays put.
+   */
+  footer?: ReactNode;
 }
 
 export function Screen({
@@ -38,6 +46,7 @@ export function Screen({
   center = false,
   contentStyle,
   refreshControl,
+  footer,
 }: ScreenProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -69,6 +78,7 @@ export function Screen({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {body}
+      {footer}
     </KeyboardAvoidingView>
   );
 }

@@ -25,6 +25,7 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Logo } from '@/components/Logo';
 import { Screen } from '@/components/Screen';
+import { VersionBadge } from '@/components/VersionBadge';
 import { describeError } from '@/lib/errors';
 import { getStoredFamilyCode, setStoredFamilyCode } from '@/lib/familyCodeStore';
 import { useAuth } from '@/stores/auth';
@@ -81,14 +82,14 @@ export default function ChildLogin() {
 
   if (storedCode === undefined) {
     return (
-      <Screen center>
+      <Screen center footer={<VersionBadge />}>
         <AppText style={[styles.body, { color: theme.mutedForeground }]}>Loading…</AppText>
       </Screen>
     );
   }
 
   return (
-    <Screen scroll center>
+    <Screen scroll center footer={<VersionBadge />}>
       <Logo width={128} />
       <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>
         Sign in

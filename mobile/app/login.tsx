@@ -14,6 +14,7 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Logo } from '@/components/Logo';
 import { Screen } from '@/components/Screen';
+import { VersionBadge } from '@/components/VersionBadge';
 import { describeError } from '@/lib/errors';
 import { useAuth } from '@/stores/auth';
 import { fontSize, fontWeight, minTouchTarget, spacing, useTheme } from '@/theme';
@@ -50,7 +51,7 @@ export default function ParentLogin() {
   }
 
   return (
-    <Screen scroll center>
+    <Screen scroll center footer={<VersionBadge />}>
       <Logo width={128} />
       <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Parent sign-in</AppText>
 
