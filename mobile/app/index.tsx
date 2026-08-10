@@ -15,6 +15,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Logo } from '@/components/Logo';
 import { Screen } from '@/components/Screen';
+import { VersionBadge } from '@/components/VersionBadge';
 import { CONFIG_ERRORS } from '@/lib/config';
 import { useAuth } from '@/stores/auth';
 import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
@@ -40,7 +41,7 @@ export default function RoleChooser() {
   }
 
   return (
-    <Screen scroll center>
+    <Screen scroll center footer={<VersionBadge />}>
       {/*
         The lockup already contains the wordmark, so there is no text heading under it — a rendered
         "TaskBuddy" beneath a logo that reads "TaskBuddy" looks like a mistake. That also flips the

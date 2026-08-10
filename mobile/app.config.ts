@@ -18,6 +18,24 @@ import type { ExpoConfig, ConfigContext } from 'expo/config';
  */
 const PROD_API = 'https://api.gettaskbuddy.com/api/v1';
 
+/**
+ * The app's marketing version, and the ONLY place it is written.
+ *
+ * ⚠️ It used to appear twice — once as `version` and again as a hardcoded `extra.clientVersion` —
+ * which is the string sent as `X-Client: taskbuddy-android/<version>` and compared server-side by
+ * the P0-2 force-upgrade gate. Two literals meaning one thing is a bug with a delay on it: bump one,
+ * forget the other, and the server starts making upgrade decisions about a version the app is not.
+ * Both now read this constant.
+ *
+ * Semver, and it must stay semver: `compareVersions` in `backend/src/utils/client.ts` orders it
+ * against `MOBILE_MIN_VERSION_ANDROID`. Patch for fixes, minor for features, major for a break.
+ *
+ * Separate from the Android `versionCode`, which EAS assigns and increments remotely (see the note
+ * on `android.versionCode`). Version says what changed; versionCode says which build. Testers are
+ * shown both, because only the pair identifies a specific binary.
+ */
+const APP_VERSION = '1.0.0';
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'TaskBuddy',
@@ -27,7 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // from CI cannot quietly resolve to a different account.
   owner: 'camarasama',
   scheme: 'taskbuddy',
-  version: '0.1.0',
+  version: APP_VERSION,
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
   icon: './assets/icon.png',
@@ -279,7 +297,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // token delivery off the platform (P0-1) and the force-upgrade gate off the version (P0-2),
     // so this string is load-bearing — see backend/src/utils/client.ts for the exact grammar.
     clientPlatform: 'taskbuddy-android',
-    clientVersion: '0.1.0',
+    clientVersion: APP_VERSION,
     // Optional by design, matching backend/src/instrument.ts and the frontend's two instrumentation
     // files: unset DSN means Sentry never initializes — no init, no events, no network. A DSN is a
     // public ingest key, not a secret, but it stays out of the repo so a fork or a local build does
