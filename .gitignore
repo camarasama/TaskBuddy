@@ -37,3 +37,17 @@ agentdb.rvf.lock
 .ruflo/
 .ruflo-memory-backup-*/
 state.json
+
+# ── Firebase / FCM credentials (added 2026-08-11) ────────────────────────────
+# ⚠️ THIS REPO IS PUBLIC. Neither of these may ever be committed.
+#
+# The service account key is a genuine secret: it can send push as this project and read Firebase
+# resources. If it is ever committed, rotating it in the Firebase console is the only fix — removing
+# the commit is not enough, because the history is already public.
+#
+# google-services.json is not a secret in the strict sense (it ships inside every APK), but in a
+# public repo it advertises the project and its API key, so it is supplied to EAS as a file-type
+# environment variable instead of being committed.
+mobile/google-services.json
+mobile/*firebase-adminsdk*.json
+**/*-firebase-adminsdk-*.json

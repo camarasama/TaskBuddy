@@ -24,12 +24,24 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(async () => undefined),
 }));
 
-const mockState = {
+const mockState: {
+  isDevice: boolean;
+  granted: boolean;
+  canAskAgain: boolean;
+  askedTimes: number;
+  channelCreated: boolean;
+  handler: { handleNotification: () => Promise<Record<string, boolean>> } | null;
+  lastResponse: unknown;
+  tapListener: ((r: unknown) => void) | null;
+} = {
   isDevice: true,
   granted: false,
   canAskAgain: true,
   askedTimes: 0,
   channelCreated: false,
+  handler: null,
+  lastResponse: null,
+  tapListener: null,
 };
 
 jest.mock('expo-device', () => ({
@@ -40,6 +52,14 @@ jest.mock('expo-device', () => ({
 
 jest.mock('expo-notifications', () => ({
   AndroidImportance: { DEFAULT: 3 },
+  setNotificationHandler: jest.fn((config: unknown) => {
+    mockState.handler = config as { handleNotification: () => Promise<Record<string, boolean>> };
+  }),
+  getLastNotificationResponseAsync: jest.fn(async () => mockState.lastResponse),
+  addNotificationResponseReceivedListener: jest.fn((cb: (r: unknown) => void) => {
+    mockState.tapListener = cb;
+    return { remove: jest.fn() };
+  }),
   setNotificationChannelAsync: jest.fn(async () => {
     mockState.channelCreated = true;
   }),
@@ -55,7 +75,10 @@ let calls: { url: string; method: string; body: unknown }[] = [];
 
 function setup() {
   calls = [];
-  Object.assign(mockState, { isDevice: true, granted: false, canAskAgain: true, askedTimes: 0, channelCreated: false });
+  Object.assign(mockState, {
+    isDevice: true, granted: false, canAskAgain: true, askedTimes: 0, channelCreated: false,
+    handler: null, lastResponse: null, tapListener: null,
+  });
   jest.resetModules();
 
   global.fetch = jest.fn(async (url: string, init: RequestInit = {}) => {
@@ -142,5 +165,48 @@ describe('unregisterFromPush', () => {
     await push.unregisterFromPush(null);
 
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe('foreground display', () => {
+  it('tells expo-notifications to SHOW banner and list entry', async () => {
+    // ⚠️ The reported symptom was "push does not work". It arrived and was swallowed: from SDK 53 a
+    // notification received while the app is open is displayed only if a handler says so, and there
+    // was no handler at all.
+    const push = setup();
+    void push;
+
+    expect(mockState.handler).not.toBeNull();
+    const decision = await mockState.handler!.handleNotification();
+
+    // Both, deliberately: banner is the heads-up, list is the panel entry. Banner alone vanishes
+    // and leaves nothing behind to tap.
+    expect(decision.shouldShowBanner).toBe(true);
+    expect(decision.shouldShowList).toBe(true);
+  });
+});
+
+describe('subscribeToNotificationTaps', () => {
+  it('navigates to the actionUrl carried in the payload', () => {
+    const push = setup();
+    const navigate = jest.fn();
+
+    push.subscribeToNotificationTaps(navigate);
+    mockState.tapListener!({ notification: { request: { content: { data: { actionUrl: '/(parent)/approvals' } } } } });
+
+    expect(navigate).toHaveBeenCalledWith('/(parent)/approvals');
+  });
+
+  it('ignores anything that is not an in-app path', () => {
+    // The payload is server-supplied. Navigating to an arbitrary string is how a notification
+    // becomes a way to push the app somewhere it should not go.
+    const push = setup();
+    const navigate = jest.fn();
+
+    push.subscribeToNotificationTaps(navigate);
+    mockState.tapListener!({ notification: { request: { content: { data: { actionUrl: 'https://evil.example' } } } } });
+    mockState.tapListener!({ notification: { request: { content: { data: {} } } } });
+
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
