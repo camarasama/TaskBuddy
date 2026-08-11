@@ -70,6 +70,41 @@ describe('createNotification call sites', () => {
     expect(missing).toEqual([]);
   });
 
+  /**
+   * A notification about ONE assignment has to name it.
+   *
+   * Reported: "if the notification is about a comment, then when clicking on the notification, it
+   * should open the comment". The comment thread is rendered inside that assignment's own card, on
+   * one tab of three, so `/child/tasks` alone leaves the child hunting. `?assignment=<id>` is what
+   * the page reads to pick the tab and scroll to the card.
+   *
+   * `task_archived` is excluded on purpose and is the reason this is an allow-list rather than a
+   * blanket rule: its assignment has just been expired, so the card the link would point at is not
+   * rendered on any tab.
+   */
+  it('deep-links every notification that is about a single assignment', () => {
+    const PER_ASSIGNMENT = [
+      'task_assigned',
+      'task_submitted',
+      'task_approved',
+      'task_rejected',
+      'task_comment',
+    ];
+
+    const perAssignment = calls.filter((c) => PER_ASSIGNMENT.includes(c.type));
+    // A floor, so renaming a notification type cannot turn this into an assertion about nothing.
+    expect(perAssignment.length).toBeGreaterThanOrEqual(5);
+
+    const shallow = perAssignment
+      .filter((c) => {
+        const url = /actionUrl:\s*[`']([^`']+)/.exec(c.body)?.[1] ?? '';
+        return url.startsWith('/child/tasks') && !url.includes('?assignment=');
+      })
+      .map((c) => `${c.type} (${c.file})`);
+
+    expect(shallow).toEqual([]);
+  });
+
   it('never sends a parent to a /child route or a child to a /parent route', () => {
     // A parent following /child/tasks hits a route they cannot view. This caught nothing at the time
     // of writing, and exists because the two copies of task_expired differ ONLY in recipient — the

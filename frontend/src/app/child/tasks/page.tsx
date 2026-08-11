@@ -83,6 +83,13 @@ interface TaskAssignment {
 
 type Tab = 'active' | 'completed' | 'returned';
 
+/** Which tab an assignment is filed under. Kept beside the tab type so the two cannot drift. */
+function tabForStatus(status: string): Tab {
+  if (status === 'rejected') return 'returned';
+  if (['completed', 'approved'].includes(status)) return 'completed';
+  return 'active';
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChildTasksPage() {
@@ -157,6 +164,26 @@ export default function ChildTasksPage() {
     loadTasks();
   }, [loadTasks]);
   useDataRefresh(loadTasks);
+
+  /**
+   * Deep link: `/child/tasks?assignment=<id>`.
+   *
+   * A notification is about ONE assignment — a comment on it, an approval, a return. Landing the
+   * child on the bare list makes them hunt for it, and the thing they were told about (the comment
+   * thread) lives inside that assignment's own card, on one tab only. So the link carries the id and
+   * this page does three things with it: switch to the tab the assignment is actually on, scroll the
+   * card into view, and ring it briefly so the eye lands in the right place.
+   *
+   * Read from `window.location.search` rather than `useSearchParams()` on purpose: the hook forces
+   * this page under a Suspense boundary at build time, and a query string that only ever matters
+   * after mount does not need to participate in rendering at all.
+   */
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('assignment');
+    if (id) setFocusedId(id);
+  }, []);
 
   /**
    * Live updates for the two things a PARENT can do to this list.
@@ -271,6 +298,34 @@ export default function ChildTasksPage() {
   );
   // Bug fix: rejected tasks now show in "Returned" tab
   const returnedAssignments  = assignments.filter(a => a.status === 'rejected');
+
+  /**
+   * Second half of the deep link: put the linked assignment on screen.
+   *
+   * Split from the effect that reads the query string because it can only run once the list has
+   * arrived — the tab is chosen from the assignment's status, and the element to scroll to does not
+   * exist until that tab is rendered. `focusedId` is cleared at the end so a later tab change by the
+   * child is never yanked back.
+   */
+  const focused = focusedId ? assignments.find((a) => a.id === focusedId) : undefined;
+
+  useEffect(() => {
+    if (!focused) return;
+    setActiveTab(tabForStatus(focused.status));
+
+    // A beat, so the tab's cards have mounted before we look for the element.
+    const scroll = window.setTimeout(() => {
+      document
+        .getElementById(`assignment-${focused.id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    const unhighlight = window.setTimeout(() => setFocusedId(null), 2500);
+
+    return () => {
+      window.clearTimeout(scroll);
+      window.clearTimeout(unhighlight);
+    };
+  }, [focused]);
 
   // ── Start a task (pending → in_progress) ─────────────────────────────────
 
@@ -500,8 +555,8 @@ export default function ChildTasksPage() {
                 title="No active tasks" message="You're all caught up!" />
             ) : (
               activeAssignments.map((a) => (
+                <DeepLinkTarget key={a.id} assignmentId={a.id} highlighted={focusedId === a.id}>
                 <TaskCard
-                  key={a.id}
                   assignment={a}
                   onStart={() => handleStart(a)}
                   onComplete={() => handleComplete(a)}
@@ -511,6 +566,7 @@ export default function ChildTasksPage() {
                   offline={offline}
                   meId={a.childId}
                 />
+                </DeepLinkTarget>
               ))
             )}
 
@@ -551,7 +607,9 @@ export default function ChildTasksPage() {
                 title="No completed tasks yet" message="Complete tasks to see them here!" />
             ) : (
               completedAssignments.map((a) => (
-                <CompletedTaskCard key={a.id} assignment={a} />
+                <DeepLinkTarget key={a.id} assignmentId={a.id} highlighted={focusedId === a.id}>
+                  <CompletedTaskCard assignment={a} />
+                </DeepLinkTarget>
               ))
             )}
           </div>
@@ -574,12 +632,13 @@ export default function ChildTasksPage() {
                   when you&apos;ve made the changes.
                 </p>
                 {returnedAssignments.map((a) => (
-                  <ReturnedTaskCard
-                    key={a.id}
-                    assignment={a}
-                    onResubmit={() => handleResubmit(a)}
-                    isResubmitting={resubmittingId === a.id}
-                  />
+                  <DeepLinkTarget key={a.id} assignmentId={a.id} highlighted={focusedId === a.id}>
+                    <ReturnedTaskCard
+                      assignment={a}
+                      onResubmit={() => handleResubmit(a)}
+                      isResubmitting={resubmittingId === a.id}
+                    />
+                  </DeepLinkTarget>
                 ))}
               </>
             )}
@@ -587,6 +646,35 @@ export default function ChildTasksPage() {
         )}
       </div>
     </ChildLayout>
+  );
+}
+
+/**
+ * Anchor for `?assignment=<id>`.
+ *
+ * A wrapper rather than an `id` prop on each card because all three card types need it and only one
+ * of them is a shared component. The ring is deliberately loud and deliberately brief: it answers
+ * "which of these did the notification mean?" and then gets out of the way.
+ */
+function DeepLinkTarget({
+  assignmentId,
+  highlighted,
+  children,
+}: {
+  assignmentId: string;
+  highlighted: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      id={`assignment-${assignmentId}`}
+      className={cn(
+        'rounded-2xl transition-shadow duration-500',
+        highlighted && 'ring-4 ring-xp-400 ring-offset-2'
+      )}
+    >
+      {children}
+    </div>
   );
 }
 

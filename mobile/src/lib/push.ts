@@ -160,16 +160,29 @@ const WEB_TO_MOBILE_ROUTE: Record<string, string> = {
 export function toMobileRoute(actionUrl: string | undefined): string | null {
   if (typeof actionUrl !== 'string') return null;
 
-  const exact = WEB_TO_MOBILE_ROUTE[actionUrl];
-  if (exact) return exact;
+  /**
+   * The query string is split off before the lookup and put back afterwards.
+   *
+   * ⚠️ Without this, `/child/tasks?assignment=abc` misses the exact map, falls through to the
+   * `/child/` catch-all and lands the child on the DASHBOARD — so the moment the server started
+   * deep-linking notifications, every task notification on mobile got worse, not better. The
+   * screen's own `assignment` param is what selects the segment and highlights the row.
+   */
+  const queryAt = actionUrl.indexOf('?');
+  const path = queryAt === -1 ? actionUrl : actionUrl.slice(0, queryAt);
+  const query = queryAt === -1 ? '' : actionUrl.slice(queryAt);
+
+  const exact = WEB_TO_MOBILE_ROUTE[path];
+  if (exact) return exact + query;
 
   // Deeper web links (e.g. /parent/tasks/assignments/:id) have no mobile equivalent screen, but the
-  // section they belong to does. Landing on the right list beats landing on an error.
-  if (actionUrl.startsWith('/parent/approve') || actionUrl.startsWith('/parent/tasks')) {
+  // section they belong to does. Landing on the right list beats landing on an error. The query is
+  // dropped on these: it names a thing the destination screen does not know how to show.
+  if (path.startsWith('/parent/approve') || path.startsWith('/parent/tasks')) {
     return '/(parent)/approvals';
   }
-  if (actionUrl.startsWith('/child/')) return '/(child)/dashboard';
-  if (actionUrl.startsWith('/parent/')) return '/(parent)/dashboard';
+  if (path.startsWith('/child/')) return '/(child)/dashboard';
+  if (path.startsWith('/parent/')) return '/(parent)/dashboard';
 
   return null;
 }

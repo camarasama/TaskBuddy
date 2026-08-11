@@ -176,7 +176,7 @@ export class TaskService {
         notificationType: 'task_assigned',
         title: '📋 New Task Assigned',
         message: `You have a new task: "${result.task.title}". Earn ${result.task.pointsValue} pts when approved!`,
-        actionUrl: '/child/tasks',
+        actionUrl: `/child/tasks?assignment=${assignment.id}`,
         referenceType: 'task_assignment',
         referenceId: assignment.id,
       }).catch(() => {});
@@ -342,7 +342,7 @@ export class TaskService {
       notificationType: 'task_submitted',
       title: 'Task Submitted ✓',
       message: `"${assignment.task.title}" is awaiting parent approval.`,
-      actionUrl: '/child/tasks',
+      actionUrl: `/child/tasks?assignment=${assignment.id}`,
       referenceType: 'task_assignment',
       referenceId: assignment.id,
     }).catch(() => {});
@@ -466,7 +466,7 @@ export class TaskService {
         notificationType: 'task_approved',
         title: '🎉 Task Approved!',
         message: `"${assignment.task.title}" approved! You earned +${result.pointsAwarded} pts and +${result.xpAwarded} XP.`,
-        actionUrl: '/child/tasks',
+        actionUrl: `/child/tasks?assignment=${assignment.id}`,
         referenceType: 'task_assignment',
         referenceId: assignment.id,
       }).catch(() => {});
@@ -588,7 +588,9 @@ export class TaskService {
         message: rejectionReason
           ? `"${assignment.task.title}" was returned: ${rejectionReason}`
           : `"${assignment.task.title}" was returned by your parent. Check the task for details.`,
-        actionUrl: '/child/tasks',
+        // "Check the task for details" is only actionable if the link goes to THAT task: the
+        // feedback and the comment thread both live on the assignment's own card.
+        actionUrl: `/child/tasks?assignment=${assignmentId}`,
         referenceType: 'task_assignment',
         referenceId: assignmentId,
       }).catch(() => {});
@@ -734,7 +736,7 @@ export class TaskService {
       notificationType: 'task_rejected',
       title: 'A task approval was changed',
       message: `"${assignment.task.title}" was un-approved and ${points} pts were removed.${reason ? ` Reason: ${reason}` : ''}`,
-      actionUrl: '/child/tasks',
+      actionUrl: `/child/tasks?assignment=${assignment.id}`,
       referenceType: 'task_assignment',
       referenceId: assignment.id,
     }).catch(() => {});

@@ -13,9 +13,10 @@
  * which accounts for the pending-primary rule, the claim cap and existing assignments; re-deriving it
  * here would be a second implementation of one rule, disagreeing the first time either moved.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { AppText } from '@/components/AppText';
@@ -141,8 +142,8 @@ function TaskTick({ done, busy, onPress, label }: {
 
 /** One of the child's own tasks, with whatever action it currently affords. */
 function AssignmentRow(
-  { item, busy, onStart, onComplete }:
-  { item: MyAssignment; busy: boolean; onStart: () => void; onComplete: () => void }
+  { item, busy, linked = false, onStart, onComplete }:
+  { item: MyAssignment; busy: boolean; linked?: boolean; onStart: () => void; onComplete: () => void }
 ) {
   const theme = useTheme();
   const { task, status } = item;
@@ -166,6 +167,9 @@ function AssignmentRow(
   const showOverdue = !done && isOverdue(showInstance ? item.instanceDate : task.dueDate);
 
   return (
+    // The ring is how "this is the one your notification meant" is said without a sentence of prose
+    // that would then sit on the row forever.
+    <View style={linked ? [styles.linked, { borderColor: theme.primary }] : undefined}>
     <Card status={cardStatus}>
       <View style={styles.tickRow}>
         <TaskTick done={done} busy={busy} onPress={onComplete} label={`Mark "${task.title}" done`} />
@@ -203,6 +207,7 @@ function AssignmentRow(
         </View>
       </View>
     </Card>
+    </View>
   );
 }
 
@@ -335,6 +340,37 @@ export default function ChildTasks() {
   const shownAssignments = segment === 'available' ? [] : byStatus[segment];
   const active = segment === 'available' ? available : mine;
 
+  /**
+   * Deep link from a tapped notification: `/(child)/tasks?assignment=<id>`.
+   *
+   * A notification is about one assignment, and this screen files assignments under four segments —
+   * so without this the child lands on "To do" and has to guess which segment the thing they were
+   * told about is on. Switching the segment is all that is done here; the row is then marked. The
+   * param is read once and dropped, so a later tap on another segment is never yanked back.
+   *
+   * Note the limit, which is not a bug to fix here: a `task_comment` notification can only bring the
+   * child to the row. The mobile app has no child-side comment thread, so the comment itself is
+   * still web-only.
+   */
+  const { assignment: linkedIdParam } = useLocalSearchParams<{ assignment?: string }>();
+  const [linkedId, setLinkedId] = useState<string | null>(null);
+  const [consumedLink, setConsumedLink] = useState(false);
+
+  useEffect(() => {
+    if (consumedLink || !linkedIdParam) return;
+    const found = assignments.find((a) => a.id === linkedIdParam);
+    if (!found) return;
+    setSegment(
+      found.status === 'rejected'
+        ? 'returned'
+        : found.status === 'completed' || found.status === 'approved'
+          ? 'completed'
+          : 'active'
+    );
+    setLinkedId(found.id);
+    setConsumedLink(true);
+  }, [assignments, consumedLink, linkedIdParam]);
+
   /** Every open starts clean: a photo left over from the last task would attach to this one. */
   function openSheet(item: MyAssignment) {
     setNote('');
@@ -439,6 +475,7 @@ export default function ChildTasks() {
             <AssignmentRow
               item={item}
               busy={actingId === item.id}
+              linked={linkedId === item.id}
               onStart={() => void runAction(item.id, () => doStart(item.id))}
               onComplete={() => { openSheet(item); }}
             />
@@ -576,6 +613,7 @@ const styles = StyleSheet.create({
   tickRowText: { flex: 1 },
   tick: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   tickDone: { borderWidth: 0 },
+  linked: { borderWidth: 2, borderRadius: radius.lg },
   chipScroller: { flexGrow: 0, marginBottom: spacing[3] },
   chipRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   chip: { paddingHorizontal: spacing[3], minHeight: minTouchTarget, justifyContent: 'center', borderRadius: radius.full, borderWidth: 1 },
