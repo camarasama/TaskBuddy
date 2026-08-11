@@ -14,7 +14,9 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+import { subscribeAppFocus } from '@/lib/appFocus';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorScreen } from '@/components/ErrorScreen';
@@ -42,6 +44,23 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
 
   return <ErrorScreen error={error} retry={retry} />;
 }
+
+/**
+ * Teach React Query what "focused" means on a phone.
+ *
+ * ⚠️ `refetchOnWindowFocus` defaults to true and does NOTHING in React Native: it listens for a
+ * browser `window` focus event that never fires here. Without this listener the only refetch trigger
+ * is a query mounting, so data goes stale the moment the app is backgrounded and stays stale until
+ * the screen is remounted.
+ *
+ * That is not theoretical. A parent returned a submitted task and the child's app kept showing it as
+ * submitted; the only way to see the change was to sign out and back in, which remounts everything.
+ * The child app has no socket client — realtime events are web-only — so refetch-on-foreground is
+ * the whole mechanism by which a child learns that a parent did something.
+ *
+ * Registered at module scope so it is set before any query can run.
+ */
+focusManager.setEventListener(subscribeAppFocus);
 
 const queryClient = new QueryClient({
   defaultOptions: {
