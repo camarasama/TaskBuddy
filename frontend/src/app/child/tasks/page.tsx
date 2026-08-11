@@ -49,6 +49,7 @@ import {
   type FlushReport,
 } from '@/lib/offlineQueue';
 import { useToast } from '@/components/ui/Toast';
+import { useSocket } from '@/contexts/SocketContext';
 import { cn, getDifficultyColor, formatPoints, formatDate, formatDateTime } from '@/lib/utils';
 import Confetti from 'react-confetti';
 import { TeamBadge, type TeamSummary } from '@/components/tasks/TeamBadge';
@@ -85,6 +86,7 @@ type Tab = 'active' | 'completed' | 'returned';
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChildTasksPage() {
+  const { socket } = useSocket();
   const { error: showError, success: showSuccess } = useToast();
   const [assignments, setAssignments]           = useState<TaskAssignment[]>([]);
   const [availableTasks, setAvailableTasks]     = useState<any[]>([]);
@@ -155,6 +157,32 @@ export default function ChildTasksPage() {
     loadTasks();
   }, [loadTasks]);
   useDataRefresh(loadTasks);
+
+  /**
+   * Live updates for the two things a PARENT can do to this list.
+   *
+   * ⚠️ This page subscribed to nothing at all, which is why a returned task did not appear: the
+   * notification sends the child here (`actionUrl: '/child/tasks'`), and the list they landed on was
+   * whatever had been fetched on mount. The server has always emitted both of these to
+   * `user:{childId}`.
+   *
+   * Both handlers just reload, deliberately. Patching a single row from a socket payload means two
+   * descriptions of task state that can disagree; refetching keeps the server as the only authority,
+   * and the payload is small.
+   */
+  useEffect(() => {
+    if (!socket) return;
+
+    const reload = () => { void loadTasks(); };
+
+    socket.on('task:rejected', reload);
+    socket.on('task:approved', reload);
+
+    return () => {
+      socket.off('task:rejected', reload);
+      socket.off('task:approved', reload);
+    };
+  }, [socket, loadTasks]);
 
   // ── FR-13: offline queue plumbing ─────────────────────────────────────────
 
