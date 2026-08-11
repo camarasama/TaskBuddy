@@ -55,6 +55,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // losing every install and review. Change it now or never.
     package: 'com.gettaskbuddy.app',
     /**
+     * Firebase config, required because Android push is delivered through FCM.
+     *
+     * ⚠️ Read from an env var first. The file is gitignored — THIS REPO IS PUBLIC — so EAS supplies
+     * it at build time as a file-type environment variable (`GOOGLE_SERVICES_JSON`), which resolves
+     * to a path. The local fallback is for `expo run:android` on a machine that has the file.
+     *
+     * A build without it produces an app whose push tokens nothing can deliver to, and the failure
+     * is invisible on the device: the token is issued, the send fails server-side, nothing appears.
+     */
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
+    /**
      * ⚠️ IGNORED while `eas.json` sets `cli.appVersionSource: "remote"` — which it does. EAS keeps
      * the build number on its own servers and increments it per production build; this value is only
      * a fallback for a local `expo run:android`.
