@@ -28,6 +28,29 @@ import Constants from 'expo-constants';
 import { api } from './api';
 
 /**
+ * Tell expo-notifications to actually SHOW a notification that arrives while the app is open.
+ *
+ * ⚠️ Without this there is no banner in the foreground, and that is not a bug in the OS — from SDK 53
+ * the default is to deliver the notification to the app silently and display nothing. The symptom is
+ * exactly what it sounds like: push "not working", when in fact it arrived and was swallowed.
+ *
+ * Set at module scope so it is registered before any notification can be received, including one
+ * that launched the app.
+ *
+ * `shouldShowBanner`/`shouldShowList` replaced the old `shouldShowAlert` in SDK 53. Both are set:
+ * banner is the heads-up display, list is the notification panel entry. Setting only the first gives
+ * a banner that vanishes and leaves nothing behind to tap.
+ */
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+/**
  * Android requires a channel before anything can be delivered. Created before the permission is
  * requested, because a notification arriving with no channel is dropped silently by the OS.
  */
@@ -109,4 +132,34 @@ export async function unregisterFromPush(token: string | null): Promise<void> {
   } catch {
     // Best effort. The server also reassigns a token when it is registered by another account.
   }
+}
+
+/**
+ * Route a tapped notification to the screen it is about.
+ *
+ * The payload carries `actionUrl` in `data` rather than in the title, so this can navigate without
+ * parsing prose. Returns an unsubscribe for the caller to run on unmount.
+ *
+ * Covers the cold-start case too: a notification that launched the app is not delivered to the
+ * listener, so `getLastNotificationResponseAsync` is checked once. Without that, tapping a
+ * notification while the app is closed opens it on the home screen with no explanation.
+ */
+export function subscribeToNotificationTaps(navigate: (url: string) => void): () => void {
+  const urlFrom = (response: Notifications.NotificationResponse | null): string | null => {
+    const data = response?.notification?.request?.content?.data as { actionUrl?: string } | undefined;
+    const url = data?.actionUrl;
+    return typeof url === 'string' && url.startsWith('/') ? url : null;
+  };
+
+  void Notifications.getLastNotificationResponseAsync().then((response) => {
+    const url = urlFrom(response);
+    if (url) navigate(url);
+  });
+
+  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    const url = urlFrom(response);
+    if (url) navigate(url);
+  });
+
+  return () => subscription.remove();
 }

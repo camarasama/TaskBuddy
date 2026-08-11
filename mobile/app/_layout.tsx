@@ -12,7 +12,7 @@
  */
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -25,7 +25,7 @@ import { ToastProvider } from '@/components/Toast';
 import { isRateLimited, SessionExpiredError } from '@/lib/api';
 import { initReporting, reportError } from '@/lib/reporting';
 import { setPushBridge, useAuth } from '@/stores/auth';
-import { registerForPush, unregisterFromPush } from '@/lib/push';
+import { registerForPush, subscribeToNotificationTaps, unregisterFromPush } from '@/lib/push';
 import { useTheme } from '@/theme';
 import { FontProvider } from '@/theme/FontProvider';
 
@@ -129,6 +129,10 @@ function Routes() {
 setPushBridge({ register: registerForPush, unregister: unregisterFromPush });
 
 export default function RootLayout() {
+  // A tapped notification should land on the thing it is about, not the home screen. Registered
+  // here rather than in the push module because navigation belongs to the app layer.
+  useEffect(() => subscribeToNotificationTaps((url) => router.push(url as never)), []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
