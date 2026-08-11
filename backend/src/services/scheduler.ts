@@ -118,6 +118,7 @@ export function initScheduler(): void {
           notificationType: 'task_expired',
           title: 'Task Expired',
           message: `"${a.task.title}" has expired without completion.`,
+          actionUrl: '/child/tasks',
         });
         const parents = await prisma.user.findMany({
           where: { familyId: a.task.familyId, role: 'parent', deletedAt: null },
@@ -129,6 +130,9 @@ export function initScheduler(): void {
             notificationType: 'task_expired',
             title: 'Task Expired',
             message: `"${a.task.title}" expired without completion.`,
+            // Parent-facing copy of the same event, so it goes to the PARENT's task list. Sending a
+            // parent to /child/tasks would bounce them off a route they cannot view.
+            actionUrl: '/parent/tasks',
           });
         }
         if (!a.task.isRecurring) {
@@ -169,6 +173,7 @@ export function initScheduler(): void {
           notificationType: 'task_expiring',
           title: 'Task Due Soon',
           message: `"${a.task.title}" is due within 24 hours.`,
+          actionUrl: '/child/tasks',
         });
         await prisma.taskAssignment.update({
           where: { id: a.id },
@@ -247,6 +252,7 @@ export function initScheduler(): void {
           notificationType: 'task_expiring',
           title: 'Task Due Soon',
           message: `"${a.task.title}" is due in ${label}.`,
+          actionUrl: '/child/tasks',
         });
 
         // Email reminder - notify parent(s) too

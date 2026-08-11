@@ -470,6 +470,9 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
             notificationType: 'task_archived',
             title: 'Task Removed',
             message: `"${task.title}" has been archived by a parent and removed from your task list.`,
+            // Without this the bell entry is unclickable: NotificationBell only navigates when an
+            // actionUrl exists, so a notification without one silently does nothing when tapped.
+            actionUrl: '/child/tasks',
           }).catch(() => {});
         }
       }
