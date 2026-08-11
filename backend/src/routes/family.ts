@@ -1,7 +1,7 @@
 import { Router, type RequestHandler } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
-import { CONSENT_VERSIONS, AVATAR_EMOJIS } from '@taskbuddy/shared';
+import { CONSENT_VERSIONS, AVATAR_EMOJIS, AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
 import { ConsentService } from '../services/ConsentService';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../services/database';
@@ -31,12 +31,9 @@ const addChildSchema = z.object({
   lastName: z.string().min(1).max(50),
   dateOfBirth: z.string()
     .refine((date) => !isNaN(Date.parse(date)), { message: 'Invalid date format' })
-    .refine((date) => {
-      const birth = new Date(date);
-      const minAge = new Date(); minAge.setFullYear(minAge.getFullYear() - 16);
-      const maxAge = new Date(); maxAge.setFullYear(maxAge.getFullYear() - 10);
-      return birth >= minAge && birth <= maxAge;
-    }, { message: 'Child must be between 10 and 16 years old' }),
+    .refine((date) => isAgeBetween(date, AGE_LIMITS.CHILD_MIN, AGE_LIMITS.CHILD_MAX), {
+      message: `Child must be between ${AGE_LIMITS.CHILD_MIN} and ${AGE_LIMITS.CHILD_MAX} years old`,
+    }),
   // Required: the username is what the child types to log in. Two siblings can share a first
   // name, so the login handle has to be a field of its own.
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/),

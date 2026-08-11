@@ -25,6 +25,7 @@ import { router } from 'expo-router';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { DateField } from '@/components/DateField';
 import { Field } from '@/components/Field';
 import { Logo } from '@/components/Logo';
 import { Screen } from '@/components/Screen';
@@ -51,16 +52,10 @@ const GENDERS = [
 
 type Gender = (typeof GENDERS)[number]['value'];
 
-/**
- * Format digits into YYYY-MM-DD as they are typed.
- *
- * Punctuation is inserted rather than required, so the parent types eight digits and cannot produce
- * a shape the server rejects. Stripping non-digits on every keystroke also makes backspacing over a
- * dash behave — the dash simply reappears one character later.
- */
-function formatDateOfBirth(next: string): string {
-  const digits = next.replace(/\D/g, '').slice(0, 8);
-  return [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean).join('-');
+/** Newest permissible birth date for an adult: exactly MIN_PARENT_AGE_YEARS ago today. */
+function adultCutoff(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear() - MIN_PARENT_AGE_YEARS, now.getMonth(), now.getDate());
 }
 
 export default function Register() {
@@ -250,16 +245,15 @@ export default function Register() {
         returnKeyType="next"
       />
 
-      <Field
+      <DateField
         label="Date of birth"
         value={dateOfBirth}
-        onChangeText={(next) => setDateOfBirth(formatDateOfBirth(next))}
-        keyboardType="number-pad"
-        maxLength={10}
+        onChange={setDateOfBirth}
         editable={!busy}
         error={fields.dateOfBirth}
-        hint="YYYY-MM-DD. TaskBuddy is for grown-ups aged 18 and over."
-        returnKeyType="next"
+        hint={`TaskBuddy is for grown-ups aged ${MIN_PARENT_AGE_YEARS} and over.`}
+        // No lower bound: there is no maximum age to register. The cutoff is the whole rule.
+        maximumDate={adultCutoff()}
       />
 
       <Field

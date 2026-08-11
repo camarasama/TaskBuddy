@@ -32,7 +32,7 @@ import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from
 import { isPasswordBreached } from '../utils/passwordBreach';
 import { pruneExpired } from '../utils/rateLimitSweep';
 import { validateBody } from '../middleware/validate';
-import { VALIDATION, CONSENT_VERSIONS } from '@taskbuddy/shared';
+import { VALIDATION, CONSENT_VERSIONS, AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
 // M8 - Audit logging for auth events
 import { AuditService } from '../services/AuditService';
 // M9 - Email notifications
@@ -101,12 +101,9 @@ const registerSchema = z.object({
     dateOfBirth: z.string().regex(
       /^\d{4}-\d{2}-\d{2}$/,
       'Date of birth must be in YYYY-MM-DD format'
-    ).refine((dob) => {
-      const birth = new Date(dob);
-      const cutoff = new Date();
-      cutoff.setFullYear(cutoff.getFullYear() - 18);
-      return birth <= cutoff;
-    }, { message: 'Parent must be at least 18 years old' }),
+    ).refine((dob) => isAgeBetween(dob, AGE_LIMITS.ADULT_MIN, null), {
+      message: `Parent must be at least ${AGE_LIMITS.ADULT_MIN} years old`,
+    }),
     phoneNumber: z
       .string()
       .regex(
@@ -179,12 +176,9 @@ const acceptInviteSchema = z.object({
   dateOfBirth: z.string().regex(
     /^\d{4}-\d{2}-\d{2}$/,
     'Date of birth must be in YYYY-MM-DD format'
-  ).refine((dob) => {
-    const birth = new Date(dob);
-    const cutoff = new Date();
-    cutoff.setFullYear(cutoff.getFullYear() - 18);
-    return birth <= cutoff;
-  }, { message: 'Co-parent must be at least 18 years old' }).optional(),
+  ).refine((dob) => isAgeBetween(dob, AGE_LIMITS.ADULT_MIN, null), {
+    message: `Co-parent must be at least ${AGE_LIMITS.ADULT_MIN} years old`,
+  }).optional(),
   phone: z.string().optional(),
   gender: z.enum(['male', 'female']).optional(),
 });

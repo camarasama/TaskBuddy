@@ -148,6 +148,58 @@ export const CONSENT_VERSIONS = {
   form: '1.0',
 } as const;
 
+/**
+ * Age bounds, and the ONE implementation of the arithmetic behind them.
+ *
+ * These numbers were literals in ten places across four packages — `family.ts`, `auth.ts` twice, the
+ * web children form (twice in validation and twice again in the input's min/max), the web register
+ * form twice, and mobile. Ten copies of a product rule is ten chances for the server and a form to
+ * disagree, and the symptom of that is a parent filling in a valid date and being rejected after
+ * pressing the button.
+ *
+ * `isAgeBetween` exists for the same reason. Every one of those sites re-derived the same cutoff
+ * dance with `setFullYear`, and the off-by-one-day cases (a birthday today, 29 February) are exactly
+ * the kind of thing that gets written correctly in one place and subtly wrong in the other nine.
+ */
+export const AGE_LIMITS = {
+  /** A child account: 10 to 16 inclusive. Tied to the Families policy, not a typo guard. */
+  CHILD_MIN: 10,
+  CHILD_MAX: 16,
+  /** Parents and co-parents. Also the age at which a child ages out. */
+  ADULT_MIN: 18,
+} as const;
+
+/**
+ * Is someone born on `dateOfBirth` currently between `minYears` and `maxYears` inclusive?
+ *
+ * Pass `maxYears: null` for an open upper bound (adults). `now` is injectable so tests can pin a
+ * date rather than depend on when they run — the boundary cases are the whole point of this
+ * function and they are invisible on most days of the year.
+ *
+ * Returns false for anything unparseable, so a malformed string is a rejection rather than a throw.
+ */
+export function isAgeBetween(
+  dateOfBirth: string | Date,
+  minYears: number,
+  maxYears: number | null,
+  now: Date = new Date(),
+): boolean {
+  const born = dateOfBirth instanceof Date ? dateOfBirth : new Date(dateOfBirth);
+  if (Number.isNaN(born.getTime())) return false;
+
+  // Latest permissible birth date: you must be at least `minYears` old, so you must have been born
+  // on or before today-minus-minYears. Same-day birthdays count as having turned that age.
+  const latest = new Date(now.getFullYear() - minYears, now.getMonth(), now.getDate());
+  if (born > latest) return false;
+
+  if (maxYears === null) return true;
+
+  // Earliest permissible: you must not yet have had your (maxYears + 1)th birthday, so the day after
+  // that birthday is the first excluded date.
+  const earliest = new Date(now.getFullYear() - maxYears - 1, now.getMonth(), now.getDate());
+  return born > earliest;
+}
+
 // Age groups
 export const AGE_GROUPS = {
   YOUNGER: '10-12',
