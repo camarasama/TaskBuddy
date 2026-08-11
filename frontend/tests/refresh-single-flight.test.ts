@@ -113,3 +113,21 @@ describe('401 with no in-memory token (hard navigation)', () => {
     await expect(api.dashboardApi.getChildDashboard()).rejects.toMatchObject({ status: 401 });
   });
 });
+
+describe('public endpoints', () => {
+  it('do NOT refresh on a 401, because they never carried a session', async () => {
+    // A 401 from a public route means "bad credentials" or "bad token in the body", never "your
+    // access token expired". Refreshing on its behalf is pointless, and with rotation a stray
+    // refresh can spend a token the real session still needs.
+    //
+    // `child-pin-reset/complete` already had a test asserting exactly one fetch, and it is what
+    // caught a too-broad version of this change.
+    failRefresh = true;
+    const api = require('../src/lib/api') as typeof import('../src/lib/api');
+    api.setAccessToken(null);
+
+    await api.authApi.login({ email: 'a@b.test', password: 'nope' }).catch(() => undefined);
+
+    expect(calls.filter((c) => c.includes('/auth/refresh'))).toHaveLength(0);
+  });
+});

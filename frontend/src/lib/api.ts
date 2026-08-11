@@ -171,6 +171,37 @@ export function invalidateCache(prefix: string): void {
   });
 }
 
+/**
+ * Endpoints that never carry a session, so a 401 from them means "bad credentials" or "bad token in
+ * the body" — never "your access token expired".
+ *
+ * Refreshing on their behalf is pointless, and worse than pointless: with rotation, a stray refresh
+ * can spend a token the real session still needs. `child-pin-reset/complete` has a test asserting
+ * exactly one fetch for this reason, which is what caught an earlier, too-broad version of the 401
+ * change.
+ *
+ * A path list rather than a per-call flag: threading an option through every call site is a lot of
+ * surface for a decision that belongs in one readable place, and a missed call site would fail
+ * silently in the direction of doing MORE refreshes.
+ */
+const PUBLIC_ENDPOINTS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/verify-email',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/child/pin-reset',
+  '/auth/invite-preview',
+  '/consent/verify',
+  '/csrf',
+];
+
+function isPublicEndpoint(endpoint: string): boolean {
+  const path = endpoint.split('?')[0];
+  return PUBLIC_ENDPOINTS.some((p) => path.startsWith(p));
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -237,7 +268,7 @@ async function request<T>(
      * Safe to do only because the refresh is single-flight (#170). Several pages racing the
      * bootstrap would otherwise each refresh, and a spent rotated token revokes the whole session.
      */
-    if (response.status === 401 && !alreadyRetried) {
+    if (response.status === 401 && !alreadyRetried && !isPublicEndpoint(endpoint)) {
       const refreshed = await refreshToken();
       if (refreshed) {
         // Retry once with the new token. The flag is what stops this recursing.
