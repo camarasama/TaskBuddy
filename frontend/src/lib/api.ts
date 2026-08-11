@@ -171,6 +171,37 @@ export function invalidateCache(prefix: string): void {
   });
 }
 
+/**
+ * Endpoints that never carry a session, so a 401 from them means "bad credentials" or "bad token in
+ * the body" — never "your access token expired".
+ *
+ * Refreshing on their behalf is pointless, and worse than pointless: with rotation, a stray refresh
+ * can spend a token the real session still needs. `child-pin-reset/complete` has a test asserting
+ * exactly one fetch for this reason, which is what caught an earlier, too-broad version of the 401
+ * change.
+ *
+ * A path list rather than a per-call flag: threading an option through every call site is a lot of
+ * surface for a decision that belongs in one readable place, and a missed call site would fail
+ * silently in the direction of doing MORE refreshes.
+ */
+const PUBLIC_ENDPOINTS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/verify-email',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/child/pin-reset',
+  '/auth/invite-preview',
+  '/consent/verify',
+  '/csrf',
+];
+
+function isPublicEndpoint(endpoint: string): boolean {
+  const path = endpoint.split('?')[0];
+  return PUBLIC_ENDPOINTS.some((p) => path.startsWith(p));
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -224,14 +255,31 @@ async function request<T>(
 
   if (!response.ok) {
     // Handle token refresh
-    if (response.status === 401 && token && !alreadyRetried) {
+    /**
+     * Refresh on a 401 even when there was NO in-memory token.
+     *
+     * ⚠️ The old condition required `token`, and that is exactly backwards for this codebase. Access
+     * tokens are MEMORY ONLY for every role (F-5), so on a hard navigation there is no token by
+     * definition — the session is re-minted from the httpOnly refresh cookie by AuthContext. A page
+     * that fetches on mount races that bootstrap, goes out unauthenticated, gets a 401, and with the
+     * old guard was never retried. Reported as "failed to load dashboard" on refreshing the child
+     * dashboard, with a valid session the whole time.
+     *
+     * Safe to do only because the refresh is single-flight (#170). Several pages racing the
+     * bootstrap would otherwise each refresh, and a spent rotated token revokes the whole session.
+     */
+    if (response.status === 401 && !alreadyRetried && !isPublicEndpoint(endpoint)) {
       const refreshed = await refreshToken();
       if (refreshed) {
         // Retry once with the new token. The flag is what stops this recursing.
         return request(endpoint, options, true);
       }
-      // Redirect to login
-      window.location.href = '/login';
+      /**
+       * Only bounce a session that actually existed. With no token this may be an anonymous visitor
+       * on a public page (the consent confirm and invite pages both call the API without a session),
+       * and redirecting them to /login would be wrong.
+       */
+      if (token) window.location.href = '/login';
     }
     const errBody = data?.error ?? {};
     const details: Array<{ field: string; message: string }> = errBody.details ?? [];
