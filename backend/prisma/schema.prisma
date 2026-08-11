@@ -130,6 +130,7 @@ model User {
   /// Set when a closed-test tester signs up with the email on their roster entry. See `Tester`.
   testerRecord Tester?
   transition  AccountTransition? @relation("TransitionChild")
+  expoPushTokens ExpoPushToken[]
 }
 
 model ChildProfile {
@@ -1255,4 +1256,27 @@ model AccountTransition {
 
   @@index([status, deadlineAt])
   @@map("account_transitions")
+}
+
+/// An Expo push token for one installed app on one device.
+///
+/// Separate from PushSubscription rather than folded into it: web push is a VAPID endpoint plus two
+/// keys, Expo push is a single opaque token sent to Expo's service. Sharing one table would mean a
+/// row where three of five columns are always null and a `kind` discriminator every query has to
+/// remember.
+model ExpoPushToken {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  /// `ExponentPushToken[...]`. Unique because Expo issues one per install: the same token arriving
+  /// again is the same device re-registering, not a second device.
+  token      String   @unique
+  platform   String   @default("android")
+  createdAt  DateTime @default(now()) @map("created_at")
+  /// Refreshed on every registration so dead installs can be pruned later.
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("expo_push_tokens")
 }

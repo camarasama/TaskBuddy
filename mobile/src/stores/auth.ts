@@ -38,6 +38,48 @@ interface AuthState {
 }
 
 /**
+ * The token this device registered, remembered so sign-out can unregister exactly it.
+ *
+ * Module scope rather than store state: it is not rendered, and putting it in the store would make
+ * every consumer re-render when it changes.
+ */
+let pushToken: string | null = null;
+
+/**
+ * Push, injected rather than imported.
+ *
+ * ⚠️ This store must NOT import `@/lib/push` directly. That module loads `expo-notifications`, whose
+ * import has native side effects, and pulling it into this store's graph broke every test in
+ * `auth.test.ts` — a store test failing because of a notifications package it never asked about.
+ * The same trap cost a debugging session with `expo-image-picker` and `childTasksApi`; see
+ * `src/lib/photoForm.ts`.
+ *
+ * Registered from the app layer, which is allowed to touch native modules. Unset in tests, where
+ * both calls become no-ops.
+ */
+export interface PushBridge {
+  register: () => Promise<string | null>;
+  unregister: (token: string | null) => Promise<void>;
+}
+
+let pushBridge: PushBridge | null = null;
+
+export function setPushBridge(bridge: PushBridge): void {
+  pushBridge = bridge;
+}
+
+/**
+ * Run after any successful sign-in.
+ *
+ * Deliberately not awaited by the callers. Registering asks for a permission and makes a network
+ * call; blocking the transition into the app on either would mean a slow or refused prompt delaying
+ * someone who just wants to see their tasks.
+ */
+async function afterSignIn(): Promise<void> {
+  pushToken = (await pushBridge?.register()) ?? null;
+}
+
+/**
  * Reject an admin *after* the credentials were accepted.
  *
  * The tokens are already minted and stored by this point, so they are revoked server-side as well as
@@ -106,6 +148,7 @@ export const useAuth = create<AuthState>((set) => ({
     if (result.user.role === 'admin') await rejectAdmin();
 
     set({ status: 'signedIn', user: result.user, offline: false });
+    void afterSignIn();
     return null;
   },
 
@@ -113,14 +156,22 @@ export const useAuth = create<AuthState>((set) => ({
     const result = await authApi.completeMfaChallenge(mfaToken, code);
     if (result.user.role === 'admin') await rejectAdmin();
     set({ status: 'signedIn', user: result.user, offline: false });
+    void afterSignIn();
   },
 
   signInChild: async (familyCode, childIdentifier, pin) => {
     const result = await authApi.childLogin({ familyCode, childIdentifier, pin });
     set({ status: 'signedIn', user: result.user, offline: false });
+    void afterSignIn();
   },
 
   signOut: async () => {
+    // BEFORE logout, while the session is still valid: the removal call is authenticated, and
+    // running it afterwards would send it with a dead token and silently leave the device
+    // registered to the person signing out.
+    await pushBridge?.unregister(pushToken);
+    pushToken = null;
+
     await authApi.logout();
     set({ status: 'signedOut', user: null, offline: false });
   },

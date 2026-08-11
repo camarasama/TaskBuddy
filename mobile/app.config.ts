@@ -80,6 +80,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     predictiveBackGestureEnabled: false,
     /**
+     * POST_NOTIFICATIONS is a RUNTIME permission from Android 13 (API 33), and this app targets 36.
+     * The expo-notifications config plugin adds it too, but it is declared here explicitly because
+     * the app shipped for months with no push capability at all and the settings toggle appearing
+     * disabled was the visible symptom. Something this easy to lose again should be stated, not
+     * inherited.
+     */
+    permissions: ['POST_NOTIFICATIONS'],
+    /**
      * Android App Links: the emailed HTTPS links open the app instead of a browser.
      *
      * ## Scoped to four paths on purpose, never the whole host
