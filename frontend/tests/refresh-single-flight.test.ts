@@ -13,11 +13,13 @@
 const calls: string[] = [];
 let releaseRefresh: (() => void) | null = null;
 let refreshed = false;
+let failRefresh = false;
 
 beforeEach(() => {
   calls.length = 0;
   releaseRefresh = null;
   refreshed = false;
+  failRefresh = false;
   jest.resetModules();
 
   global.fetch = jest.fn(async (url: string) => {
@@ -25,6 +27,9 @@ beforeEach(() => {
     calls.push(path);
 
     if (path.includes('/auth/refresh')) {
+      if (failRefresh) {
+        return { ok: false, status: 401, json: async () => ({ error: { message: 'no' } }) } as unknown as Response;
+      }
       // Held open until every concurrent 401 is definitely queued behind it, so the test proves
       // de-duplication rather than passing on lucky scheduling.
       await new Promise<void>((resolve) => {
@@ -74,5 +79,37 @@ describe('token refresh', () => {
     await Promise.allSettled(inflight);
 
     expect(calls.filter((c) => c.includes('/auth/refresh'))).toHaveLength(1);
+  });
+});
+
+describe('401 with no in-memory token (hard navigation)', () => {
+  it('still refreshes and retries, instead of failing the page', async () => {
+    // ⚠️ Access tokens are MEMORY ONLY for every role (F-5), so a hard refresh has no token by
+    // definition. A page that fetches on mount races AuthContext's bootstrap, goes out
+    // unauthenticated and 401s. The old guard required a token to even attempt a refresh, so this
+    // never recovered — reported as "failed to load dashboard" with a perfectly valid session.
+    const api = require('../src/lib/api') as typeof import('../src/lib/api');
+    api.setAccessToken(null);
+
+    const pending = api.dashboardApi.getChildDashboard();
+    await new Promise((r) => setTimeout(r, 20));
+    releaseRefresh?.();
+
+    await expect(pending).resolves.toBeDefined();
+    expect(calls.filter((c) => c.includes('/auth/refresh'))).toHaveLength(1);
+  });
+
+  it('does not touch window.location when there was no session to lose', async () => {
+    // Public pages call the API without a session (consent confirm, invite accept), and bouncing an
+    // anonymous visitor to /login would be wrong.
+    //
+    // This suite runs in node, where `window` does not exist — so the assertion is exact rather than
+    // indirect: if the redirect ran, it would throw ReferenceError instead of the API error.
+    failRefresh = true;
+    const api = require('../src/lib/api') as typeof import('../src/lib/api');
+    api.setAccessToken(null);
+
+    await expect(api.dashboardApi.getChildDashboard()).rejects.not.toThrow(ReferenceError);
+    await expect(api.dashboardApi.getChildDashboard()).rejects.toMatchObject({ status: 401 });
   });
 });

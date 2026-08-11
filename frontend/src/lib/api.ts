@@ -224,14 +224,31 @@ async function request<T>(
 
   if (!response.ok) {
     // Handle token refresh
-    if (response.status === 401 && token && !alreadyRetried) {
+    /**
+     * Refresh on a 401 even when there was NO in-memory token.
+     *
+     * ⚠️ The old condition required `token`, and that is exactly backwards for this codebase. Access
+     * tokens are MEMORY ONLY for every role (F-5), so on a hard navigation there is no token by
+     * definition — the session is re-minted from the httpOnly refresh cookie by AuthContext. A page
+     * that fetches on mount races that bootstrap, goes out unauthenticated, gets a 401, and with the
+     * old guard was never retried. Reported as "failed to load dashboard" on refreshing the child
+     * dashboard, with a valid session the whole time.
+     *
+     * Safe to do only because the refresh is single-flight (#170). Several pages racing the
+     * bootstrap would otherwise each refresh, and a spent rotated token revokes the whole session.
+     */
+    if (response.status === 401 && !alreadyRetried) {
       const refreshed = await refreshToken();
       if (refreshed) {
         // Retry once with the new token. The flag is what stops this recursing.
         return request(endpoint, options, true);
       }
-      // Redirect to login
-      window.location.href = '/login';
+      /**
+       * Only bounce a session that actually existed. With no token this may be an anonymous visitor
+       * on a public page (the consent confirm and invite pages both call the API without a session),
+       * and redirecting them to /login would be wrong.
+       */
+      if (token) window.location.href = '/login';
     }
     const errBody = data?.error ?? {};
     const details: Array<{ field: string; message: string }> = errBody.details ?? [];
