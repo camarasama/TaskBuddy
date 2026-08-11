@@ -714,8 +714,15 @@ function TaskPreviewCard({ item }: { item: TaskAssignment }) {
   const isCompleted = status === 'completed' || status === 'approved';
   const isPending = status === 'completed'; // completed but not yet approved
 
+  // Tapping a task here is a request to open THAT task, so it carries its assignment id and the
+  // tasks page selects the right tab and scrolls to the card — the same deep link a notification
+  // uses. Without the id this row dropped the child on a three-tab list to find it again.
+  const href = item.assignment?.id
+    ? `/child/tasks?assignment=${item.assignment.id}`
+    : '/child/tasks';
+
   return (
-    <Link href="/child/tasks">
+    <Link href={href}>
       <div
         className={cn(
           'flex items-center gap-4 p-4 rounded-xl transition-all shadow-sm',
