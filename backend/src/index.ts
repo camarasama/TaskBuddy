@@ -16,6 +16,7 @@ import { authenticate } from './middleware/auth';
 import { rateLimitKey } from './middleware/rateLimitKey';
 import { apiRouter } from './routes';
 import { initScheduler } from './services/scheduler';
+import { startAgingOutCron } from './jobs/agingOutCron';
 // M8 - Admin router mounted at /api/v1/admin
 import { adminRouter } from './routes/admin';
 import { adminTestersRouter } from './routes/adminTesters';
@@ -244,6 +245,7 @@ function gracefulShutdown(signal: string): void {
 // Only boot the server + background work outside of tests (tests import `app` directly).
 if (config.env !== 'test') {
   initScheduler();
+  startAgingOutCron();
   initRecurringScheduler(); // M8 - midnight recurring task generation
   startExpiryEmailCron();
   startStreakAtRiskCron();

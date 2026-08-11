@@ -47,6 +47,7 @@ model Family {
   webhookSubscriptions WebhookSubscription[]
 
   @@map("families")
+  transitions AccountTransition[]
 }
 
 model User {
@@ -128,6 +129,7 @@ model User {
   @@map("users")
   /// Set when a closed-test tester signs up with the email on their roster entry. See `Tester`.
   testerRecord Tester?
+  transition  AccountTransition? @relation("TransitionChild")
 }
 
 model ChildProfile {
@@ -1218,4 +1220,39 @@ enum TesterStatus {
   active
   /// Said no, or went quiet. Kept rather than deleted so the roster remembers who was asked.
   declined
+}
+
+/// A child who has reached AGE_LIMITS.ADULT_MIN and is awaiting their parent's decision.
+///
+/// One row per aging-out event, created by the daily job and resolved either by a parent or by the
+/// deadline. Kept as its own table rather than as flags on User for two reasons: the decision has
+/// several fields that are meaningless for everyone else, and the row is an audit record of what was
+/// chosen and when — deleting the child later must not erase that a choice was made.
+model AccountTransition {
+  id         String   @id @default(uuid())
+  familyId   String   @map("family_id")
+  /// The child who turned 18. Unique: a person ages out once.
+  childId    String   @unique @map("child_id")
+
+  /// pending | resolved | expired. `expired` means the deadline applied the default.
+  status     String   @default("pending")
+  /// transfer | discard | invite — null while pending.
+  decision   String?
+  /// Set only for `transfer`. The sibling the points went to.
+  transferToChildId String? @map("transfer_to_child_id")
+  /// Snapshot of the balance at detection, so the record still reads correctly after the transfer.
+  pointsAtDetection Int    @default(0) @map("points_at_detection")
+
+  detectedAt DateTime @default(now()) @map("detected_at")
+  /// detectedAt + TRANSITION_DEADLINE_DAYS. After this the default applies.
+  deadlineAt DateTime @map("deadline_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  family     Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  /// ⚠️ NOT onDelete: Cascade on the child. Removing a child must not delete the record of what was
+  /// decided about their points — that is the one thing a parent may need to look back at.
+  child      User     @relation("TransitionChild", fields: [childId], references: [id])
+
+  @@index([status, deadlineAt])
+  @@map("account_transitions")
 }

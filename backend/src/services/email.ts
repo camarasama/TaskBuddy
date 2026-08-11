@@ -49,6 +49,7 @@ export type EmailTriggerType =
   // Closed-test recruitment. Both are admin-scoped (familyId null) and go to people who may have no
   // account at all, so they always send with skipPreferenceCheck.
   | 'parental_consent_recorded'
+  | 'aging_out'
   | 'tester_invite'
   | 'tester_reminder';
 
