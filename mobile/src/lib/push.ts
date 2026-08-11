@@ -135,6 +135,46 @@ export async function unregisterFromPush(token: string | null): Promise<void> {
 }
 
 /**
+ * The server's `actionUrl` is a WEB path, and mobile routes are not the same strings.
+ *
+ * ⚠️ This is why tapping a notification showed "Unmatched Route" with an empty `taskbuddy:///`. A
+ * returned task sends `/child/tasks`; the mobile route is `/(child)/tasks`, because a parenthesised
+ * segment is a group and contributes nothing to a URL. Passing the server's path straight to the
+ * router matched nothing, and the app opened on an error screen — worse than not navigating at all.
+ *
+ * Mapped explicitly rather than rewritten with a regex. The set is small and closed (every
+ * `actionUrl` in the backend is one of five paths), and an unrecognised path must return null so the
+ * app simply opens normally. Guessing a route from an unknown path is how this bug happened.
+ */
+const WEB_TO_MOBILE_ROUTE: Record<string, string> = {
+  '/child/dashboard': '/(child)/dashboard',
+  '/child/tasks': '/(child)/tasks',
+  '/child/rewards': '/(child)/rewards',
+  // The child shell has no settings screen; `me` is where a child's own things live.
+  '/child/settings': '/(child)/me',
+  '/parent/settings': '/(parent)/settings',
+  '/parent/dashboard': '/(parent)/dashboard',
+  '/parent/approvals': '/(parent)/approvals',
+};
+
+export function toMobileRoute(actionUrl: string | undefined): string | null {
+  if (typeof actionUrl !== 'string') return null;
+
+  const exact = WEB_TO_MOBILE_ROUTE[actionUrl];
+  if (exact) return exact;
+
+  // Deeper web links (e.g. /parent/tasks/assignments/:id) have no mobile equivalent screen, but the
+  // section they belong to does. Landing on the right list beats landing on an error.
+  if (actionUrl.startsWith('/parent/approve') || actionUrl.startsWith('/parent/tasks')) {
+    return '/(parent)/approvals';
+  }
+  if (actionUrl.startsWith('/child/')) return '/(child)/dashboard';
+  if (actionUrl.startsWith('/parent/')) return '/(parent)/dashboard';
+
+  return null;
+}
+
+/**
  * Route a tapped notification to the screen it is about.
  *
  * The payload carries `actionUrl` in `data` rather than in the title, so this can navigate without
@@ -147,8 +187,7 @@ export async function unregisterFromPush(token: string | null): Promise<void> {
 export function subscribeToNotificationTaps(navigate: (url: string) => void): () => void {
   const urlFrom = (response: Notifications.NotificationResponse | null): string | null => {
     const data = response?.notification?.request?.content?.data as { actionUrl?: string } | undefined;
-    const url = data?.actionUrl;
-    return typeof url === 'string' && url.startsWith('/') ? url : null;
+    return toMobileRoute(data?.actionUrl);
   };
 
   void Notifications.getLastNotificationResponseAsync().then((response) => {

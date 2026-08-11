@@ -186,20 +186,53 @@ describe('foreground display', () => {
   });
 });
 
+describe('toMobileRoute', () => {
+  it('translates the server WEB path to the mobile route', () => {
+    // ⚠️ Regression. A returned task sends `/child/tasks`; the mobile route is `/(child)/tasks`,
+    // because a parenthesised segment is a group and contributes nothing to a URL. Passing the
+    // server path straight to the router matched nothing and opened an Unmatched Route screen
+    // showing an empty `taskbuddy:///`.
+    const push = setup();
+
+    expect(push.toMobileRoute('/child/tasks')).toBe('/(child)/tasks');
+    expect(push.toMobileRoute('/child/dashboard')).toBe('/(child)/dashboard');
+    expect(push.toMobileRoute('/child/rewards')).toBe('/(child)/rewards');
+    expect(push.toMobileRoute('/parent/settings')).toBe('/(parent)/settings');
+  });
+
+  it('sends deep parent task links to the list that does exist', () => {
+    const push = setup();
+
+    expect(push.toMobileRoute('/parent/tasks/assignments/abc')).toBe('/(parent)/approvals');
+    expect(push.toMobileRoute('/parent/approve/abc')).toBe('/(parent)/approvals');
+  });
+
+  it('returns null for anything it does not recognise, rather than guessing', () => {
+    // Guessing is precisely how the original bug happened. Null means the app opens normally, which
+    // is always better than an error screen.
+    const push = setup();
+
+    expect(push.toMobileRoute(undefined)).toBeNull();
+    expect(push.toMobileRoute('https://evil.example')).toBeNull();
+    expect(push.toMobileRoute('/')).toBeNull();
+    expect(push.toMobileRoute('/something/else')).toBeNull();
+  });
+});
+
 describe('subscribeToNotificationTaps', () => {
-  it('navigates to the actionUrl carried in the payload', () => {
+  it('navigates to the MAPPED route for a server path', () => {
     const push = setup();
     const navigate = jest.fn();
 
     push.subscribeToNotificationTaps(navigate);
-    mockState.tapListener!({ notification: { request: { content: { data: { actionUrl: '/(parent)/approvals' } } } } });
+    mockState.tapListener!({ notification: { request: { content: { data: { actionUrl: '/child/tasks' } } } } });
 
-    expect(navigate).toHaveBeenCalledWith('/(parent)/approvals');
+    expect(navigate).toHaveBeenCalledWith('/(child)/tasks');
   });
 
-  it('ignores anything that is not an in-app path', () => {
-    // The payload is server-supplied. Navigating to an arbitrary string is how a notification
-    // becomes a way to push the app somewhere it should not go.
+  it('navigates nowhere when the path does not map', () => {
+    // The payload is server-supplied. Following an arbitrary string is how a notification becomes a
+    // way to push the app somewhere it should not go — and an unmatched route is a visible failure.
     const push = setup();
     const navigate = jest.fn();
 
