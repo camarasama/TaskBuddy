@@ -245,13 +245,39 @@ export default function ChildDashboardPage() {
         .catch(() => {}); // non-fatal
     };
 
+    /**
+     * A returned task changes exactly what `task:approved` changes — a card's status — so it gets the
+     * same refetch.
+     *
+     * ⚠️ Its absence was a reported bug: a parent returned a task, the bell lit up, and the dashboard
+     * kept showing it as submitted until the child signed out and back in. The server has always
+     * emitted this to `user:{childId}`; nothing here was listening. The bell updated because that is
+     * a different event (`notification:new`), which is why the two disagreed on screen.
+     */
+    const handleTaskRejected = (payload: { childId: string }) => {
+      const myId = (user as any)?.id;
+      if (myId && payload.childId !== myId) return;
+      dashboardApi.getChildDashboard()
+        .then((res) => {
+          const d = res.data as unknown as ChildDashboardData;
+          setData((prev) => ({
+            ...prev!,
+            todaysTasks: d.todaysTasks ?? prev?.todaysTasks ?? [],
+            streak: d.streak ?? prev?.streak ?? { current: 0, atRisk: false, completedToday: 0, requiredDaily: 1 },
+          }));
+        })
+        .catch(() => {});
+    };
+
     socket.on('points:updated', handlePoints);
+    socket.on('task:rejected', handleTaskRejected);
     socket.on('level:up', handleLevelUp);
     socket.on('achievement:unlocked', handleAchievement);
     socket.on('task:approved', handleTaskApproved);
 
     return () => {
       socket.off('points:updated', handlePoints);
+      socket.off('task:rejected', handleTaskRejected);
       socket.off('level:up', handleLevelUp);
       socket.off('achievement:unlocked', handleAchievement);
       socket.off('task:approved', handleTaskApproved);
