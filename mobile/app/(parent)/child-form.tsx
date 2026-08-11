@@ -33,6 +33,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { DateField } from '@/components/DateField';
 import { Field } from '@/components/Field';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
@@ -47,18 +48,25 @@ import {
   updateChild,
   type ChildInput,
 } from '@/lib/parentWriteApi';
+import { AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
+
 import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]+$/;
 
-/** Server rule: at least 10 and at most 16 years old, checked against today. */
-function ageIsAllowed(iso: string): boolean {
-  const born = new Date(iso);
-  if (Number.isNaN(born.getTime())) return false;
+/**
+ * The picker cannot offer an out-of-range date, so these bounds are the primary guard and the
+ * validation below is the backstop. Recomputed per render rather than module-scoped: a module
+ * constant is captured when the bundle loads and would go stale in an app left open overnight.
+ */
+function childDobBounds() {
   const now = new Date();
-  const min = new Date(now.getFullYear() - 16, now.getMonth(), now.getDate());
-  const max = new Date(now.getFullYear() - 10, now.getMonth(), now.getDate());
-  return born >= min && born <= max;
+  return {
+    // Oldest permissible: the day after their (CHILD_MAX + 1)th birthday.
+    minimumDate: new Date(now.getFullYear() - AGE_LIMITS.CHILD_MAX - 1, now.getMonth(), now.getDate() + 1),
+    // Youngest permissible: exactly CHILD_MIN years ago today.
+    maximumDate: new Date(now.getFullYear() - AGE_LIMITS.CHILD_MIN, now.getMonth(), now.getDate()),
+  };
 }
 
 export default function ChildForm() {
@@ -89,7 +97,7 @@ export default function ChildForm() {
 
   const usernameValid =
     username.trim().length >= 3 && username.trim().length <= 20 && USERNAME_PATTERN.test(username.trim());
-  const dobValid = editing ? true : ageIsAllowed(dob);
+  const dobValid = editing ? true : isAgeBetween(dob, AGE_LIMITS.CHILD_MIN, AGE_LIMITS.CHILD_MAX);
   const pinValid = pin === '' ? editing : /^\d{4}$/.test(pin);
   const canSubmit =
     firstName.trim().length > 0 &&
@@ -195,18 +203,16 @@ export default function ChildForm() {
         />
 
         {!editing && (
-          <Field
+          <DateField
             label="Date of birth"
             value={dob}
-            onChangeText={setDob}
-            placeholder="YYYY-MM-DD"
-            autoCapitalize="none"
+            onChange={setDob}
             editable={!busy}
-            hint={
-              dob.length > 0 && !dobValid
-                ? 'TaskBuddy is for children aged 10 to 16.'
-                : 'YYYY-MM-DD. TaskBuddy is for ages 10–16.'
-            }
+            {...childDobBounds()}
+            error={dob.length > 0 && !dobValid
+              ? `TaskBuddy is for children aged ${AGE_LIMITS.CHILD_MIN} to ${AGE_LIMITS.CHILD_MAX}.`
+              : undefined}
+            hint={`TaskBuddy is for ages ${AGE_LIMITS.CHILD_MIN} to ${AGE_LIMITS.CHILD_MAX}.`}
           />
         )}
 

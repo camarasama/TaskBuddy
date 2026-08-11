@@ -23,7 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { ApiError } from '@/lib/api';
 import { BrandLogo } from '@/components/ui/BrandLogo';
-import { VALIDATION } from '@taskbuddy/shared';
+import { VALIDATION, AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
 
 /**
  * The floor the SERVER enforces for a NEW password, imported rather than restated.
@@ -57,12 +57,9 @@ const registerSchema = z
     dateOfBirth: z.string().min(1, 'Date of birth is required').regex(
       /^\d{4}-\d{2}-\d{2}$/,
       'Please select a valid date'
-    ).refine((dob) => {
-      const birth = new Date(dob);
-      const cutoff = new Date();
-      cutoff.setFullYear(cutoff.getFullYear() - 18);
-      return birth <= cutoff;
-    }, { message: 'You must be at least 18 years old to register' }),
+    ).refine((dob) => isAgeBetween(dob, AGE_LIMITS.ADULT_MIN, null), {
+      message: `You must be at least ${AGE_LIMITS.ADULT_MIN} years old to register`,
+    }),
     // M7 - CR-02: Optional phone in E.164 format
     phoneNumber: z
       .string()
@@ -140,7 +137,7 @@ export default function RegisterPage() {
 
   // M7 - CR-02: Calculate max date for DOB picker (must be at least 18 years old)
   const maxDobDate = new Date();
-  maxDobDate.setFullYear(maxDobDate.getFullYear() - 18);
+  maxDobDate.setFullYear(maxDobDate.getFullYear() - AGE_LIMITS.ADULT_MIN);
   const maxDobString = maxDobDate.toISOString().split('T')[0];
 
   return (

@@ -19,6 +19,7 @@ import { ResetPinModal } from '@/components/ResetPinModal';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { familyApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
 import { getInitials, formatPoints } from '@/lib/utils';
 
 interface Child {
@@ -35,6 +36,13 @@ interface Child {
     totalPoints: number;
     currentStreak: number;
   };
+}
+
+/** `yyyy-mm-dd` for "exactly N years ago today", which is what a date input's min/max wants. */
+function dobBound(yearsAgo: number): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - yearsAgo);
+  return d.toISOString().split('T')[0];
 }
 
 export default function ParentChildrenPage() {
@@ -294,10 +302,8 @@ function ChildModal({
         // Validate child age 10-16
         if (!formData.dateOfBirth) { showError('Date of birth is required'); setIsLoading(false); return; }
         const birth = new Date(formData.dateOfBirth);
-        const minAge = new Date(); minAge.setFullYear(minAge.getFullYear() - 16);
-        const maxAge = new Date(); maxAge.setFullYear(maxAge.getFullYear() - 10);
-        if (birth < minAge || birth > maxAge) {
-          showError('Child must be between 10 and 16 years old');
+        if (!isAgeBetween(formData.dateOfBirth, AGE_LIMITS.CHILD_MIN, AGE_LIMITS.CHILD_MAX)) {
+          showError(`Child must be between ${AGE_LIMITS.CHILD_MIN} and ${AGE_LIMITS.CHILD_MAX} years old`);
           setIsLoading(false);
           return;
         }
@@ -408,8 +414,8 @@ function ChildModal({
                 label="Date of Birth (age 10-16)"
                 type="date"
                 value={formData.dateOfBirth}
-                max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 10); return d.toISOString().split('T')[0]; })()}
-                min={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 16); return d.toISOString().split('T')[0]; })()}
+                max={dobBound(AGE_LIMITS.CHILD_MIN)}
+                min={dobBound(AGE_LIMITS.CHILD_MAX + 1)}
                 onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                 required
               />

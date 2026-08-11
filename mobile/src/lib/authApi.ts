@@ -9,7 +9,7 @@
  * them means "wrong password", not "the access token expired" — refreshing in response would be
  * nonsense, and on a rotating-token backend it would also be destructive.
  */
-import { VALIDATION } from '@taskbuddy/shared';
+import { VALIDATION, AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
 import type {
   ChildLoginRequest,
   ChildPinResetRequestRequest,
@@ -20,7 +20,6 @@ import type {
 } from '@taskbuddy/shared';
 
 import { ApiError, api } from './api';
-import { asDate } from './dates';
 import { clearSession, getRefreshToken, setAccessToken, setRefreshToken } from './tokenStore';
 
 /**
@@ -195,8 +194,14 @@ export const DATE_OF_BIRTH_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 /** E.164, e.g. `+233201234567`. Same expression the register schema uses. */
 export const PHONE_PATTERN = /^\+[1-9]\d{6,14}$/;
 
-/** Both schemas require a parent to be at least this old. */
-export const MIN_PARENT_AGE_YEARS = 18;
+/**
+ * Both schemas require a parent to be at least this old.
+ *
+ * Re-exported from `shared` rather than restated. It was a local `18` while the server read its own
+ * literal, which is the arrangement that lets a form and its API disagree — and the symptom is a
+ * parent entering a date the form accepts and the server rejects after they press the button.
+ */
+export const MIN_PARENT_AGE_YEARS: number = AGE_LIMITS.ADULT_MIN;
 
 /**
  * The `.refine()` on both `registerSchema` and `acceptInviteSchema`, restated.
@@ -207,11 +212,7 @@ export const MIN_PARENT_AGE_YEARS = 18;
  */
 export function isAdultDateOfBirth(dateOfBirth: string, now = new Date()): boolean {
   if (!DATE_OF_BIRTH_PATTERN.test(dateOfBirth)) return false;
-  const birth = asDate(dateOfBirth);
-  if (!birth) return false;
-  const cutoff = new Date(now);
-  cutoff.setFullYear(cutoff.getFullYear() - MIN_PARENT_AGE_YEARS);
-  return birth <= cutoff;
+  return isAgeBetween(dateOfBirth, AGE_LIMITS.ADULT_MIN, null, now);
 }
 
 /**

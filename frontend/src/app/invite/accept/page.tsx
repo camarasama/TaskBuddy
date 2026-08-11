@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
 import { setToken } from '@/lib/api';
-import { VALIDATION } from '@taskbuddy/shared';
+import { VALIDATION, AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
 
 interface InvitePreview {
   familyName: string;
@@ -133,13 +133,16 @@ function AcceptInviteInner() {
     } else {
       const dob = new Date(form.dateOfBirth);
       const today = new Date();
-      const age = today.getFullYear() - dob.getFullYear();
       if (isNaN(dob.getTime())) {
         newErrors.dateOfBirth = 'Please enter a valid date';
       } else if (dob > today) {
         newErrors.dateOfBirth = 'Date of birth cannot be in the future';
-      } else if (age < 18) {
-        newErrors.dateOfBirth = 'You must be at least 18 years old';
+      } else if (!isAgeBetween(form.dateOfBirth, AGE_LIMITS.ADULT_MIN, null)) {
+        // Was `today.getFullYear() - dob.getFullYear() < 18`, which subtracts YEARS rather than
+        // computing an age: someone born 31 December 2008 evaluated as 18 in August 2026 while
+        // actually being 17, and this form let them accept a co-parent invitation. The shared
+        // helper compares calendar dates, so a birthday that has not happened yet still counts.
+        newErrors.dateOfBirth = `You must be at least ${AGE_LIMITS.ADULT_MIN} years old`;
       }
     }
 
