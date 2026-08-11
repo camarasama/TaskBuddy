@@ -179,12 +179,12 @@ export default function CoParents() {
           </Card>
         )}
 
-        {data.invitations.length > 0 && (
+        {data.pendingInvites.length > 0 && (
           <Card>
             <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>
               INVITED, NOT YET ACCEPTED
             </AppText>
-            {data.invitations.map((invitation) => {
+            {data.pendingInvites.map((invitation) => {
               const expires = asDate(invitation.expiresAt);
               return (
                 <View key={invitation.id} style={[styles.row, { borderTopColor: theme.border }]}>

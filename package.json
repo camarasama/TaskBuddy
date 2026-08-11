@@ -12,6 +12,7 @@
     "build:backend": "npm -w backend run build",
     "build:frontend": "npm -w frontend run build",
     "lint": "npm run lint:backend && npm run lint:frontend && npm run lint:mobile",
+    "typecheck:mobile": "npm -w mobile run typecheck",
     "lint:backend": "npm -w backend run lint",
     "lint:frontend": "npm -w frontend run lint",
     "lint:mobile": "npm -w mobile run lint",

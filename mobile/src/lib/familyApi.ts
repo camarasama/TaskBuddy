@@ -73,8 +73,13 @@ export const PARENTS_KEY = ['family', 'parents'] as const;
 
 export function fetchParents(
   signal?: AbortSignal
-): Promise<{ parents: ParentMember[]; invitations: PendingInvitation[] }> {
-  return api.get<{ parents: ParentMember[]; invitations: PendingInvitation[] }>(
+): Promise<{ parents: ParentMember[]; pendingInvites: PendingInvitation[] }> {
+  // ⚠️ `pendingInvites`, NOT `invitations`. That is the key `inviteService.listParents` returns and
+  // the one the web reads. This was typed as `invitations` until 2026-08-11, which made the field
+  // `undefined` at runtime and crashed the co-parents screen on `.length` — a TypeError in render,
+  // reported from a real device (TASKBUDDY-MOBILE-1). TypeScript could not catch it: the annotation
+  // was the thing that was wrong, so it type-checked perfectly against a lie.
+  return api.get<{ parents: ParentMember[]; pendingInvites: PendingInvitation[] }>(
     '/families/me/parents',
     { signal }
   );
