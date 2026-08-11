@@ -30,6 +30,7 @@ import { buildEmailVerification } from './emailVerification';
 import { buildPasswordReset } from './passwordReset';
 import { buildChildAccountLocked } from './childAccountLocked';
 import { buildChildPinReset } from './childPinReset';
+import { buildParentalConsentRecorded } from './parentalConsentRecorded';
 import { buildTesterInvite } from './testerInvite';
 import { buildTesterReminder } from './testerReminder';
 import { buildAdminCreated } from './adminCreated';
@@ -210,6 +211,8 @@ export async function renderTemplate(
       return buildChildPinReset(data as any);
     case 'admin_created':
       return buildAdminCreated(data as any);
+    case 'parental_consent_recorded':
+      return buildParentalConsentRecorded(data as any);
     case 'tester_invite':
       return buildTesterInvite(data as any);
     case 'tester_reminder':

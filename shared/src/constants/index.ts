@@ -137,6 +137,15 @@ export const NOTIFICATION_TYPES = {
 export const CONSENT_VERSIONS = {
   tos: '1.0',
   privacy: '1.0',
+  /**
+   * The parental consent acknowledgement ticked on the create-child form.
+   *
+   * Versioned like the other two so that changing the wording can force a re-acknowledgement rather
+   * than silently inheriting a tick against text nobody agreed to. Distinct from the family-wide
+   * verifiable consent in `ConsentService`: that one proves a parent is who they say they are, this
+   * one records that they read the statement for THIS child.
+   */
+  form: '1.0',
 } as const;
 
 // Age groups

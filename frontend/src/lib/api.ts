@@ -503,6 +503,8 @@ export const familyApi = {
     pin?: string;
     email?: string;
     gender?: string;
+    /** The consent tick. Server takes `z.literal(true)`, so anything else is a 400. */
+    consentFormAccepted: true;
   }) =>
     request<ApiResponse<{ user: User; profile: ChildProfile }>>('/families/me/children', {
       method: 'POST',

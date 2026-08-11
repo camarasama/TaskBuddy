@@ -70,6 +70,7 @@ import express from 'express';
 
 import { ConsentService } from '../src/services/ConsentService';
 import { authService } from '../src/services/auth';
+import { EmailService } from '../src/services/email';
 
 const consent = ConsentService as unknown as {
   hasVerifiedConsent: jest.Mock;
@@ -83,11 +84,13 @@ function buildApp() {
   /* eslint-disable @typescript-eslint/no-require-imports */
   const { familyRouter } = require('../src/routes/family');
   app.use('/families', familyRouter);
-  app.use((err: any, _req: any, res: any, _next: any) => {
-    res
-      .status(err.statusCode ?? 500)
-      .json({ success: false, error: { code: err.code, message: err.message } });
-  });
+  // The REAL error handler, not a stand-in. `validateBody` passes the raw ZodError through and only
+  // the real handler maps it to a 400 — a hand-rolled `err.statusCode ?? 500` reports every
+  // validation failure as a 500, which is exactly how a passing test can describe behaviour the app
+  // does not have.
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { errorHandler } = require('../src/middleware/errorHandler');
+  app.use(errorHandler);
   return app;
 }
 
@@ -101,6 +104,9 @@ function validChild() {
     dateOfBirth: twelveYearsAgo.toISOString().slice(0, 10),
     username: 'sam_c',
     pin: '1234',
+    // Present by default so the gate tests fail on the gate, not on validation. The tick's own
+    // behaviour is asserted separately below.
+    consentFormAccepted: true as const,
   };
 }
 
@@ -109,6 +115,10 @@ const addChild = () => request(buildApp()).post('/families/me/children').send(va
 beforeEach(() => {
   jest.clearAllMocks();
   consent.requestConsent.mockResolvedValue({ status: 'pending', method: 'email_plus' });
+  // The real method is async and the route calls `.catch()` on it. A bare jest.fn() returns
+  // undefined, so the route would throw a TypeError on the SUCCESS path — a mock that does not
+  // match the shape of what it replaces.
+  (EmailService.sendToFamilyParents as jest.Mock).mockResolvedValue(undefined);
 });
 
 describe('the gate still refuses, whatever the email does', () => {
@@ -174,5 +184,47 @@ describe('the email the gate sends itself', () => {
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('CONSENT_REQUIRED');
     expect(authService.addChild).not.toHaveBeenCalled();
+  });
+});
+
+describe('the consent tick on the create-child form', () => {
+  beforeEach(() => {
+    consent.hasVerifiedConsent.mockResolvedValue(true);
+    (authService.addChild as jest.Mock).mockResolvedValue({ user: { id: 'child-1' } });
+  });
+
+  it('refuses and writes no child when the tick is missing', async () => {
+    const res = await request(buildApp())
+      .post('/families/me/children')
+      .send({ ...validChild(), consentFormAccepted: undefined });
+
+    expect(res.status).toBe(400);
+    expect(authService.addChild).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the tick is present but false, which is the whole point of z.literal(true)', async () => {
+    // A plain z.boolean() would accept this and record a consent nobody gave.
+    const res = await request(buildApp())
+      .post('/families/me/children')
+      .send({ ...validChild(), consentFormAccepted: false });
+
+    expect(res.status).toBe(400);
+    expect(authService.addChild).not.toHaveBeenCalled();
+  });
+
+  it('emails EVERY parent on the account, with the exact subject the brief specifies', async () => {
+    // Fan-out is the substance: a co-parent who did not press the button still learns that consent
+    // was recorded in their family's name. The subject is fixed verbatim, lowercase 'b' included.
+    await request(buildApp()).post('/families/me/children').send(validChild());
+
+    expect(EmailService.sendToFamilyParents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        familyId: 'fam-1',
+        triggerType: 'parental_consent_recorded',
+      }),
+    );
+
+    const call = (EmailService.sendToFamilyParents as jest.Mock).mock.calls[0][0];
+    expect(call.subjectBuilder()).toBe('Parental Consent Recorded - Taskbuddy');
   });
 });

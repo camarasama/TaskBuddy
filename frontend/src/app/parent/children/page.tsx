@@ -269,6 +269,13 @@ function ChildModal({
     gender: child?.gender || '',
   });
 
+  /**
+   * The consent tick. Deliberately NOT part of `formData`: it is not a property of the child, it is
+   * a statement the adult makes at this moment, and it must never be prefilled from an existing
+   * record when the form reopens to edit.
+   */
+  const [consentAccepted, setConsentAccepted] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -302,6 +309,7 @@ function ChildModal({
           pin: formData.pin || undefined,
           email: formData.email || undefined,
           gender: formData.gender || undefined,
+          consentFormAccepted: true,
         });
         showSuccess('Child added');
       }
@@ -420,11 +428,30 @@ function ChildModal({
             </>
           )}
 
+          {/* Adding only. Editing a child does not re-collect consent — it was given once, for this
+              child, and re-asking would imply the earlier record had lapsed. */}
+          {!child && (
+            <label className="flex gap-3 items-start pt-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentAccepted}
+                onChange={(e) => setConsentAccepted(e.target.checked)}
+                className="mt-1 w-4 h-4 accent-primary-600"
+                aria-describedby="consent-help"
+              />
+              <span id="consent-help" className="text-sm text-slate-600">
+                I confirm I am this child&apos;s parent or legal guardian and I consent to TaskBuddy
+                holding their information. A confirmation email recording this consent will be sent
+                to everyone on this account.
+              </span>
+            </label>
+          )}
+
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="secondary" fullWidth onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" fullWidth loading={isLoading}>
+            <Button type="submit" fullWidth loading={isLoading} disabled={!child && !consentAccepted}>
               {child ? 'Save Changes' : 'Add Child'}
             </Button>
           </div>

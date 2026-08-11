@@ -25,8 +25,9 @@
  * which is no help at all on a mobile-only install.
  */
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
@@ -46,7 +47,7 @@ import {
   updateChild,
   type ChildInput,
 } from '@/lib/parentWriteApi';
-import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]+$/;
 
@@ -80,6 +81,11 @@ export default function ChildForm() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [consentNeeded, setConsentNeeded] = useState(false);
+  /**
+   * The consent tick. Not part of the field state: it is a statement the adult makes now, not a
+   * property of the child, and it must never be prefilled when the form reopens to edit.
+   */
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   const usernameValid =
     username.trim().length >= 3 && username.trim().length <= 20 && USERNAME_PATTERN.test(username.trim());
@@ -91,6 +97,9 @@ export default function ChildForm() {
     usernameValid &&
     dobValid &&
     pinValid &&
+    // Adding only. Editing does not re-collect consent: it was given once for this child, and
+    // re-asking would imply the earlier record had lapsed.
+    (editing || consentAccepted) &&
     !busy;
 
   const invalidate = useCallback(async () => {
@@ -132,6 +141,7 @@ export default function ChildForm() {
           username: username.trim().toLowerCase(),
           dateOfBirth: dob,
           pin,
+          consentFormAccepted: true,
         });
       }
       await invalidate();
@@ -251,6 +261,37 @@ export default function ChildForm() {
           </Card>
         )}
 
+        {/* Immediately before the submit control, per the brief. A Pressable rather than a
+            switch: this is an agreement, and a row that reads as a statement with a tick is harder
+            to flip by accident than a toggle. */}
+        {!editing && (
+          <Pressable
+            onPress={() => setConsentAccepted((v) => !v)}
+            disabled={busy}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: consentAccepted, disabled: busy }}
+            accessibilityLabel="I confirm I am this child's parent or legal guardian and consent to TaskBuddy holding their information"
+            style={styles.consentRow}
+          >
+            <View
+              style={[
+                styles.consentBox,
+                {
+                  borderColor: consentAccepted ? theme.primary : theme.border,
+                  backgroundColor: consentAccepted ? theme.primary : 'transparent',
+                },
+              ]}
+            >
+              {consentAccepted && <Ionicons name="checkmark" size={16} color={theme.primaryForeground} />}
+            </View>
+            <AppText style={[styles.hint, styles.consentText, { color: theme.cardForeground }]}>
+              I confirm I am this child&apos;s parent or legal guardian and I consent to TaskBuddy
+              holding their information. A confirmation email recording this consent will be sent to
+              everyone on this account.
+            </AppText>
+          </Pressable>
+        )}
+
         <View style={styles.actions}>
           <Button
             label={editing ? 'Save changes' : 'Add child'}
@@ -275,5 +316,17 @@ const styles = StyleSheet.create({
   },
   hint: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
   actions: { marginTop: spacing[5], marginBottom: spacing[6] },
+  consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3], marginTop: spacing[4] },
+  // 22dp with a generous row hit area: the box itself is small, the whole row is the target.
+  consentBox: {
+    width: 22,
+    height: 22,
+    borderRadius: radius.sm,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  consentText: { flex: 1 },
   gap: { height: spacing[2] },
 });
