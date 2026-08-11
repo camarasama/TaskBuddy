@@ -93,7 +93,7 @@ describe('the reporter is actually wired up', () => {
     expect(providers).toMatch(/<ReactErrorReporter>\{children\}<\/ReactErrorReporter>/);
   });
 
-  it('rethrows instead of rendering its own screen, so the visible behaviour is unchanged', () => {
+  it('records the stack and, when it gives up, rethrows instead of rendering its own screen', () => {
     // A fallback here would put "Something went wrong" in two files, and the two would drift.
     const reporter = read('components', 'ReactErrorReporter.tsx');
 
@@ -102,14 +102,41 @@ describe('the reporter is actually wired up', () => {
     expect(reporter).toMatch(/throw this\.state\.error/);
   });
 
+  it('retries a failure once before escalating, and refills the budget after a quiet period', () => {
+    // This is what tells a discarded tree's bad effect cleanup — which does not recur — apart from a
+    // real render error, which throws again on the very next render. Without the cap, a render error
+    // would retry forever.
+    const reporter = read('components', 'ReactErrorReporter.tsx');
+
+    expect(reporter).toMatch(/MAX_CONSECUTIVE_RECOVERIES/);
+    expect(reporter).toMatch(/if \(this\.consecutive >= MAX_CONSECUTIVE_RECOVERIES\) \{\s*\n[\s\S]{0,400}?return;/);
+    expect(reporter).toMatch(/this\.setState\(\{ error: null \}\)/);
+    expect(reporter).toMatch(/RECOVERY_RESET_MS/);
+  });
+
+  it('reports a recovered crash too, or the mitigation would hide the bug it mitigates', () => {
+    const reporter = read('components', 'ReactErrorReporter.tsx');
+
+    expect(reporter).toMatch(/reportReactError\(error, \{ recovered: true \}\)/);
+  });
+
   it('attaches the stack where Sentry symbolicates it, and not where Sentry groups on it', () => {
     // `exception.values` is the grouping key: adding a value there would fork this crash into a new
     // issue on the deploy that added the instrumentation and lose its history. `threads` is not.
+    const reporter = read('lib', 'reportError.ts');
+
+    expect(reporter).toMatch(/componentStackOf\(error\)/);
+    expect(reporter).toMatch(/setContext\('react', \{ componentStack \}\)/);
+    expect(reporter).toMatch(/event\.threads = \{/);
+    expect(reporter).not.toMatch(/exception\.values\.push/);
+  });
+
+  it('separates a recovered crash from a fatal one, which are different bugs with the same stack', () => {
+    const reporter = read('lib', 'reportError.ts');
     const globalError = read('app', 'global-error.tsx');
 
-    expect(globalError).toMatch(/componentStackOf\(error\)/);
-    expect(globalError).toMatch(/setContext\('react', \{ componentStack \}\)/);
-    expect(globalError).toMatch(/event\.threads = \{/);
-    expect(globalError).not.toMatch(/exception\.values\.push/);
+    expect(reporter).toMatch(/setTag\('react\.recovered'/);
+    // global-error only runs when recovery gave up, so its report is the fatal one.
+    expect(globalError).toMatch(/reportReactError\(error\)/);
   });
 });

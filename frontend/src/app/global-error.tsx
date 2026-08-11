@@ -32,60 +32,8 @@
  * lets a support conversation find the matching event.
  */
 import { useEffect } from 'react';
-import * as Sentry from '@sentry/nextjs';
 
-import { componentStackOf } from '@/lib/componentStack';
-
-/**
- * Send the crash, plus the component stack if `ReactErrorReporter` managed to capture one.
- *
- * The stack goes in two slots because they answer different questions and only one of them is
- * readable in production:
- *
- *  - `contexts.react.componentStack` is the raw text, the convention every Sentry React app uses.
- *    Function component names are minified in a production build, but host elements are not, so even
- *    the raw form gives the DOM shape around the failure.
- *  - `threads` carries the same frames parsed, which is what makes Sentry resolve them against the
- *    uploaded source maps and print real file names and line numbers. It goes in `threads` and NOT
- *    in `exception.values` on purpose: Sentry groups on the exception chain, so adding a value there
- *    would split one crash into a new issue on the deploy that added this, losing its history.
- */
-function report(error: Error) {
-  const componentStack = componentStackOf(error);
-
-  if (!componentStack) {
-    Sentry.captureException(error);
-    return;
-  }
-
-  Sentry.withScope((scope) => {
-    scope.setContext('react', { componentStack });
-
-    scope.addEventProcessor((event) => {
-      // React formats component frames exactly like V8 stack frames, so the browser stack parser
-      // reads them without help. A parse that yields nothing simply leaves the context text.
-      const frames = Sentry.defaultStackParser(componentStack);
-      if (frames.length > 0) {
-        event.threads = {
-          values: [
-            {
-              // Not a real thread; the browser has one. This is the slot Sentry symbolicates that
-              // does not participate in grouping.
-              id: 0,
-              name: 'React component stack',
-              crashed: false,
-              current: false,
-              stacktrace: { frames },
-            },
-          ],
-        };
-      }
-      return event;
-    });
-
-    Sentry.captureException(error);
-  });
-}
+import { reportReactError } from '@/lib/reportError';
 
 export default function GlobalError({
   error,
@@ -95,7 +43,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    report(error);
+    reportReactError(error);
   }, [error]);
 
   return (
