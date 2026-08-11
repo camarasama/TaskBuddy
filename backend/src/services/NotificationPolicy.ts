@@ -30,6 +30,9 @@ export const TRANSACTIONAL: ReadonlySet<string> = new Set<EmailTriggerType>([
   // silently not being told that consent was recorded in their family's name — which is the single
   // thing that message exists to guarantee. A compliance record must never be dropped for frequency.
   'parental_consent_recorded',
+  // Starts a 30-day clock whose default is irreversible (points discarded). Capping this would mean
+  // a parent losing the window without ever being told it opened.
+  'aging_out',
   'co_parent_invite',     // someone is actively waiting on it
   'admin_created',        // account access
   'child_locked',         // security notice

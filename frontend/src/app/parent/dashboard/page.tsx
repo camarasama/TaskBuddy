@@ -36,6 +36,7 @@ import { ParentLayout } from '@/components/layouts/ParentLayout';
 import { ApprovalQueue, type PendingApproval } from '@/components/tasks/ApprovalQueue';
 import { useAppBadge } from '@/hooks/useAppBadge';
 import { SetupChecklistCard } from '@/components/SetupChecklistCard';
+import { AgingOutBanner } from '@/components/AgingOutBanner';
 // M10 - Phase 6: Real-time socket updates
 import { useSocket } from '@/contexts/SocketContext';
 
@@ -320,6 +321,10 @@ export default function ParentDashboardPage() {
         </div>
 
         {/* Growth roadmap §3.2: the setup checklist lives here until it is finished or skipped. */}
+        {/* Above the checklist deliberately: this one has a deadline and an irreversible
+            default, so it outranks onboarding nudges for the same screen space. */}
+        <AgingOutBanner />
+
         <SetupChecklistCard />
 
         {/* Approval queue - the core parent action, previously two navigations away */}

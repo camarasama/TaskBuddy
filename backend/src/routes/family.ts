@@ -3,6 +3,7 @@ import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { CONSENT_VERSIONS, AVATAR_EMOJIS, AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
 import { ConsentService } from '../services/ConsentService';
+import { TransitionService } from '../services/TransitionService';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../services/database';
 import { authService } from '../services/auth';
@@ -942,4 +943,70 @@ familyRouter.post(
       next(error);
     }
   }
+);
+
+// ─── Aging out (workstream 4) ────────────────────────────────────────────────
+
+/**
+ * GET /families/me/transitions — children on this family who have turned 18 and await a decision.
+ *
+ * Parent-only, and family-scoped by `req.familyId` rather than by anything the caller sends, so a
+ * transition id cannot be fished for across families.
+ */
+familyRouter.get('/me/transitions', requireParent, async (req, res, next) => {
+  try {
+    const transitions = await prisma.accountTransition.findMany({
+      where: { familyId: req.familyId!, status: 'pending' },
+      orderBy: { detectedAt: 'asc' },
+    });
+
+    // The recipients a parent may choose from. Resolved here rather than on the client so the list
+    // cannot include a child the server would then refuse.
+    const siblings = await prisma.user.findMany({
+      where: {
+        familyId: req.familyId!,
+        role: 'child',
+        deletedAt: null,
+        id: { notIn: transitions.map((t) => t.childId) },
+      },
+      select: { id: true, firstName: true, lastName: true },
+    });
+
+    const children = await prisma.user.findMany({
+      where: { id: { in: transitions.map((t) => t.childId) } },
+      select: { id: true, firstName: true, lastName: true, childProfile: { select: { pointsBalance: true } } },
+    });
+
+    res.json({ success: true, data: { transitions, siblings, children } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const resolveTransitionSchema = z.object({
+  decision: z.enum(['transfer', 'discard', 'invite']),
+  transferToChildId: z.string().uuid().optional(),
+});
+
+/** POST /families/me/transitions/:id/resolve — the parent's decision. */
+familyRouter.post(
+  '/me/transitions/:id/resolve',
+  requireParent,
+  validateBody(resolveTransitionSchema),
+  async (req, res, next) => {
+    try {
+      const updated = await TransitionService.resolveTransition({
+        transitionId: req.params.id,
+        familyId: req.familyId!,
+        actorId: req.user!.userId,
+        decision: req.body.decision,
+        transferToChildId: req.body.transferToChildId,
+        ipAddress: req.ip,
+      });
+
+      res.json({ success: true, data: { transition: updated } });
+    } catch (error) {
+      next(error);
+    }
+  },
 );

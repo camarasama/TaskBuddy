@@ -494,6 +494,20 @@ export const familyApi = {
       body: JSON.stringify(data),
     }),
 
+  /** Children who have turned 18 and await a parent's decision (workstream 4). */
+  transitions: () =>
+    request<ApiResponse<{
+      transitions: Array<{ id: string; childId: string; pointsAtDetection: number; deadlineAt: string }>;
+      siblings: Array<{ id: string; firstName: string; lastName: string }>;
+      children: Array<{ id: string; firstName: string; lastName: string; childProfile?: { pointsBalance: number } | null }>;
+    }>>('/families/me/transitions'),
+
+  resolveTransition: (id: string, body: { decision: 'transfer' | 'discard' | 'invite'; transferToChildId?: string }) =>
+    request<ApiResponse<{ transition: unknown }>>(`/families/me/transitions/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   addChild: (data: {
     firstName: string;
     lastName: string;
