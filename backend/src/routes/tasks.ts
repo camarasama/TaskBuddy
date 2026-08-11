@@ -397,7 +397,7 @@ taskRouter.post('/:id/assign', requireParent, async (req, res, next) => {
       notificationType: 'task_assigned',
       title: '📋 Task Assigned',
       message: `You have been assigned: "${task.title}"`,
-      actionUrl: '/child/tasks',
+      actionUrl: `/child/tasks?assignment=${assignment.id}`,
     }).catch(() => {});
 
     res.status(201).json({ success: true, data: { assignment } });
@@ -470,6 +470,12 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
             notificationType: 'task_archived',
             title: 'Task Removed',
             message: `"${task.title}" has been archived by a parent and removed from your task list.`,
+            // Without this the bell entry is unclickable: NotificationBell only navigates when an
+            // actionUrl exists, so a notification without one silently does nothing when tapped.
+            // No `?assignment=` here on purpose: this assignment has just been expired, so it is
+            // gone from every tab. Deep linking to a card that will not render leaves the child
+            // staring at an unexplained empty list; the plain list is the honest destination.
+            actionUrl: '/child/tasks',
           }).catch(() => {});
         }
       }
@@ -1096,7 +1102,9 @@ taskRouter.post(
           notificationType: 'task_comment',
           title: 'New comment on your task',
           message: comment.content.slice(0, 140),
-          actionUrl: '/child/tasks',
+          // The whole point of this notification is the thread, and the thread lives inside this
+          // assignment's own card. Without the id the child lands on a list and has to find it.
+          actionUrl: `/child/tasks?assignment=${assignment.id}`,
           referenceType: 'task_assignment',
           referenceId: assignment.id,
         }).catch(() => {});

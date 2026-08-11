@@ -200,6 +200,16 @@ describe('toMobileRoute', () => {
     expect(push.toMobileRoute('/parent/settings')).toBe('/(parent)/settings');
   });
 
+  it('keeps the assignment query on a deep-linked task notification', () => {
+    // ⚠️ Regression. The server now sends `/child/tasks?assignment=<id>` so the child lands on the
+    // row the notification is about. Matching on the whole string missed the map, fell through to
+    // the `/child/` catch-all and opened the DASHBOARD — the deep link made mobile worse than the
+    // plain path it replaced.
+    const push = setup();
+
+    expect(push.toMobileRoute('/child/tasks?assignment=abc')).toBe('/(child)/tasks?assignment=abc');
+  });
+
   it('sends deep parent task links to the list that does exist', () => {
     const push = setup();
 
