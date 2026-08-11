@@ -165,6 +165,52 @@ notificationsRouter.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /push/expo-token - Register the Android app's push token ───────────
+
+/**
+ * Upsert by token, not by user. Expo issues one token per install, so the same token arriving again
+ * is the same device re-registering — creating a row per registration would multiply sends by the
+ * number of times the app has been opened.
+ *
+ * A user with two devices legitimately has two rows, which is why this is not keyed on userId.
+ */
+notificationsRouter.post('/push/expo-token', async (req: Request, res: Response) => {
+  const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+
+  // Expo's own format. Rejected here rather than discovered at send time, when the failure would be
+  // an error ticket for a token that was never valid.
+  if (!/^ExponentPushToken\[.+\]$/.test(token)) {
+    res.status(400).json({ success: false, error: { message: 'Not a valid Expo push token' } });
+    return;
+  }
+
+  const userId = (req as Request & { user?: { userId: string } }).user!.userId;
+
+  await prisma.expoPushToken.upsert({
+    where: { token },
+    // Re-registering on a different account moves the token: the device now belongs to whoever is
+    // signed in, and leaving it on the previous user would push their notifications to this phone.
+    update: { userId, lastSeenAt: new Date() },
+    create: { userId, token, platform: 'android' },
+  });
+
+  res.json({ success: true, data: { registered: true } });
+});
+
+// ─── POST /push/expo-token/remove - Drop it on sign-out ──────────────────────
+// POST, not DELETE: the client's `api.delete` sends no body, and a push token is too long and too
+// punctuation-heavy to want in a URL.
+
+notificationsRouter.post('/push/expo-token/remove', async (req: Request, res: Response) => {
+  const token = typeof req.body?.token === 'string' ? req.body.token : '';
+  const userId = (req as Request & { user?: { userId: string } }).user!.userId;
+
+  // Scoped to the caller so one account cannot unregister another's device by guessing a token.
+  await prisma.expoPushToken.deleteMany({ where: { token, userId } });
+
+  res.json({ success: true, data: { removed: true } });
+});
+
 // ─── POST /push/subscribe - Save web push subscription ───────────────────────
 
 notificationsRouter.post('/push/subscribe', async (req: Request, res: Response) => {

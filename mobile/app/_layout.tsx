@@ -22,7 +22,8 @@ import { NotificationWatcher } from '@/components/NotificationWatcher';
 import { ToastProvider } from '@/components/Toast';
 import { isRateLimited, SessionExpiredError } from '@/lib/api';
 import { initReporting, reportError } from '@/lib/reporting';
-import { useAuth } from '@/stores/auth';
+import { setPushBridge, useAuth } from '@/stores/auth';
+import { registerForPush, unregisterFromPush } from '@/lib/push';
 import { useTheme } from '@/theme';
 import { FontProvider } from '@/theme/FontProvider';
 
@@ -99,6 +100,14 @@ function Routes() {
     </>
   );
 }
+
+/**
+ * Hand the auth store its push implementation.
+ *
+ * Module scope, so it is set before any screen can trigger a sign-in. The store deliberately does
+ * not import `@/lib/push` itself — see the note on `setPushBridge`.
+ */
+setPushBridge({ register: registerForPush, unregister: unregisterFromPush });
 
 export default function RootLayout() {
   return (
