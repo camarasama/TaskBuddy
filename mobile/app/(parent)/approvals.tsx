@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Field } from '@/components/Field';
+import { PhotoViewer } from '@/components/PhotoViewer';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
 import {
@@ -44,7 +45,13 @@ function completedLabel(value: Date | string | null | undefined): string | null 
   })} at ${at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 }
 
-function EvidenceBlock({ evidence }: { evidence: PendingApproval['evidence'] }) {
+function EvidenceBlock({
+  evidence,
+  onOpenPhoto,
+}: {
+  evidence: PendingApproval['evidence'];
+  onOpenPhoto: (uri: string) => void;
+}) {
   const theme = useTheme();
   if (evidence.length === 0) return null;
 
@@ -56,14 +63,22 @@ function EvidenceBlock({ evidence }: { evidence: PendingApproval['evidence'] }) 
       {photos.length > 0 && (
         <View style={styles.photoRow}>
           {photos.map((photo) => (
-            <Image
+            // Tappable: `cover` crops the thumbnail to fill, so the grid alone never shows the whole
+            // photo. Approving on the strength of a crop is not reviewing the work.
+            <Pressable
               key={photo.id}
-              // Presigned and short-lived — never persisted anywhere. See approvalsApi.ts.
-              source={{ uri: photo.fileUrl as string }}
-              style={[styles.photo, { borderColor: theme.border }]}
-              resizeMode="cover"
-              accessibilityLabel="Photo submitted as evidence"
-            />
+              onPress={() => onOpenPhoto(photo.fileUrl as string)}
+              accessibilityRole="imagebutton"
+              accessibilityLabel="Open photo submitted as evidence"
+              accessibilityHint="Shows the photo full screen"
+            >
+              <Image
+                // Presigned and short-lived — never persisted anywhere. See approvalsApi.ts.
+                source={{ uri: photo.fileUrl as string }}
+                style={[styles.photo, { borderColor: theme.border }]}
+                resizeMode="cover"
+              />
+            </Pressable>
           ))}
         </View>
       )}
@@ -81,11 +96,13 @@ function ApprovalRow({
   busy,
   onApprove,
   onReject,
+  onOpenPhoto,
 }: {
   item: PendingApproval;
   busy: boolean;
   onApprove: () => void;
   onReject: (reason: string) => void;
+  onOpenPhoto: (uri: string) => void;
 }) {
   const theme = useTheme();
   const [rejecting, setRejecting] = useState(false);
@@ -114,7 +131,7 @@ function ApprovalRow({
         </AppText>
       ) : null}
 
-      <EvidenceBlock evidence={item.evidence} />
+      <EvidenceBlock evidence={item.evidence} onOpenPhoto={onOpenPhoto} />
 
       {/*
         A task that required a photo but has none is flagged rather than silently approvable — the
@@ -209,6 +226,8 @@ function ResultBanner({ result, onDismiss }: { result: ApprovalResult; onDismiss
 }
 
 export default function Approvals() {
+  /** The presigned URL currently shown full screen, or null. */
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
   const theme = useTheme();
   const queryClient = useQueryClient();
 
@@ -295,6 +314,7 @@ export default function Approvals() {
             busy={pendingId === item.id}
             onApprove={() => decide(item.id, true)}
             onReject={(reason) => decide(item.id, false, reason)}
+            onOpenPhoto={setViewingPhoto}
           />
         )}
         ListHeaderComponent={header}
@@ -315,6 +335,7 @@ export default function Approvals() {
           )
         }
       />
+      <PhotoViewer uri={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </Screen>
   );
 }

@@ -26,6 +26,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Field } from '@/components/Field';
+import { PhotoViewer } from '@/components/PhotoViewer';
 import { Screen } from '@/components/Screen';
 import { asDate, dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
@@ -168,10 +169,12 @@ function AssignmentCard({
   assignment,
   resetting,
   onReset,
+  setViewingPhoto,
 }: {
   assignment: Assignment;
   resetting: boolean;
   onReset: (assignmentId: string) => void;
+  setViewingPhoto: (uri: string) => void;
 }) {
   const theme = useTheme();
   const canReset = ['completed', 'approved', 'rejected'].includes(assignment.status);
@@ -225,16 +228,24 @@ function AssignmentCard({
           </AppText>
           <View style={styles.photoRow}>
             {photos.map((photo) => (
-              <Image
+              <Pressable
                 key={photo.id}
-                // Presigned server-side and short-lived (private R2 bucket, see withEvidenceUrlsList in
-                // backend/src/routes/tasks.ts). Used exactly as received — never build a URL from an
-                // object key or cache one past this render; see approvals.tsx for the same rule.
-                source={{ uri: (photo.thumbnailUrl || photo.fileUrl) as string }}
-                style={[styles.photo, { borderColor: theme.border }]}
-                resizeMode="cover"
-                accessibilityLabel="Photo submitted as evidence"
-              />
+                // Opens the FULL image, not the thumbnail that is on screen. Enlarging a thumbnail
+                // would give a parent a bigger blurry crop and nothing more.
+                onPress={() => setViewingPhoto((photo.fileUrl || photo.thumbnailUrl) as string)}
+                accessibilityRole="imagebutton"
+                accessibilityLabel="Open photo submitted as evidence"
+                accessibilityHint="Shows the photo full screen"
+              >
+                <Image
+                  // Presigned server-side and short-lived (private R2 bucket, see withEvidenceUrlsList in
+                  // backend/src/routes/tasks.ts). Used exactly as received — never build a URL from an
+                  // object key or cache one past this render; see approvals.tsx for the same rule.
+                  source={{ uri: (photo.thumbnailUrl || photo.fileUrl) as string }}
+                  style={[styles.photo, { borderColor: theme.border }]}
+                  resizeMode="cover"
+                />
+              </Pressable>
             ))}
           </View>
         </View>
@@ -273,6 +284,8 @@ function ProblemState({ message }: { message: string }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TaskDetailScreen() {
+  /** The presigned URL currently shown full screen, or null. */
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
   const theme = useTheme();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ id?: string }>();
@@ -436,6 +449,7 @@ export default function TaskDetailScreen() {
               assignment={a}
               resetting={resettingId === a.id}
               onReset={handleReset}
+              setViewingPhoto={setViewingPhoto}
             />
           ))}
         </View>
@@ -452,6 +466,7 @@ export default function TaskDetailScreen() {
               assignment={a}
               resetting={resettingId === a.id}
               onReset={handleReset}
+              setViewingPhoto={setViewingPhoto}
             />
           ))}
         </View>
@@ -464,6 +479,7 @@ export default function TaskDetailScreen() {
           </AppText>
         </Card>
       )}
+      <PhotoViewer uri={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </Screen>
   );
 }
