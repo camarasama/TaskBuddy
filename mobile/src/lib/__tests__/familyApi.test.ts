@@ -126,6 +126,31 @@ describe('co-parents', () => {
     await family.removeCoParent('p1');
     expect(calls[0]).toMatchObject({ method: 'DELETE', url: expect.stringMatching(/\/parents\/p1$/) });
   });
+
+  it('reads the pending invitations under the key the server actually sends', async () => {
+    // Regression, TASKBUDDY-MOBILE-1. `inviteService.listParents` returns `pendingInvites`; this
+    // module typed it as `invitations`, so the field was undefined at runtime and the co-parents
+    // screen crashed on `.length` during render.
+    //
+    // TypeScript cannot catch this class of bug — the annotation IS the wrong thing, so the code
+    // type-checks perfectly against a lie. Only a test that names the key the server sends can. The
+    // payload below is shaped like the real one for that reason: rename the field and this fails.
+    const family = setup({
+      success: true,
+      data: {
+        parents: [{ id: 'p1', firstName: 'Ama', lastName: 'Mensah', email: 'ama@example.test' }],
+        pendingInvites: [
+          { id: 'i1', email: 'kofi@example.test', createdAt: '2026-08-01T00:00:00.000Z', expiresAt: '2026-08-08T00:00:00.000Z' },
+        ],
+      },
+    });
+
+    const result = await family.fetchParents();
+
+    expect(result.pendingInvites).toHaveLength(1);
+    expect(result.pendingInvites[0].email).toBe('kofi@example.test');
+    expect(result.parents).toHaveLength(1);
+  });
 });
 
 describe('calendar', () => {

@@ -24,6 +24,12 @@ jobs:
         run: npm run db:generate
       - name: Lint
         run: npm run lint
+      # Mobile TypeScript is checked nowhere else: `npm run build` covers backend and frontend
+      # only, and jest-expo transpiles without type-checking. A wrong type annotation therefore
+      # reached production once (TASKBUDDY-MOBILE-1) with CI fully green.
+      - name: Typecheck (mobile)
+        run: npm run typecheck:mobile
+
       - name: Build
         run: npm run build
       - name: Test
