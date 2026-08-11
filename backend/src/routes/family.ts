@@ -43,6 +43,19 @@ const addChildSchema = z.object({
   pin: z.string().regex(/^\d{4}$/, 'PIN must be exactly 4 digits').optional(),
   email: z.string().email().optional(),
   gender: z.enum(['boy', 'girl']).optional(),
+  /**
+   * The parental consent tick from the create-child form.
+   *
+   * `z.literal(true)` rather than `z.boolean()`: absent, `false`, `"false"` and `0` must all be
+   * refusals. A boolean that merely has to be present would accept `false` and record a consent
+   * nobody gave, which is the one failure mode this field exists to prevent.
+   *
+   * It does NOT replace the verifiable consent gate above. That one proves the parent is who they
+   * say they are; this records that they read the statement for this specific child.
+   */
+  consentFormAccepted: z.literal(true, {
+    errorMap: () => ({ message: 'Parental consent must be given before adding a child' }),
+  }),
 });
 
 /** HH:MM, 24-hour. Shared by the quiet-hours fields below. */
@@ -425,8 +438,35 @@ familyRouter.post('/me/children', requireParent, validateBody(addChildSchema), a
       resourceId: createdChildId,
       familyId: req.familyId,
       ipAddress: req.ip,
-      metadata: { tosVersion: CONSENT_VERSIONS.tos, privacyVersion: CONSENT_VERSIONS.privacy, context: 'child_create' },
+      metadata: {
+        tosVersion: CONSENT_VERSIONS.tos,
+        privacyVersion: CONSENT_VERSIONS.privacy,
+        formVersion: CONSENT_VERSIONS.form,
+        context: 'child_create',
+      },
     });
+
+    // Tell every adult on the account, not just whoever pressed the button. A co-parent finding out
+    // that a child was added, and that consent was recorded in their family's name, is the point:
+    // it is the check on one parent acting alone.
+    EmailService.sendToFamilyParents({
+      familyId: req.familyId!,
+      triggerType: 'parental_consent_recorded',
+      // Subject fixed by the brief, including the lowercase 'b'. Do not "correct" it to BRAND_NAME
+      // without asking — it was specified verbatim.
+      subjectBuilder: () => 'Parental Consent Recorded - Taskbuddy',
+      templateData: {
+        childFirstName: req.body.firstName,
+        formVersion: CONSENT_VERSIONS.form,
+        recordedAt: new Date().toISOString(),
+      },
+      referenceType: 'child',
+      referenceId: createdChildId,
+    }).catch((err) =>
+      // Fire and forget: the child exists and consent is recorded in the audit log either way.
+      // Failing the request here would leave a created child looking like a failed creation.
+      console.error('[family] consent-recorded email failed:', (err as Error)?.message),
+    );
 
     // M9 - fire-and-forget child welcome email (only when email was provided)
     if (req.body.email) {

@@ -26,6 +26,10 @@ export const TRANSACTIONAL: ReadonlySet<string> = new Set<EmailTriggerType>([
   'email_verification',   // without it the account cannot be used
   'password_reset',       // without it the account cannot be recovered
   'parental_consent',     // COPPA — legally required, and blocks child creation
+  // The receipt sent to every parent when a child is added. Capping it would mean a co-parent
+  // silently not being told that consent was recorded in their family's name — which is the single
+  // thing that message exists to guarantee. A compliance record must never be dropped for frequency.
+  'parental_consent_recorded',
   'co_parent_invite',     // someone is actively waiting on it
   'admin_created',        // account access
   'child_locked',         // security notice

@@ -174,7 +174,15 @@ export interface ChildInput {
  * consent gates all child-data collection, and the code exists so the UI can route to the consent
  * flow instead of showing "forbidden" to a parent who has done nothing wrong.
  */
-export function addChild(input: ChildInput): Promise<{ child: User }> {
+/**
+ * Create a child.
+ *
+ * `consentFormAccepted` is required and must be literally `true`: the server validates it with
+ * `z.literal(true)`, so a missing or false value is a 400 and no child is created. It is passed
+ * explicitly by the caller rather than defaulted here — a default would mean this module asserting
+ * consent on the parent's behalf, which is the one thing the field exists to prevent.
+ */
+export function addChild(input: ChildInput & { consentFormAccepted: true }): Promise<{ child: User }> {
   return api.post<{ child: User }>('/families/me/children', input);
 }
 

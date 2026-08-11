@@ -119,12 +119,31 @@ describe('children', () => {
       dateOfBirth: '2014-01-01',
       username: 'ada',
       pin: '1234',
+      consentFormAccepted: true,
     });
 
     expect(calls[0]).toMatchObject({
       method: 'POST',
       url: expect.stringMatching(/\/families\/me\/children$/),
     });
+  });
+
+  it('sends the consent tick, which the server validates as literally true', async () => {
+    // `z.literal(true)` server-side: absent, false, "false" and 0 are all refusals and return 400
+    // with no child created. Dropping this field from the payload would make every add fail, so it
+    // is asserted rather than assumed.
+    const api = setup();
+
+    await api.addChild({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      dateOfBirth: '2014-01-01',
+      username: 'ada',
+      pin: '1234',
+      consentFormAccepted: true,
+    });
+
+    expect((calls[0].body as Record<string, unknown>).consentFormAccepted).toBe(true);
   });
 
   it('sets an avatar through the child update endpoint', async () => {
