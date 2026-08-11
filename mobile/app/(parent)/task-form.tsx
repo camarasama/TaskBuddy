@@ -80,6 +80,20 @@ function dueDateFor(days: number): string {
   return date.toISOString();
 }
 
+/**
+ * The web's repeat options, verbatim (`frontend/src/app/parent/tasks/new/page.tsx`). Mirrored rather
+ * than reinvented: the server takes a free string, so an invented value like 'everyday' would be
+ * accepted and then never generate an instance — a task that silently does nothing.
+ */
+type RecurrencePattern = 'daily' | 'weekly' | 'weekdays' | 'weekends';
+
+const RECURRENCE_OPTIONS: { value: RecurrencePattern; label: string }[] = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'weekdays', label: 'Weekdays' },
+  { value: 'weekends', label: 'Weekends' },
+];
+
 export default function TaskForm() {
   const theme = useTheme();
   const toast = useToast();
@@ -105,6 +119,14 @@ export default function TaskForm() {
   const [assigned, setAssigned] = useState<string[]>([]);
   const [requiresPhoto, setRequiresPhoto] = useState(false);
   const [minutes, setMinutes] = useState('');
+  // Parity with the web form (workstream 3). Each of these existed on web and simply had no mobile
+  // control, so a parent on a phone could not create a recurring, team or claimable task at all.
+  const [taskTag, setTaskTag] = useState<'primary' | 'secondary'>('primary');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('daily');
+  const [isTeamTask, setIsTeamTask] = useState(false);
+  const [teamBonus, setTeamBonus] = useState('10');
+  const [maxClaims, setMaxClaims] = useState('');
   const [picking, setPicking] = useState(false);
   /**
    * Populated once, when the fetch lands.
@@ -114,6 +136,17 @@ export default function TaskForm() {
    * whatever the parent had started typing the moment a background refetch completed.
    */
   const populated = useRef(false);
+  const teamBonusValue = Number.parseInt(teamBonus, 10);
+  const teamBonusValid = Number.isFinite(teamBonusValue) && teamBonusValue >= 1 && teamBonusValue <= 500;
+  const maxClaimsValue = Number.parseInt(maxClaims, 10);
+  const maxClaimsValid =
+    maxClaims.trim() === '' || (Number.isFinite(maxClaimsValue) && maxClaimsValue >= 1 && maxClaimsValue <= 100);
+  /**
+   * Both server refusals, checked here so a parent finds out before submitting rather than after.
+   * The server is still the authority; this only moves the message earlier.
+   */
+  const teamRuleOk = !isTeamTask || (assigned.length >= 2 && teamBonusValid);
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,7 +176,7 @@ export default function TaskForm() {
   const minutesValid =
     minutes.trim() === '' ||
     (Number.isInteger(minutesValue) && minutesValue >= 1 && minutesValue <= MAX_MINUTES);
-  const canSubmit = titleValid && pointsValid && minutesValid && !busy;
+  const canSubmit = titleValid && pointsValid && minutesValid && maxClaimsValid && teamRuleOk && !busy;
 
   // Copy a template's values in, then get out of the way. Nothing is created and nothing is remembered,
   // so editing afterwards never writes back to the template. Assignment is left alone on purpose —
@@ -187,6 +220,16 @@ export default function TaskForm() {
       requiresPhotoEvidence: requiresPhoto,
       // Omitted rather than sent as 0 when blank — the server rejects 0 and ignores an absent value.
       estimatedMinutes: minutesValid && minutes.trim() !== '' ? minutesValue : undefined,
+      taskTag,
+      isRecurring,
+      // Only meaningful alongside isRecurring; sending a pattern for a one-off would describe a
+      // schedule that never runs.
+      recurrencePattern: isRecurring ? recurrencePattern : undefined,
+      isTeamTask,
+      // The server refuses a team task with a zero bonus, so it is only sent when there is a team.
+      teamBonusPoints: isTeamTask ? teamBonusValue : undefined,
+      // Blank means unlimited, which the server expects as null rather than as an absent field.
+      maxClaimsTotal: maxClaims.trim() === '' ? null : maxClaimsValue,
     };
 
     try {
@@ -361,6 +404,129 @@ export default function TaskForm() {
           </AppText>
         </Pressable>
 
+        {/* ── Parity block: everything below existed on web with no mobile equivalent ── */}
+
+        <Card>
+          <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>TYPE</AppText>
+          <View style={styles.chipRow}>
+            {(['primary', 'secondary'] as const).map((tag) => (
+              <Pressable
+                key={tag}
+                onPress={() => setTaskTag(tag)}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityState={{ selected: taskTag === tag }}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: taskTag === tag ? theme.primary : theme.card,
+                    borderColor: taskTag === tag ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <AppText
+                  style={[styles.chipLabel, { color: taskTag === tag ? theme.primaryForeground : theme.cardForeground }]}
+                >
+                  {tag === 'primary' ? 'Must do' : 'Bonus'}
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+          <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+            Bonus tasks stay locked until their must-do tasks for the day are finished.
+          </AppText>
+        </Card>
+
+        <Pressable
+          onPress={() => setIsRecurring((v) => !v)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: isRecurring }}
+          disabled={busy}
+          style={styles.checkRow}
+        >
+          <AppText style={[styles.checkMark, { color: isRecurring ? theme.primary : theme.border }]}>
+            {isRecurring ? '☑' : '☐'}
+          </AppText>
+          <AppText style={[styles.checkLabel, { color: theme.foreground }]}>Repeat this task</AppText>
+        </Pressable>
+
+        {isRecurring && (
+          <Card>
+            <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>HOW OFTEN</AppText>
+            <View style={styles.chipRow}>
+              {RECURRENCE_OPTIONS.map((option) => (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setRecurrencePattern(option.value)}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: recurrencePattern === option.value }}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: recurrencePattern === option.value ? theme.primary : theme.card,
+                      borderColor: recurrencePattern === option.value ? theme.primary : theme.border,
+                    },
+                  ]}
+                >
+                  <AppText
+                    style={[
+                      styles.chipLabel,
+                      { color: recurrencePattern === option.value ? theme.primaryForeground : theme.cardForeground },
+                    ]}
+                  >
+                    {option.label}
+                  </AppText>
+                </Pressable>
+              ))}
+            </View>
+          </Card>
+        )}
+
+        <Pressable
+          onPress={() => setIsTeamTask((v) => !v)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: isTeamTask }}
+          disabled={busy}
+          style={styles.checkRow}
+        >
+          <AppText style={[styles.checkMark, { color: isTeamTask ? theme.primary : theme.border }]}>
+            {isTeamTask ? '☑' : '☐'}
+          </AppText>
+          <AppText style={[styles.checkLabel, { color: theme.foreground }]}>
+            Team-up task (two or more children)
+          </AppText>
+        </Pressable>
+
+        {isTeamTask && (
+          <Card>
+            <Field
+              label="Teamwork bonus"
+              value={teamBonus}
+              onChangeText={(next) => setTeamBonus(next.replace(/\D/g, ''))}
+              keyboardType="number-pad"
+              editable={!busy}
+              hint="Paid to everyone ON TOP of their own points, once every member is approved. 1 to 500."
+              error={teamBonus.trim() !== '' && !teamBonusValid ? 'Between 1 and 500.' : undefined}
+            />
+            {assigned.length < 2 && (
+              <AppText style={[styles.hint, { color: theme.destructive }]}>
+                Assign at least two children below, or this cannot be a team task.
+              </AppText>
+            )}
+          </Card>
+        )}
+
+        <Field
+          label="Limit how many children can claim it (optional)"
+          value={maxClaims}
+          onChangeText={(next) => setMaxClaims(next.replace(/\D/g, ''))}
+          keyboardType="number-pad"
+          editable={!busy}
+          hint="Leave blank for no limit. 1 to 100."
+          error={!maxClaimsValid ? 'Between 1 and 100, or blank.' : undefined}
+        />
+
         {error !== null && (
           <Card style={{ borderColor: theme.destructive, borderWidth: 1 }}>
             <AppText accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
@@ -458,6 +624,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   hint: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginBottom: spacing[2] },
+  sectionTitle: {
+    fontSize: fontSize.xs.fontSize,
+    fontWeight: fontWeight.semibold,
+    letterSpacing: 0.6,
+    marginBottom: spacing[2],
+  },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[2] },
   chip: {
     paddingHorizontal: spacing[3],

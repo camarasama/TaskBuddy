@@ -42,6 +42,24 @@ export interface TaskInput {
   assignedTo?: string[];
   isRecurring?: boolean;
   recurrencePattern?: string;
+  /**
+   * ISO 8601. Optional, and only used for overlap detection (M5 CR-09) — a task without one is
+   * scheduled for "some time on the due date" and cannot clash with anything.
+   */
+  startTime?: string;
+  /**
+   * How many different children may claim this from the pool. `null` is unlimited, which is NOT the
+   * same as omitting it; the server distinguishes them.
+   */
+  maxClaimsTotal?: number | null;
+  /**
+   * U17 team-up. The server refuses a team task with fewer than two children assigned, and refuses
+   * one with a zero bonus — a team task with no bonus is just a shared task with extra words on the
+   * form. Both are surfaced client-side so a parent finds out before submitting.
+   */
+  isTeamTask?: boolean;
+  /** ON TOP of each member's full base points, never a split. 0–500. */
+  teamBonusPoints?: number;
 }
 
 /**

@@ -241,3 +241,90 @@ describe('isConsentRequired', () => {
     expect(api.isConsentRequired(undefined)).toBe(false);
   });
 });
+
+describe('task creation parity with the web form', () => {
+  it('carries every field the web sends, not the subset mobile used to', () => {
+    // Before workstream 3 the mobile form could not create a recurring, team or claimable task at
+    // all: those controls simply did not exist. This asserts the payload, because a control that
+    // renders but does not reach the server is the same bug wearing a hat.
+    const api = setup();
+
+    return api
+      .createTask({
+        title: 'Tidy the kitchen',
+        description: 'Surfaces and floor',
+        pointsValue: 20,
+        dueDate: '2026-12-01T17:00:00.000Z',
+        assignedTo: ['c1', 'c2'],
+        requiresPhotoEvidence: true,
+        estimatedMinutes: 30,
+        taskTag: 'secondary',
+        isRecurring: true,
+        recurrencePattern: 'weekdays',
+        isTeamTask: true,
+        teamBonusPoints: 15,
+        maxClaimsTotal: 3,
+        startTime: '2026-12-01T16:00:00.000Z',
+      })
+      .then(() => {
+        const body = calls[0].body as Record<string, unknown>;
+        for (const field of [
+          'title',
+          'description',
+          'pointsValue',
+          'dueDate',
+          'assignedTo',
+          'requiresPhotoEvidence',
+          'estimatedMinutes',
+          'taskTag',
+          'isRecurring',
+          'recurrencePattern',
+          'isTeamTask',
+          'teamBonusPoints',
+          'maxClaimsTotal',
+          'startTime',
+        ]) {
+          expect(body).toHaveProperty(field);
+        }
+      });
+  });
+
+  it('sends null rather than omitting maxClaimsTotal, because the server distinguishes them', () => {
+    // null means unlimited; absent means "unchanged". Collapsing them would make an unlimited task
+    // impossible to express from mobile.
+    const api = setup();
+
+    return api
+      .createTask({
+        title: 'Anyone can grab this',
+        pointsValue: 10,
+        dueDate: '2026-12-01T17:00:00.000Z',
+        maxClaimsTotal: null,
+      })
+      .then(() => {
+        expect((calls[0].body as Record<string, unknown>).maxClaimsTotal).toBeNull();
+      });
+  });
+});
+
+describe('reward creation parity with the web form', () => {
+  it('carries tier and expiry, which mobile had no controls for', () => {
+    const api = setup();
+
+    return api
+      .createReward({
+        name: 'Cinema trip',
+        pointsCost: 200,
+        tier: 'large',
+        expiresAt: '2026-12-31T23:59:59.000Z',
+        maxRedemptionsPerChild: 1,
+        maxRedemptionsTotal: 2,
+        isCollaborative: true,
+      })
+      .then(() => {
+        const body = calls[0].body as Record<string, unknown>;
+        expect(body.tier).toBe('large');
+        expect(body.expiresAt).toBe('2026-12-31T23:59:59.000Z');
+      });
+  });
+});

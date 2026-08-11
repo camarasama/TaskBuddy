@@ -38,6 +38,7 @@ import { CardHeading } from '@/components/CardHeading';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
+import { BAND_COPY, resolveAgeBand } from '@/lib/ageBand';
 import { childDashboardQuery } from '@/lib/childDashboardApi';
 import { dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
@@ -52,9 +53,10 @@ type TodaysTask = ChildDashboardResponse['todaysTasks'][number];
  * `theme/index.ts`). Two nested views for the same reason `Card` uses them: the shadow needs the outer
  * view, and the circle needs an inner `overflow: 'hidden'` view or it squares off the rounded corners.
  */
-function Hero({ level, name, seed, avatarEmoji }: {
+function Hero({ level, name, seed, avatarEmoji, greeting }: {
   level: number;
   name: string;
+  greeting: string;
   seed: string;
   avatarEmoji?: string | null;
 }) {
@@ -78,7 +80,7 @@ function Hero({ level, name, seed, avatarEmoji }: {
           <Avatar seed={seed} name={name} size={56} />
           <View style={styles.heroText}>
             <AppText variant="display" style={[styles.heroGreeting, { color: onGradient }]}>
-              {avatarEmoji ? `${avatarEmoji} ` : ''}Hi {name}!
+              {avatarEmoji ? `${avatarEmoji} ` : ''}{greeting}
             </AppText>
             {/* The level, promoted to an object rather than a number in a chip row. */}
             <AppText variant="display" style={[styles.heroLevel, { color: onGradient }]}>
@@ -231,11 +233,22 @@ export default function ChildDashboard() {
 
   const name = user?.firstName ?? 'there';
 
+  /**
+   * Band resolved from the payload, falling back to the auth store while it loads so the greeting
+   * does not change voice mid-render — switching from "Hi Ada!" to "Hey Ada" as data arrives reads
+   * as a glitch.
+   */
+  const band = resolveAgeBand({
+    dateOfBirth: data?.user?.dateOfBirth ?? user?.dateOfBirth ?? null,
+    ageGroup: data?.profile?.ageGroup ?? null,
+  });
+  const copy = BAND_COPY[band];
+
   if (isPending) {
     return (
       <Screen>
         <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>
-          Hi {name}!
+          {copy.greeting(name)}
         </AppText>
         <Card>
           <AppText style={[styles.body, { color: theme.mutedForeground }]}>Loading…</AppText>
@@ -249,7 +262,7 @@ export default function ChildDashboard() {
     return (
       <Screen scroll>
         <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>
-          Hi {name}!
+          {copy.greeting(name)}
         </AppText>
         <Card status="late">
           <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
@@ -288,6 +301,7 @@ export default function ChildDashboard() {
         name={name}
         seed={user?.id ?? 'child'}
         avatarEmoji={profile.avatarEmoji}
+        greeting={copy.greeting(name)}
       />
       <Wallet pointsBalance={profile.pointsBalance} />
       <StreakBanner current={streak.current} atRisk={streak.atRisk} />
@@ -313,11 +327,9 @@ export default function ChildDashboard() {
       )}
 
       <Card>
-        <CardHeading icon="checkbox" label="Today" tint={palette.success[600]} />
+        <CardHeading icon="checkbox" label={copy.todayLabel} tint={palette.success[600]} />
         {todaysTasks.length === 0 ? (
-          <AppText style={[styles.body, { color: theme.cardForeground }]}>
-            Nothing due today. Enjoy it.
-          </AppText>
+          <AppText style={[styles.body, { color: theme.cardForeground }]}>{copy.emptyToday}</AppText>
         ) : (
           <>
             <AppText style={[styles.body, { color: theme.cardForeground }]}>

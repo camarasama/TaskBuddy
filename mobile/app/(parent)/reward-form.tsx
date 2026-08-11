@@ -34,6 +34,7 @@ import type { RankedRewardPreset } from '@taskbuddy/shared';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { DateField } from '@/components/DateField';
 import { Field } from '@/components/Field';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
@@ -80,6 +81,13 @@ export default function RewardForm() {
     existing?.maxRedemptionsTotal ? String(existing.maxRedemptionsTotal) : ''
   );
   const [collaborative, setCollaborative] = useState(existing?.isCollaborative ?? false);
+  // Parity with the web's create form (workstream 3): it offers tier and an expiry, mobile did not.
+  const [tier, setTier] = useState<'small' | 'medium' | 'large'>(
+    (existing?.tier as 'small' | 'medium' | 'large' | undefined) ?? 'small'
+  );
+  const [expiresAt, setExpiresAt] = useState(
+    existing?.expiresAt ? String(existing.expiresAt).slice(0, 10) : ''
+  );
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +143,15 @@ export default function RewardForm() {
       maxRedemptionsPerChild: optionalCount(perChild),
       maxRedemptionsTotal: optionalCount(total),
       isCollaborative: collaborative,
+      tier,
+      /**
+       * The server takes a datetime and refuses anything not in the future; the picker hands back a
+       * calendar date. Sent as end-of-day UTC so a reward chosen to expire "on the 20th" is still
+       * redeemable during the 20th rather than expiring as it begins.
+       *
+       * Empty string means "no expiry", which the server expects as null, not as an absent field.
+       */
+      expiresAt: expiresAt ? new Date(`${expiresAt}T23:59:59.000Z`).toISOString() : null,
     };
 
     try {
@@ -229,6 +246,46 @@ export default function RewardForm() {
           keyboardType="number-pad"
           editable={!busy}
           hint="Leave blank for no limit"
+        />
+
+        {/* ── Parity block: both existed on the web create form with no mobile equivalent ── */}
+
+        <Card>
+          <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>SIZE</AppText>
+          <View style={styles.chipRow}>
+            {(['small', 'medium', 'large'] as const).map((option) => (
+              <Pressable
+                key={option}
+                onPress={() => setTier(option)}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityState={{ selected: tier === option }}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: tier === option ? theme.primary : theme.card,
+                    borderColor: tier === option ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <AppText
+                  style={[styles.chipLabel, { color: tier === option ? theme.primaryForeground : theme.cardForeground }]}
+                >
+                  {option === 'small' ? 'Small' : option === 'medium' ? 'Medium' : 'Big'}
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+        </Card>
+
+        <DateField
+          label="Expires (optional)"
+          value={expiresAt}
+          onChange={setExpiresAt}
+          editable={!busy}
+          hint="Leave blank and it never expires. It stays redeemable for the whole of the day you pick."
+          // The server refuses a past expiry, so tomorrow is the earliest offerable date.
+          minimumDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
         />
 
         <Pressable
@@ -347,6 +404,22 @@ const styles = StyleSheet.create({
     marginBottom: spacing[4],
   },
   hint: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
+  sectionTitle: {
+    fontSize: fontSize.xs.fontSize,
+    fontWeight: fontWeight.semibold,
+    letterSpacing: 0.6,
+    marginBottom: spacing[2],
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  chip: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: radius.full,
+    borderWidth: 1,
+    minHeight: minTouchTarget,
+    justifyContent: 'center',
+  },
+  chipLabel: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.medium },
   checkRow: {
     flexDirection: 'row',
     alignItems: 'center',
