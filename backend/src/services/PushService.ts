@@ -97,7 +97,14 @@ export class PushService {
       title: payload.title,
       body: payload.body,
       // Carried in `data` rather than the title so the app can route on tap without parsing prose.
-      data: { actionUrl: payload.actionUrl ?? '/' },
+      //
+      // ⚠️ Omitted entirely when absent, never defaulted to '/'. A '/' is a path the mobile router
+      // cannot match, so the default turned "no destination" into "navigate somewhere wrong" and the
+      // app opened on an Unmatched Route screen. Absent means the app just opens, which is correct.
+      //
+      // Note this is a WEB path. The mobile client maps it (`toMobileRoute`); the two route
+      // vocabularies are not the same and must not be assumed interchangeable.
+      ...(payload.actionUrl ? { data: { actionUrl: payload.actionUrl } } : {}),
       sound: 'default' as const,
     }));
 

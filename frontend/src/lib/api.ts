@@ -173,7 +173,16 @@ export function invalidateCache(prefix: string): void {
 
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  /**
+   * Guard against an unbounded refresh/retry loop.
+   *
+   * The 401 path refreshes and then retries by calling `request` again. If that retry ALSO 401s —
+   * a permissions 401 rather than an expiry one, say — the old code refreshed and retried again,
+   * forever, with each pass rotating a refresh token. One retry is the whole intent; more than one
+   * means the 401 is not about token freshness and asking again cannot help.
+   */
+  alreadyRetried = false,
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   const token = getAccessToken();
@@ -215,11 +224,11 @@ async function request<T>(
 
   if (!response.ok) {
     // Handle token refresh
-    if (response.status === 401 && token) {
+    if (response.status === 401 && token && !alreadyRetried) {
       const refreshed = await refreshToken();
       if (refreshed) {
-        // Retry the request with new token
-        return request(endpoint, options);
+        // Retry once with the new token. The flag is what stops this recursing.
+        return request(endpoint, options, true);
       }
       // Redirect to login
       window.location.href = '/login';
@@ -279,7 +288,34 @@ async function ensureCsrfToken(): Promise<string | null> {
 }
 
 // Token refresh
-async function refreshToken(): Promise<boolean> {
+/**
+ * Exactly one refresh may be in flight at a time.
+ *
+ * ⚠️ THIS IS LOAD-BEARING, and its absence is a real bug that was reported from the child dashboard:
+ * repeated 401s on /tasks that only cleared after several page refreshes.
+ *
+ * The backend ROTATES refresh tokens. `SessionService` marks the presented one spent, and presenting
+ * a spent token — or merely losing the conditional update race against a concurrent rotation —
+ * revokes the ENTIRE session chain and writes a SESSION_REUSE audit event. It cannot tell an honest
+ * race from a replayed stolen token, and it is right not to try.
+ *
+ * A page mount fires several queries at once. If the access token has expired, every one of them
+ * 401s, and without this every one of them calls refresh with the same stored token: one wins, the
+ * rest burn the session. That is not a rare interleaving, it is what a dashboard load looks like.
+ *
+ * The mobile client has had this since it was written; the web client never did.
+ */
+let refreshInFlight: Promise<boolean> | null = null;
+
+function refreshToken(): Promise<boolean> {
+  // `??=` so concurrent callers all await the SAME promise rather than starting their own.
+  refreshInFlight ??= performRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+async function performRefresh(): Promise<boolean> {
   try {
     const csrf = await ensureCsrfToken();
     const response = await fetch(`${API_BASE}/auth/refresh`, {
