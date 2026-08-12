@@ -14,8 +14,9 @@ import { useDataRefresh } from '@/hooks/useDataRefresh';
  * self-assign, available pool) unchanged.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TaskCommentThread } from '@/components/tasks/TaskCommentThread';
 import { PhotoUploadModal } from '@/components/tasks/PhotoUploadModal';
@@ -92,7 +93,28 @@ function tabForStatus(status: string): Tab {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+/**
+ * `useSearchParams()` opts this page into client-side rendering unless it sits under a Suspense
+ * boundary, so it gets one. Same shape as `app/parent/tasks/page.tsx`.
+ */
 export default function ChildTasksPage() {
+  return (
+    <Suspense
+      fallback={
+        <ChildLayout>
+          <div className="flex items-center justify-center h-96">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-xp-500 border-t-transparent" />
+          </div>
+        </ChildLayout>
+      }
+    >
+      <ChildTasksInner />
+    </Suspense>
+  );
+}
+
+function ChildTasksInner() {
+  const router = useRouter();
   const { socket } = useSocket();
   const { error: showError, success: showSuccess } = useToast();
   const [assignments, setAssignments]           = useState<TaskAssignment[]>([]);
@@ -174,16 +196,23 @@ export default function ChildTasksPage() {
    * this page does three things with it: switch to the tab the assignment is actually on, scroll the
    * card into view, and ring it briefly so the eye lands in the right place.
    *
-   * Read from `window.location.search` rather than `useSearchParams()` on purpose: the hook forces
-   * this page under a Suspense boundary at build time, and a query string that only ever matters
-   * after mount does not need to participate in rendering at all.
+   * ⚠️ **Read from the URL on every render, not once on mount.** This used to be a `useState` filled
+   * by a `useEffect` with an empty dependency array, reading `window.location.search` directly. That
+   * worked only when the page was arriving fresh, and silently did nothing in the case a child hits
+   * most often:
+   *
+   *   a child sitting ON /child/tasks gets a "task approved" notification, clicks it, and the app
+   *   pushes /child/tasks?assignment=<id> — the SAME route. Next does not remount a page for a query
+   *   change, so the mount effect never ran again and the click appeared to do nothing at all. Going
+   *   to another page and clicking the notification from there worked, because that remounted it.
+   *
+   * Deriving it from `useSearchParams()` fixes that: the param changing is a render, which is the
+   * only signal there is. The earlier note here claimed the Suspense boundary the hook requires was
+   * not worth it for something that "only matters after mount"; that reasoning was wrong, because
+   * the query can change without a mount.
    */
-  const [focusedId, setFocusedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('assignment');
-    if (id) setFocusedId(id);
-  }, []);
+  const searchParams = useSearchParams();
+  const focusedId = searchParams.get('assignment');
 
   /**
    * Live updates for the two things a PARENT can do to this list.
@@ -302,10 +331,16 @@ export default function ChildTasksPage() {
   /**
    * Second half of the deep link: put the linked assignment on screen.
    *
-   * Split from the effect that reads the query string because it can only run once the list has
-   * arrived — the tab is chosen from the assignment's status, and the element to scroll to does not
-   * exist until that tab is rendered. `focusedId` is cleared at the end so a later tab change by the
-   * child is never yanked back.
+   * Separate from reading the param because it can only run once the list has arrived: the tab is
+   * chosen from the assignment's status, and the element to scroll to does not exist until that tab
+   * has rendered.
+   *
+   * The ring is turned off by **removing the query parameter**, not by clearing a piece of local
+   * state. Two things fall out of that, both wanted:
+   *   - a later tab change by the child is never yanked back, same as before;
+   *   - clicking the SAME notification again works. If the id stayed in the URL, the second click
+   *     would push a URL identical to the current one, which is not a navigation and produces no
+   *     signal at all. Cleaning the URL up is what makes the next click a real change.
    */
   const focused = focusedId ? assignments.find((a) => a.id === focusedId) : undefined;
 
@@ -319,13 +354,18 @@ export default function ChildTasksPage() {
         .getElementById(`assignment-${focused.id}`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
-    const unhighlight = window.setTimeout(() => setFocusedId(null), 2500);
+    // `replace`, so Back does not walk the child through every notification they have opened, and
+    // `scroll: false`, so dropping the param does not jump the page away from the card we just
+    // scrolled to.
+    const unhighlight = window.setTimeout(() => {
+      router.replace('/child/tasks', { scroll: false });
+    }, 2500);
 
     return () => {
       window.clearTimeout(scroll);
       window.clearTimeout(unhighlight);
     };
-  }, [focused]);
+  }, [focused, router]);
 
   // ── Start a task (pending → in_progress) ─────────────────────────────────
 
