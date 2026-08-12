@@ -82,9 +82,24 @@ export default function ParentTasksPage() {
 
 function ParentTasksInner() {
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get('tab') as TabType) || 'all';
+  const urlTab = searchParams.get('tab') as TabType | null;
 
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const [activeTab, setActiveTab] = useState<TabType>(urlTab ?? 'all');
+
+  /**
+   * Follow the URL when it changes, not only when the page first mounts.
+   *
+   * Same defect the child list had: `useState(initialTab)` reads the param exactly once, and a
+   * query-only change does not remount the page. A parent already on /parent/tasks who follows the
+   * weekly digest's "Review and approve" link (`/parent/tasks?tab=pending`) stayed on whatever tab
+   * they were already looking at.
+   *
+   * Only reacts while the param is present, so selecting a tab by hand is not immediately overridden
+   * by the stale `?tab=` still sitting in the address bar.
+   */
+  useEffect(() => {
+    if (urlTab) setActiveTab(urlTab);
+  }, [urlTab]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<TaskAssignment[]>([]);

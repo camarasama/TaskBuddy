@@ -84,8 +84,9 @@ describe('child tasks list: the way in', () => {
 
   it('still reads the ?assignment= deep link', () => {
     // The server sends /child/tasks?assignment=<id> and nothing in this change alters that
-    // contract, so the list must keep honouring it.
-    expect(LIST).toMatch(/URLSearchParams\(window\.location\.search\)\.get\('assignment'\)/);
+    // contract, so the list must keep honouring it. How it reads the param is pinned in
+    // notification-deep-link.test.ts; this only asserts that it still does.
+    expect(LIST).toMatch(/searchParams\.get\('assignment'\)/);
   });
 });
 
