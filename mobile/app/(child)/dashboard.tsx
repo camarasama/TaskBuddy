@@ -26,7 +26,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useState } from 'react';
-import { RefreshControl, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import type { ChildDashboardResponse } from '@taskbuddy/shared';
 
@@ -186,7 +187,15 @@ function TaskRow({ item, first }: { item: TodaysTask; first: boolean }) {
   const due = dueLabel(task.dueDate);
 
   return (
-    <View style={[styles.taskRow, { borderTopColor: theme.border }, first && styles.firstRow]}>
+    // ⚠️ This row was a plain `View`. Tapping a task on the home tab did nothing at all, on either
+    // tab, because the child app had no task screen to open — reported as "as a child I cannot open
+    // to-do tasks or closed tasks".
+    <Pressable
+      onPress={() => router.push({ pathname: '/(child)/task-detail', params: { assignment: assignment.id } })}
+      accessibilityRole="button"
+      accessibilityLabel={`Open "${task.title}"`}
+      style={[styles.taskRow, { borderTopColor: theme.border }, first && styles.firstRow]}
+    >
       <TaskTick done={done} overdue={overdue} />
       <View style={styles.taskText}>
         <AppText
@@ -209,7 +218,7 @@ function TaskRow({ item, first }: { item: TodaysTask; first: boolean }) {
             : [due, `${task.pointsValue} pts`].filter(Boolean).join(' · ')}
         </AppText>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
