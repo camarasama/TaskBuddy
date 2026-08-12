@@ -158,6 +158,21 @@ const VIEW_WHERE: Record<'open' | 'done', Record<string, unknown>> = {
       // Never assigned, or every assignment expired. Both mean nobody currently owes this task.
       { assignments: { none: { status: { not: 'expired' } } } },
       { assignments: { some: { status: { in: OPEN_ASSIGNMENT_STATUSES } } } },
+      /**
+       * A live recurring task is always open, even at moments when it happens to owe nothing.
+       *
+       * Reported: "repeated tasks are not showing under active only under completed". The cause is a
+       * scheduling window, not a filter mistake. `RecurringScheduler` runs at 00:05 and creates the
+       * instance for TOMORROW, so a recurring task created today has exactly one instance until the
+       * next run. Approve that one and the task genuinely has no outstanding assignment, so it drops
+       * out of Active until midnight, then reappears.
+       *
+       * A parent reading Active as "what is live in my household" is right, and a daily chore
+       * vanishing from that list for the rest of the day is wrong however defensible the SQL is.
+       * `status` is pinned separately by the caller, so this only ever admits tasks that are still
+       * active; an archived recurring task stays out.
+       */
+      { isRecurring: true },
     ],
   },
   done: { assignments: { some: { status: { in: DONE_ASSIGNMENT_STATUSES } } } },

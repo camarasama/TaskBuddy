@@ -374,10 +374,21 @@ export default function ChildTasks() {
   /**
    * Deep link from a tapped notification: `/(child)/tasks?assignment=<id>`.
    *
-   * A notification is about one assignment, and this screen files assignments under four segments —
-   * so without this the child lands on "To do" and has to guess which segment the thing they were
-   * told about is on. Switching the segment is all that is done here; the row is then marked. The
-   * param is read once and dropped, so a later tap on another segment is never yanked back.
+   * A notification is about one assignment, and this screen files assignments under three segments,
+   * so without this the child lands on whichever segment they last looked at and has to guess.
+   * Switching the segment is all that is done here; the row is then marked.
+   *
+   * ⚠️ **This used to be guarded by a one-shot boolean, and that was a bug.** This screen is a tab,
+   * so it is mounted once and kept for the life of the app: once `consumedLink` went true it never
+   * went back, and every notification tapped after the first was ignored. The child stayed on
+   * whatever segment the FIRST link had chosen, which is exactly how it was reported, "it sends me
+   * to the return tab instead of the right item I clicked on". The earlier tap had been a returned
+   * task. Same family as the web's PR 182: the param changes, and something that only looks once
+   * never notices.
+   *
+   * So the guard is now the id itself, and the param is cleared once used. Clearing matters for the
+   * repeat case: tapping the SAME notification twice leaves the param identical, and without
+   * clearing there is no change for this effect to see.
    *
    * Note the limit, which is not a bug to fix here: a `task_comment` notification can only bring the
    * child to the row. The mobile app has no child-side comment thread, so the comment itself is
@@ -385,12 +396,13 @@ export default function ChildTasks() {
    */
   const { assignment: linkedIdParam } = useLocalSearchParams<{ assignment?: string }>();
   const [linkedId, setLinkedId] = useState<string | null>(null);
-  const [consumedLink, setConsumedLink] = useState(false);
 
   useEffect(() => {
-    if (consumedLink || !linkedIdParam) return;
+    if (!linkedIdParam) return;
+
     const found = assignments.find((a) => a.id === linkedIdParam);
     if (!found) return;
+
     setSegment(
       found.status === 'rejected'
         ? 'returned'
@@ -399,8 +411,24 @@ export default function ChildTasks() {
           : 'active'
     );
     setLinkedId(found.id);
-    setConsumedLink(true);
-  }, [assignments, consumedLink, linkedIdParam]);
+    // Consumed. Dropping it also means a later tap on another segment is never yanked back, which
+    // is what the old boolean was really for.
+    router.setParams({ assignment: undefined });
+  }, [assignments, linkedIdParam]);
+
+  /**
+   * Page forward while the linked assignment has not turned up.
+   *
+   * Without this, a notification about anything not on page one silently did nothing at all: the
+   * effect above returns early when `found` is undefined and never runs again. Same reasoning as
+   * `task-detail`, which already walks its pages for exactly this case.
+   */
+  useEffect(() => {
+    if (!linkedIdParam || linkedId === linkedIdParam) return;
+    if (assignments.some((a) => a.id === linkedIdParam)) return;
+    if (!mine.hasNextPage || mine.isFetchingNextPage) return;
+    void mine.fetchNextPage();
+  }, [assignments, linkedId, linkedIdParam, mine]);
 
   /** Every open starts clean: a photo left over from the last task would attach to this one. */
   function openSheet(item: MyAssignment) {
