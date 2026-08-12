@@ -33,6 +33,32 @@ describe('both child task rows open the task', () => {
     expect(tasks).toMatch(/params: \{ assignment: item\.id \}/);
   });
 
+  /**
+   * Reported later, about a bonus task: "I can see it in child as available but cannot open to see
+   * detail. Completed task, I can see details but active no." The Available section lives inside the
+   * Active segment, and its rows were the one place in the app showing a task you could not open.
+   */
+  it('an unclaimed pool task opens too, addressed by TASK id', () => {
+    const tasks = read('(child)', 'tasks.tsx');
+
+    // Nobody has claimed it, so there is no assignment id to point at.
+    expect(tasks).toMatch(/params: \{ task: task\.id \}/);
+    // The Pressable must wrap AvailableRow's card, not only the claim button.
+    expect(tasks).toMatch(/<Pressable[\s\S]{0,300}?params: \{ task: task\.id \}[\s\S]{0,400}?<Card>/);
+  });
+
+  it('the detail screen resolves a pool task separately from an assignment', () => {
+    expect(DETAIL).toMatch(/task\?: string;/);
+    expect(DETAIL).toMatch(/if \(poolTaskId\) \{/);
+    // And offers the one action a pool task affords.
+    expect(DETAIL).toMatch(/label="Pick this up"/);
+  });
+
+  it('does not page the whole assignment history looking for a task id', () => {
+    // A pool id is a TASK id and will never match an assignment, so the walk must be skipped.
+    expect(DETAIL).toMatch(/if \(poolTaskId \|\| assignment \|\| !mine\.hasNextPage/);
+  });
+
   it('keeps the tick and Start on the row, so finishing from the list still works', () => {
     // Opening a task must not become the only way to say "done" — that would add a screen to the
     // shortest path in the app.

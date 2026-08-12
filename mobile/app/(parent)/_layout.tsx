@@ -56,6 +56,23 @@ export default function ParentLayout() {
 
   return (
     <Tabs
+      /**
+       * ⚠️ Without this, "back" from any pushed screen lands on Home.
+       *
+       * Reported as: "when opening an item to see the details (task or reward), when going back I am
+       * sent to home tab which should not be." Every screen below with `href: null` is reached with
+       * `router.push`, but this is a Tabs navigator, so there is no stack to pop: expo-router turns
+       * PUSH into NAVIGATE outside a stack (`getNavigationAction.js`), and the TabRouter's default
+       * `backBehavior` is **`firstRoute`**, which is literally "go to the first tab", i.e. Home.
+       *
+       * `history` returns to the last visited route instead, which is what a parent means by back
+       * after opening a task from the task list.
+       *
+       * The real fix is a Stack wrapping the Tabs so these screens are pushed and popped properly.
+       * That is a routing refactor across every `href` in the app and is not worth doing untested on
+       * a device the week of a closed beta; this makes the behaviour correct in the meantime.
+       */
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.primary,

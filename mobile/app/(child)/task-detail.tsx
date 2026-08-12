@@ -28,11 +28,14 @@ import { Field } from '@/components/Field';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { Screen } from '@/components/Screen';
 import {
+  availableTasksQuery,
   completeAssignment,
   INVALIDATED_BY_TASK_ACTION,
   myAssignmentsQuery,
+  selfAssign,
   startAssignment,
   uploadEvidence,
+  type ChildTask,
   type MyAssignment,
 } from '@/lib/childTasksApi';
 import { dueLabel, isOverdue } from '@/lib/dates';
@@ -64,13 +67,32 @@ function Row({ label, value }: { label: string; value: string }) {
 export default function ChildTaskDetail() {
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const { assignment: assignmentId } = useLocalSearchParams<{ assignment?: string }>();
+  /**
+   * Opened one of two ways, and they are not the same kind of row.
+   *
+   * `assignment` is one of the child's own tasks. `task` is a **pool task nobody has claimed**, which
+   * has no assignment to point at yet. The Available list used to be the one place in the app a child
+   * could see a task and not open it, reported as "I can see it in child as available but cannot open
+   * to see detail" about a bonus task.
+   */
+  const { assignment: assignmentId, task: poolTaskId } = useLocalSearchParams<{
+    assignment?: string;
+    task?: string;
+  }>();
 
   const mine = useInfiniteQuery(myAssignmentsQuery());
+
+  // Only fetched when the screen was actually opened on a pool task, so an ordinary open costs
+  // nothing extra.
+  const pool = useInfiniteQuery({ ...availableTasksQuery(), enabled: Boolean(poolTaskId) });
 
   const assignment: MyAssignment | undefined = mine.data?.pages
     .flatMap((p) => p.assignments)
     .find((a) => a.id === assignmentId);
+
+  const poolTask: ChildTask | undefined = pool.data?.pages
+    .flatMap((p) => p.tasks)
+    .find((t) => t.id === poolTaskId);
 
   /**
    * Page forward until the id turns up.
@@ -80,9 +102,17 @@ export default function ChildTaskDetail() {
    * exists, which is the same bug as showing an empty list.
    */
   useEffect(() => {
-    if (assignment || !mine.hasNextPage || mine.isFetchingNextPage) return;
+    // Skipped entirely on a pool task: its id is a TASK id and will never match an assignment, so
+    // paging the whole history looking for it would just be a slow way to reach the same answer.
+    if (poolTaskId || assignment || !mine.hasNextPage || mine.isFetchingNextPage) return;
     void mine.fetchNextPage();
-  }, [assignment, mine]);
+  }, [assignment, poolTaskId, mine]);
+
+  /** The same walk for the pool, which is paginated too. */
+  useEffect(() => {
+    if (!poolTaskId || poolTask || !pool.hasNextPage || pool.isFetchingNextPage) return;
+    void pool.fetchNextPage();
+  }, [poolTaskId, poolTask, pool]);
 
   const [note, setNote] = useState('');
   const [photo, setPhoto] = useState<PickedImage | null>(null);
@@ -155,6 +185,113 @@ export default function ChildTaskDetail() {
       setCelebrating({ message: 'Nice work!', detail: `${points} points once it's approved` });
     }
   }
+
+  // ── A pool task nobody has claimed ─────────────────────────────────────────
+
+  if (poolTaskId) {
+    if (pool.isPending || (!poolTask && pool.hasNextPage)) {
+      return (
+        <Screen>
+          <Card>
+            <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Loading…</AppText>
+          </Card>
+        </Screen>
+      );
+    }
+
+    if (!poolTask) {
+      return (
+        <Screen scroll>
+          <Card>
+            <AppText style={[styles.statusLine, { color: theme.cardForeground }]}>
+              That task is not up for grabs any more. Someone may have taken it.
+            </AppText>
+          </Card>
+          <View style={styles.actions}>
+            <Button label="Back to tasks" onPress={() => router.replace('/(child)/tasks')} />
+          </View>
+        </Screen>
+      );
+    }
+
+    // The same reasons the list gives, so opening a blocked task does not lose the explanation.
+    const blockedReason = poolTask.canSelfAssign
+      ? null
+      : poolTask.claimsRemaining === 0
+        ? 'Someone else already took this one.'
+        : 'You can’t pick this one up right now. Finish your current task first.';
+
+    return (
+      <Screen scroll>
+        <Card status="pending">
+          <AppText style={[styles.title, { color: theme.cardForeground }]}>{poolTask.title}</AppText>
+          <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>
+            Nobody has taken this one yet.
+          </AppText>
+
+          {poolTask.description ? (
+            <AppText style={[styles.body, { color: theme.cardForeground }]}>
+              {poolTask.description}
+            </AppText>
+          ) : null}
+
+          <Row label="Worth" value={`${poolTask.pointsValue} points`} />
+          {dueLabel(poolTask.dueDate) ? (
+            <Row label="Due" value={dueLabel(poolTask.dueDate) as string} />
+          ) : null}
+          {poolTask.estimatedMinutes != null ? (
+            <Row label="Should take" value={`${poolTask.estimatedMinutes} min`} />
+          ) : null}
+          {poolTask.claimsRemaining != null ? (
+            <Row
+              label="Spots left"
+              value={`${poolTask.claimsRemaining}`}
+            />
+          ) : null}
+          {poolTask.requiresPhotoEvidence ? (
+            <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>
+              This one asks for a photo when you finish.
+            </AppText>
+          ) : null}
+        </Card>
+
+        {actionError !== null && (
+          <Card status="late">
+            <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
+              {actionError}
+            </AppText>
+          </Card>
+        )}
+
+        <View style={styles.actions}>
+          {blockedReason ? (
+            <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>
+              {blockedReason}
+            </AppText>
+          ) : (
+            <Button
+              label="Pick this up"
+              busy={busy}
+              onPress={() => {
+                void run(() => selfAssign(poolTask.id)).then((ok) => {
+                  // Once claimed it is an assignment, and the id in the params is the task's. Going
+                  // back to the list is more honest than leaving the child on a screen that no
+                  // longer describes what they are looking at.
+                  if (ok) router.replace('/(child)/tasks');
+                });
+              }}
+            />
+          )}
+        </View>
+
+        <View style={styles.actions}>
+          <Button label="Back to tasks" variant="secondary" onPress={() => router.back()} />
+        </View>
+      </Screen>
+    );
+  }
+
+  // ── One of the child's own tasks ───────────────────────────────────────────
 
   if (mine.isPending || (!assignment && mine.hasNextPage)) {
     return (

@@ -42,6 +42,15 @@ export default function ChildLayout() {
 
   return (
     <Tabs
+      /**
+       * See the long note in `(parent)/_layout.tsx`. Short version: `task-detail` below is reached
+       * with `router.push`, but a Tabs navigator has no stack to pop, and the TabRouter's default
+       * `backBehavior` of `firstRoute` sends every "back" to the first tab, which is Home.
+       *
+       * Note this does NOT conflict with the Me tab's `tabPress` listener further down: that one
+       * intercepts a press on the tab itself, while this decides where going back goes.
+       */
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
