@@ -1,9 +1,11 @@
 /**
  * Child task list — the screen where the app's core loop actually happens.
  *
- * Four segments in one screen: **To do**, **Done**, **Returned** and **Available** (the claimable
- * pool). The first three mirror the web's tabs exactly — see the note on `Segment` for why that parity
- * is a correctness matter, not a styling one.
+ * Three segments in one screen: **Active**, **Completed** and **Returned**, mirroring the web's tabs
+ * exactly, with the claimable pool as an "Available tasks" section inside Active rather than a fourth
+ * segment. See the note on `Segment` for why that parity is a correctness matter, not a styling one.
+ * (This comment claimed four segments for a while after the pool moved inside Active. It has three.
+ * Write PR numbers here without a leading hash: the hex-colour guard reads one as a 3-digit colour.)
  *
  * **Deliberate: no optimistic updates.** Completing a task mints points, advances a streak, and can
  * trip a daily cap or a 409 from a concurrent claim — the server is the only thing that knows the
@@ -245,21 +247,35 @@ function AvailableRow(
         : 'You can’t pick this one up right now.';
 
   return (
-    <Card>
-      <AppText style={[styles.taskName, { color: theme.cardForeground }]}>{task.title}</AppText>
-      <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-        {[due, `${task.pointsValue} pts`].filter(Boolean).join(' · ')}
-        {task.claimsRemaining !== null ? ` · ${task.claimsRemaining} left` : ''}
-      </AppText>
+    /*
+      The whole row opens the task, exactly as an assignment row does. This was the one place in the
+      app where a child could see a task and not open it, reported about a bonus task: "I can see it
+      in child as available but cannot open to see detail."
 
-      {blockedReason ? (
-        <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>{blockedReason}</AppText>
-      ) : (
-        <View style={styles.rowActions}>
-          <Button label="Pick this up" onPress={onClaim} disabled={busy} />
-        </View>
-      )}
-    </Card>
+      It carries `task`, not `assignment`: nobody has claimed this one, so there is no assignment to
+      point at yet. The detail screen resolves the two separately.
+    */
+    <Pressable
+      onPress={() => router.push({ pathname: '/(child)/task-detail', params: { task: task.id } })}
+      accessibilityRole="button"
+      accessibilityLabel={`Open "${task.title}"`}
+    >
+      <Card>
+        <AppText style={[styles.taskName, { color: theme.cardForeground }]}>{task.title}</AppText>
+        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
+          {[due, `${task.pointsValue} pts`].filter(Boolean).join(' · ')}
+          {task.claimsRemaining !== null ? ` · ${task.claimsRemaining} left` : ''}
+        </AppText>
+
+        {blockedReason ? (
+          <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>{blockedReason}</AppText>
+        ) : (
+          <View style={styles.rowActions}>
+            <Button label="Pick this up" onPress={onClaim} disabled={busy} />
+          </View>
+        )}
+      </Card>
+    </Pressable>
   );
 }
 

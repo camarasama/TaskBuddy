@@ -39,6 +39,7 @@ import { Field } from '@/components/Field';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { describeError } from '@/lib/errors';
+import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import {
   createReward,
   deleteReward,
@@ -58,7 +59,19 @@ function optionalCount(raw: string): number | undefined {
   return Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
+/**
+ * Remounted on every focus, so opening the reward form always gives a clean one.
+ *
+ * This screen is a `Tabs.Screen` with `href: null`, which means it is mounted once and kept forever.
+ * Without the changing key it came back holding whatever the last visit left behind: the previously
+ * typed values, and a `busy` that was never cleared, which is how "the button is greyed out with the
+ * loading animation" survived a save and a trip to another tab. See `useFreshOnFocus`.
+ */
 export default function RewardForm() {
+  return <RewardFormScreen key={useFreshOnFocus()} />;
+}
+
+function RewardFormScreen() {
   const theme = useTheme();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -162,6 +175,11 @@ export default function RewardForm() {
       router.back();
     } catch (caught) {
       setError(describeError(caught));
+    } finally {
+      // `finally`, not just the catch. On success this screen navigates away, but it is a tab screen
+      // and does not unmount, so leaving `busy` true on the happy path left the button greyed out
+      // with its spinner the next time the form was opened. The remount in the default export is the
+      // primary fix; this makes the state honest on its own terms too.
       setBusy(false);
     }
   }
@@ -177,6 +195,11 @@ export default function RewardForm() {
       router.back();
     } catch (caught) {
       setError(describeError(caught));
+    } finally {
+      // `finally`, not just the catch. On success this screen navigates away, but it is a tab screen
+      // and does not unmount, so leaving `busy` true on the happy path left the button greyed out
+      // with its spinner the next time the form was opened. The remount in the default export is the
+      // primary fix; this makes the state honest on its own terms too.
       setBusy(false);
     }
   }
