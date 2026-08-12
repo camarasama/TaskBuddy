@@ -41,6 +41,15 @@ export interface ParentTasksResponse {
 export interface TaskFilters {
   /** Backend accepts only these three; anything else is rejected by its query schema. */
   status?: 'active' | 'paused' | 'archived';
+  /**
+   * Filters on what the task's ASSIGNMENTS are doing, which `status` cannot express: the status enum
+   * is active/paused/archived and says nothing about whether anyone has finished the work.
+   *
+   * Server side (`VIEW_WHERE` in backend/src/routes/tasks.ts) so that paging and `total` stay
+   * correct. Deriving it here from a loaded page would drop rows and report a count for a filter the
+   * server never applied.
+   */
+  view?: 'open' | 'done';
   childId?: string;
   difficulty?: 'easy' | 'medium' | 'hard';
   category?: string;
@@ -51,6 +60,7 @@ function toQuery(filters: TaskFilters, page: number, limit: number): string {
   // Only set keys that have values — the backend's schema rejects an empty string for the enums
   // rather than treating it as "no filter".
   if (filters.status) params.set('status', filters.status);
+  if (filters.view) params.set('view', filters.view);
   if (filters.childId) params.set('childId', filters.childId);
   if (filters.difficulty) params.set('difficulty', filters.difficulty);
   if (filters.category) params.set('category', filters.category);

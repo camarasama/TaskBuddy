@@ -124,7 +124,44 @@ const taskFiltersSchema = z.object({
   category: z.string().optional(),
   childId: z.string().uuid().optional(),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  view: z.enum(['open', 'done']).optional(),
 });
+
+/**
+ * `view`: filter tasks by what their ASSIGNMENTS are doing, which `status` cannot express.
+ *
+ * `TaskStatus` is only active/paused/archived. "Has anyone finished this?" lives one table down, on
+ * TaskAssignment, so a client wanting an Active/Completed split had two bad options: derive it from
+ * the returned page (wrong the moment a family has more than one page, and it makes `total` a lie)
+ * or ask for everything. This does it in the query, so paging and the count stay honest.
+ *
+ * A task can legitimately match BOTH, and that is the point. A daily recurring task whose instance
+ * for today has been approved while tomorrow's is already pending is genuinely both finished and
+ * outstanding, and the parent app shows it on both tabs rather than picking one and being wrong for
+ * half the day.
+ *
+ * Two judgements are baked in here:
+ *
+ *  - **`rejected` is open, not done.** A returned task is back in the child's court, which is the
+ *    same rule `mobile/src/lib/taskStatus.ts` applies on the child side. The two must agree or the
+ *    apps contradict each other about the same row.
+ *  - **All-expired counts as unassigned.** An expired assignment means the child missed it; the task
+ *    itself is still claimable, and `GET /tasks` already treats expired as not-assigned when it
+ *    computes `canSelfAssign` for a child. Filing it under "done" would hide a task nobody did.
+ */
+const OPEN_ASSIGNMENT_STATUSES = ['pending', 'in_progress', 'rejected'];
+const DONE_ASSIGNMENT_STATUSES = ['completed', 'approved'];
+
+const VIEW_WHERE: Record<'open' | 'done', Record<string, unknown>> = {
+  open: {
+    OR: [
+      // Never assigned, or every assignment expired. Both mean nobody currently owes this task.
+      { assignments: { none: { status: { not: 'expired' } } } },
+      { assignments: { some: { status: { in: OPEN_ASSIGNMENT_STATUSES } } } },
+    ],
+  },
+  done: { assignments: { some: { status: { in: DONE_ASSIGNMENT_STATUSES } } } },
+};
 
 // FR-13 (offline queue): both timestamps are OPTIONAL. A client that sends nothing — every client
 // before this change — gets the server clock, exactly as before. Offset-bearing ISO strings are
@@ -146,7 +183,7 @@ const approveTaskSchema = z.object({
 // GET /tasks - List tasks
 taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => {
   try {
-    const { status, category, childId, difficulty } = req.query as z.infer<typeof taskFiltersSchema>;
+    const { status, category, childId, difficulty, view } = req.query as z.infer<typeof taskFiltersSchema>;
 
     const where: any = {
       familyId: req.familyId,
@@ -156,6 +193,10 @@ taskRouter.get('/', validateQuery(taskFiltersSchema), async (req, res, next) => 
     if (status) where.status = status;
     if (category) where.category = category;
     if (difficulty) where.difficulty = difficulty;
+
+    // Pushed onto AND rather than assigned to `where.OR`, because the child branch below owns OR and
+    // would silently overwrite this one. AND composes with it instead.
+    if (view) where.AND = [...(where.AND ?? []), VIEW_WHERE[view]];
 
     // Children need to see:
     // 1. Their own assignments (active tasks only - not archived)

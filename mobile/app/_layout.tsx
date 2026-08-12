@@ -17,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { subscribeAppFocus } from '@/lib/appFocus';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorScreen } from '@/components/ErrorScreen';
@@ -134,6 +135,16 @@ export default function RootLayout() {
   useEffect(() => subscribeToNotificationTaps((url) => router.push(url as never)), []);
 
   return (
+    /*
+      Outermost, and required rather than decorative: on Android, react-native-gesture-handler's
+      gestures do not fire at all unless a GestureHandlerRootView is above them in the tree, and the
+      failure is silent (the swipe simply does nothing). Nothing in the app used a gesture until the
+      parent task list gained swipe-to-archive, which is why this was not here before.
+
+      `flex: 1` is load bearing too: without it the view collapses to zero height and the whole app
+      renders blank.
+    */
+    <GestureHandlerRootView style={styles.root}>
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         {/* Outside <Routes> so the faces start loading during session bootstrap rather than after it. */}
@@ -150,9 +161,11 @@ export default function RootLayout() {
         </FontProvider>
       </SafeAreaProvider>
     </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   splash: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

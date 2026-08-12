@@ -10,42 +10,64 @@
  */
 import { useCallback, useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { AppText } from '@/components/AppText';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
 import { Card, type CardStatus } from '@/components/Card';
 import { Chip } from '@/components/Chip';
 import { Screen } from '@/components/Screen';
+import { useToast } from '@/components/Toast';
 import { NetworkError } from '@/lib/api';
 import { dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
+import { archiveTask, INVALIDATED_BY_PARENT_WRITE, restoreTask } from '@/lib/parentWriteApi';
 import { parentTasksQuery, type ParentTask, type TaskFilters } from '@/lib/tasksApi';
-import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
 
 /**
- * `'all'` or a status. `TaskFilters` also has a `childId` param the backend already accepts, so
- * per-child filtering is possible without any backend change, it is just not wired into this chip row.
- * An earlier pass replaced the status chips with per-child ones, which turned out to be a real
- * capability loss (a parent could no longer reach a paused or archived task from here at all), so
- * that stays reverted until per-child filtering can be added alongside status rather than instead of it.
+ * The four tabs, and what each one actually asks the server for.
+ *
+ * "Paused" used to be one of these. It is gone from this app: `paused` is a real `TaskStatus` in the
+ * database, but the only thing that can set it is a dropdown on the web edit page, and the owner's
+ * position is that pausing a task is not a concept this product has. Completed took its place, which
+ * is the state a parent actually looks for.
+ *
+ * Completed cannot be a `status` value, because completion lives on the ASSIGNMENTS, not the task.
+ * `view` is the server-side filter for that (see `VIEW_WHERE` in backend/src/routes/tasks.ts), so
+ * paging and the count stay correct. Deriving it here would filter a page after the server had
+ * already chosen it, dropping rows and reporting a total for a filter nobody applied.
+ *
+ * ⚠️ Active and Completed both pin `status: 'active'`, so a task somebody paused on the web appears
+ * under All and nowhere else. That is deliberate: the alternative is a "not archived" filter the API
+ * does not have, and All is the escape hatch.
+ *
+ * A task can appear on BOTH Active and Completed at once, and that is correct rather than a
+ * duplicate: a daily recurring task whose instance for today has been approved while tomorrow's is
+ * already pending is genuinely both. Picking one tab would be wrong for half of every day.
+ *
+ * `TaskFilters` also carries `childId`, which the backend already accepts, so per-child filtering
+ * needs no backend change. An earlier pass replaced the status chips with per-child ones, which lost
+ * a real capability (a parent could no longer reach an archived task at all), so that stays reverted
+ * until per-child can be added alongside these rather than instead of them.
  */
-type StatusFilter = TaskFilters['status'] | 'all';
+type TabKey = 'all' | 'active' | 'completed' | 'archived';
 
-const FILTERS: { key: StatusFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active' },
-  { key: 'paused', label: 'Paused' },
-  { key: 'archived', label: 'Archived' },
+const FILTERS: { key: TabKey; label: string; filters: TaskFilters }[] = [
+  { key: 'all', label: 'All', filters: {} },
+  { key: 'active', label: 'Active', filters: { status: 'active', view: 'open' } },
+  { key: 'completed', label: 'Completed', filters: { status: 'active', view: 'done' } },
+  { key: 'archived', label: 'Archived', filters: { status: 'archived' } },
 ];
 
 function FilterChips({
   value,
   onChange,
 }: {
-  value: StatusFilter;
-  onChange: (next: StatusFilter) => void;
+  value: TabKey;
+  onChange: (next: TabKey) => void;
 }) {
   return (
     <View style={styles.chipRow}>
@@ -105,6 +127,52 @@ function assignmentSummary(task: ParentTask): string {
   return parts.join(' · ');
 }
 
+/**
+ * The action revealed by swiping a row left.
+ *
+ * Archive for a live task, Restore for an archived one, and never Delete: the row used to have no
+ * withdraw action at all here, and the only one mobile offered was a "Delete task" button inside the
+ * edit form that called `DELETE /tasks/:id`. That is a soft delete, and every list filters on
+ * `deletedAt: null`, so it removed the task from both apps with no route back. The web has only ever
+ * offered archive.
+ *
+ * Rendered at the row's full height so the target is never a sliver, and labelled in words rather
+ * than by an icon alone.
+ */
+function SwipeAction({
+  label,
+  destructive,
+  onPress,
+}: {
+  label: string;
+  destructive: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[
+        styles.swipeAction,
+        { backgroundColor: destructive ? theme.destructive : theme.primary },
+      ]}
+    >
+      <AppText
+        style={[
+          styles.swipeActionLabel,
+          // Paired with its own background rather than hardcoded white: `primaryForeground` flips
+          // in dark mode, so a literal would fail contrast on one of the two themes.
+          { color: destructive ? theme.destructiveForeground : theme.primaryForeground },
+        ]}
+      >
+        {label}
+      </AppText>
+    </Pressable>
+  );
+}
+
 function TaskRow({ task }: { task: ParentTask }) {
   const theme = useTheme();
   const due = dueLabel(task.dueDate);
@@ -149,10 +217,73 @@ function TaskRow({ task }: { task: ParentTask }) {
 
 export default function ParentTasks() {
   const theme = useTheme();
-  const [status, setStatus] = useState<StatusFilter>('all');
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState<TabKey>('all');
 
-  // `all` means "send no status param": the backend has no 'all' value and rejects one.
-  const filters = useMemo<TaskFilters>(() => (status === 'all' ? {} : { status }), [status]);
+  /** `all` sends no filter at all: the backend has no 'all' value and rejects one. */
+  const filters = useMemo<TaskFilters>(
+    () => FILTERS.find((f) => f.key === tab)?.filters ?? {},
+    [tab]
+  );
+
+  /** The task awaiting an archive confirmation, or null. */
+  const [confirming, setConfirming] = useState<ParentTask | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  const invalidate = useCallback(
+    () =>
+      Promise.all(
+        INVALIDATED_BY_PARENT_WRITE.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key as readonly unknown[] })
+        )
+      ),
+    [queryClient]
+  );
+
+  const archive = useMutation({
+    mutationFn: archiveTask,
+    onSuccess: async () => {
+      await invalidate();
+      toast.show('Task archived', 'success');
+    },
+    onError: (caught) => toast.show(describeError(caught), 'error'),
+    onSettled: () => setPendingId(null),
+  });
+
+  const restore = useMutation({
+    mutationFn: restoreTask,
+    onSuccess: async () => {
+      await invalidate();
+      toast.show('Task restored', 'success');
+    },
+    onError: (caught) => toast.show(describeError(caught), 'error'),
+    onSettled: () => setPendingId(null),
+  });
+
+  /**
+   * Archive asks first, restore does not.
+   *
+   * Archiving takes a task away from a child mid-week, and a swipe is easy to start by accident
+   * while scrolling. Restoring only ever puts something back, so a confirmation there would be
+   * friction with nothing behind it.
+   */
+  const onArchive = useCallback((task: ParentTask) => setConfirming(task), []);
+
+  const onRestore = useCallback(
+    (task: ParentTask) => {
+      setPendingId(task.id);
+      restore.mutate(task.id);
+    },
+    [restore]
+  );
+
+  const confirmArchive = useCallback(() => {
+    if (!confirming) return;
+    setPendingId(confirming.id);
+    archive.mutate(confirming.id);
+    setConfirming(null);
+  }, [archive, confirming]);
 
   const {
     data,
@@ -189,7 +320,7 @@ export default function ParentTasks() {
       <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
         {isPending ? 'Loading…' : `${total} ${total === 1 ? 'task' : 'tasks'}`}
       </AppText>
-      <FilterChips value={status} onChange={setStatus} />
+      <FilterChips value={tab} onChange={setTab} />
       <View style={styles.headerAction}>
         <Button label="New task" onPress={() => router.push('/(parent)/task-form')} />
       </View>
@@ -217,16 +348,42 @@ export default function ParentTasks() {
         data={tasks}
         keyExtractor={(task) => task.id}
         renderItem={({ item }) => (
-          // Tapping a row opens the read-first detail screen (state, evidence, comments), not the
-          // edit form directly — a parent checking who has a task should not land in an editable form
-          // by accident. The detail screen's own "Edit" button is the route into task-form.
-          <Pressable
-            onPress={() => router.push({ pathname: '/(parent)/task-detail', params: { id: item.id } })}
-            accessibilityRole="button"
-            accessibilityLabel={`View ${item.title}`}
+          <ReanimatedSwipeable
+            // Right side only: a left-swipe reveals it, matching the Android convention, and there
+            // is nothing sensible to put on the other edge.
+            renderRightActions={() =>
+              item.status === 'archived' ? (
+                <SwipeAction label="Restore" destructive={false} onPress={() => onRestore(item)} />
+              ) : (
+                <SwipeAction label="Archive" destructive onPress={() => onArchive(item)} />
+              )
+            }
+            // Wide enough that a partial swipe does not fire, and the row springs back if released.
+            rightThreshold={40}
+            overshootRight={false}
+            enabled={pendingId !== item.id}
           >
-            <TaskRow task={item} />
-          </Pressable>
+            {/*
+              Tapping a row opens the read-first detail screen (state, evidence, comments), not the
+              edit form directly: a parent checking who has a task should not land in an editable
+              form by accident. The detail screen's own "Edit" button is the route into task-form,
+              and it carries the same Archive action for anyone who never finds the swipe.
+            */}
+            <Pressable
+              onPress={() => router.push({ pathname: '/(parent)/task-detail', params: { id: item.id } })}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${item.title}`}
+              // Announced because the gesture is otherwise invisible to a screen reader, which is
+              // the whole reason the same action also exists as a button on the detail screen.
+              accessibilityHint={
+                item.status === 'archived'
+                  ? 'Swipe left on this task to restore it'
+                  : 'Swipe left on this task to archive it'
+              }
+            >
+              <TaskRow task={item} />
+            </Pressable>
+          </ReanimatedSwipeable>
         )}
         ListHeaderComponent={header}
         onEndReached={onEndReached}
@@ -242,9 +399,7 @@ export default function ParentTasks() {
           ) : (
             <Card>
               <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                {status === 'all'
-                  ? 'No tasks yet. You can create them on the web for now.'
-                  : `No ${status} tasks.`}
+                {tab === 'all' ? 'No tasks yet. Tap New task to make one.' : `No ${tab} tasks.`}
               </AppText>
             </Card>
           )
@@ -257,6 +412,39 @@ export default function ParentTasks() {
           ) : null
         }
       />
+
+      {/*
+        Archive asks first. It is reversible (the Archived tab restores it), but a child loses the
+        task from their list the moment it lands, and a swipe is easy to start by accident while
+        scrolling. Android back and a backdrop tap both dismiss it: a sheet that closes only via its
+        own button reads as a frozen app.
+      */}
+      <Modal
+        visible={confirming !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setConfirming(null)}
+      >
+        <Pressable
+          style={styles.backdrop}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+          onPress={() => setConfirming(null)}
+        />
+        <View style={[styles.sheet, { backgroundColor: theme.card }]}>
+          <AppText style={[styles.sheetTitle, { color: theme.cardForeground }]}>
+            Archive {confirming?.title}?
+          </AppText>
+          <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
+            It disappears from your children&apos;s lists straight away. Nothing already earned is
+            taken back, and you can restore it from the Archived tab.
+          </AppText>
+          <View style={styles.sheetActions}>
+            <Button label="Archive" onPress={confirmArchive} />
+            <Button label="Keep it" variant="secondary" onPress={() => setConfirming(null)} />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -305,4 +493,29 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3], marginTop: spacing[2] },
   badge: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight },
   centred: { paddingVertical: spacing[6], alignItems: 'center' },
+  // Full height of whatever row it sits behind, so the target is never a sliver at the top.
+  swipeAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing[5],
+    minWidth: minTouchTarget * 2,
+    // Matches `Card`'s own marginBottom (spacing[4]) so the action ends level with the card it sits
+    // behind rather than overhanging into the gap before the next row.
+    marginBottom: spacing[4],
+    borderRadius: radius.md,
+  },
+  swipeActionLabel: {
+    fontSize: fontSize.sm.fontSize,
+    lineHeight: fontSize.sm.lineHeight,
+    fontWeight: fontWeight.bold,
+  },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: { padding: spacing[5], borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
+  sheetTitle: {
+    fontSize: fontSize.base.fontSize,
+    lineHeight: fontSize.base.lineHeight,
+    fontWeight: fontWeight.semibold,
+    marginBottom: spacing[2],
+  },
+  sheetActions: { marginTop: spacing[4], gap: spacing[2] },
 });
