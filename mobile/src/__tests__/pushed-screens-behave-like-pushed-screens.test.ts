@@ -62,3 +62,37 @@ describe('a form opened twice is a fresh form', () => {
     expect(HOOK).toMatch(/useCallback\(\(\) => \{\s*setOpenedCount\(\(n\) => n \+ 1\);\s*\}, \[\]\)/);
   });
 });
+
+/**
+ * Reported after the first fix landed: "in child mobile app, when clicking on a notification item, it
+ * sends me to the return tab in tasks tab instead of the right item I clicked on."
+ *
+ * The deep-link handler was guarded by a one-shot boolean. This screen is a tab and is never
+ * unmounted, so once it went true every notification after the first was ignored and the child was
+ * left on whichever segment the FIRST link had chosen. Same family as the web's PR 182.
+ */
+describe('the child task list follows every notification, not just the first', () => {
+  const TASKS = read(APP, '(child)', 'tasks.tsx');
+
+  it('does not gate the deep link behind a one-shot boolean', () => {
+    // The state declaration, not the word: the comment above the effect explains this history on
+    // purpose and must stay readable.
+    expect(TASKS).not.toMatch(/const \[consumedLink/);
+    expect(TASKS).not.toMatch(/setConsumedLink/);
+  });
+
+  it('clears the param once used, so the same notification can be tapped twice', () => {
+    // An identical param is not a change, so without clearing there is nothing for the effect to see.
+    expect(TASKS).toMatch(/router\.setParams\(\{ assignment: undefined \}\)/);
+  });
+
+  it('pages forward when the linked assignment is not loaded yet', () => {
+    // Otherwise a notification about anything past page one silently does nothing.
+    expect(TASKS).toMatch(/if \(!linkedIdParam \|\| linkedId === linkedIdParam\) return;/);
+    expect(TASKS).toMatch(/void mine\.fetchNextPage\(\);/);
+  });
+
+  it('still picks the segment from the assignment status', () => {
+    expect(TASKS).toMatch(/found\.status === 'rejected'\s*\?\s*'returned'/);
+  });
+});

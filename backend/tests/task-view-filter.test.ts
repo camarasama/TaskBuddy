@@ -83,7 +83,7 @@ beforeEach(() => {
 });
 
 describe('GET /tasks?view=open', () => {
-  it('matches a task nobody currently owes, or one with outstanding work', async () => {
+  it('matches a task nobody currently owes, one with outstanding work, or any live recurring one', async () => {
     const { error } = await listTasks({ view: 'open' });
     expect(error).toBeUndefined();
 
@@ -92,9 +92,28 @@ describe('GET /tasks?view=open', () => {
         OR: [
           { assignments: { none: { status: { not: 'expired' } } } },
           { assignments: { some: { status: { in: ['pending', 'in_progress', 'rejected'] } } } },
+          { isRecurring: true },
         ],
       },
     ]);
+  });
+
+  it('keeps a recurring task in Active even when it owes nothing right now', async () => {
+    /**
+     * Reported: "repeated tasks are not showing under active only under completed."
+     *
+     * `RecurringScheduler` runs at 00:05 and creates the instance for TOMORROW, so a recurring task
+     * created today has exactly one instance until the next run. Approve it and the task has no
+     * outstanding assignment at all, which dropped it out of Active until midnight. A parent reading
+     * Active as "what is live in my household" is right, so a live recurring task qualifies on its
+     * own regardless of what its instances are doing.
+     */
+    await listTasks({ status: 'active', view: 'open' });
+    const clauses = whereFromFindMany().AND[0].OR;
+
+    expect(clauses).toContainEqual({ isRecurring: true });
+    // Not gated on the assignments, or it would go straight back to depending on the cron's timing.
+    expect(JSON.stringify({ isRecurring: true })).not.toContain('assignments');
   });
 
   it('counts a REJECTED task as open, because it is back in the child\'s court', async () => {
