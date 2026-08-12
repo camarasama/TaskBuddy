@@ -86,6 +86,14 @@ export default function ChildLayout() {
           ),
         }}
       />
+      {/*
+        Reachable, but not a tab. A child opens a task from a row on Home or Tasks, never from the
+        tab bar — and without this expo-router gives every route in the group a default tab, which
+        shipped once as a stray "task-detail" tab sitting next to Home. `href: null` is how a route
+        stays in the group without one; omitting the <Tabs.Screen> entirely does NOT.
+      */}
+      <Tabs.Screen name="task-detail" options={{ href: null }} />
+
       <Tabs.Screen
         name="me"
         /**

@@ -50,13 +50,20 @@ import { fontSize, fontWeight, minTouchTarget, onGradient, palette, radius, spac
  * `status: 'asc'` ordering and off the first page — the one status that most needs to stay visible,
  * because it asks the child to act again. Splitting by status, with a dedicated Returned tab, fixed both.
  */
-type Segment = 'active' | 'completed' | 'returned' | 'available';
+type Segment = 'active' | 'completed' | 'returned';
 
+/**
+ * The same three words the web uses, in the same order.
+ *
+ * ⚠️ Parity here is a correctness matter, not styling. A child moves between the phone and the
+ * browser and has to recognise the same list in both; "To do"/"Done" against "Active"/"Completed"
+ * reads as two different apps. Claimable tasks are NOT a fourth segment for the same reason — on the
+ * web they are a section inside Active, so that is where they live here too.
+ */
 const SEGMENTS: { key: Segment; label: string }[] = [
-  { key: 'active', label: 'To do' },
-  { key: 'completed', label: 'Done' },
+  { key: 'active', label: 'Active' },
+  { key: 'completed', label: 'Completed' },
   { key: 'returned', label: 'Returned' },
-  { key: 'available', label: 'Available' },
 ];
 
 function SegmentChips({
@@ -342,11 +349,11 @@ export default function ChildTasks() {
     active: byStatus.active.length,
     completed: byStatus.completed.length,
     returned: byStatus.returned.length,
-    available: pool.length,
   };
 
-  const shownAssignments = segment === 'available' ? [] : byStatus[segment];
-  const active = segment === 'available' ? available : mine;
+  const shownAssignments = byStatus[segment];
+  // Claimable tasks are shown under Active, so that segment is the only one that waits on the pool.
+  const showPool = segment === 'active' && pool.length > 0;
 
   /**
    * Deep link from a tapped notification: `/(child)/tasks?assignment=<id>`.
@@ -434,7 +441,7 @@ export default function ChildTasks() {
     }
   }
 
-  if (active.isPending) {
+  if (mine.isPending) {
     return (
       <Screen>
         <SegmentChips value={segment} counts={counts} onChange={setSegment} />
@@ -445,8 +452,8 @@ export default function ChildTasks() {
     );
   }
 
-  if (active.isError) {
-    const offline = active.error instanceof NetworkError;
+  if (mine.isError) {
+    const offline = mine.error instanceof NetworkError;
     return (
       <Screen scroll>
         <SegmentChips value={segment} counts={counts} onChange={setSegment} />
@@ -454,10 +461,10 @@ export default function ChildTasks() {
           <AppText style={[styles.statusLine, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your tasks'}
           </AppText>
-          <AppText style={[styles.meta, { color: theme.cardForeground }]}>{describeError(active.error)}</AppText>
+          <AppText style={[styles.meta, { color: theme.cardForeground }]}>{describeError(mine.error)}</AppText>
         </Card>
         <View style={styles.actions}>
-          <Button label="Try again" onPress={() => void active.refetch()} />
+          <Button label="Try again" onPress={() => void mine.refetch()} />
         </View>
       </Screen>
     );
@@ -475,62 +482,71 @@ export default function ChildTasks() {
         </Card>
       )}
 
-      {segment !== 'available' ? (
-        <FlatList
-          data={shownAssignments}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <AssignmentRow
-              item={item}
-              busy={actingId === item.id}
-              linked={linkedId === item.id}
-              onStart={() => void runAction(item.id, () => doStart(item.id))}
-              onComplete={() => { openSheet(item); }}
-            />
-          )}
-          onEndReached={() => {
-            if (mine.hasNextPage && !mine.isFetchingNextPage) void mine.fetchNextPage();
-          }}
-          onEndReachedThreshold={0.4}
-          ListEmptyComponent={
+      <FlatList
+        data={shownAssignments}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <AssignmentRow
+            item={item}
+            busy={actingId === item.id}
+            linked={linkedId === item.id}
+            onStart={() => void runAction(item.id, () => doStart(item.id))}
+            onComplete={() => { openSheet(item); }}
+          />
+        )}
+        onEndReached={() => {
+          if (mine.hasNextPage && !mine.isFetchingNextPage) void mine.fetchNextPage();
+        }}
+        onEndReachedThreshold={0.4}
+        ListEmptyComponent={
+          // Not rendered as "nothing here" when there are tasks to pick up below — an empty message
+          // sitting above a list of claimable tasks contradicts itself.
+          segment === 'active' && showPool ? null : (
             <Card>
               <AppText style={[styles.meta, { color: theme.cardForeground }]}>
                 {segment === 'active'
-                  ? 'Nothing to do right now. Check Available for something to pick up.'
+                  ? 'Nothing to do right now.'
                   : segment === 'completed'
                     ? 'Nothing finished yet.'
                     : 'Nothing has been sent back. Good going.'}
               </AppText>
             </Card>
-          }
-          ListFooterComponent={mine.isFetchingNextPage ? <ActivityIndicator color={theme.primary} /> : null}
-        />
-      ) : (
-        <FlatList
-          data={pool}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <AvailableRow
-              task={item}
-              hasPendingPrimaries={hasPendingPrimaries}
-              busy={actingId === item.id}
-              onClaim={() => void runAction(item.id, () => doClaim(item.id))}
-            />
-          )}
-          onEndReached={() => {
-            if (available.hasNextPage && !available.isFetchingNextPage) void available.fetchNextPage();
-          }}
-          onEndReachedThreshold={0.4}
-          ListEmptyComponent={
-            <Card>
-              <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                Nothing to pick up right now.
-              </AppText>
-            </Card>
-          }
-          ListFooterComponent={available.isFetchingNextPage ? <ActivityIndicator color={theme.primary} /> : null}
-        />
-      )}
+          )
+        }
+        ListFooterComponent={
+          <>
+            {/*
+              Claimable tasks live under Active, exactly as they do on the web — a task a child can
+              pick up is a task they can do now, and putting them behind a fourth tab hid the one
+              thing the pool exists for.
+            */}
+            {showPool && (
+              <View style={styles.poolBlock}>
+                <AppText style={[styles.poolHeading, { color: theme.cardForeground }]}>
+                  Available tasks
+                </AppText>
+                {hasPendingPrimaries && (
+                  <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
+                    Finish your current task first.
+                  </AppText>
+                )}
+                {pool.map((task) => (
+                  <AvailableRow
+                    key={task.id}
+                    task={task}
+                    hasPendingPrimaries={hasPendingPrimaries}
+                    busy={actingId === task.id}
+                    onClaim={() => void runAction(task.id, () => doClaim(task.id))}
+                  />
+                ))}
+              </View>
+            )}
+            {(mine.isFetchingNextPage || (segment === 'active' && available.isFetching)) && (
+              <ActivityIndicator color={theme.primary} />
+            )}
+          </>
+        }
+      />
 
       {/* Completion asks before it acts: "I'm done" is irreversible from the child's side, and a
           mis-tap in a scrolling list is easy. The note itself is optional. */}
@@ -622,6 +638,8 @@ const styles = StyleSheet.create({
   tick: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   tickDone: { borderWidth: 0 },
   linked: { borderWidth: 2, borderRadius: radius.lg },
+  poolBlock: { marginTop: spacing[5], gap: spacing[2] },
+  poolHeading: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, fontWeight: fontWeight.semibold },
   chipScroller: { flexGrow: 0, marginBottom: spacing[3] },
   chipRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   chip: { paddingHorizontal: spacing[3], minHeight: minTouchTarget, justifyContent: 'center', borderRadius: radius.full, borderWidth: 1 },
