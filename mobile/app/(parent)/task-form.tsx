@@ -44,7 +44,6 @@ import { dashboardQuery } from '@/lib/dashboardApi';
 import { describeError } from '@/lib/errors';
 import {
   createTask,
-  deleteTask,
   INVALIDATED_BY_PARENT_WRITE,
   taskDetailQuery,
   updateTask,
@@ -204,8 +203,6 @@ export default function TaskForm() {
     mutationFn: ({ taskId, input }: { taskId: string; input: Partial<TaskInput> }) =>
       updateTask(taskId, input),
   });
-  const { mutateAsync: doDelete } = useMutation({ mutationFn: deleteTask });
-
   async function submit() {
     if (!canSubmit) return;
     setBusy(true);
@@ -243,21 +240,6 @@ export default function TaskForm() {
       }
       await invalidate();
       toast.show(editing ? 'Task saved' : 'Task created', 'success');
-      router.back();
-    } catch (caught) {
-      setError(describeError(caught));
-      setBusy(false);
-    }
-  }
-
-  async function remove() {
-    if (!id) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await doDelete(id);
-      await invalidate();
-      toast.show('Task deleted', 'success');
       router.back();
     } catch (caught) {
       setError(describeError(caught));
@@ -544,17 +526,13 @@ export default function TaskForm() {
           />
           <View style={styles.gap} />
           <Button label="Cancel" variant="secondary" onPress={() => router.back()} disabled={busy} />
-          {editing && (
-            <>
-              <View style={styles.gap} />
-              <Button
-                label="Delete task"
-                variant="secondary"
-                onPress={() => void remove()}
-                disabled={busy}
-              />
-            </>
-          )}
+          {/*
+            Save and Cancel, and nothing else. This form used to carry a third button, "Delete task",
+            which called `DELETE /tasks/:id`: a soft delete that stamps `deletedAt` and removes the
+            task from every list in both apps with no way back. The web has never offered that, only
+            archive. Withdrawing a task now lives on the list and the detail screen as Archive, which
+            is reversible.
+          */}
         </View>
       </ScrollView>
 

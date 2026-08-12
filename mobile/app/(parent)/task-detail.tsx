@@ -31,11 +31,14 @@ import { Screen } from '@/components/Screen';
 import { asDate, dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import {
+  archiveTask,
   fetchComments,
   fetchTask,
+  INVALIDATED_BY_PARENT_WRITE,
   INVALIDATED_BY_RESET,
   postComment,
   resetAssignment,
+  restoreTask,
   type TaskDetail,
 } from '@/lib/parentWriteApi';
 import { fontSize, fontWeight, minTouchTarget, palette, radius, spacing, type SemanticTheme, useTheme } from '@/theme';
@@ -328,6 +331,32 @@ export default function TaskDetailScreen() {
     [resetMutation]
   );
 
+  /**
+   * Archive and restore, the same pair the list offers by swipe.
+   *
+   * Here as an ordinary button because a swipe is invisible to a screen reader and undiscoverable
+   * without being told, and because this is the screen a parent is on when they decide a task is
+   * finished with. It replaces nothing: the edit form's old "Delete task" button called
+   * `DELETE /tasks/:id`, which is a soft delete with no route back in either app.
+   */
+  const [statusBusy, setStatusBusy] = useState(false);
+
+  const statusMutation = useMutation({
+    mutationFn: ({ taskId, archived }: { taskId: string; archived: boolean }) =>
+      archived ? restoreTask(taskId) : archiveTask(taskId),
+    onSuccess: async () => {
+      setResetError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['tasks', 'detail', id ?? ''] }),
+        ...INVALIDATED_BY_PARENT_WRITE.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key as readonly unknown[] })
+        ),
+      ]);
+    },
+    onError: (err) => setResetError(describeError(err)),
+    onSettled: () => setStatusBusy(false),
+  });
+
   if (id === null) {
     return <ProblemState message="We couldn't tell which task to open. Go back and try again." />;
   }
@@ -385,11 +414,23 @@ export default function TaskDetailScreen() {
             )}
           </View>
 
-          <Button
-            label="Edit"
-            variant="secondary"
-            onPress={() => router.push({ pathname: '/(parent)/task-form', params: { id } })}
-          />
+          <View style={styles.headerActions}>
+            <Button
+              label="Edit"
+              variant="secondary"
+              onPress={() => router.push({ pathname: '/(parent)/task-form', params: { id } })}
+            />
+            <Button
+              label={task.status === 'archived' ? 'Restore' : 'Archive'}
+              variant="secondary"
+              busy={statusBusy}
+              disabled={statusBusy}
+              onPress={() => {
+                setStatusBusy(true);
+                statusMutation.mutate({ taskId: id, archived: task.status === 'archived' });
+              }}
+            />
+          </View>
         </View>
 
         <View style={styles.metaList}>
@@ -489,6 +530,7 @@ const styles = StyleSheet.create({
   backLabel: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
   headerTitleBlock: { flex: 1 },
+  headerActions: { gap: spacing[2] },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3], marginBottom: spacing[1] },
   badge: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight, textTransform: 'capitalize', fontWeight: fontWeight.medium },
   title: { fontSize: fontSize.xl.fontSize, lineHeight: fontSize.xl.lineHeight, fontWeight: fontWeight.bold },

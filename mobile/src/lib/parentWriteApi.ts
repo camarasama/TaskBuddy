@@ -106,9 +106,25 @@ export function updateTask(id: string, input: Partial<TaskInput>): Promise<{ tas
   return api.put<{ task: Task }>(`/tasks/${id}`, input);
 }
 
-/** Soft-delete. Existing assignments survive; the child simply stops seeing it. */
-export function deleteTask(id: string): Promise<unknown> {
-  return api.delete(`/tasks/${id}`);
+/**
+ * Archive and restore, which is what the web has always done and mobile did not.
+ *
+ * ⚠️ `DELETE /tasks/:id` still exists and is deliberately NOT called from anywhere in this app.
+ * It is a soft delete: it stamps `deletedAt`, and every list query filters on `deletedAt: null`, so
+ * the task disappears from both apps with no route back short of a database edit. The web parent
+ * page has only ever offered archive (`status: 'archived'`, restorable from its own list), and a
+ * mobile button labelled "Delete" that quietly did something stronger and irreversible was the whole
+ * defect this replaces.
+ *
+ * Both go through the same `PUT /tasks/:id` the edit form uses, so there is no new endpoint and no
+ * new permission surface.
+ */
+export function archiveTask(id: string): Promise<{ task: Task }> {
+  return api.put<{ task: Task }>(`/tasks/${id}`, { status: 'archived' });
+}
+
+export function restoreTask(id: string): Promise<{ task: Task }> {
+  return api.put<{ task: Task }>(`/tasks/${id}`, { status: 'active' });
 }
 
 /**

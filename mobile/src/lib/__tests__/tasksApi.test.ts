@@ -65,6 +65,7 @@ describe('query string', () => {
     expect(url).not.toContain('status=');
     expect(url).not.toContain('difficulty=');
     expect(url).not.toContain('childId=');
+    expect(url).not.toContain('view=');
     expect(url).toContain('page=1');
     expect(url).toContain(`limit=${tasks.TASKS_PAGE_SIZE}`);
   });
@@ -79,6 +80,17 @@ describe('query string', () => {
     expect(url).toContain('difficulty=hard');
     expect(url).toContain('childId=c1');
     expect(url).toContain('page=2');
+  });
+
+  it('sends `view`, which is what makes the Completed tab paginate correctly', async () => {
+    // Completion lives on the assignments, not on the task, so it cannot be a `status` value.
+    // Filtering for it on the client would apply after the server had already chosen the page.
+    const tasks = setup(page(false));
+
+    await tasks.fetchParentTasks({ status: 'active', view: 'done' }, 1);
+
+    expect(calls[0]).toContain('view=done');
+    expect(calls[0]).toContain('status=active');
   });
 
   it('hits the tasks endpoint on the configured absolute base', async () => {
