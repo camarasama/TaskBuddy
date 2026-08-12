@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { AppText } from '@/components/AppText';
@@ -170,6 +170,13 @@ function AssignmentRow(
     // The ring is how "this is the one your notification meant" is said without a sentence of prose
     // that would then sit on the row forever.
     <View style={linked ? [styles.linked, { borderColor: theme.primary }] : undefined}>
+    {/* The whole row opens the task. The tick and Start stay as they are — a child who wants to say
+        "done" from the list should not have to go through a screen to do it. */}
+    <Pressable
+      onPress={() => router.push({ pathname: '/(child)/task-detail', params: { assignment: item.id } })}
+      accessibilityRole="button"
+      accessibilityLabel={`Open "${task.title}"`}
+    >
     <Card status={cardStatus}>
       <View style={styles.tickRow}>
         <TaskTick done={done} busy={busy} onPress={onComplete} label={`Mark "${task.title}" done`} />
@@ -207,6 +214,7 @@ function AssignmentRow(
         </View>
       </View>
     </Card>
+    </Pressable>
     </View>
   );
 }
