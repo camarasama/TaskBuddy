@@ -82,3 +82,30 @@ describe('the child task detail screen', () => {
     expect(DETAIL).toMatch(/<PhotoViewer uri=\{viewingPhoto\}/);
   });
 });
+
+describe('the child tasks screen mirrors the web', () => {
+  const TASKS = read('(child)', 'tasks.tsx');
+
+  it('uses the web wording, so one child on two devices sees one app', () => {
+    // "To do"/"Done" against the web's "Active"/"Completed" read as two different products.
+    expect(TASKS).toMatch(/\{ key: 'active', label: 'Active' \}/);
+    expect(TASKS).toMatch(/\{ key: 'completed', label: 'Completed' \}/);
+    expect(TASKS).toMatch(/\{ key: 'returned', label: 'Returned' \}/);
+  });
+
+  it('has no Available segment — claimable tasks sit under Active as they do on the web', () => {
+    expect(TASKS).not.toMatch(/label: 'Available'/);
+    expect(TASKS).not.toMatch(/'available'/);
+    expect(TASKS).toMatch(/Available tasks/);
+  });
+});
+
+describe('task-detail is reachable but is not a tab', () => {
+  it('is registered with href: null, or expo-router gives it one', () => {
+    // ⚠️ Shipped once as a stray "task-detail" tab in the child tab bar. Omitting the <Tabs.Screen>
+    // does NOT hide it — expo-router adds a default tab for every route in the group.
+    const layout = read('(child)', '_layout.tsx');
+
+    expect(layout).toMatch(/<Tabs\.Screen name="task-detail" options=\{\{ href: null \}\} \/>/);
+  });
+});
