@@ -15,18 +15,18 @@ import { useDataRefresh } from '@/hooks/useDataRefresh';
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TaskCommentThread } from '@/components/tasks/TaskCommentThread';
+import { PhotoUploadModal } from '@/components/tasks/PhotoUploadModal';
 import {
   CheckCircle2,
   Clock,
   Star,
   Zap,
   Camera,
+  ChevronRight,
   Trophy,
-  Upload,
-  X,
-  Image as ImageIcon,
   Lock,
   Gift,
   Plus,
@@ -481,7 +481,7 @@ export default function ChildTasksPage() {
       <AnimatePresence>
         {photoAssignment && (
           <PhotoUploadModal
-            task={photoAssignment}
+            title={photoAssignment.task.title}
             onClose={() => setPhotoAssignment(null)}
             onSubmit={handlePhotoSubmit}
             uploading={uploading}
@@ -678,6 +678,38 @@ function DeepLinkTarget({
   );
 }
 
+/**
+ * The task's title, as the way into `/child/tasks/[id]`.
+ *
+ * The title rather than a separate "details" button, and deliberately NOT the whole card: every card
+ * here holds its own buttons and a comment thread, so wrapping the card in a link would put
+ * interactive controls inside an anchor and make a mis-tap on Start navigate instead.
+ *
+ * Takes an assignment id or a task id, never both. The pool cards have no assignment to link to,
+ * and the detail page resolves the segment as an assignment first for exactly that reason.
+ */
+function DetailLink({
+  assignmentId,
+  taskId,
+  title,
+}: {
+  assignmentId?: string;
+  taskId?: string;
+  title: string;
+}) {
+  return (
+    <Link
+      href={`/child/tasks/${assignmentId ?? taskId}`}
+      className="group flex items-center gap-1 min-w-0 w-fit max-w-full"
+    >
+      <h3 className="font-bold text-slate-900 truncate group-hover:text-xp-700 transition-colors">
+        {title}
+      </h3>
+      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:text-xp-600 transition-colors" />
+    </Link>
+  );
+}
+
 // ── Task Card (active) ────────────────────────────────────────────────────────
 
 function TaskCard({
@@ -740,7 +772,7 @@ function TaskCard({
               </span>
             )}
           </div>
-          <h3 className="font-bold text-slate-900 truncate">{assignment.task.title}</h3>
+          <DetailLink assignmentId={assignment.id} title={assignment.task.title} />
           {assignment.task.description && (
             <p className="text-sm text-slate-500 mt-1 line-clamp-2">{assignment.task.description}</p>
           )}
@@ -847,7 +879,7 @@ function CompletedTaskCard({ assignment }: { assignment: TaskAssignment }) {
             : <Clock className="w-5 h-5 text-warning-600" />
           }
           <div>
-            <p className="font-bold text-slate-900">{assignment.task.title}</p>
+            <DetailLink assignmentId={assignment.id} title={assignment.task.title} />
             <p className="text-sm text-slate-500">
               {isApproved ? 'Approved ✓' : 'Awaiting approval…'}
             </p>
@@ -890,7 +922,7 @@ function ReturnedTaskCard({
               Returned
             </span>
           </div>
-          <h3 className="font-bold text-slate-900">{assignment.task.title}</h3>
+          <DetailLink assignmentId={assignment.id} title={assignment.task.title} />
           {assignment.task.dueDate && (
             <p className="flex items-center gap-1 text-xs text-slate-400 mt-1">
               <Calendar className="w-3 h-3" />
@@ -975,7 +1007,8 @@ function AvailableTaskCard({
               {task.difficulty}
             </span>
           </div>
-          <p className="font-bold text-slate-900 truncate">{task.title}</p>
+          {/* A pool task has no assignment yet, so the detail page is addressed by TASK id. */}
+          <DetailLink taskId={task.id} title={task.title} />
           {task.dueDate && (
             <p className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
               <Calendar className="w-3 h-3" />
@@ -1014,106 +1047,6 @@ function AvailableTaskCard({
         <p className="mt-2 text-xs text-slate-400">{tooltip}</p>
       )}
     </div>
-  );
-}
-
-// ── Photo Upload Modal ────────────────────────────────────────────────────────
-
-function PhotoUploadModal({
-  task,
-  onClose,
-  onSubmit,
-  uploading,
-  fileInputRef,
-}: {
-  task: TaskAssignment;
-  onClose: () => void;
-  onSubmit: (file: File) => void;
-  uploading: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-}) {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-
-  const handleFile = (f: File) => {
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center overflow-y-auto p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl my-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-lg text-slate-900">Photo Evidence</h3>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        <p className="text-sm text-slate-600 mb-4">
-          Upload a photo to prove you completed <strong>{task.task.title}</strong>.
-        </p>
-
-        {preview ? (
-          <div className="relative mb-4">
-            <img src={preview} alt="Preview" className="w-full h-48 object-cover rounded-xl" />
-            <button
-              onClick={() => { setFile(null); setPreview(null); }}
-              className="absolute top-2 right-2 bg-white/80 p-1 rounded-full"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full h-36 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:border-xp-400 hover:text-xp-600 transition-colors mb-4"
-          >
-            <ImageIcon className="w-8 h-8" />
-            <span className="text-sm font-medium">Tap to select photo</span>
-          </button>
-        )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }}
-        />
-
-        <Button
-          fullWidth
-          disabled={!file || uploading}
-          onClick={() => file && onSubmit(file)}
-          className="bg-xp-600 hover:bg-xp-700 text-white"
-        >
-          {uploading ? (
-            <span className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              Uploading…
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <Upload className="w-4 h-4" /> Submit Task
-            </span>
-          )}
-        </Button>
-      </motion.div>
-    </motion.div>
   );
 }
 
