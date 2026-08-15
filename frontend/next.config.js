@@ -48,14 +48,45 @@ function buildCspDirectives() {
   ].join('; ');
 }
 
+/**
+ * HSTS, but only in production builds.
+ *
+ * ⚠️ Gated on NODE_ENV deliberately. HSTS is scoped to a *host*, not a port, so a
+ * `Strict-Transport-Security` header served from `http://localhost:3000` would teach the developer's
+ * browser to force HTTPS on **every** service they ever run on localhost, for the whole max-age.
+ * There is no easy undo beyond chrome://net-internals. RFC 6797 also says a host must not send the
+ * header over plain HTTP, so omitting it in dev is the correct behaviour as well as the safe one.
+ *
+ * `max-age` starts at one day on purpose. HSTS is a promise the browser holds even when the site is
+ * broken: if TLS ever fails, users cannot reach the site at all until the max-age expires, and
+ * clearing it centrally is impossible. One day makes a certificate mishap recoverable within a day.
+ * Ramp it once this has been live and uneventful for a while: 1 day, then a week, then 180 days to
+ * match what `api.` already sends.
+ *
+ * No `includeSubDomains` here. It would only cover `*.app.gettaskbuddy.com`, which does not exist,
+ * so it buys nothing and would silently commit any future subdomain to HTTPS-only.
+ *
+ * No `preload`. That submits the domain to a browser-baked list which is slow and painful to leave.
+ */
+const HSTS_MAX_AGE_SECONDS = 86400; // 1 day. See the note above before raising this.
+
 function buildSecurityHeaders() {
-  return [
+  const headers = [
     { key: CSP_HEADER, value: buildCspDirectives() },
     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     // camera stays enabled for evidence-photo capture; geolocation + microphone fully off.
     { key: 'Permissions-Policy', value: 'camera=(self), geolocation=(), microphone=()' },
   ];
+
+  if (process.env.NODE_ENV === 'production') {
+    headers.push({
+      key: 'Strict-Transport-Security',
+      value: `max-age=${HSTS_MAX_AGE_SECONDS}`,
+    });
+  }
+
+  return headers;
 }
 
 const nextConfig = {

@@ -1,0 +1,16 @@
+# Vulnerability disclosure for TaskBuddy (RFC 9116).
+#
+# TaskBuddy is a family chore app used by children, so please treat anything touching a child's
+# account, photographs or personal data as high severity and tell us before telling anyone else.
+#
+# Two Contact addresses in order of preference. security@ is the one to use; privacy@ is listed as
+# a fallback because it is the address already published in our privacy policy and is monitored.
+#
+# Please do not test against real family accounts. Ask us and we will provide a demo family.
+
+Contact: mailto:security@gettaskbuddy.com
+Contact: mailto:privacy@gettaskbuddy.com
+Expires: 2027-02-15T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://gettaskbuddy.com/.well-known/security.txt
+Canonical: https://app.gettaskbuddy.com/.well-known/security.txt
