@@ -95,7 +95,23 @@ const STATIC = [
 for (const file of STATIC) {
   fs.copyFileSync(path.join(SRC, file), path.join(DIST, file));
 }
-const built = [...STATIC];
+
+/**
+ * `.well-known/security.txt` (RFC 9116), copied separately because it lives in a subdirectory and
+ * the loop above is a flat file list.
+ *
+ * The apex needs its own copy even though `app.` serves one from `frontend/public/`: the two are
+ * different origins, and a researcher looking at `gettaskbuddy.com` will not think to try the app
+ * subdomain. Both files are identical and both are named in the `Canonical` field, which is what
+ * RFC 9116 asks for when one policy covers several hosts.
+ */
+const WELL_KNOWN = ['security.txt'];
+fs.mkdirSync(path.join(DIST, '.well-known'), { recursive: true });
+for (const file of WELL_KNOWN) {
+  fs.copyFileSync(path.join(SRC, '.well-known', file), path.join(DIST, '.well-known', file));
+}
+
+const built = [...STATIC, ...WELL_KNOWN.map((f) => `.well-known/${f}`)];
 
 // --- conditionally: legal pages, once the drafts are replaced -------------------------------
 const publishable = [];
