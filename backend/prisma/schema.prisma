@@ -3,12 +3,12 @@
 
 generator client {
   provider = "prisma-client-js"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 // ============================================
@@ -16,110 +16,114 @@ datasource db {
 // ============================================
 
 model Family {
-  id         String    @id @default(uuid())
-  familyName String    @map("family_name")
-  familyCode String?   @unique @map("family_code")
+  id                 String    @id @default(uuid())
+  familyName         String    @map("family_name")
+  familyCode         String?   @unique @map("family_code")
   /// U20 — cross-family referral (growth roadmap §7). DELIBERATELY NOT `familyCode`: that one admits
   /// a child to THIS family, and a referral code is meant to be posted publicly. Sharing one field
   /// for both would turn every shared referral link into an account-takeover vector.
-  referralCode String?  @unique @map("referral_code")
+  referralCode       String?   @unique @map("referral_code")
   /// The family whose code was used at registration. Write-once at signup, never updated.
   /// No child data participates in referral, which keeps acquisition outside the COPPA surface.
-  referredByFamilyId String? @map("referred_by_family_id")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
+  referredByFamilyId String?   @map("referred_by_family_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
   // M8 - Admin: allows admin to suspend a family (blocks all logins for that family)
-  isSuspended  Boolean   @default(false) @map("is_suspended")
-  suspendedAt  DateTime? @map("suspended_at")
-  suspendedBy  String?   @map("suspended_by")
+  isSuspended        Boolean   @default(false) @map("is_suspended")
+  suspendedAt        DateTime? @map("suspended_at")
+  suspendedBy        String?   @map("suspended_by")
 
   // Relations
-  users           User[]
-  parentalConsent ParentalConsent?
-  taskTemplates   TaskTemplate[]
-  tasks           Task[]
-  rewards         Reward[]
-  dailyChallenges DailyChallenge[]
-  settings        FamilySettings?
-  invitations     FamilyInvitation[]
-  emailLogs       EmailLog[]
+  users                User[]
+  parentalConsent      ParentalConsent?
+  taskTemplates        TaskTemplate[]
+  tasks                Task[]
+  rewards              Reward[]
+  dailyChallenges      DailyChallenge[]
+  settings             FamilySettings?
+  invitations          FamilyInvitation[]
+  emailLogs            EmailLog[]
   webhookSubscriptions WebhookSubscription[]
+  transitions          AccountTransition[]
 
   @@map("families")
-  transitions AccountTransition[]
 }
 
 model User {
-  id           String    @id @default(uuid())
-  familyId     String?    @map("family_id")
-  email        String?   @unique
+  id                         String    @id @default(uuid())
+  familyId                   String?   @map("family_id")
+  email                      String?   @unique
   /// Child login handle. Mandatory for children (enforced at the API boundary — see
   /// routes/family.ts and AuthService.addChild), null for parents and admins, who sign in with
   /// email. Uniqueness is scoped to the family by @@unique below, so two families may each have
   /// a `sam`. Always stored lowercased.
-  username     String?
-  passwordHash String?   @map("password_hash")
-  role         UserRole
-  firstName    String    @map("first_name")
-  lastName     String    @map("last_name")
-  avatarUrl    String?   @map("avatar_url")
-  gender       String?   @map("gender")
-  isPrimaryParent Boolean   @default(false) @map("is_primary_parent")
-  dateOfBirth     DateTime? @map("date_of_birth") @db.Date
-  phone           String?
-  isActive        Boolean   @default(true) @map("is_active")
-  lockedUntil       DateTime? @map("locked_until")
-  failedLoginAttempts Int      @default(0) @map("failed_login_attempts")
-  lastFailedLoginAt DateTime? @map("last_failed_login_at")
-  lastLoginAt     DateTime? @map("last_login_at")
-  emailVerifiedAt             DateTime? @map("email_verified_at")
-  emailVerificationToken      String?   @unique @map("email_verification_token")
-  emailVerificationExpiresAt  DateTime? @map("email_verification_expires_at")
-  passwordResetTokenHash      String?   @map("password_reset_token_hash")
-  passwordResetExpiresAt      DateTime? @map("password_reset_expires_at")
-  mfaSecret                   String?   @map("mfa_secret")        // F-9: AES-256-GCM encrypted TOTP secret (admins)
-  mfaEnabledAt                DateTime? @map("mfa_enabled_at")    // set once the first valid code is verified
+  username                   String?
+  passwordHash               String?   @map("password_hash")
+  role                       UserRole
+  firstName                  String    @map("first_name")
+  lastName                   String    @map("last_name")
+  avatarUrl                  String?   @map("avatar_url")
+  gender                     String?   @map("gender")
+  isPrimaryParent            Boolean   @default(false) @map("is_primary_parent")
+  dateOfBirth                DateTime? @map("date_of_birth") @db.Date
+  phone                      String?
+  isActive                   Boolean   @default(true) @map("is_active")
+  lockedUntil                DateTime? @map("locked_until")
+  failedLoginAttempts        Int       @default(0) @map("failed_login_attempts")
+  lastFailedLoginAt          DateTime? @map("last_failed_login_at")
+  lastLoginAt                DateTime? @map("last_login_at")
+  emailVerifiedAt            DateTime? @map("email_verified_at")
+  emailVerificationToken     String?   @unique @map("email_verification_token")
+  emailVerificationExpiresAt DateTime? @map("email_verification_expires_at")
+  passwordResetTokenHash     String?   @map("password_reset_token_hash")
+  passwordResetExpiresAt     DateTime? @map("password_reset_expires_at")
+  mfaSecret                  String?   @map("mfa_secret") // F-9: AES-256-GCM encrypted TOTP secret (admins)
+  mfaEnabledAt               DateTime? @map("mfa_enabled_at") // set once the first valid code is verified
   /// Quiet hours (growth roadmap §6, and the §11 binding guardrail "quiet hours respected in push
   /// scheduling"). HH:MM in the FAMILY's timezone, not UTC — see QuietHoursService. Suppresses the
   /// web push only; the in-app notification is still written. Off by default, so this ships silent.
-  quietHoursEnabled  Boolean @default(false) @map("quiet_hours_enabled")
-  quietHoursStart    String  @default("20:00") @map("quiet_hours_start")
-  quietHoursEnd      String  @default("07:00") @map("quiet_hours_end")
+  quietHoursEnabled          Boolean   @default(false) @map("quiet_hours_enabled")
+  quietHoursStart            String    @default("20:00") @map("quiet_hours_start")
+  quietHoursEnd              String    @default("07:00") @map("quiet_hours_end")
   /// Schooltime mode — a second window that applies only on the selected weekdays.
-  schooltimeEnabled  Boolean @default(false) @map("schooltime_enabled")
-  schooltimeStart    String  @default("08:30") @map("schooltime_start")
-  schooltimeEnd      String  @default("15:30") @map("schooltime_end")
+  schooltimeEnabled          Boolean   @default(false) @map("schooltime_enabled")
+  schooltimeStart            String    @default("08:30") @map("schooltime_start")
+  schooltimeEnd              String    @default("15:30") @map("schooltime_end")
   /// ISO weekday numbers, 1 = Monday .. 7 = Sunday. Defaults to the school week.
-  schooltimeDays     Int[]   @default([1, 2, 3, 4, 5]) @map("schooltime_days")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
+  schooltimeDays             Int[]     @default([1, 2, 3, 4, 5]) @map("schooltime_days")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+  deletedAt                  DateTime? @map("deleted_at")
 
   // Relations
-  family                Family?             @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  childProfile          ChildProfile?
-  createdTasks          Task[]              @relation("CreatedTasks")
-  taskAssignments       TaskAssignment[]    @relation("AssignedTasks")
-  approvedAssignments   TaskAssignment[]    @relation("ApprovedAssignments")
-  createdRewards        Reward[]
-  rewardRedemptions     RewardRedemption[]
-  rewardContributions   RewardContribution[]
-  rewardWishlists       RewardWishlist[]
-  cosmetics             ChildCosmetic[]
-  taskComments          TaskComment[]
-  childAchievements     ChildAchievement[]
-  challengeCompletions  ChallengeCompletion[]
-  notifications         Notification[]
-  pointsLedger          PointsLedger[]      @relation("ChildPoints")
-  createdPointsEntries  PointsLedger[]      @relation("CreatedPointsEntries")
-  createdTemplates      TaskTemplate[]
-  sentInvitations       FamilyInvitation[]  @relation("SentInvitations")
-  emailLogs             EmailLog[]          @relation("ReceivedEmails")
-  pushSubscriptions     PushSubscription[]
-  gameSessions          GameSession[]
-  gameQuestionsSeen     GameQuestionSeen[]
-  refreshSessions       RefreshSession[]
+  family               Family?               @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  childProfile         ChildProfile?
+  createdTasks         Task[]                @relation("CreatedTasks")
+  taskAssignments      TaskAssignment[]      @relation("AssignedTasks")
+  approvedAssignments  TaskAssignment[]      @relation("ApprovedAssignments")
+  createdRewards       Reward[]
+  rewardRedemptions    RewardRedemption[]
+  rewardContributions  RewardContribution[]
+  rewardWishlists      RewardWishlist[]
+  cosmetics            ChildCosmetic[]
+  taskComments         TaskComment[]
+  childAchievements    ChildAchievement[]
+  challengeCompletions ChallengeCompletion[]
+  notifications        Notification[]
+  pointsLedger         PointsLedger[]        @relation("ChildPoints")
+  createdPointsEntries PointsLedger[]        @relation("CreatedPointsEntries")
+  createdTemplates     TaskTemplate[]
+  sentInvitations      FamilyInvitation[]    @relation("SentInvitations")
+  emailLogs            EmailLog[]            @relation("ReceivedEmails")
+  pushSubscriptions    PushSubscription[]
+  gameSessions         GameSession[]
+  gameQuestionsSeen    GameQuestionSeen[]
+  refreshSessions      RefreshSession[]
+  /// Set when a closed-test tester signs up with the email on their roster entry. See `Tester`.
+  testerRecord         Tester?
+  transition           AccountTransition?    @relation("TransitionChild")
+  expoPushTokens       ExpoPushToken[]
 
   @@unique([familyId, username])
   @@index([familyId])
@@ -127,10 +131,6 @@ model User {
   @@index([role])
   @@index([username])
   @@map("users")
-  /// Set when a closed-test tester signs up with the email on their roster entry. See `Tester`.
-  testerRecord Tester?
-  transition  AccountTransition? @relation("TransitionChild")
-  expoPushTokens ExpoPushToken[]
 }
 
 model ChildProfile {
@@ -147,6 +147,15 @@ model ChildProfile {
   /// Streak insurance (growth roadmap §4.3). Earned one per 7-day milestone, capped at
   /// MAX_STREAK_FREEZES, and spent automatically to cover missed days rather than resetting.
   streakFreezes       Int       @default(0) @map("streak_freezes")
+  /// Vacation mode (growth roadmap §11.2). An inclusive date range during which missed days do not
+  /// count as a gap. Preserves the streak; it never advances it, or a holiday would out-earn a week
+  /// of chores. Forward-only: a pause may not be opened over days already lost, because rebuilding a
+  /// streak the child has already watched reset would rewrite a number they saw.
+  ///
+  /// Two nullable columns rather than a history table: one pause is live at a time, and a parent
+  /// who wants a different range replaces it. Dates, not timestamps, because a holiday is a day.
+  streakPausedFrom    DateTime? @map("streak_paused_from") @db.Date
+  streakPausedUntil   DateTime? @map("streak_paused_until") @db.Date
   lastStreakDate      DateTime? @map("last_streak_date") @db.Date
   lastActivityDate    DateTime? @map("last_activity_date")
   level               Int       @default(1)
@@ -205,7 +214,7 @@ model TaskTemplate {
 
   // Relations
   family  Family? @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  creator User?  @relation(fields: [createdBy], references: [id])
+  creator User?   @relation(fields: [createdBy], references: [id])
   tasks   Task[]
 
   @@index([familyId])
@@ -265,27 +274,27 @@ model Task {
 }
 
 model TaskAssignment {
-  id              String           @id @default(uuid())
-  taskId          String           @map("task_id")
-  childId         String           @map("child_id")
-  instanceDate    DateTime         @map("instance_date") @db.Date
-  status          AssignmentStatus @default(pending)
-  completedAt     DateTime?        @map("completed_at")
-  approvedAt      DateTime?        @map("approved_at")
-  approvedBy      String?          @map("approved_by")
-  rejectionReason String?          @map("rejection_reason")
-  pointsAwarded   Int?             @map("points_awarded")
-  xpAwarded       Int?             @map("xp_awarded")
+  id                        String           @id @default(uuid())
+  taskId                    String           @map("task_id")
+  childId                   String           @map("child_id")
+  instanceDate              DateTime         @map("instance_date") @db.Date
+  status                    AssignmentStatus @default(pending)
+  completedAt               DateTime?        @map("completed_at")
+  approvedAt                DateTime?        @map("approved_at")
+  approvedBy                String?          @map("approved_by")
+  rejectionReason           String?          @map("rejection_reason")
+  pointsAwarded             Int?             @map("points_awarded")
+  xpAwarded                 Int?             @map("xp_awarded")
   // M9 - legacy single-send flag (superseded by expiryRemindersSent)
-  emailSentAt              DateTime?        @map("email_sent_at")
+  emailSentAt               DateTime?        @map("email_sent_at")
   // Comma-separated list of reminder thresholds already sent, e.g. "24h,12h,1h,30min"
-  expiryRemindersSent      String           @default("") @map("expiry_reminders_sent")
+  expiryRemindersSent       String           @default("") @map("expiry_reminders_sent")
   // PD - time tracking for auto-approve override
-  startedAt                DateTime?        @map("started_at")
-  autoApproveOverridden    Boolean          @default(false) @map("auto_approve_overridden")
-  autoApproveOverrideReason String?         @map("auto_approve_override_reason")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  startedAt                 DateTime?        @map("started_at")
+  autoApproveOverridden     Boolean          @default(false) @map("auto_approve_overridden")
+  autoApproveOverrideReason String?          @map("auto_approve_override_reason")
+  createdAt                 DateTime         @default(now()) @map("created_at")
+  updatedAt                 DateTime         @updatedAt @map("updated_at")
 
   // Relations
   task     Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -369,35 +378,35 @@ model PointsLedger {
 }
 
 model Reward {
-  id                     String      @id @default(uuid())
-  familyId               String      @map("family_id")
-  createdBy              String      @map("created_by")
-  name                   String
-  description            String?
-  pointsCost             Int         @map("points_cost")
-  tier                   RewardTier?
-  iconUrl                String?     @map("icon_url")
-  isActive               Boolean     @default(true) @map("is_active")
-  maxRedemptionsPerChild Int?        @map("max_redemptions_per_child")
+  id                       String      @id @default(uuid())
+  familyId                 String      @map("family_id")
+  createdBy                String      @map("created_by")
+  name                     String
+  description              String?
+  pointsCost               Int         @map("points_cost")
+  tier                     RewardTier?
+  iconUrl                  String?     @map("icon_url")
+  isActive                 Boolean     @default(true) @map("is_active")
+  maxRedemptionsPerChild   Int?        @map("max_redemptions_per_child")
   // M6 - CR-11: household-level redemption cap (total across all children)
-  maxRedemptionsTotal    Int?        @map("max_redemptions_total")
-  expiresAt              DateTime?   @map("expires_at")
-  isCollaborative        Boolean     @default(false) @map("is_collaborative")
+  maxRedemptionsTotal      Int?        @map("max_redemptions_total")
+  expiresAt                DateTime?   @map("expires_at")
+  isCollaborative          Boolean     @default(false) @map("is_collaborative")
   // FR-09: set once the pooled contributions first reach pointsCost, so auto-fulfilment fires once.
-  collaborativeFulfilledAt DateTime? @map("collaborative_fulfilled_at")
+  collaborativeFulfilledAt DateTime?   @map("collaborative_fulfilled_at")
   /// Who ends up with a funded collaborative reward: 'shared' (the family — the default, because
   /// most such rewards are a film night or a day out) or 'parent_choice' (a parent designates one
   /// child, for rewards only one person can actually have).
   /// Deliberately NOT last-contributor-wins: that rewards timing over effort and pushes children to
   /// withhold points and snipe the final few.
-  recipientRule          String      @default("shared") @map("recipient_rule")
-  createdAt              DateTime    @default(now()) @map("created_at")
-  updatedAt              DateTime    @updatedAt @map("updated_at")
-  deletedAt              DateTime?   @map("deleted_at")
+  recipientRule            String      @default("shared") @map("recipient_rule")
+  createdAt                DateTime    @default(now()) @map("created_at")
+  updatedAt                DateTime    @updatedAt @map("updated_at")
+  deletedAt                DateTime?   @map("deleted_at")
 
   // Relations
-  family      Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  creator     User               @relation(fields: [createdBy], references: [id])
+  family        Family               @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  creator       User                 @relation(fields: [createdBy], references: [id])
   redemptions   RewardRedemption[]
   contributions RewardContribution[]
   wishlists     RewardWishlist[]
@@ -409,19 +418,19 @@ model Reward {
 }
 
 model RewardRedemption {
-  id          String           @id @default(uuid())
-  rewardId    String           @map("reward_id")
-  childId     String           @map("child_id")
-  pointsSpent Int              @map("points_spent")
-  status      RedemptionStatus @default(pending)
-  approvedBy  String?          @map("approved_by")
-  approvedAt  DateTime?        @map("approved_at")
-  fulfilledAt DateTime?        @map("fulfilled_at")
+  id               String           @id @default(uuid())
+  rewardId         String           @map("reward_id")
+  childId          String           @map("child_id")
+  pointsSpent      Int              @map("points_spent")
+  status           RedemptionStatus @default(pending)
+  approvedBy       String?          @map("approved_by")
+  approvedAt       DateTime?        @map("approved_at")
+  fulfilledAt      DateTime?        @map("fulfilled_at")
   /// Set only when a collaborative reward's rule is 'parent_choice'. NULL means shared — nobody
   /// individually received it — which is also the case for every solo redemption.
-  recipientChildId String?     @map("recipient_child_id")
-  notes       String?
-  createdAt   DateTime         @default(now()) @map("created_at")
+  recipientChildId String?          @map("recipient_child_id")
+  notes            String?
+  createdAt        DateTime         @default(now()) @map("created_at")
 
   // Relations
   reward Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
@@ -475,21 +484,21 @@ model RewardWishlist {
 // ============================================
 
 model Achievement {
-  id                    String           @id @default(uuid())
-  name                  String
-  description           String?
-  iconUrl               String?          @map("icon_url")
-  category              String?
-  unlockCriteriaType    String?          @map("unlock_criteria_type")
-  unlockCriteriaValue   Int?             @map("unlock_criteria_value")
-  unlockCriteriaConfig  Json?            @map("unlock_criteria_config")
-  tier                  AchievementTier?
-  isSystemAchievement   Boolean          @default(true) @map("is_system_achievement")
-  pointsReward          Int              @default(0) @map("points_reward")
-  xpReward              Int              @default(0) @map("xp_reward")
+  id                   String           @id @default(uuid())
+  name                 String
+  description          String?
+  iconUrl              String?          @map("icon_url")
+  category             String?
+  unlockCriteriaType   String?          @map("unlock_criteria_type")
+  unlockCriteriaValue  Int?             @map("unlock_criteria_value")
+  unlockCriteriaConfig Json?            @map("unlock_criteria_config")
+  tier                 AchievementTier?
+  isSystemAchievement  Boolean          @default(true) @map("is_system_achievement")
+  pointsReward         Int              @default(0) @map("points_reward")
+  xpReward             Int              @default(0) @map("xp_reward")
   // M10 - Phase 4: minimum XP level required to unlock (used in R-05 level distribution)
-  xpThreshold           Int              @default(0) @map("xp_threshold")
-  createdAt             DateTime         @default(now()) @map("created_at")
+  xpThreshold          Int              @default(0) @map("xp_threshold")
+  createdAt            DateTime         @default(now()) @map("created_at")
 
   // Relations
   childAchievements ChildAchievement[]
@@ -628,12 +637,12 @@ model FamilyInvitation {
   acceptedAt      DateTime? @map("accepted_at")
   // M10 - Phase 4: R-08 tracks co-parent invite acceptance rate
   cancelledAt     DateTime? @map("cancelled_at")
-  relationship    String?   // e.g. "spouse", "partner", "guardian"
+  relationship    String? // e.g. "spouse", "partner", "guardian"
   createdAt       DateTime  @default(now()) @map("created_at")
 
   // Relations
-  family      Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  invitedBy   User   @relation("SentInvitations", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("SentInvitations", fields: [invitedByUserId], references: [id], onDelete: Cascade)
 
   @@index([familyId])
   @@index([token])
@@ -649,14 +658,13 @@ model FamilyInvitation {
  * AuditLog - immutable record of every mutating action in the system.
  * Written by AuditService.logAction() from all mutating routes.
  * Never updated or deleted - admin can only read and export.
- *
  * action examples    : CREATE | UPDATE | DELETE | APPROVE | REJECT |
- *                      REDEEM | FULFILL | SUSPEND | REACTIVATE | LOGIN |
- *                      REGISTER | INVITE_SENT | INVITE_ACCEPTED | FORCE_RESET
+ * REDEEM | FULFILL | SUSPEND | REACTIVATE | LOGIN |
+ * REGISTER | INVITE_SENT | INVITE_ACCEPTED | FORCE_RESET
  * resourceType examples: task | task_assignment | reward | reward_redemption |
- *                        family | user | child | invitation | achievement
+ * family | user | child | invitation | achievement
  * metadata           : arbitrary JSON snapshot - e.g. { before, after } for
- *                      updates, or { reason } for suspensions.
+ * updates, or { reason } for suspensions.
  */
 model AuditLog {
   id           String   @id @default(uuid())
@@ -690,46 +698,43 @@ model AuditLog {
 
 /**
  * EmailLog - immutable record of every email attempt made by EmailService.
- *
  * EmailService writes a row here for every send attempt whether it succeeds
  * or fails. The admin email log viewer reads this table.
- *
  * triggerType mirrors the notificationPreferences keys so the opt-out check
  * can reference the same string:
- *   task_submitted | task_approved | task_rejected | task_expiring |
- *   task_expired   | reward_redeemed | level_up | streak_at_risk |
- *   welcome        | co_parent_invite
- *
+ * task_submitted | task_approved | task_rejected | task_expiring |
+ * task_expired   | reward_redeemed | level_up | streak_at_risk |
+ * welcome        | co_parent_invite
  * status:
- *   sent    - SMTP accepted the message (no bounce detected yet)
- *   failed  - SMTP threw an error; errorMessage has details
- *   bounced - future use via webhook (not implemented in M9)
+ * sent    - SMTP accepted the message (no bounce detected yet)
+ * failed  - SMTP threw an error; errorMessage has details
+ * bounced - future use via webhook (not implemented in M9)
  */
 model EmailLog {
-  id           String          @id @default(uuid())
+  id            String         @id @default(uuid())
   // Recipient email address (denormalised - user may be deleted later)
-  toEmail      String          @map("to_email")
+  toEmail       String         @map("to_email")
   // The user this email was sent to (null if family-level send or user deleted)
-  toUserId     String?         @map("to_user_id")
-  toUser       User?           @relation("ReceivedEmails", fields: [toUserId], references: [id], onDelete: SetNull)
-  family       Family?         @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  toUserId      String?        @map("to_user_id")
+  toUser        User?          @relation("ReceivedEmails", fields: [toUserId], references: [id], onDelete: SetNull)
+  family        Family?        @relation(fields: [familyId], references: [id], onDelete: SetNull)
   // Family scope - null for admin-triggered emails
-  familyId     String?         @map("family_id")
+  familyId      String?        @map("family_id")
   // Which template / notification type triggered this email
-  triggerType  String          @map("trigger_type")
+  triggerType   String         @map("trigger_type")
   // Email subject line (stored for the admin resend UI)
-  subject      String
+  subject       String
   // Delivery outcome
-  status       EmailLogStatus  @default(sent)
+  status        EmailLogStatus @default(sent)
   // Populated when status = failed
-  errorMessage String?         @map("error_message")
+  errorMessage  String?        @map("error_message")
   // The resource that triggered this email (e.g. assignment id, redemption id)
   referenceType String?        @map("reference_type")
   referenceId   String?        @map("reference_id")
   // M9 - admin resend: tracks how many times this specific log entry was re-sent
-  resendCount  Int             @default(0) @map("resend_count")
-  lastResentAt DateTime?       @map("last_resent_at")
-  createdAt    DateTime        @default(now()) @map("created_at")
+  resendCount   Int            @default(0) @map("resend_count")
+  lastResentAt  DateTime?      @map("last_resent_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
 
   @@index([toUserId])
   @@index([familyId])
@@ -779,14 +784,14 @@ model WebhookSubscription {
 
   // Consecutive delivery failures. Reset to 0 on any success; at the auto-disable threshold the
   // subscription flips isActive=false and the family's parents get a notification.
-  failureCount  Int       @default(0) @map("failure_count")
-  lastFailureAt DateTime? @map("last_failure_at")
-  lastSuccessAt DateTime? @map("last_success_at")
-  disabledAt    DateTime? @map("disabled_at")
+  failureCount   Int       @default(0) @map("failure_count")
+  lastFailureAt  DateTime? @map("last_failure_at")
+  lastSuccessAt  DateTime? @map("last_success_at")
+  disabledAt     DateTime? @map("disabled_at")
   // Bounded ring buffer (newest first, capped in code) of the last few failures so the parent UI
   // can show "recent failures" without an unbounded, prune-me-later delivery-log table.
   // Shape: [{ at: ISO string, event: string, reason: string, status?: number }]
-  recentFailures Json     @default("[]") @map("recent_failures")
+  recentFailures Json      @default("[]") @map("recent_failures")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -803,35 +808,35 @@ model WebhookSubscription {
 // ============================================
 
 model GameDefinition {
-  id           String   @id @default(uuid())
-  type         String   // 'quiz' | 'crossword' | 'puzzle' — the FORMAT, not the subject
-  title        String
-  description  String?
+  id                  String         @id @default(uuid())
+  type                String // 'quiz' | 'crossword' | 'puzzle' — the FORMAT, not the subject
+  title               String
+  description         String?
   /// Subject axis the child picks. `puzzle` is a category here, not a format.
-  category     GameCategory
+  category            GameCategory
   /// Difficulty axis the child picks. Freely selectable at any age; appropriateness lives in content.
-  level        GameLevel
+  level               GameLevel
   /// Legacy difficulty. Superseded by `level` (backfilled from it) and still exposed by the admin API
   /// for continuity. Nothing reads it for gameplay any more.
-  difficulty   TaskDifficulty @default(easy)
+  difficulty          TaskDifficulty @default(easy)
   /// Display-only. The award path reads GAME_REWARDS[level] from shared, so an admin typo here cannot
   /// break the points economy. Backfilled to match the level.
-  pointsReward Int      @default(20) @map("points_reward")
+  pointsReward        Int            @default(20) @map("points_reward")
   /// Display-only, same reasoning as pointsReward.
-  xpReward     Int      @default(10) @map("xp_reward")
+  xpReward            Int            @default(10) @map("xp_reward")
   /// Display-only. Cooldown is now scoped to the CATEGORY and its duration comes from
   /// GAME_COOLDOWN_HOURS in shared — completing any game in a category times out the whole category.
-  cooldownHours Int     @default(24) @map("cooldown_hours")
-  ageGroup     String?  @map("age_group") // '10-12' | '13-16' | null = all ages
+  cooldownHours       Int            @default(24) @map("cooldown_hours")
+  ageGroup            String?        @map("age_group") // '10-12' | '13-16' | null = all ages
   // The question BANK as JSON - answers included here (never sent to client).
   // Each session draws questionsPerSession from it, so the bank is normally much larger.
-  questionsJson Json    @map("questions_json")
+  questionsJson       Json           @map("questions_json")
   // How many questions one play serves. The daily draw rotates which ones, so a bank of 25 and a
   // draw of 5 gives a different quiz each day instead of the same five forever.
-  questionsPerSession Int @default(5) @map("questions_per_session")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  questionsPerSession Int            @default(5) @map("questions_per_session")
+  isActive            Boolean        @default(true) @map("is_active")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
 
   sessions GameSession[]
   seen     GameQuestionSeen[]
@@ -876,27 +881,27 @@ model GameQuestionSeen {
 }
 
 model GameSession {
-  id               String            @id @default(uuid())
-  childId          String            @map("child_id")
-  gameDefinitionId String            @map("game_definition_id")
-  startedAt        DateTime          @default(now()) @map("started_at")
-  submittedAt      DateTime?         @map("submitted_at")
-  expiresAt        DateTime          @map("expires_at")
-  status           GameSessionStatus @default(in_progress)
-  pointsAwarded    Int               @default(0) @map("points_awarded")
-  xpAwarded        Int               @default(0) @map("xp_awarded")
+  id                  String            @id @default(uuid())
+  childId             String            @map("child_id")
+  gameDefinitionId    String            @map("game_definition_id")
+  startedAt           DateTime          @default(now()) @map("started_at")
+  submittedAt         DateTime?         @map("submitted_at")
+  expiresAt           DateTime          @map("expires_at")
+  status              GameSessionStatus @default(in_progress)
+  pointsAwarded       Int               @default(0) @map("points_awarded")
+  xpAwarded           Int               @default(0) @map("xp_awarded")
   // SHA-256 of the correct answer array - never returned to client.
   // Retained for sessions created before per-question grading; new sessions grade from answersJson.
-  solutionHash     String            @map("solution_hash")
+  solutionHash        String            @map("solution_hash")
   // Per-question answers, locked one at a time via POST /sessions/:id/answer.
   // Array of length questionCount; null = not yet answered. The lock is what stops a child
   // probing the reveal endpoint once per option to find the correct one before committing.
-  answersJson      Json?             @map("answers_json")
+  answersJson         Json?             @map("answers_json")
   // Snapshot of the questions this session actually served, taken at creation.
   // Deliberately a copy rather than a reference: an admin editing the bank mid-session would
   // otherwise shift the question order and silently misalign answersJson.
-  servedQuestionsJson Json?          @map("served_questions_json")
-  createdAt        DateTime          @default(now()) @map("created_at")
+  servedQuestionsJson Json?             @map("served_questions_json")
+  createdAt           DateTime          @default(now()) @map("created_at")
 
   child          User           @relation(fields: [childId], references: [id], onDelete: Cascade)
   gameDefinition GameDefinition @relation(fields: [gameDefinitionId], references: [id], onDelete: Cascade)
@@ -912,19 +917,19 @@ model GameSession {
 // chain), and revocation (logout, password change/reset, admin action, child PIN reset). The
 // raw JWT is never stored — only its sha256, and the row id is the token's jti claim.
 model RefreshSession {
-  id                String    @id                                   // = the jwt `jti` claim
+  id                String    @id // = the jwt `jti` claim
   userId            String    @map("user_id")
-  tokenHash         String    @unique @map("token_hash")            // sha256 hex of the refresh JWT
-  chainId           String    @map("chain_id")                     // rotation family; constant across rotations
-  expiresAt         DateTime  @map("expires_at")                   // natural expiry (mirrors the JWT exp)
-  absoluteExpiresAt DateTime  @map("absolute_expires_at")          // hard cap for the whole chain
+  tokenHash         String    @unique @map("token_hash") // sha256 hex of the refresh JWT
+  chainId           String    @map("chain_id") // rotation family; constant across rotations
+  expiresAt         DateTime  @map("expires_at") // natural expiry (mirrors the JWT exp)
+  absoluteExpiresAt DateTime  @map("absolute_expires_at") // hard cap for the whole chain
   revokedAt         DateTime? @map("revoked_at")
-  revokedReason     String?   @map("revoked_reason")               // logout|rotated|reuse|expired|password_change|admin|pin_reset
+  revokedReason     String?   @map("revoked_reason") // logout|rotated|reuse|expired|password_change|admin|pin_reset
   replacedById      String?   @map("replaced_by_id")
   createdByIp       String?   @map("created_by_ip")
   userAgent         String?   @map("user_agent")
-  deviceId          String?   @map("device_id")                   // F-10g: opaque client device id, traceability only
-  client            String?                                        // P0-4: X-Client value, e.g. taskbuddy-android/1.0.0; NULL = web
+  deviceId          String?   @map("device_id") // F-10g: opaque client device id, traceability only
+  client            String? // P0-4: X-Client value, e.g. taskbuddy-android/1.0.0; NULL = web
   createdAt         DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -958,7 +963,7 @@ enum TaskDifficulty {
 
 // M5 - CR-01: task classification
 enum TaskTag {
-  primary   // Must-do task assigned by parent
+  primary // Must-do task assigned by parent
   secondary // Bonus/optional task; child can self-assign if no primary is pending
 }
 
@@ -1052,6 +1057,7 @@ enum EmailLogStatus {
   failed
   bounced
 }
+
 /// Funnel instrumentation (growth roadmap 0b).
 ///
 /// Deliberately NOT joined to Family with a foreign key. Two reasons: pre-signup events (a
@@ -1085,26 +1091,26 @@ model AnalyticsEvent {
 /// One row per family: consent is given by a parent on behalf of the family's children, and
 /// re-consent replaces rather than accumulates (superseded rows are revoked).
 model ParentalConsent {
-  id        String   @id @default(uuid())
-  familyId  String   @unique @map("family_id")
+  id             String    @id @default(uuid())
+  familyId       String    @unique @map("family_id")
   /// The parent who gave it. Kept even if they later leave, for the audit trail.
-  parentId  String   @map("parent_id")
+  parentId       String    @map("parent_id")
   /// Registered method id, e.g. 'email_plus'. Stored so a later stricter method is distinguishable.
-  method    String
+  method         String
   /// 'pending' | 'verified' | 'revoked'
-  status    String   @default("pending")
+  status         String    @default("pending")
   /// SHA-256 of the verification token. The raw token only ever exists in the email.
-  tokenHash String?  @map("token_hash")
+  tokenHash      String?   @map("token_hash")
   /// Consent that is never completed must not sit pending forever.
-  expiresAt DateTime? @map("expires_at")
-  requestedAt DateTime @default(now()) @map("requested_at")
-  verifiedAt  DateTime? @map("verified_at")
+  expiresAt      DateTime? @map("expires_at")
+  requestedAt    DateTime  @default(now()) @map("requested_at")
+  verifiedAt     DateTime? @map("verified_at")
   /// Recorded at verification — COPPA expects a record of who consented and from where.
-  ipAddress   String?  @map("ip_address")
-  tosVersion     String @map("tos_version")
-  privacyVersion String @map("privacy_version")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress      String?   @map("ip_address")
+  tosVersion     String    @map("tos_version")
+  privacyVersion String    @map("privacy_version")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
 
@@ -1143,12 +1149,12 @@ model CosmeticItem {
 /// Ownership, and separately whether it is currently worn.
 /// Owning is permanent — a child never loses something they paid for.
 model ChildCosmetic {
-  id         String   @id @default(uuid())
-  childId    String   @map("child_id")
-  itemId     String   @map("item_id")
+  id          String   @id @default(uuid())
+  childId     String   @map("child_id")
+  itemId      String   @map("item_id")
   /// At most one true per (child, category); enforced in CosmeticService, since that is not
   /// expressible as a unique index.
-  isEquipped Boolean  @default(false) @map("is_equipped")
+  isEquipped  Boolean  @default(false) @map("is_equipped")
   purchasedAt DateTime @default(now()) @map("purchased_at")
 
   child User         @relation(fields: [childId], references: [id], onDelete: Cascade)
@@ -1186,14 +1192,14 @@ model Tester {
 
   /// Where they are in the recruitment funnel. Not derived from `userId`, because "invited" and
   /// "declined" are facts about the conversation, not about the database.
-  status    TesterStatus @default(invited)
+  status TesterStatus @default(invited)
 
   /// Set to the matching `users.id` once someone signs up with this email. Nullable forever if they
   /// never do. `onDelete: SetNull` so deleting a user account does not delete the recruitment record.
   /// `@unique` because this is one-to-one: an account belongs to at most one roster entry. Postgres
   /// treats NULLs as distinct, so any number of not-yet-signed-up testers coexist under the index —
   /// the same property the child-username index relies on.
-  userId    String?  @unique @map("user_id")
+  userId String? @unique @map("user_id")
 
   /// When the invite email was last sent, and the reminder. Separate columns because "never invited"
   /// and "invited but not reminded" are different states the admin screen has to distinguish.
@@ -1201,7 +1207,7 @@ model Tester {
   lastRemindedAt DateTime? @map("last_reminded_at")
 
   /// Free-text, for the owner. e.g. "cousin, Android 12, said he'd start Monday".
-  notes     String?
+  notes String?
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1230,29 +1236,29 @@ enum TesterStatus {
 /// several fields that are meaningless for everyone else, and the row is an audit record of what was
 /// chosen and when — deleting the child later must not erase that a choice was made.
 model AccountTransition {
-  id         String   @id @default(uuid())
-  familyId   String   @map("family_id")
+  id       String @id @default(uuid())
+  familyId String @map("family_id")
   /// The child who turned 18. Unique: a person ages out once.
-  childId    String   @unique @map("child_id")
+  childId  String @unique @map("child_id")
 
   /// pending | resolved | expired. `expired` means the deadline applied the default.
-  status     String   @default("pending")
+  status            String  @default("pending")
   /// transfer | discard | invite — null while pending.
-  decision   String?
+  decision          String?
   /// Set only for `transfer`. The sibling the points went to.
   transferToChildId String? @map("transfer_to_child_id")
   /// Snapshot of the balance at detection, so the record still reads correctly after the transfer.
-  pointsAtDetection Int    @default(0) @map("points_at_detection")
+  pointsAtDetection Int     @default(0) @map("points_at_detection")
 
-  detectedAt DateTime @default(now()) @map("detected_at")
+  detectedAt DateTime  @default(now()) @map("detected_at")
   /// detectedAt + TRANSITION_DEADLINE_DAYS. After this the default applies.
-  deadlineAt DateTime @map("deadline_at")
+  deadlineAt DateTime  @map("deadline_at")
   resolvedAt DateTime? @map("resolved_at")
 
-  family     Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
   /// ⚠️ NOT onDelete: Cascade on the child. Removing a child must not delete the record of what was
   /// decided about their points — that is the one thing a parent may need to look back at.
-  child      User     @relation("TransitionChild", fields: [childId], references: [id])
+  child  User   @relation("TransitionChild", fields: [childId], references: [id])
 
   @@index([status, deadlineAt])
   @@map("account_transitions")

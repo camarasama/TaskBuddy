@@ -16,6 +16,7 @@ import { getChildCapacity, type ChildCapacity } from '../utils/assignmentLimits'
 // M8 - Audit logging for all mutating family routes
 import { getReferralSummary } from '../services/ReferralService';
 import { AuditService } from '../services/AuditService';
+import { MAX_STREAK_PAUSE_DAYS } from '../services/streakService';
 // M9 - Email notifications
 import { EmailService } from '../services/email';
 import { isOwnStorageUrl } from '../services/storage';
@@ -58,6 +59,43 @@ const addChildSchema = z.object({
 
 /** HH:MM, 24-hour. Shared by the quiet-hours fields below. */
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Vacation mode (growth roadmap §11.2). Plain `YYYY-MM-DD` strings: a holiday is a range of days, and
+ * accepting a timestamp would invite a timezone argument about which day someone flew home.
+ *
+ * Forward-only and bounded, both enforced here rather than in the service, because both are product
+ * rules about what a parent may ask for rather than arithmetic about what a streak does.
+ */
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+const streakPauseSchema = z
+  .object({
+    from: z.string().regex(DAY, 'Use YYYY-MM-DD'),
+    until: z.string().regex(DAY, 'Use YYYY-MM-DD'),
+  })
+  .refine((v) => v.until >= v.from, { message: 'The end date cannot be before the start date' })
+  .refine(
+    (v) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const until = new Date(`${v.until}T00:00:00`);
+      return until >= today;
+    },
+    {
+      // Forward-only: a pause over days already lost would mean rebuilding a streak the child has
+      // already watched reset, rewriting a number they saw. Answered by the owner, 2026-08-26.
+      message: 'A pause cannot end in the past. Streaks already missed cannot be restored.',
+    },
+  )
+  .refine(
+    (v) => {
+      const from = new Date(`${v.from}T00:00:00`);
+      const until = new Date(`${v.until}T00:00:00`);
+      return Math.floor((until.getTime() - from.getTime()) / 86_400_000) + 1 <= MAX_STREAK_PAUSE_DAYS;
+    },
+    { message: `A pause can cover at most ${MAX_STREAK_PAUSE_DAYS} days` },
+  );
 
 const updateChildSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
@@ -683,6 +721,126 @@ function reviewChildAvatar(approved: boolean): RequestHandler {
 
 familyRouter.post('/me/children/:id/avatar/approve', requireParent, reviewChildAvatar(true));
 familyRouter.post('/me/children/:id/avatar/reject', requireParent, reviewChildAvatar(false));
+
+/**
+ * Vacation mode (growth roadmap §11.2).
+ *
+ *   PUT    /families/me/children/:id/streak-pause   - open or replace a pause
+ *   DELETE /families/me/children/:id/streak-pause   - cancel it
+ *   PUT    /families/me/streak-pause                - the same range for every child in the family
+ *
+ * A pause preserves a streak across days nobody was home. It never advances one: a week away must not
+ * out-earn a week of chores. Tasks actually completed during a pause still count normally, so a child
+ * who does chores on holiday is not penalised for it either.
+ *
+ * Parent-only, and scoped by `req.familyId`, so a parent cannot pause a child in another family.
+ */
+async function findOwnChild(childId: string, familyId: string | undefined) {
+  const child = await prisma.user.findFirst({
+    where: { id: childId, familyId, role: 'child', deletedAt: null },
+    select: { id: true, firstName: true },
+  });
+  if (!child) throw new NotFoundError('Child not found');
+  return child;
+}
+
+familyRouter.put(
+  '/me/children/:id/streak-pause',
+  requireParent,
+  validateBody(streakPauseSchema),
+  async (req, res, next) => {
+    try {
+      const child = await findOwnChild(req.params.id, req.familyId);
+      const { from, until } = req.body as { from: string; until: string };
+
+      await prisma.childProfile.update({
+        where: { userId: child.id },
+        data: {
+          streakPausedFrom: new Date(`${from}T00:00:00.000Z`),
+          streakPausedUntil: new Date(`${until}T00:00:00.000Z`),
+        },
+      });
+
+      // A parent action that changes what a child's record will do. Audited like the other overrides.
+      await AuditService.logAction({
+        actorId: req.user!.userId,
+        action: 'STREAK_PAUSE_SET',
+        resourceType: 'user',
+        resourceId: child.id,
+        familyId: req.familyId,
+        ipAddress: req.ip,
+        metadata: { from, until },
+      });
+
+      res.json({ success: true, data: { childId: child.id, from, until } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+familyRouter.delete('/me/children/:id/streak-pause', requireParent, async (req, res, next) => {
+  try {
+    const child = await findOwnChild(req.params.id, req.familyId);
+
+    await prisma.childProfile.update({
+      where: { userId: child.id },
+      data: { streakPausedFrom: null, streakPausedUntil: null },
+    });
+
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'STREAK_PAUSE_CLEARED',
+      resourceType: 'user',
+      resourceId: child.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+    });
+
+    res.json({ success: true, data: { childId: child.id, from: null, until: null } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** The whole family at once, which is what a holiday actually is. Fans out to each child rather than
+ *  storing a second family-level source of truth that the per-child value could then disagree with. */
+familyRouter.put(
+  '/me/streak-pause',
+  requireParent,
+  validateBody(streakPauseSchema),
+  async (req, res, next) => {
+    try {
+      const { from, until } = req.body as { from: string; until: string };
+      const children = await prisma.user.findMany({
+        where: { familyId: req.familyId, role: 'child', deletedAt: null },
+        select: { id: true },
+      });
+
+      await prisma.childProfile.updateMany({
+        where: { userId: { in: children.map((c) => c.id) } },
+        data: {
+          streakPausedFrom: new Date(`${from}T00:00:00.000Z`),
+          streakPausedUntil: new Date(`${until}T00:00:00.000Z`),
+        },
+      });
+
+      await AuditService.logAction({
+        actorId: req.user!.userId,
+        action: 'STREAK_PAUSE_SET_FAMILY',
+        resourceType: 'family',
+        resourceId: req.familyId!,
+        familyId: req.familyId,
+        ipAddress: req.ip,
+        metadata: { from, until, childCount: children.length },
+      });
+
+      res.json({ success: true, data: { childCount: children.length, from, until } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // PUT /families/me/children/:id - Update a child
 familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSchema), async (req, res, next) => {
