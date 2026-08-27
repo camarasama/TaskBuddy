@@ -22,6 +22,7 @@ import { adminRouter } from './routes/admin';
 import { adminTestersRouter } from './routes/adminTesters';
 import { adminGamesRouter } from './routes/adminGames';
 import { templatesRouter } from './routes/templates';
+import { streakShieldsRouter } from './routes/streakShields';
 import { trackRouter } from './routes/track';
 import { consentRouter } from './routes/consent';
 import { onboardingRouter } from './routes/onboarding';
@@ -195,6 +196,7 @@ app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 // Growth roadmap §3.1 - task template library + reward presets (parent-only)
 app.use('/api/v1/templates', templatesRouter);
+app.use('/api/v1/streak-shields', streakShieldsRouter);
 // Growth roadmap §1 - digest open tracking. PUBLIC (email clients cannot auth); HMAC-signed URLs.
 app.use('/api/v1/track', trackRouter);
 // Growth roadmap §3.2 - COPPA verifiable parental consent. /verify is public (emailed link).
