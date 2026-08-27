@@ -28,7 +28,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ChildDashboardResponse } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
@@ -38,9 +38,15 @@ import { Card } from '@/components/Card';
 import { CardHeading } from '@/components/CardHeading';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
+import { useToast } from '@/components/Toast';
 import { NetworkError } from '@/lib/api';
 import { BAND_COPY, resolveAgeBand } from '@/lib/ageBand';
 import { childDashboardQuery } from '@/lib/childDashboardApi';
+import {
+  INVALIDATED_BY_SHIELD_PURCHASE,
+  buyShield,
+  shieldsQuery,
+} from '@/lib/streakShieldsApi';
 import { dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { completionPercent, isDone } from '@/lib/taskStatus';
@@ -119,6 +125,79 @@ function Wallet({ pointsBalance }: { pointsBalance: number }) {
 
 /** One line, per the redesign brief. The at-risk note folds into the same line as words rather than a
  *  second coloured block, matching the "one line" constraint and this screen's status-in-words rule. */
+/**
+ * Streak savers: how many are banked, and the offer to buy one (growth roadmap §11.4).
+ *
+ * Rendered only when the child HAS a streak. Offering insurance to someone with nothing to insure is
+ * a shop, not a safety net, and it would be the first thing a child sees before they have earned
+ * anything.
+ *
+ * The server decides whether a buy is possible and why not; this only renders the answer. Re-deriving
+ * "at the cap OR short of points" here would eventually disagree with the endpoint that enforces it.
+ */
+function StreakSavers({ streakDays }: { streakDays: number }) {
+  const theme = useTheme();
+  const queryClient = useQueryClient();
+  const { data } = useQuery(shieldsQuery());
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  const buy = useCallback(async () => {
+    setBusy(true);
+    try {
+      const result = await buyShield();
+      await Promise.all(
+        INVALIDATED_BY_SHIELD_PURCHASE.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key as readonly unknown[] })
+        )
+      );
+      toast.show(`Streak saver bought. You have ${result.owned}.`);
+    } catch (caught) {
+      // The server's own words: it knows whether the wall was the cap or the balance, and it says so
+      // in points a child can go and earn.
+      toast.show(describeError(caught));
+    } finally {
+      setBusy(false);
+    }
+  }, [queryClient, toast]);
+
+  if (streakDays <= 0 || !data) return null;
+
+  const label =
+    data.owned > 0
+      ? `${data.owned} streak saver${data.owned === 1 ? '' : 's'} banked`
+      : 'No streak savers yet';
+
+  return (
+    <Card>
+      <CardHeading icon="shield-checkmark" label="Streak savers" tint={palette.primary[600]} />
+      <AppText style={[styles.saverLine, { color: theme.cardForeground }]}>{label}</AppText>
+      <AppText style={[styles.saverHint, { color: theme.mutedForeground }]}>
+        {data.reason === 'at_cap'
+          ? `That's the most you can keep. One is used automatically if you miss a day.`
+          : `One is used automatically if you miss a day. You can keep ${data.max}.`}
+      </AppText>
+
+      {data.reason !== 'at_cap' && (
+        <>
+          <View style={styles.saverGap} />
+          <Button
+            label={`Buy one for ${data.cost} points`}
+            onPress={() => void buy()}
+            busy={busy}
+            disabled={!data.canBuy}
+          />
+          {data.reason === 'not_enough_points' && (
+            <AppText style={[styles.saverHint, { color: theme.mutedForeground }]}>
+              You need {data.cost - data.pointsBalance} more to buy one.
+            </AppText>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 function StreakBanner({ current, atRisk }: { current: number; atRisk: boolean }) {
   if (current <= 0) return null;
 
@@ -314,6 +393,7 @@ export default function ChildDashboard() {
       />
       <Wallet pointsBalance={profile.pointsBalance} />
       <StreakBanner current={streak.current} atRisk={streak.atRisk} />
+      <StreakSavers streakDays={streak.current} />
 
       {/* "I'm saving for…" — the goal-gradient card. Only when something is pinned. */}
       {goal && (
@@ -477,6 +557,17 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     marginTop: spacing[1],
   },
+  saverLine: {
+    fontSize: fontSize.base.fontSize,
+    lineHeight: fontSize.base.lineHeight,
+    fontWeight: fontWeight.semibold,
+  },
+  saverHint: {
+    fontSize: fontSize.sm.fontSize,
+    lineHeight: fontSize.sm.lineHeight,
+    marginTop: spacing[1],
+  },
+  saverGap: { height: spacing[3] },
   streakBanner: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -62,6 +62,22 @@ export const MAX_STREAK_PAUSE_DAYS = 30;
  */
 export const GRACE_GRANT_HOURS = 24;
 
+/**
+ * What one streak shield costs in points (growth roadmap §11.4).
+ *
+ * 40 is roughly half a day of chores. An engaged child earns ~60-90 points/day from tasks and the
+ * cheapest reward is 25, so a shield is a real trade against something they wanted rather than
+ * pocket change. Owner decision, 2026-08-26.
+ *
+ * Priced deliberately, because the failure modes sit on both sides: too cheap and an engaged child
+ * tops up to the cap constantly, the streak becomes unbreakable and stops carrying information; too
+ * dear and nobody ever buys one, which is the same as not shipping the feature.
+ *
+ * Shared because the app prints it on the button and the server charges it. The games economy note
+ * in `constants/games.ts` is the precedent: numbers a child can see must have exactly one home.
+ */
+export const STREAK_SHIELD_COST = 40;
+
 // Validation constants
 export const VALIDATION = {
   PIN: {
