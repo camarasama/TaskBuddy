@@ -39,7 +39,9 @@ import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import {
   childrenQuery,
+  clearGrace,
   clearStreakPause,
+  grantGrace,
   setStreakPause,
   toDayString,
 } from '@/lib/childrenApi';
@@ -54,7 +56,7 @@ import {
   updateChild,
   type ChildInput,
 } from '@/lib/parentWriteApi';
-import { AGE_LIMITS, MAX_STREAK_PAUSE_DAYS, isAgeBetween } from '@taskbuddy/shared';
+import { AGE_LIMITS, GRACE_GRANT_HOURS, MAX_STREAK_PAUSE_DAYS, isAgeBetween } from '@taskbuddy/shared';
 
 import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
 
@@ -85,6 +87,38 @@ function childDobBounds() {
  */
 export default function ChildForm() {
   return <ChildFormScreen key={useFreshOnFocus()} />;
+}
+
+/**
+ * A stored grace expiry, or null when there is none or it will not parse.
+ *
+ * An already-lapsed grant is kept as a Date rather than discarded: the screen compares it to now to
+ * decide whether to show "held until…" or offer a fresh grant, and throwing it away here would make
+ * a spent grant indistinguishable from never having granted one.
+ */
+/**
+ * "9pm today" / "9pm tomorrow", in the parent's own timezone.
+ *
+ * Deliberately not a full date: a 24-hour grant always lands today or tomorrow, and spelling out a
+ * date for it reads like a deadline rather than a favour. Falls back to a plain time if the day
+ * cannot be worked out, which is better than printing nothing next to a promise.
+ */
+function formatGraceTime(until: Date): string {
+  const time = until.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const days = Math.floor((until.getTime() - startOfToday.getTime()) / 86_400_000);
+
+  if (days === 0) return `${time} today`;
+  if (days === 1) return `${time} tomorrow`;
+  return time;
+}
+
+function parseGrace(value: Date | string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 /**
@@ -139,6 +173,17 @@ function ChildFormScreen() {
   const [pauseUntil, setPauseUntil] = useState(dayOrEmpty(existing?.childProfile?.streakPausedUntil));
   const [pauseBusy, setPauseBusy] = useState(false);
   const pauseActive = pauseFrom !== '' && pauseUntil !== '';
+
+  /*
+    The one-off grace grant (growth roadmap §11.3). Held as the expiry the SERVER returned rather
+    than one computed here, so the line the parent reads is the moment the streak is actually judged
+    against instead of a local guess that drifts by the round trip.
+  */
+  const [graceUntil, setGraceUntil] = useState<Date | null>(
+    parseGrace(existing?.childProfile?.graceGrantedUntil),
+  );
+  const [graceBusy, setGraceBusy] = useState(false);
+  const graceActive = graceUntil !== null && graceUntil.getTime() > Date.now();
 
   const usernameValid =
     username.trim().length >= 3 && username.trim().length <= 20 && USERNAME_PATTERN.test(username.trim());
@@ -195,6 +240,36 @@ function ChildFormScreen() {
       toast.show(describeError(caught));
     } finally {
       setPauseBusy(false);
+    }
+  }, [id, toast, invalidate]);
+
+  const giveGrace = useCallback(async () => {
+    if (!id) return;
+    setGraceBusy(true);
+    try {
+      const until = await grantGrace(id);
+      setGraceUntil(new Date(until));
+      await invalidate();
+      toast.show('Streak held. They have a bit longer.');
+    } catch (caught) {
+      toast.show(describeError(caught));
+    } finally {
+      setGraceBusy(false);
+    }
+  }, [id, toast, invalidate]);
+
+  const takeBackGrace = useCallback(async () => {
+    if (!id) return;
+    setGraceBusy(true);
+    try {
+      await clearGrace(id);
+      setGraceUntil(null);
+      await invalidate();
+      toast.show('Extra time removed.');
+    } catch (caught) {
+      toast.show(describeError(caught));
+    } finally {
+      setGraceBusy(false);
     }
   }, [id, toast, invalidate]);
 
@@ -350,6 +425,38 @@ function ChildFormScreen() {
             <AppText accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
               {error}
             </AppText>
+          </Card>
+        )}
+
+        {editing && (
+          <Card>
+            <AppText style={[styles.hint, { color: theme.cardForeground }]}>
+              Something came up tonight?
+            </AppText>
+            <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+              {graceActive && graceUntil
+                ? `${firstName || 'Their'} streak is held until ${formatGraceTime(graceUntil)}. They won't lose it before then.`
+                : `Give ${firstName || 'them'} another ${GRACE_GRANT_HOURS} hours before the streak counts today as missed. The task's own deadline doesn't change.`}
+            </AppText>
+            <View style={styles.gap} />
+
+            <Button
+              label={graceActive ? 'Extend again' : 'Give extra time'}
+              onPress={() => void giveGrace()}
+              busy={graceBusy}
+              disabled={busy}
+            />
+            {graceActive && (
+              <>
+                <View style={styles.gap} />
+                <Button
+                  label="Remove extra time"
+                  variant="secondary"
+                  onPress={() => void takeBackGrace()}
+                  disabled={busy || graceBusy}
+                />
+              </>
+            )}
           </Card>
         )}
 
