@@ -81,6 +81,29 @@ export async function setFamilyStreakPause(from: string, until: string): Promise
   await api.put('/families/me/streak-pause', { from, until });
 }
 
+// ── One-off grace grant (growth roadmap §11.3) ───────────────────────────────
+
+/**
+ * Hold this child's streak for a fixed window after one bad evening.
+ *
+ * No arguments beyond the child: the duration is `GRACE_GRANT_HOURS`, fixed, which is what keeps
+ * this one tap at 9pm rather than a date-time picker. The server takes the LATER of this and the
+ * family's standing grace policy, so granting can only ever extend the window.
+ *
+ * Returns the moment it expires so the screen can say when, rather than guessing it locally and
+ * drifting from the server by the round-trip time.
+ */
+export async function grantGrace(childId: string): Promise<string> {
+  const res = await api.post<{ childId: string; graceGrantedUntil: string }>(
+    `/families/me/children/${childId}/grace-grant`,
+  );
+  return res.graceGrantedUntil;
+}
+
+export async function clearGrace(childId: string): Promise<void> {
+  await api.delete(`/families/me/children/${childId}/grace-grant`);
+}
+
 /** `YYYY-MM-DD` in the device's own timezone, which is the one the parent is thinking in. */
 export function toDayString(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');

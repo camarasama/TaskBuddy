@@ -156,6 +156,15 @@ model ChildProfile {
   /// who wants a different range replaces it. Dates, not timestamps, because a holiday is a day.
   streakPausedFrom    DateTime? @map("streak_paused_from") @db.Date
   streakPausedUntil   DateTime? @map("streak_paused_until") @db.Date
+  /// A one-off grace extension a parent granted for this child (growth roadmap §11.3).
+  ///
+  /// Distinct from `FamilySettings.streakGracePeriodHours`, which is a standing policy in hours
+  /// applied every day to every child. This is a response to one bad evening, on one child, and it
+  /// expires. A timestamp rather than a date, because "until tomorrow evening" is a moment.
+  ///
+  /// Protects the STREAK only. The task's own expiry is untouched, so a granted evening does not
+  /// silently extend a deadline the child can still miss.
+  graceGrantedUntil   DateTime? @map("grace_granted_until")
   lastStreakDate      DateTime? @map("last_streak_date") @db.Date
   lastActivityDate    DateTime? @map("last_activity_date")
   level               Int       @default(1)

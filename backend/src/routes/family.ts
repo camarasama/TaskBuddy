@@ -17,6 +17,7 @@ import { getChildCapacity, type ChildCapacity } from '../utils/assignmentLimits'
 import { getReferralSummary } from '../services/ReferralService';
 import { AuditService } from '../services/AuditService';
 import { MAX_STREAK_PAUSE_DAYS } from '../services/streakService';
+import { GRACE_GRANT_HOURS } from '@taskbuddy/shared';
 // M9 - Email notifications
 import { EmailService } from '../services/email';
 import { isOwnStorageUrl } from '../services/storage';
@@ -841,6 +842,73 @@ familyRouter.put(
     }
   },
 );
+
+/**
+ * One-off grace grant (growth roadmap §11.3).
+ *
+ *   POST   /families/me/children/:id/grace-grant   - hold the streak for GRACE_GRANT_HOURS
+ *   DELETE /families/me/children/:id/grace-grant   - take it back
+ *
+ * The standing `FamilySettings.streakGracePeriodHours` is a policy: every day, every child, measured
+ * in hours past midnight. This is a response to one evening, for one child, and it expires by itself.
+ * `graceDeadlineFor` takes the LATER of the two, so a grant can only ever extend, never shorten.
+ *
+ * Streak only. The task's own expiry is untouched (owner decision, 2026-08-26), so a granted evening
+ * cannot quietly move a deadline the child is still expected to meet.
+ *
+ * No body: the duration is fixed, which is what makes this one tap on a phone at 9pm.
+ */
+familyRouter.post('/me/children/:id/grace-grant', requireParent, async (req, res, next) => {
+  try {
+    const child = await findOwnChild(req.params.id, req.familyId);
+    const until = new Date(Date.now() + GRACE_GRANT_HOURS * 60 * 60 * 1000);
+
+    await prisma.childProfile.update({
+      where: { userId: child.id },
+      data: { graceGrantedUntil: until },
+    });
+
+    // A parent action that changes what a child's record will do, so it is audited like the pause
+    // and the other overrides rather than left as an invisible state change.
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'STREAK_GRACE_GRANTED',
+      resourceType: 'user',
+      resourceId: child.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+      metadata: { until: until.toISOString(), hours: GRACE_GRANT_HOURS },
+    });
+
+    res.json({ success: true, data: { childId: child.id, graceGrantedUntil: until.toISOString() } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+familyRouter.delete('/me/children/:id/grace-grant', requireParent, async (req, res, next) => {
+  try {
+    const child = await findOwnChild(req.params.id, req.familyId);
+
+    await prisma.childProfile.update({
+      where: { userId: child.id },
+      data: { graceGrantedUntil: null },
+    });
+
+    await AuditService.logAction({
+      actorId: req.user!.userId,
+      action: 'STREAK_GRACE_CLEARED',
+      resourceType: 'user',
+      resourceId: child.id,
+      familyId: req.familyId,
+      ipAddress: req.ip,
+    });
+
+    res.json({ success: true, data: { childId: child.id, graceGrantedUntil: null } });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // PUT /families/me/children/:id - Update a child
 familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSchema), async (req, res, next) => {

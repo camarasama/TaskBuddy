@@ -114,6 +114,11 @@ export interface ChildProfile extends BaseModel {
    * annotates dates as `Date` for historical reasons that do not match the wire. Read them through
    * `new Date(...)` rather than trusting the annotation.
    */
+  /**
+   * A one-off grace extension a parent granted (growth roadmap §11.3). Distinct from the family's
+   * standing `streakGracePeriodHours`; the later of the two wins. Null once it lapses or is cleared.
+   */
+  graceGrantedUntil?: Date | string | null;
   streakPausedFrom?: Date | string | null;
   streakPausedUntil?: Date | string | null;
   lastStreakDate?: Date | null;

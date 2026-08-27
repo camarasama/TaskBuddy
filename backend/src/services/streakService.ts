@@ -87,6 +87,37 @@ export function applyStreakFreeze(params: {
 }
 
 
+/**
+ * The moment today's grace window actually closes, once a parent's one-off grant is taken into
+ * account (growth roadmap §11.3).
+ *
+ * Two sources, and the LATER wins:
+ *   - `FamilySettings.streakGracePeriodHours`, a standing policy in hours past midnight, applied
+ *     every day to every child in the family.
+ *   - `ChildProfile.graceGrantedUntil`, a timestamp a parent set for one child after one bad
+ *     evening.
+ *
+ * Taking the later of the two is the only combination that cannot surprise anyone: a grant is
+ * something a parent did deliberately, so it must never be shortened by a family policy that happens
+ * to be stricter, and a family that already allows until 4am should not lose that because a grant
+ * expired at midnight. A grant in the past is simply spent and falls out of the max naturally.
+ *
+ * Pure, so the precedence is testable without a database.
+ */
+export function graceDeadlineFor(params: {
+  todayMidnight: Date;
+  gracePeriodHours: number;
+  graceGrantedUntil: Date | null;
+}): Date {
+  const { todayMidnight, gracePeriodHours, graceGrantedUntil } = params;
+
+  const fromPolicy = new Date(todayMidnight);
+  fromPolicy.setHours(gracePeriodHours, 0, 0, 0);
+
+  if (!graceGrantedUntil) return fromPolicy;
+  return graceGrantedUntil > fromPolicy ? graceGrantedUntil : fromPolicy;
+}
+
 /** Midnight of the calendar day `d` falls in. Every day-boundary comparison here goes through it. */
 function midnight(d: Date): Date {
   const m = new Date(d);
@@ -182,6 +213,7 @@ export async function evaluateStreak(
       lastActivityDate: true,
       pointsBalance: true, // M7: needed to calculate balance after bonus
       streakFreezes: true, // roadmap §4.3 - insurance against a missed day
+      graceGrantedUntil: true, // roadmap §11.3 - one-off parent grant
       streakPausedFrom: true, // roadmap §11.2 - vacation mode
       streakPausedUntil: true,
     },
@@ -199,8 +231,12 @@ export async function evaluateStreak(
 
   // Grace window: tasks completed up to N hours after yesterday midnight still
   // count as "yesterday" for streak purposes.
-  const graceDeadline = new Date(todayMidnight);
-  graceDeadline.setHours(gracePeriodHours, 0, 0, 0);
+  // Later of the family's standing policy and any one-off grant. See `graceDeadlineFor`.
+  const graceDeadline = graceDeadlineFor({
+    todayMidnight,
+    gracePeriodHours,
+    graceGrantedUntil: childProfile.graceGrantedUntil,
+  });
 
   const lastActivity = childProfile.lastActivityDate
     ? new Date(childProfile.lastActivityDate)
@@ -229,8 +265,18 @@ export async function evaluateStreak(
     } else if (daysSinceLast === 1) {
       // Active yesterday, active today - extend streak
       newStreak += 1;
-    } else if (daysSinceLast === 2 && gracePeriodHours > 0 && now <= graceDeadline) {
-      // Missed yesterday but within the grace window today - extend streak
+    } else if (daysSinceLast === 2 && now <= graceDeadline) {
+      /*
+        Missed yesterday but still inside today's grace window, so the streak extends.
+
+        The old condition also required `gracePeriodHours > 0`, which was right when the policy was
+        the only source of grace and wrong the moment a parent could grant one: a family that has
+        turned the standing window off (0 hours, the default in `isStreakAtRisk`) would have had the
+        grant silently ignored, which is the one case the feature exists for. `graceDeadlineFor`
+        already collapses to midnight when there is neither a policy nor a grant, and `now` is never
+        <= midnight of today at the point this runs, so dropping the guard changes nothing for a
+        family without a grant.
+      */
       newStreak += 1;
     } else {
       /*
@@ -377,6 +423,7 @@ export async function isStreakAtRisk(childId: string, familyId: string): Promise
     select: {
       currentStreakDays: true,
       lastActivityDate: true,
+      graceGrantedUntil: true,
       streakPausedFrom: true,
       streakPausedUntil: true,
     },
@@ -406,9 +453,12 @@ export async function isStreakAtRisk(childId: string, familyId: string): Promise
   if (completedToday) return false;
 
   // If within grace window, the streak is not yet lost - but still "at risk"
-  const graceDeadline = new Date(todayMidnight);
-  graceDeadline.setHours(gracePeriodHours, 0, 0, 0);
+  // A granted evening means not at risk yet, so the reminder holds off until the grant lapses.
+  const graceDeadline = graceDeadlineFor({
+    todayMidnight,
+    gracePeriodHours,
+    graceGrantedUntil: profile.graceGrantedUntil,
+  });
 
-  const withinGrace = gracePeriodHours > 0 && now <= graceDeadline;
-  return !withinGrace; // At risk only once grace window has passed
+  return now > graceDeadline; // At risk only once the grace window has passed
 }

@@ -52,6 +52,16 @@ export const GAMIFICATION = {
  */
 export const MAX_STREAK_PAUSE_DAYS = 30;
 
+/**
+ * How long a parent's one-off grace grant lasts, in hours (growth roadmap §11.3).
+ *
+ * 24 rather than a parent-chosen datetime: the feature answers "something came up tonight", and a
+ * date-time picker for that is more ceremony than the situation deserves. Shared because the app
+ * writes "until this time tomorrow" on the button and the server computes the same moment; one copy
+ * so the sentence and the stored value cannot disagree.
+ */
+export const GRACE_GRANT_HOURS = 24;
+
 // Validation constants
 export const VALIDATION = {
   PIN: {
