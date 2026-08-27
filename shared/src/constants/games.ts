@@ -36,6 +36,43 @@ export const GAME_LEVEL_LABELS: Record<GameLevel, string> = {
 };
 
 /**
+ * Short forms, for a control too narrow to hold the full name.
+ *
+ * The mobile picker draws the three levels as columns on a phone. "Intermediate" does not fit that
+ * box on a 320dp screen even shrunk to the minimum font scale, and a clipped word is worse than a
+ * short one. These are used **only** where the width is fixed and small; the full labels above stay
+ * everywhere with room to render them, including every accessibility label, so a screen reader still
+ * says "Intermediate" where the eye sees "Medium".
+ *
+ * Easy/Medium/Hard rather than Beginner/Medium/Hard: the three have to read as one scale, and a
+ * mixed register ("Beginner" beside "Medium") reads as two different questions. This triple is also
+ * the one a child already knows from every other game they have played.
+ */
+export const GAME_LEVEL_SHORT_LABELS: Record<GameLevel, string> = {
+  beginner: 'Easy',
+  intermediate: 'Medium',
+  hard: 'Hard',
+};
+
+/**
+ * The face of each subject.
+ *
+ * Emoji rather than an icon set, for the same reason the web picked them: six subjects have to be
+ * told apart at a glance by a child who may not read the label, and every platform already renders
+ * these in colour without shipping an asset. They live here rather than in each client because both
+ * clients draw the same picker and a subject that is a globe on the web and a book on the phone is
+ * the same bug as a mislabelled one.
+ */
+export const GAME_CATEGORY_EMOJI: Record<GameCategory, string> = {
+  maths: '\u{1F522}',
+  science: '\u{1F52C}',
+  geography: '\u{1F30D}',
+  vocabulary: '\u{1F4D6}',
+  grammar: '\u{270F}\u{FE0F}',
+  puzzle: '\u{1F9E9}',
+};
+
+/**
  * Points and XP per completed game, by level.
  *
  * ## Why these numbers, and why they live in code rather than in the database

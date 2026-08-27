@@ -17,6 +17,7 @@ import { motion } from 'framer-motion';
 import { Gamepad2, Star, Clock, Zap, Lock, Play, History, ChevronLeft } from 'lucide-react';
 import {
   GAME_CATEGORIES,
+  GAME_CATEGORY_EMOJI,
   GAME_CATEGORY_LABELS,
   GAME_LEVELS,
   GAME_LEVEL_LABELS,
@@ -44,16 +45,6 @@ interface GameDef {
   onCooldown: boolean;
   cooldownEndsAt: string | null;
 }
-
-/** Emoji rather than icons: six categories need to be distinguishable at a glance by a 10-year-old. */
-const CATEGORY_EMOJI: Record<GameCategory, string> = {
-  maths: '🔢',
-  science: '🔬',
-  geography: '🌍',
-  vocabulary: '📖',
-  grammar: '✏️',
-  puzzle: '🧩',
-};
 
 const LEVEL_STYLE: Record<GameLevel, string> = {
   beginner: 'bg-success-100 text-success-700 border-success-200',
@@ -203,7 +194,7 @@ export default function GamesLobbyPage() {
                     !empty && !onCooldown && 'border-gold-200 hover:border-gold-400',
                   )}
                 >
-                  <div className="text-3xl mb-1.5" aria-hidden>{CATEGORY_EMOJI[category]}</div>
+                  <div className="text-3xl mb-1.5" aria-hidden>{GAME_CATEGORY_EMOJI[category]}</div>
                   <h3 className="font-bold text-slate-900">{GAME_CATEGORY_LABELS[category]}</h3>
 
                   {empty ? (
