@@ -40,6 +40,18 @@ export const GAMIFICATION = {
   },
 } as const;
 
+/**
+ * Longest streak pause a parent may open, in days (growth roadmap §11.2).
+ *
+ * Shared rather than backend-only because both clients state it: the server rejects a longer range
+ * and the app writes "Up to 30 days" under the date picker. Two copies of a number a parent reads on
+ * screen is how a validation message ends up contradicting the hint above it.
+ *
+ * Bounded at all because an open-ended pause is a permanent streak freeze, which would quietly empty
+ * the streak of meaning rather than protecting it.
+ */
+export const MAX_STREAK_PAUSE_DAYS = 30;
+
 // Validation constants
 export const VALIDATION = {
   PIN: {

@@ -104,6 +104,18 @@ export interface ChildProfile extends BaseModel {
   totalTasksCompleted: number;
   currentStreakDays: number;
   longestStreakDays: number;
+  /** Banked streak insurance (growth roadmap §4.3), capped at MAX_STREAK_FREEZES. */
+  streakFreezes?: number;
+  /**
+   * Vacation mode (growth roadmap §11.2). An inclusive date range during which missed days do not
+   * break the streak. Both are set and cleared together; one without the other means no pause.
+   *
+   * Typed `Date | string` deliberately: these arrive over JSON as strings, and the rest of this file
+   * annotates dates as `Date` for historical reasons that do not match the wire. Read them through
+   * `new Date(...)` rather than trusting the annotation.
+   */
+  streakPausedFrom?: Date | string | null;
+  streakPausedUntil?: Date | string | null;
   lastStreakDate?: Date | null;
   level: number;
   // XP within current level (resets on level-up, used for the level bar display)

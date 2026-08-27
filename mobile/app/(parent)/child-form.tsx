@@ -37,7 +37,12 @@ import { DateField } from '@/components/DateField';
 import { Field } from '@/components/Field';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
-import { childrenQuery } from '@/lib/childrenApi';
+import {
+  childrenQuery,
+  clearStreakPause,
+  setStreakPause,
+  toDayString,
+} from '@/lib/childrenApi';
 import { describeError } from '@/lib/errors';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import { pickAndUploadImage } from '@/lib/imageUpload';
@@ -49,7 +54,7 @@ import {
   updateChild,
   type ChildInput,
 } from '@/lib/parentWriteApi';
-import { AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
+import { AGE_LIMITS, MAX_STREAK_PAUSE_DAYS, isAgeBetween } from '@taskbuddy/shared';
 
 import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
 
@@ -82,6 +87,19 @@ export default function ChildForm() {
   return <ChildFormScreen key={useFreshOnFocus()} />;
 }
 
+/**
+ * A stored pause date as `YYYY-MM-DD`, or '' when there is none.
+ *
+ * The value arrives as a JSON string despite `ChildProfile` annotating it as `Date` (see the note on
+ * that type), so it is parsed rather than trusted, and a value that will not parse is treated as no
+ * pause rather than rendering "Invalid Date" at a parent.
+ */
+function dayOrEmpty(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : toDayString(d);
+}
+
 function ChildFormScreen() {
   const theme = useTheme();
   const toast = useToast();
@@ -108,6 +126,20 @@ function ChildFormScreen() {
    */
   const [consentAccepted, setConsentAccepted] = useState(false);
 
+  /*
+    Vacation mode (growth roadmap §11.2). Its own state and its own mutation, deliberately separate
+    from the form's Save: a parent pausing a streak has not necessarily edited the name or the PIN,
+    and making them press Save afterwards would either lose the pause or apply edits they had not
+    finished. `DateField` already emits `YYYY-MM-DD`, which is exactly the shape the endpoint wants.
+
+    Seeded from the loaded child the same way the name fields are, so reopening the screen shows the
+    pause that is actually in force rather than two empty boxes over a live holiday.
+  */
+  const [pauseFrom, setPauseFrom] = useState(dayOrEmpty(existing?.childProfile?.streakPausedFrom));
+  const [pauseUntil, setPauseUntil] = useState(dayOrEmpty(existing?.childProfile?.streakPausedUntil));
+  const [pauseBusy, setPauseBusy] = useState(false);
+  const pauseActive = pauseFrom !== '' && pauseUntil !== '';
+
   const usernameValid =
     username.trim().length >= 3 && username.trim().length <= 20 && USERNAME_PATTERN.test(username.trim());
   const dobValid = editing ? true : isAgeBetween(dob, AGE_LIMITS.CHILD_MIN, AGE_LIMITS.CHILD_MAX);
@@ -130,6 +162,42 @@ function ChildFormScreen() {
       )
     );
   }, [queryClient]);
+
+  /*
+    Save or clear the pause. The server owns the rules (forward-only, end not before start, at most
+    30 days) and returns a readable message for each, so failures are surfaced verbatim rather than
+    re-implemented here, where they would drift the first time the cap changes.
+  */
+  const savePause = useCallback(async () => {
+    if (!id) return;
+    setPauseBusy(true);
+    try {
+      await setStreakPause(id, pauseFrom, pauseUntil);
+      await invalidate();
+      toast.show('Streak paused for those dates.');
+    } catch (caught) {
+      toast.show(describeError(caught));
+    } finally {
+      setPauseBusy(false);
+    }
+  }, [id, pauseFrom, pauseUntil, toast, invalidate]);
+
+  const removePause = useCallback(async () => {
+    if (!id) return;
+    setPauseBusy(true);
+    try {
+      await clearStreakPause(id);
+      setPauseFrom('');
+      setPauseUntil('');
+      await invalidate();
+      toast.show('Streak pause removed.');
+    } catch (caught) {
+      toast.show(describeError(caught));
+    } finally {
+      setPauseBusy(false);
+    }
+  }, [id, toast, invalidate]);
+
 
   const { mutateAsync: doAdd } = useMutation({ mutationFn: addChild });
   const { mutateAsync: doUpdate } = useMutation({
@@ -282,6 +350,57 @@ function ChildFormScreen() {
             <AppText accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
               {error}
             </AppText>
+          </Card>
+        )}
+
+        {editing && (
+          <Card>
+            <AppText style={[styles.hint, { color: theme.cardForeground }]}>
+              Away from home?
+            </AppText>
+            <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+              Pause {firstName || 'their'} streak over a holiday. Missed days won&apos;t break it, and
+              you won&apos;t get streak reminders while it&apos;s paused. Tasks they do finish still
+              count as normal.
+            </AppText>
+            <View style={styles.gap} />
+
+            {/* minimumDate today on both: the pause is forward-only, so the picker refuses what the
+                server would reject anyway, rather than letting a parent choose a date and then be
+                told no. */}
+            <DateField
+              label="From"
+              value={pauseFrom}
+              onChange={setPauseFrom}
+              editable={!pauseBusy && !busy}
+              minimumDate={new Date()}
+            />
+            <DateField
+              label="Until"
+              value={pauseUntil}
+              onChange={setPauseUntil}
+              editable={!pauseBusy && !busy}
+              minimumDate={pauseFrom ? new Date(`${pauseFrom}T00:00:00`) : new Date()}
+              hint={`Up to ${MAX_STREAK_PAUSE_DAYS} days.`}
+            />
+
+            <Button
+              label={pauseActive ? 'Update pause' : 'Pause streak'}
+              onPress={() => void savePause()}
+              busy={pauseBusy}
+              disabled={busy || pauseFrom === '' || pauseUntil === ''}
+            />
+            {pauseActive && (
+              <>
+                <View style={styles.gap} />
+                <Button
+                  label="Remove pause"
+                  variant="secondary"
+                  onPress={() => void removePause()}
+                  disabled={busy || pauseBusy}
+                />
+              </>
+            )}
           </Card>
         )}
 

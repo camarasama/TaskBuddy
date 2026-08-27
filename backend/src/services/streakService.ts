@@ -10,7 +10,11 @@
  * Original BUG-06 logic (grace period from FamilySettings) is unchanged.
  */
 
+import { MAX_STREAK_PAUSE_DAYS } from '@taskbuddy/shared';
 import { prisma } from './database';
+
+// Re-exported so `routes/family.ts` and the tests keep one import site for the streak rules.
+export { MAX_STREAK_PAUSE_DAYS };
 import {
   GAMIFICATION_M7,
   STREAK_MILESTONE_DAYS,
@@ -82,6 +86,61 @@ export function applyStreakFreeze(params: {
   return { newStreak: 1, newFreezes: freezes, consumed: 0 };
 }
 
+
+/** Midnight of the calendar day `d` falls in. Every day-boundary comparison here goes through it. */
+function midnight(d: Date): Date {
+  const m = new Date(d);
+  m.setHours(0, 0, 0, 0);
+  return m;
+}
+
+/**
+ * How many days of a gap were covered by an open vacation pause.
+ *
+ * Counts calendar days STRICTLY BETWEEN the last activity and today, intersected with the inclusive
+ * pause range. Both endpoints are excluded on purpose: the last-activity day was worked, and today is
+ * the day being credited, so neither is a missed day that a pause could cover.
+ *
+ * Pure, so the arithmetic is testable without a database, matching `applyStreakFreeze`.
+ */
+export function pausedDaysInGap(params: {
+  lastActivity: Date;
+  now: Date;
+  pausedFrom: Date | null;
+  pausedUntil: Date | null;
+}): number {
+  const { lastActivity, now, pausedFrom, pausedUntil } = params;
+  if (!pausedFrom || !pausedUntil) return 0;
+
+  const from = midnight(pausedFrom);
+  const until = midnight(pausedUntil);
+  if (until < from) return 0;
+
+  const firstMissed = midnight(lastActivity);
+  firstMissed.setDate(firstMissed.getDate() + 1);
+  const lastMissed = midnight(now);
+  lastMissed.setDate(lastMissed.getDate() - 1);
+
+  // Overlap of [firstMissed, lastMissed] with [from, until], both inclusive.
+  const start = firstMissed > from ? firstMissed : from;
+  const end = lastMissed < until ? lastMissed : until;
+  if (end < start) return 0;
+
+  return Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
+}
+
+/** Whether a pause covers the calendar day `on` falls in. */
+export function isPausedOn(params: {
+  on: Date;
+  pausedFrom: Date | null;
+  pausedUntil: Date | null;
+}): boolean {
+  const { on, pausedFrom, pausedUntil } = params;
+  if (!pausedFrom || !pausedUntil) return false;
+  const day = midnight(on);
+  return day >= midnight(pausedFrom) && day <= midnight(pausedUntil);
+}
+
 /**
  * Freeze balance after a streak lands on `newStreak`.
  *
@@ -123,6 +182,8 @@ export async function evaluateStreak(
       lastActivityDate: true,
       pointsBalance: true, // M7: needed to calculate balance after bonus
       streakFreezes: true, // roadmap §4.3 - insurance against a missed day
+      streakPausedFrom: true, // roadmap §11.2 - vacation mode
+      streakPausedUntil: true,
     },
   });
 
@@ -172,17 +233,52 @@ export async function evaluateStreak(
       // Missed yesterday but within the grace window today - extend streak
       newStreak += 1;
     } else {
-      // Gap. Spend banked freezes to cover the missed days rather than resetting outright
-      // (roadmap §4.3). The grace branch above keeps priority, so a child inside grace is never
-      // charged a freeze for a day they did not actually miss.
-      const decision = applyStreakFreeze({
-        currentStreak: childProfile.currentStreakDays,
-        daysSinceLast,
-        freezes: childProfile.streakFreezes,
+      /*
+        Gap. Vacation days come off it FIRST, then banked freezes cover whatever is left
+        (roadmap §11.2, then §4.3).
+
+        The order is the whole point. A pause is something a parent declared in advance, so it is not
+        a missed day at all and must never cost a freeze the child earned; freezes are the fallback
+        for days nobody planned for. Running them the other way round would silently bill a child for
+        their own holiday.
+
+        `daysSinceLast` is reduced rather than the missed-day count being recomputed, so
+        `applyStreakFreeze` keeps its single definition of a gap and stays exhaustively testable on
+        its own. A fully covered gap lands on daysSinceLast === 1, which that function reads as no
+        missed days and passes through untouched.
+      */
+      const paused = pausedDaysInGap({
+        lastActivity,
+        now,
+        pausedFrom: childProfile.streakPausedFrom,
+        pausedUntil: childProfile.streakPausedUntil,
       });
-      newStreak = decision.newStreak;
-      newFreezes = decision.newFreezes;
-      freezesConsumed = decision.consumed;
+      const effectiveDays = daysSinceLast - paused;
+
+      if (effectiveDays <= 1) {
+        /*
+          The holiday covered every missed day, so there is no gap left to answer for. This is the
+          same outcome as "active yesterday, active today" and is handled here rather than by passing
+          the reduced number to `applyStreakFreeze`.
+
+          It has to be: that function is written for a real gap and reads zero missed days as a
+          reset, because until vacation mode existed it was only ever reached through the `else`
+          below, where the gap is at least two days. Feeding it a fully discounted gap would wipe the
+          streak the pause was bought to protect. Caught by the "spends NO freezes when the holiday
+          covers the whole gap" test, which is why that test is written against the ordering rather
+          than against the helper alone.
+        */
+        newStreak += 1;
+      } else {
+        const decision = applyStreakFreeze({
+          currentStreak: childProfile.currentStreakDays,
+          daysSinceLast: effectiveDays,
+          freezes: childProfile.streakFreezes,
+        });
+        newStreak = decision.newStreak;
+        newFreezes = decision.newFreezes;
+        freezesConsumed = decision.consumed;
+      }
     }
   }
 
@@ -278,12 +374,25 @@ export async function isStreakAtRisk(childId: string, familyId: string): Promise
 
   const profile = await prisma.childProfile.findUnique({
     where: { userId: childId },
-    select: { currentStreakDays: true, lastActivityDate: true },
+    select: {
+      currentStreakDays: true,
+      lastActivityDate: true,
+      streakPausedFrom: true,
+      streakPausedUntil: true,
+    },
   });
 
   if (!profile || profile.currentStreakDays === 0) return false;
 
   const now = new Date();
+
+  // A paused streak cannot be at risk: that is what the parent asked for. Checked before anything
+  // else so the at-risk email and push both fall silent for the whole holiday rather than firing
+  // every evening about a streak that is not in danger (roadmap §11.2).
+  if (isPausedOn({ on: now, pausedFrom: profile.streakPausedFrom, pausedUntil: profile.streakPausedUntil })) {
+    return false;
+  }
+
   const todayMidnight = new Date(now);
   todayMidnight.setHours(0, 0, 0, 0);
 

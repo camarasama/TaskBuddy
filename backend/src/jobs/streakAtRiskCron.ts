@@ -18,6 +18,7 @@
 import cron from 'node-cron';
 import { prisma } from '../services/database';
 import { EmailService } from '../services/email';
+import { isPausedOn } from '../services/streakService';
 
 async function sendStreakAtRiskEmails(): Promise<void> {
   const now = new Date();
@@ -44,7 +45,9 @@ async function sendStreakAtRiskEmails(): Promise<void> {
       firstName: true,
       lastName: true,
       familyId: true,
-      childProfile: { select: { currentStreakDays: true } },
+      childProfile: {
+        select: { currentStreakDays: true, streakPausedFrom: true, streakPausedUntil: true },
+      },
       taskAssignments: {
         where: {
           status: 'completed',
@@ -55,10 +58,24 @@ async function sendStreakAtRiskEmails(): Promise<void> {
     },
   });
 
-  // Filter to only those with 0 completions today
-  const atRisk = childrenWithAssignments.filter(
-    (child) => child.taskAssignments.length === 0,
-  );
+  /*
+    Filter to only those with 0 completions today, then drop anyone on a vacation pause
+    (growth roadmap §11.2).
+
+    Dropped here rather than in the query's `where`, because "is today inside the pause range" is the
+    same comparison `isStreakAtRisk` makes and it belongs in one place. Emailing a parent that a
+    streak they deliberately paused is at risk is the exact anxiety the feature exists to remove.
+  */
+  const atRisk = childrenWithAssignments
+    .filter((child) => child.taskAssignments.length === 0)
+    .filter(
+      (child) =>
+        !isPausedOn({
+          on: now,
+          pausedFrom: child.childProfile?.streakPausedFrom ?? null,
+          pausedUntil: child.childProfile?.streakPausedUntil ?? null,
+        }),
+    );
 
   console.log(`[streakAtRiskCron] Children at risk: ${atRisk.length}`);
 
