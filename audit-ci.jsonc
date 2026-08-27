@@ -121,7 +121,36 @@
     // RE-TRIAGE: remove when image-size publishes a release above 2.0.2 carrying the fix, or when
     // metro drops it. Re-examine immediately if image-size ever gains a consumer outside metro.
     "GHSA-w3rx-r6r6-pgpr",
-    "GHSA-5p2g-fcmc-qvqq"
+    "GHSA-5p2g-fcmc-qvqq",
+
+    // DEP-11 — deepmerge-ts: stack exhaustion when merging recursive object graphs
+    // (GHSA-ggr8-5vv4-36mx, high, CWE-674 uncontrolled recursion, range <8.0.0). Surfaced
+    // 2026-08-27, failing a build whose code touches no dependency at all — the advisory was
+    // published after main's last green run.
+    //
+    // NOT REACHABLE, for reasons that are independent:
+    //   1. DEV-ONLY, and this is the strong one. `npm ls deepmerge-ts --all` shows exactly one
+    //      path: backend -> prisma@6.19.3 -> @prisma/config -> deepmerge-ts@7.1.5. `prisma` is
+    //      the CLI and is a devDependency; `@prisma/client`, the package the running service
+    //      imports, does not depend on it. The CLI runs `migrate` / `generate` / `validate` on a
+    //      developer machine and in CI. It is not in the production image and never sees a request.
+    //   2. THE INPUTS ARE OURS. The advisory needs a recursive object graph handed to a merge.
+    //      @prisma/config merges Prisma's own configuration, which is committed to this repo. No
+    //      user, child or attacker can supply it.
+    //   3. The worst case is therefore a hung `prisma` command on a developer's laptop, not a
+    //      production outage.
+    //
+    // NO FIX REACHABLE: deepmerge-ts@8.0.2 carries the patch, but @prisma/config pins it EXACTLY
+    // at 7.1.5 — including in @prisma/config@7.10.0, the latest at time of writing — so upgrading
+    // Prisma does not clear it. A root `overrides.deepmerge-ts: "^8.0.0"` was attempted on
+    // 2026-08-27 and npm declined to apply it to this transitive path: `npm ls` still resolved
+    // 7.1.5, flagged `invalid`. That is the same failure mode recorded for uuid in DEP-09.
+    // npm's own suggested remedy is prisma@6.12.0, a DOWNGRADE from 6.19.3.
+    //
+    // RE-TRIAGE: remove when @prisma/config depends on deepmerge-ts >= 8.0.0. Re-examine
+    // immediately if deepmerge-ts ever gains a consumer outside the prisma CLI, and in particular
+    // if it appears under @prisma/client, which would move it into the runtime path.
+    "GHSA-ggr8-5vv4-36mx"
 
     // nanoid (GHSA-2v37-7h3g-55p8, high, <3.3.17) surfaced alongside DEP-10 and is deliberately
     // NOT here — it was FIXED. `npm update nanoid` took the tree to 3.3.18. It was runtime-reachable
