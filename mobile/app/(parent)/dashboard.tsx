@@ -33,6 +33,7 @@ import { Card } from '@/components/Card';
 import { CardHeading } from '@/components/CardHeading';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
+import { SetupChecklistCard } from '@/components/SetupChecklistCard';
 import { StatTile } from '@/components/StatTile';
 import { NetworkError } from '@/lib/api';
 import { dashboardQuery } from '@/lib/dashboardApi';
@@ -188,6 +189,11 @@ export default function ParentDashboard() {
     >
       <AppText variant="display" style={[styles.greeting, { color: theme.foreground }]}>{greeting}</AppText>
       <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>{family.familyName}</AppText>
+
+      {/* Above the stat row on purpose: during setup those three tiles are all zeros, so the nudge is
+          the only thing on this screen with anything to say. Renders nothing once setup is done or
+          dismissed, which is most of the app's life. */}
+      <SetupChecklistCard />
 
       {/* Headline row: what needs the parent right now, above the fold. Three tiles, three stops for a
           screen reader, not four unlabelled numbers: StatTile has no accessibilityLabel prop of its
