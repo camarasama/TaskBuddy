@@ -32,6 +32,7 @@ import {
 } from '@/lib/approvalsApi';
 import { asDate } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
+import { noteApprovalGranted } from '@/lib/reviewPrompt';
 import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
 
 const REASON_MAX = 500;
@@ -244,6 +245,12 @@ export default function Approvals() {
       setActionError(null);
       // Only surface the numbers for an approval; a rejection awards nothing.
       setLastResult(variables.approved ? result : null);
+      // A granted approval is the app's one reliably good moment: a child did the thing, and the
+      // parent just said so. Rejections are excluded on purpose, and so is the seeded approval in
+      // welcome.tsx, which is a demonstration rather than evidence the app works for this family.
+      // Deliberately not awaited: the invalidations below are what the parent is waiting on, and a
+      // rating prompt must never sit in front of the list refreshing. It cannot reject.
+      if (variables.approved) void noteApprovalGranted();
       // Approving moves points and the dashboard's pending count, so invalidate more than this list.
       await Promise.all(
         INVALIDATED_BY_APPROVAL.map((key) =>
