@@ -147,10 +147,30 @@ export function familyIsolation(req: Request, _res: Response, next: NextFunction
   // M8 - Check suspension + email verification for parents
   if (req.user.role !== 'admin' && req.familyId) {
     prisma.family
-      .findUnique({ where: { id: req.familyId }, select: { isSuspended: true } })
+      .findUnique({ where: { id: req.familyId }, select: { isSuspended: true, deletedAt: true } })
       .then(async (family) => {
         if (family?.isSuspended) {
           next(new ForbiddenError('This family account has been suspended. Please contact support.'));
+          return;
+        }
+        /**
+         * A family scheduled for deletion locks its children out immediately; parents keep working,
+         * because a parent is the only one who can cancel it and locking them out would strand the
+         * account until the purge ran.
+         *
+         * `childLogin` already refuses (it resolves the family with `deletedAt: null`), but that only
+         * stops NEW sessions. A child holding a live access token would otherwise carry on earning
+         * points against data with a destruction date until the token expired. The distinct code lets
+         * the app show the real reason rather than a generic 403.
+         */
+        if (family?.deletedAt && req.user!.role === 'child') {
+          next(
+            new AppError(
+              403,
+              'ACCOUNT_PENDING_DELETION',
+              'This family account is scheduled for deletion. Ask a parent if this is a mistake.',
+            ),
+          );
           return;
         }
         // Email verification gate for parent role

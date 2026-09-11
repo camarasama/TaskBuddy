@@ -46,6 +46,7 @@ import { AvatarUpload } from '@/components/AvatarUpload';
 import { TwoFactorSetup } from '@/components/security/TwoFactorSetup';
 import { WebhookSettings } from '@/components/settings/WebhookSettings';
 import { ReferralCard } from '@/components/settings/ReferralCard';
+import { DeleteAccountSection } from '@/components/settings/DeleteAccountSection';
 import { getInitials, formatDate } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -825,6 +826,10 @@ export default function ParentSettingsPage() {
             </Button>
           </div>
         </section>
+
+        {/* Danger zone. Last, and outside the Save flow: scheduling a deletion is its own
+            confirmed action, not something a parent should be able to do by pressing Save. */}
+        <DeleteAccountSection isPrimaryParent={currentUserIsPrimary} />
 
         {/* Save Button */}
         <div className="flex justify-end">

@@ -2,6 +2,7 @@ import { Router, type RequestHandler } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { CONSENT_VERSIONS, AVATAR_EMOJIS, AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
+import { AccountDeletionService } from '../services/AccountDeletionService';
 import { ConsentService } from '../services/ConsentService';
 import { TransitionService } from '../services/TransitionService';
 import { AppError } from '../middleware/errorHandler';
@@ -397,6 +398,90 @@ familyRouter.delete('/me/invitations/:id', requireParent, async (req, res, next)
       success: true,
       data: { message: 'Invitation cancelled' },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Account deletion ─────────────────────────────────────────────────────────
+//
+// Self-service deletion of the whole family account, required by Google Play's data-deletion policy
+// (the app must offer it in-app, not only at gettaskbuddy.com/delete-account). The rules, and why
+// each one is there, live in AccountDeletionService; these three handlers only marshal.
+//
+// Modelled as a sub-resource — POST creates the schedule, DELETE removes it — rather than
+// `DELETE /families/me`. That keeps the destructive verb off the family itself, gives cancellation
+// an obvious spelling, and means the request body carrying the password rides on a POST, which
+// every HTTP client in this repo supports. `api.delete` on mobile takes no body at all.
+
+const scheduleDeletionSchema = z.object({
+  /** Re-authentication. See the note on `schedule` in AccountDeletionService. */
+  password: z.string().min(1, 'Enter your password to confirm'),
+  /**
+   * The typed confirmation, checked server-side as well as in the UI.
+   *
+   * A client-only check is theatre against anything but a slip of the thumb, and this endpoint is
+   * reachable directly. Compared case-insensitively after trimming: the intent is to prove the
+   * request was deliberate, not to test typing.
+   */
+  confirm: z
+    .string()
+    .refine((v) => v.trim().toUpperCase() === 'DELETE', {
+      message: 'Type DELETE to confirm',
+    }),
+});
+
+/**
+ * Deletion is one of the few places where per-account throttling matters more than per-IP: the
+ * password check makes this an oracle otherwise. Five attempts an hour is far above any honest use
+ * (a parent does this once, ever) and far below useful for guessing.
+ */
+const deletionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `deletion:${(req as any).user?.userId ?? req.ip}`,
+  message: { success: false, error: { message: 'Too many attempts. Try again later.' } },
+});
+
+// GET /families/me/deletion - Is a deletion scheduled, and when does the data go?
+familyRouter.get('/me/deletion', requireParent, async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await AccountDeletionService.getStatus(req.familyId!) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /families/me/deletion - Schedule the family account for deletion
+familyRouter.post(
+  '/me/deletion',
+  requireParent,
+  deletionLimiter,
+  validateBody(scheduleDeletionSchema),
+  async (req, res, next) => {
+    try {
+      const status = await AccountDeletionService.schedule(
+        { userId: req.user!.userId, familyId: req.familyId!, ipAddress: req.ip },
+        req.body.password,
+      );
+      res.json({ success: true, data: status });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// DELETE /families/me/deletion - Cancel a scheduled deletion, restoring the account
+familyRouter.delete('/me/deletion', requireParent, async (req, res, next) => {
+  try {
+    const status = await AccountDeletionService.cancel({
+      userId: req.user!.userId,
+      familyId: req.familyId!,
+      ipAddress: req.ip,
+    });
+    res.json({ success: true, data: status });
   } catch (error) {
     next(error);
   }

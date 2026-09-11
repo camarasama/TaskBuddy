@@ -53,6 +53,54 @@ export function updateFamilyName(familyName: string): Promise<unknown> {
   return api.put('/families/me', { familyName });
 }
 
+// ── Account deletion ─────────────────────────────────────────────────────────
+
+/**
+ * Whether the family account is inside its deletion recovery window.
+ *
+ * ISO strings, not `Date` — this is what the JSON actually contains, and typing it otherwise is the
+ * drift documented at the top of `shared`.
+ */
+export interface DeletionStatus {
+  scheduled: boolean;
+  requestedAt: string | null;
+  purgeAfter: string | null;
+  /** Days between the request and the purge. From the server, so the app never hardcodes 30. */
+  graceDays: number;
+}
+
+export const DELETION_KEY = ['family', 'deletion'] as const;
+
+export function fetchDeletionStatus(signal?: AbortSignal): Promise<DeletionStatus> {
+  return api.get<DeletionStatus>('/families/me/deletion', { signal });
+}
+
+export function deletionQuery() {
+  return {
+    queryKey: DELETION_KEY,
+    queryFn: ({ signal }: { signal: AbortSignal }) => fetchDeletionStatus(signal),
+  };
+}
+
+/**
+ * Schedule the family account for deletion.
+ *
+ * POST, not DELETE, for two reasons: the password has to travel in a body and `api.delete` takes
+ * none, and cancelling needs a spelling of its own. `confirm` must be the word DELETE; the server
+ * checks it too, so this is not a client-side formality.
+ */
+export function scheduleDeletion(input: {
+  password: string;
+  confirm: string;
+}): Promise<DeletionStatus> {
+  return api.post<DeletionStatus>('/families/me/deletion', input);
+}
+
+/** Call off a scheduled deletion. Primary parent only, and no password needed to undo. */
+export function cancelDeletion(): Promise<DeletionStatus> {
+  return api.delete<DeletionStatus>('/families/me/deletion');
+}
+
 // ── Co-parents ───────────────────────────────────────────────────────────────
 
 export interface ParentMember {
@@ -60,6 +108,12 @@ export interface ParentMember {
   firstName: string;
   lastName: string;
   email: string;
+  /**
+   * The account owner. `listParents` has always selected and ordered by this; the field was simply
+   * missing from this type, so the delete-account screen could not tell who may act. Adding it here
+   * is a correction to the annotation, not a change to the payload.
+   */
+  isPrimaryParent: boolean;
 }
 
 export interface PendingInvitation {

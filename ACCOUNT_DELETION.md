@@ -2,31 +2,42 @@
 
 **Provider:** Evolution Prime IT Ltd — the developer of **TaskBuddy** on Google Play.
 **Contact:** privacy@gettaskbuddy.com
-**Last updated:** 2026-08-07
+**Last updated:** 2026-09-11
 
-You can delete your TaskBuddy account, or just part of your family's data, at any time. Removing a
-child, a co-parent or an invitation is self-service in the app. Deleting the **whole account** is
-done by emailing us, and we act on it the same way.
+You can delete your TaskBuddy account, or just part of your family's data, at any time. All of it is
+self-service, in the app and on the website. Email is still available if you would rather ask us.
 
 ---
 
 ## Delete your whole account
 
-**Email us at privacy@gettaskbuddy.com** from the address on the account, asking us to delete your
-family account.
+**In the Android app:** Settings → **Delete your account**.
 
-We may ask you to confirm you control that address — without it, anyone who knew your email could
-erase your family's data. Once confirmed, deletion is processed as described below.
+**On the website:** sign in at app.gettaskbuddy.com, then Settings → **Delete account**.
 
-We are adding a self-service control in the app; until it ships, email is the route, and a request
-by email is honoured exactly the same way.
+Either route asks for your password and for you to type DELETE, then shows you the date your data
+will be erased. We also email every parent on the account so nobody finds out by discovering the app
+has stopped working.
+
+Only the **primary parent**, the adult who created the family, can delete the whole account. This
+erases a co-parent's account and every child's history along with their own, so it is not something
+one adult should be able to do to another's data by accident. A co-parent who wants to leave can be
+removed from the family instead, which ends their access and deletes nothing else.
+
+**Changed your mind?** Sign in and go to Settings → Delete account → **Keep my account**, any time
+before the date we showed you. Everything carries on exactly as it was. Children cannot sign in
+while a deletion is scheduled; cancelling restores that too.
+
+**Prefer to email?** Write to **privacy@gettaskbuddy.com** from the address on the account. We may
+ask you to confirm you control that address. Without it, anyone who knew your email could erase
+your family's data. A request by email is honoured exactly the same way.
 
 ---
 
 ## Delete only part of your data
 
-You do not have to delete the whole account to remove a child. These are available now, in the app
-and on the website:
+You do not have to delete the whole account to remove a child. These are available in the app and on
+the website:
 
 - **Delete a child profile** — Children → the child → **Delete**. Their tasks, points, photos and
   history go with them. The rest of the family is untouched.
@@ -69,9 +80,9 @@ whether or not you delete your account.
 
 ## How long deletion takes
 
-Deletion is processed within **30 days**. There is a short recovery window first, so that an
-accidental deletion can be undone — after that the data is gone and cannot be recovered by us or by
-you. Backups are rotated on a fixed schedule and expire.
+**30 days.** That whole period is the recovery window: nothing is erased until it ends, so an
+accidental deletion can be undone at any point before the date we showed you. After that the data is
+gone and cannot be recovered by us or by you. Backups are rotated on a fixed schedule and expire.
 
 ---
 

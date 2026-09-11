@@ -38,6 +38,10 @@ export const TRANSACTIONAL: ReadonlySet<string> = new Set<EmailTriggerType>([
   'child_locked',         // security notice
   'welcome',              // one-off at signup
   'child_welcome',        // one-off at child creation
+  // Both announce, or call off, an irreversible 30-day clock. Same reasoning as `aging_out`:
+  // a parent who loses this to a frequency cap loses the window without being told it opened.
+  'account_deletion_scheduled',
+  'account_deletion_cancelled',
 ]);
 
 /**

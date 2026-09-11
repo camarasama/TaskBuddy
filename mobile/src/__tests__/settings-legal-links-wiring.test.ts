@@ -27,10 +27,17 @@ function functionBody(name: string): string {
   return next === -1 ? rest : rest.slice(0, next);
 }
 
+/**
+ * `DELETE_ACCOUNT_URL` is deliberately NOT in this list any more.
+ *
+ * Deletion moved from an outbound link to an in-app screen, because Play's data-deletion policy
+ * expects the account holder to be able to start deletion inside the app rather than be sent to a
+ * page describing how to email us. The web page is still published for anyone who has uninstalled;
+ * it is simply no longer what this row opens. See the in-app route assertions below.
+ */
 const LINK_NAMES = [
   'PRIVACY_URL',
   'TERMS_URL',
-  'DELETE_ACCOUNT_URL',
   'supportMailto',
   'playListingUrls',
   'openFirstAvailable',
@@ -62,6 +69,15 @@ describe('the legal links do not sit behind the settings query', () => {
     for (const name of LINK_NAMES) {
       expect(gated).not.toContain(name);
     }
+  });
+
+  it('opens account deletion in the app, not the browser', () => {
+    const ungated = functionBody('SupportAndAbout');
+
+    // The row must push the in-app route. A regression to `open([DELETE_ACCOUNT_URL])` would look
+    // identical on screen and would put the app back out of policy.
+    expect(ungated).toContain("router.push('/(parent)/delete-account')");
+    expect(ungated).not.toContain('DELETE_ACCOUNT_URL]');
   });
 
   it('renders the links from a component that fetches nothing', () => {

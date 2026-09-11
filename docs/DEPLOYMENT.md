@@ -398,6 +398,41 @@ and any 200 that lost the keyword. Verify manually:
 curl -s https://api.gettaskbuddy.com/health      # {"status":"ok","db":"up"}
 ```
 
+## Account deletion, and the switch that makes it real
+
+A parent can delete their family account from the app (Settings, Delete account) and from the web
+settings page. That action **schedules**: it sets `family.deleted_at` and reports a date
+`RETENTION_DAYS` later. The erasure itself is done by the retention sweep, which deletes the
+evidence objects from R2, redacts the audit and email logs, and then hard-deletes the family row.
+
+> ⚠️ **`RETENTION_PURGE_ENABLED` must be `true` in production.** It defaults to **false**, and while
+> it is off the sweep logs what it would purge and deletes nothing. A parent would be told in the app
+> and by email that their data goes on a given date, and it never would. That makes
+> `ACCOUNT_DELETION.md` and `PRIVACY.md` false, which is the compliance exposure the whole feature
+> exists to close.
+
+Both variables live in `backend/.env` (see `backend/.env.example`):
+
+```
+RETENTION_DAYS=30              # recovery window; MUST match PRIVACY.md and ACCOUNT_DELETION.md
+RETENTION_PURGE_ENABLED=true   # defaults to false — nothing is ever erased while it is off
+```
+
+Verify after the deploy that sets it, before trusting the promise:
+
+```bash
+# 1. The dry-run line disappears once purging is live. With it OFF you see
+#    "[Retention] DRY RUN - N family(ies) ... would be hard-deleted".
+sudo journalctl -u taskbuddy-backend --since '1 hour ago' | grep -i retention
+
+# 2. Nothing should sit soft-deleted for longer than the window.
+sudo -u postgres psql taskbuddy -c \
+  "SELECT id, deleted_at FROM families WHERE deleted_at < now() - interval '30 days'"
+```
+
+Row 2 returning anything means the sweep is not purging: either the switch is still off, or the job
+is failing. Both are silent by design, so this query is the check that matters.
+
 ## Log retention (journald) — F-10f
 
 `morgan('combined')` writes an access line per request to stdout, which systemd captures into
