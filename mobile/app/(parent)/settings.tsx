@@ -50,7 +50,6 @@ import {
   type SettingsInput,
 } from '@/lib/familyApi';
 import {
-  DELETE_ACCOUNT_URL,
   openFirstAvailable,
   playListingUrls,
   PRIVACY_URL,
@@ -348,12 +347,15 @@ function SupportAndAbout() {
           hint="Opens in your browser"
           onPress={() => open([TERMS_URL], 'Could not open your browser.')}
         />
+        {/* In-app, not a link out. Play's data-deletion policy expects the account holder to be
+            able to START deletion inside the app; a link to instructions is not that. The web page
+            at DELETE_ACCOUNT_URL stays published for anyone who has already uninstalled. */}
         <LinkRow
           icon="trash-outline"
           label="Delete your account"
-          detail="How to remove your family's account and everything in it."
-          hint="Opens in your browser"
-          onPress={() => open([DELETE_ACCOUNT_URL], 'Could not open your browser.')}
+          detail="Remove your family's account and everything in it."
+          hint="Opens in the app"
+          onPress={() => router.push('/(parent)/delete-account')}
         />
         {version !== null && (
           <View style={styles.versionRow}>

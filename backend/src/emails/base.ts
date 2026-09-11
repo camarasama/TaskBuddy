@@ -35,6 +35,8 @@ import { buildParentalConsentRecorded } from './parentalConsentRecorded';
 import { buildTesterInvite } from './testerInvite';
 import { buildTesterReminder } from './testerReminder';
 import { buildAdminCreated } from './adminCreated';
+import { buildAccountDeletionScheduled } from './accountDeletionScheduled';
+import { buildAccountDeletionCancelled } from './accountDeletionCancelled';
 
 // ─── Branding constants ───────────────────────────────────────────────────────
 
@@ -212,6 +214,10 @@ export async function renderTemplate(
       return buildChildPinReset(data as any);
     case 'admin_created':
       return buildAdminCreated(data as any);
+    case 'account_deletion_scheduled':
+      return buildAccountDeletionScheduled(data as any);
+    case 'account_deletion_cancelled':
+      return buildAccountDeletionCancelled(data as any);
     case 'aging_out':
       return buildAgingOut(data as any);
     case 'parental_consent_recorded':

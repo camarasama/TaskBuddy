@@ -539,6 +539,20 @@ export const authApi = {
 // (possibly absent, for a brand-new family) settings record.
 type FamilyWithSettings = Family & { settings: FamilySettings | null };
 
+/**
+ * Whether the family account is inside its deletion recovery window.
+ *
+ * Dates are ISO strings, not `Date`. The API returns JSON and always has; annotating them as `Date`
+ * is the drift that bites elsewhere in this codebase, so they are typed as what actually arrives.
+ */
+export interface AccountDeletionStatus {
+  scheduled: boolean;
+  requestedAt: string | null;
+  purgeAfter: string | null;
+  /** Days between the request and the purge. Served by the API so the client never hardcodes 30. */
+  graceDays: number;
+}
+
 export const familyApi = {
   getFamily: () =>
     request<ApiResponse<{ family: FamilyWithSettings }>>('/families/me'),
@@ -568,6 +582,26 @@ export const familyApi = {
       badge: string | null;
       nextBadgeAt: number | null;
     }>>('/families/me/referral'),
+
+  /**
+   * Self-service account deletion (Play data-deletion policy).
+   *
+   * POST schedules, DELETE cancels. Deliberately not `DELETE /families/me`: the destructive verb
+   * stays off the family resource, and the password rides on a POST body.
+   */
+  getDeletionStatus: () =>
+    request<ApiResponse<AccountDeletionStatus>>('/families/me/deletion'),
+
+  scheduleDeletion: (data: { password: string; confirm: string }) =>
+    request<ApiResponse<AccountDeletionStatus>>('/families/me/deletion', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  cancelDeletion: () =>
+    request<ApiResponse<AccountDeletionStatus>>('/families/me/deletion', {
+      method: 'DELETE',
+    }),
 
   getSettings: () =>
     request<ApiResponse<{ settings: FamilySettings }>>('/families/me/settings'),

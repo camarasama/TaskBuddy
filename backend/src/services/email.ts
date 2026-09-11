@@ -46,6 +46,11 @@ export type EmailTriggerType =
   // currently locked out of itself.
   | 'child_pin_reset_requested'
   | 'admin_created'
+  // Self-service account deletion (Play data-deletion policy). Both go to EVERY parent in the
+  // family, not only the one who acted: a co-parent whose children's data is about to be
+  // erased must hear it from us rather than from a broken app.
+  | 'account_deletion_scheduled'
+  | 'account_deletion_cancelled'
   // Closed-test recruitment. Both are admin-scoped (familyId null) and go to people who may have no
   // account at all, so they always send with skipPreferenceCheck.
   | 'parental_consent_recorded'
