@@ -47,7 +47,7 @@
     "autoskills": "^0.2.3"
   },
   "overrides": {
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "postcss": "^8.5.23"
   }
 }
