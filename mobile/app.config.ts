@@ -34,7 +34,7 @@ const PROD_API = 'https://api.gettaskbuddy.com/api/v1';
  * on `android.versionCode`). Version says what changed; versionCode says which build. Testers are
  * shown both, because only the pair identifies a specific binary.
  */
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -77,7 +77,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
      * and also removes the standing trap that every Play upload after the first needed a hand-edited
      * number or Play would reject it as a duplicate.
      *
-     * The `version` string above (0.1.0) is still read from here — only the build number moved.
+     * The `version` string above (APP_VERSION) is still read from here, only the build number
+     * moved. Do not restate its value in this comment: it was left saying 0.1.0 long after the
+     * constant had reached 1.0.0, which is the drift the constant exists to prevent.
      */
     versionCode: 1,
     adaptiveIcon: {
