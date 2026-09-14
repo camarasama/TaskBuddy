@@ -35,6 +35,7 @@ import { config } from '../src/config';
 import { authService } from '../src/services/auth';
 import { SessionService } from '../src/services/SessionService';
 import { JWT_ISSUER, JWT_AUDIENCE } from '../src/utils/jwt';
+import { clearAccessDenylist } from '../src/utils/accessDenylist';
 
 const PARENT = { userId: 'parent-1', familyId: 'family-1', role: 'parent' as const };
 const CHILD_ID = 'child-1';
@@ -71,6 +72,8 @@ function sessionRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  clearAccessDenylist(); // a revoke in one test must not sign out the token another test uses
+  findMany.mockResolvedValue([]);
   updateMany.mockResolvedValue({ count: 1 });
   create.mockResolvedValue({});
   userFindMany.mockResolvedValue([{ id: CHILD_ID }]);
@@ -202,7 +205,7 @@ describe('DELETE /sessions/:sessionId', () => {
     );
   });
 
-  it('404s on a session belonging to someone else — same as one that does not exist', async () => {
+  it('404s on a session belonging to someone else, same as one that does not exist, and revokes NOTHING', async () => {
     findFirst.mockResolvedValue({ userId: 'someone-else', chainId: 'chain-9' });
 
     const res = await request(app)
@@ -210,6 +213,9 @@ describe('DELETE /sessions/:sessionId', () => {
       .set('Authorization', `Bearer ${accessToken(PARENT)}`);
 
     expect(res.status).toBe(404);
+    // Security audit 2026-09-14, M3: the 404 used to come AFTER the chain was revoked, so anyone who
+    // knew a session id could sign that device out.
+    expect(updateMany).not.toHaveBeenCalled();
   });
 
   it('404s on an unknown session', async () => {
@@ -265,6 +271,19 @@ describe('parent remote-revoke', () => {
       .set('Authorization', `Bearer ${accessToken(PARENT)}`);
 
     expect(res.status).toBe(404);
+    expect(updateMany).not.toHaveBeenCalled(); // checked before revoking, not after
+  });
+
+  it('a child cannot sign out a parent\'s device through the self route', async () => {
+    const childToken = accessToken({ userId: CHILD_ID, familyId: 'family-1', role: 'child' });
+    findFirst.mockResolvedValue({ userId: PARENT.userId, chainId: 'chain-parent' });
+
+    const res = await request(app)
+      .delete(`/api/v1/sessions/${UUID_A}`)
+      .set('Authorization', `Bearer ${childToken}`);
+
+    expect(res.status).toBe(404);
+    expect(updateMany).not.toHaveBeenCalled();
   });
 
   it('a child cannot reach the parent routes', async () => {

@@ -29,6 +29,22 @@ jest.mock('../src/services/database', () => {
       }
       return null;
     }),
+    // Used to find the rows whose access tokens must be denied, and to hydrate that list at boot.
+    findMany: jest.fn(async ({ where = {}, distinct }: any) => {
+      let out = [...rows.values()].filter((r) => {
+        if (where.userId !== undefined && r.userId !== where.userId) return false;
+        if (where.chainId?.in && !where.chainId.in.includes(r.chainId)) return false;
+        if (where.createdAt?.gt && !(new Date(r.createdAt ?? Date.now()) > where.createdAt.gt)) return false;
+        if (where.revokedAt?.gt && !(r.revokedAt && new Date(r.revokedAt) > where.revokedAt.gt)) return false;
+        if (where.NOT?.revokedReason && r.revokedReason === where.NOT.revokedReason) return false;
+        return true;
+      });
+      if (distinct?.includes('chainId')) {
+        const seen = new Set();
+        out = out.filter((r) => (seen.has(r.chainId) ? false : (seen.add(r.chainId), true)));
+      }
+      return out.map((r) => ({ ...r, createdAt: new Date(r.createdAt ?? Date.now()) }));
+    }),
     updateMany: jest.fn(async ({ where, data }: any) => {
       let count = 0;
       for (const r of rows.values()) {

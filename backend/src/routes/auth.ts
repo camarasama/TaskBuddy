@@ -38,6 +38,7 @@ import { AuditService } from '../services/AuditService';
 // M9 - Email notifications
 import { EmailService } from '../services/email';
 import { AnalyticsService } from '../services/AnalyticsService';
+import { isAccessDenied } from '../utils/accessDenylist';
 
 export const authRouter = Router();
 
@@ -1064,12 +1065,14 @@ authRouter.post('/admin/register', validateBody(adminRegisterSchema), async (req
     const adminCount = await prisma.user.count({ where: { role: 'admin', deletedAt: null } });
     if (adminCount > 0) {
       const bearer = req.headers.authorization?.split(' ')[1];
-      let requester: { role?: string } | null = null;
+      let requester: { role?: string; jti?: string } | null = null;
       try {
-        requester = bearer ? (jwt.verify(bearer, config.jwt.secret, jwtVerifyOptions) as { role?: string }) : null;
+        requester = bearer ? (jwt.verify(bearer, config.jwt.secret, jwtVerifyOptions) as { role?: string; jti?: string }) : null;
       } catch {
         requester = null;
       }
+      // A signed-out admin session must not be able to mint another admin.
+      if (requester && isAccessDenied(requester.jti)) requester = null;
       if (!requester || requester.role !== 'admin') {
         return res.status(403).json({
           success: false,

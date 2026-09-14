@@ -41,6 +41,7 @@ import { initSocketService } from './services/SocketService';
 import { seedGames } from './routes/gamesSeed';
 import { seedSystemTemplates } from './routes/templatesSeed';
 import { seedCosmetics } from './routes/cosmeticsSeed';
+import { SessionService } from './services/SessionService';
 
 // Validate environment configuration
 validateConfig();
@@ -260,8 +261,15 @@ if (config.env !== 'test') {
   seedSystemTemplates().catch(console.error);
   seedCosmetics().catch(console.error);
 
-  httpServer.listen(PORT, () => {
-    console.log(`
+  // Refill the signed-out access-token list before serving, so a restart does not let a revoked
+  // device back in for the rest of its token's life. Failure is logged, not fatal: refusing to boot
+  // over this would turn a database blip into an outage.
+  const startListening = () => {
+    // HOST unset keeps the old behaviour (all interfaces), which phone testing over the LAN needs. On the
+    // VPS set HOST=127.0.0.1 so the API is reachable only through nginx, not by its port directly.
+    const HOST = process.env.HOST || undefined;
+    httpServer.listen(Number(PORT), HOST as string, () => {
+      console.log(`
 🚀 TaskBuddy API Server
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🌍 Environment: ${config.env}
@@ -272,7 +280,15 @@ if (config.env !== 'test') {
 🔓 CORS:        ${allowedOrigins.join(', ')} ${config.env !== 'production' ? '+ ngrok tunnels' : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   `);
-  });
+    });
+  };
+
+  SessionService.hydrateAccessDenylist()
+    .then((chains) => {
+      if (chains > 0) console.log(`[auth] Restored ${chains} signed-out session chain(s)`);
+    })
+    .catch((err) => console.error('[auth] Could not restore signed-out sessions:', err?.message))
+    .finally(startListening);
 
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));

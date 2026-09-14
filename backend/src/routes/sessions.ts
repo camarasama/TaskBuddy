@@ -74,12 +74,11 @@ sessionsRouter.get('/', authenticate, async (req, res, next) => {
 // DELETE /sessions/:sessionId - end one of the caller's own sessions
 sessionsRouter.delete('/:sessionId', authenticate, validateParams(sessionIdSchema), async (req, res, next) => {
   try {
-    const target = await SessionService.revokeById(req.params.sessionId, 'user_revoke');
-
-    // Ownership is checked *after* the lookup but the response is the same either way: an id that
-    // belongs to someone else must be indistinguishable from one that doesn't exist, or this
-    // endpoint becomes an oracle for whether a given session id is live.
-    if (!target || target.userId !== req.user!.userId) {
+    // Ownership is enforced inside revokeById, before anything is revoked. The response is the same
+    // either way: an id that belongs to someone else must be indistinguishable from one that doesn't
+    // exist, or this endpoint becomes an oracle for whether a given session id is live.
+    const target = await SessionService.revokeById(req.params.sessionId, 'user_revoke', [req.user!.userId]);
+    if (!target) {
       throw new NotFoundError('Session not found');
     }
 
@@ -122,13 +121,12 @@ sessionsRouter.delete(
   validateParams(sessionIdSchema),
   async (req, res, next) => {
     try {
-      const target = await SessionService.revokeById(req.params.sessionId, 'parent_revoke');
-
-      // Same non-disclosure rule as the self endpoint, and the same reason. The scope check is
-      // "is this one of my children" — not "is this in my family", which would let a parent end a
-      // co-parent's session through this route.
+      // Same non-disclosure rule as the self endpoint, and the same reason. The scope is "one of my
+      // children", not "someone in my family", which would let a parent end a co-parent's session
+      // through this route. Checked before revoking, not after.
       const childIds = await childIdsInFamily(req.user!.familyId);
-      if (!target || !childIds.includes(target.userId)) {
+      const target = await SessionService.revokeById(req.params.sessionId, 'parent_revoke', childIds);
+      if (!target) {
         throw new NotFoundError('Session not found');
       }
 

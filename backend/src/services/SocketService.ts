@@ -27,6 +27,7 @@ import { config } from '../config';
 import { jwtVerifyOptions } from '../utils/jwt';
 import { socketTtlMs } from '../utils/socketTtl';
 import type { TokenPayload } from '../middleware/auth';
+import { isAccessDenied } from '../utils/accessDenylist';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,8 @@ export function initSocketService(ioInstance: SocketIOServer): void {
     if (!token) return next(new Error('Authentication required'));
     try {
       const payload = jwt.verify(token, config.jwt.secret, jwtVerifyOptions) as TokenPayload;
+      // Same rule as HTTP: a signed-out session cannot open a live connection to the family room.
+      if (isAccessDenied(payload.jti)) return next(new Error('Session signed out'));
       (socket as any).user = payload;
       next();
     } catch {
