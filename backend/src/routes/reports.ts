@@ -9,8 +9,8 @@
  *   GET /:name/export?format=csv|pdf
  */
 
-import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth';
+import { Router, Request, Response, NextFunction } from 'express';
+import { authenticate, familyIsolation, requireParent } from '../middleware/auth';
 import { getInsights } from '../services/InsightsService';
 import { buildReportCard } from '../services/ReportCardService';
 import {
@@ -34,7 +34,21 @@ import {
 
 export const reportsRouter = Router();
 
-reportsRouter.use(authenticate);
+/**
+ * Parents and admins only (security audit 2026-09-14, M2).
+ *
+ * This used to authenticate and nothing else, so a CHILD token could read the family audit trail
+ * (with IP addresses), the parents' email delivery log, every sibling's ledger, and export all of it.
+ * No child screen calls these endpoints; the gap was API-only.
+ *
+ * Parents also get `familyIsolation`, which refuses suspended or deleted families and a `familyId`
+ * query that is not their own. Admins skip it on purpose: the admin reports page passes `?familyId=`
+ * to look at any family, and `familyIsolation` would refuse exactly that.
+ */
+const familyScope = (req: Request, res: Response, next: NextFunction) =>
+  req.user?.role === 'admin' ? next() : familyIsolation(req, res, next);
+
+reportsRouter.use(authenticate, requireParent, familyScope);
 
 function buildFilters(req: Request): ReportFilters {
   const user = (req as any).user as { id: string; familyId?: string; role: string };
@@ -54,7 +68,7 @@ function buildFilters(req: Request): ReportFilters {
 //
 // Not a "report" in the CSV/PDF sense — no export pair — so it sits apart from the R-01..R-11 block
 // above. Family scoping reuses buildFilters, so admin can target a family exactly as elsewhere.
-reportsRouter.get('/insights', async (req, res) => {
+reportsRouter.get('/insights', async (req, res, next) => {
   try {
     const filters = buildFilters(req);
     if (!filters.familyId) {
@@ -70,90 +84,90 @@ reportsRouter.get('/insights', async (req, res) => {
       }),
     );
   } catch (err) {
-    res.status(500).json({ error: 'Failed', detail: String(err) });
+    next(err);
   }
 });
 
 // ─── Report data endpoints ────────────────────────────────────────────────────
 
 
-reportsRouter.get('/task-completion', async (req, res) => {
+reportsRouter.get('/task-completion', async (req, res, next) => {
   try { res.json(await getTaskCompletionReport(buildFilters(req))); }
-  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  catch (err) { next(err); }
 });
 
-reportsRouter.get('/points-ledger', async (req, res) => {
+reportsRouter.get('/points-ledger', async (req, res, next) => {
   try { res.json(await getPointsLedgerReport(buildFilters(req))); }
-  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  catch (err) { next(err); }
 });
 
-reportsRouter.get('/reward-redemption', async (req, res) => {
+reportsRouter.get('/reward-redemption', async (req, res, next) => {
   try { res.json(await getRewardRedemptionReport(buildFilters(req))); }
-  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  catch (err) { next(err); }
 });
 
-reportsRouter.get('/engagement-streak', async (req, res) => {
+reportsRouter.get('/engagement-streak', async (req, res, next) => {
   try { res.json(await getEngagementStreakReport(buildFilters(req))); }
-  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  catch (err) { next(err); }
 });
 
-reportsRouter.get('/achievement', async (req, res) => {
+reportsRouter.get('/achievement', async (req, res, next) => {
   try { res.json(await getAchievementReport(buildFilters(req))); }
-  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  catch (err) { next(err); }
 });
 
-reportsRouter.get('/leaderboard', async (req, res) => {
+reportsRouter.get('/leaderboard', async (req, res, next) => {
   try {
     const user = (req as any).user as { familyId?: string; role: string };
     const familyId = user.role === 'admin' && req.query.familyId ? (req.query.familyId as string) : user.familyId;
     if (!familyId) { res.status(400).json({ error: 'familyId required' }); return; }
     const period = (req.query.period as 'weekly' | 'monthly' | 'all-time') ?? 'weekly';
     res.json(await getLeaderboardReport(familyId, period));
-  } catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  } catch (err) { next(err); }
 });
 
-reportsRouter.get('/task-execution-time', async (req, res) => {
+reportsRouter.get('/task-execution-time', async (req, res, next) => {
   try { res.json(await getExecutionTimeReport(buildFilters(req))); }
-  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  catch (err) { next(err); }
 });
 
-reportsRouter.get('/expiry-overdue', async (req, res) => {
+reportsRouter.get('/expiry-overdue', async (req, res, next) => {
   try { res.json(await getExpiryOverdueReport(buildFilters(req))); }
-  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  catch (err) { next(err); }
 });
 
-reportsRouter.get('/platform-health', async (req, res) => {
+reportsRouter.get('/platform-health', async (req, res, next) => {
   const user = (req as any).user as { role: string };
   if (user.role !== 'admin') { res.status(403).json({ error: 'Admin access required' }); return; }
   try { res.json(await getPlatformHealthReport()); }
-  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  catch (err) { next(err); }
 });
 
-reportsRouter.get('/audit-trail', async (req, res) => {
+reportsRouter.get('/audit-trail', async (req, res, next) => {
   try {
     const page = parseInt((req.query.page as string) ?? '1', 10);
     const pageSize = parseInt((req.query.pageSize as string) ?? '100', 10);
     res.json(await getAuditTrailReport(buildFilters(req), page, pageSize));
-  } catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  } catch (err) { next(err); }
 });
 
-reportsRouter.get('/email-delivery', async (req, res) => {
+reportsRouter.get('/email-delivery', async (req, res, next) => {
   try { res.json(await getEmailDeliveryReport(buildFilters(req))); }
-  catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  catch (err) { next(err); }
 });
 
 // R-12 — games have been awarding real points with no report behind them since they shipped.
-reportsRouter.get('/games', async (req, res) => {
+reportsRouter.get('/games', async (req, res, next) => {
   try {
     const filters = buildFilters(req);
     if (!filters.familyId) { res.status(400).json({ error: 'No family in scope' }); return; }
     res.json(await getGamesReport(filters));
-  } catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  } catch (err) { next(err); }
 });
 
 // R-13 — FR-18 auto-disables a subscription and tells nobody. This is where that becomes visible.
 // An admin with no familyId query sees every family's subscriptions; a parent only ever sees theirs.
-reportsRouter.get('/webhook-deliveries', async (req, res) => {
+reportsRouter.get('/webhook-deliveries', async (req, res, next) => {
   try {
     const user = (req as any).user as { familyId?: string; role: string };
     const filters = buildFilters(req);
@@ -161,7 +175,7 @@ reportsRouter.get('/webhook-deliveries', async (req, res) => {
       res.status(400).json({ error: 'No family in scope' }); return;
     }
     res.json(await getWebhookReport(filters));
-  } catch (err) { res.status(500).json({ error: 'Failed', detail: String(err) }); }
+  } catch (err) { next(err); }
 });
 
 
@@ -169,7 +183,7 @@ reportsRouter.get('/webhook-deliveries', async (req, res) => {
 //
 // Roadmap §5.4. Deliberately outside the /:name/export block: that route serves the R-01..R-11
 // analytical reports, and this is a shareable artefact for one child in one month, not a data dump.
-reportsRouter.get('/report-card', async (req: Request, res: Response) => {
+reportsRouter.get('/report-card', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filters = buildFilters(req);
     const childId = req.query.childId as string | undefined;
@@ -195,8 +209,9 @@ reportsRouter.get('/report-card', async (req: Request, res: Response) => {
     res.setHeader('Content-Length', buffer.length);
     res.send(buffer);
   } catch (err) {
-    const status = (err as { statusCode?: number })?.statusCode ?? 500;
-    res.status(status).json({ error: 'Report card failed', detail: (err as Error)?.message });
+    // AppErrors (a child outside the family, a bad month) keep their status and message; anything
+    // else becomes a 500 with no internals in production.
+    next(err);
   }
 });
 
@@ -212,7 +227,7 @@ const ALL_REPORTS = [
 
 type ReportName = typeof ALL_REPORTS[number];
 
-reportsRouter.get('/:name/export', async (req: Request, res: Response) => {
+reportsRouter.get('/:name/export', async (req: Request, res: Response, next: NextFunction) => {
   const name = req.params.name as ReportName;
   const format = ((req.query.format as string) ?? 'csv').toLowerCase();
 
@@ -293,6 +308,6 @@ reportsRouter.get('/:name/export', async (req: Request, res: Response) => {
     res.setHeader('Content-Length', buffer.length);
     res.send(buffer);
   } catch (err) {
-    res.status(500).json({ error: 'Export failed', detail: String(err) });
+    next(err);
   }
 });
