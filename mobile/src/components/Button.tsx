@@ -8,9 +8,15 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 
-import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, minTouchTarget, palette, radius, spacing, useTheme } from '@/theme';
 
-type Variant = 'primary' | 'secondary';
+/**
+ * `soft` is a teal-tinted button: a real action that is not the screen's main one (Start, Pick a photo).
+ * Added for the child visual pass, where `secondary` rendered as a grey slab beside every task and made
+ * the list read as disabled. It is a fixed `primary[100]`/`primary[700]` pair (7.04:1), so it reads the
+ * same in both appearances, like `Chip`'s tints.
+ */
+type Variant = 'primary' | 'secondary' | 'soft';
 
 interface ButtonProps {
   label: string;
@@ -31,8 +37,14 @@ export function Button({
   const theme = useTheme();
   const inactive = disabled || busy;
 
-  const background = variant === 'primary' ? theme.primary : theme.secondary;
-  const foreground = variant === 'primary' ? theme.primaryForeground : theme.secondaryForeground;
+  const background =
+    variant === 'primary' ? theme.primary : variant === 'soft' ? palette.primary[100] : theme.secondary;
+  const foreground =
+    variant === 'primary'
+      ? theme.primaryForeground
+      : variant === 'soft'
+        ? palette.primary[700]
+        : theme.secondaryForeground;
 
   return (
     <Pressable

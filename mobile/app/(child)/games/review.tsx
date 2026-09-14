@@ -46,6 +46,7 @@ import {
   spacing,
   useTheme,
 } from '@/theme';
+import { GRADIENT } from '@/theme/accents';
 
 /**
  * The same right/wrong tints the play screen answers with, so a question looks the same colour weeks
@@ -201,7 +202,7 @@ export default function GameReview() {
         */}
         <View style={[styles.scoreOuter, elevation.lift]}>
           <LinearGradient
-            colors={[palette.xp[600], palette.xp[500], palette.primary[500]]}
+            colors={GRADIENT.brand.colors}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.scoreGradient}

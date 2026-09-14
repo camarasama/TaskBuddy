@@ -8,12 +8,14 @@ import { palette } from '@/theme';
 // install cannot resolve expo-asset for. See that file for the full explanation.
 jest.mock('expo-font', () => ({ useFonts: () => [false, null] }));
 
-const TINTED: Record<'pending' | 'done' | 'late' | 'info' | 'gold', { background: string; foreground: string }> = {
+const TINTED: Record<'pending' | 'done' | 'late' | 'info' | 'gold' | 'xp' | 'peach', { background: string; foreground: string }> = {
   pending: { background: palette.warning[100], foreground: palette.warning[700] },
   done: { background: palette.success[100], foreground: palette.success[700] },
   late: { background: palette.destructive[100], foreground: palette.destructive[700] },
   info: { background: palette.primary[100], foreground: palette.primary[700] },
   gold: { background: palette.gold[100], foreground: palette.gold[700] },
+  xp: { background: palette.xp[100], foreground: palette.xp[700] },
+  peach: { background: palette.peach[100], foreground: palette.peach[800] },
 };
 
 describe('Chip (static, no onPress)', () => {

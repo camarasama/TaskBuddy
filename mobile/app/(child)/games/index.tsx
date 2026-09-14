@@ -66,47 +66,10 @@ import {
   spacing,
   useTheme,
 } from '@/theme';
-
-/**
- * A tint pair: the `100` fill and the `700` ink from one ramp.
- *
- * Written as a pair rather than as a ramp name so the two can never be taken from different steps by
- * accident, since the whole contrast argument above depends on them staying 100 and 700.
- */
-interface Tint {
-  fill: string;
-  ink: string;
-}
-
-/**
- * Each subject's colour. Six ramps for six categories, chosen to be distinguishable by hue alone at a
- * glance, which is the only way the banner does its job for a child who is scrolling rather than
- * reading.
- *
- * `destructive` appears here as a plain coral, not as an error signal: at the `100`/`700` pair it is a
- * warm red band with an emoji on it, and nothing else on this screen uses red for failure, so there is
- * no meaning to collide with. The alternative was a second amber, which would have made Grammar and
- * Vocabulary the same card.
- */
-const CATEGORY_TINT: Record<GameCategory, Tint> = {
-  maths: { fill: palette.xp[100], ink: palette.xp[700] },
-  science: { fill: palette.success[100], ink: palette.success[700] },
-  geography: { fill: palette.primary[100], ink: palette.primary[700] },
-  vocabulary: { fill: palette.peach[100], ink: palette.peach[700] },
-  grammar: { fill: palette.destructive[100], ink: palette.destructive[700] },
-  puzzle: { fill: palette.gold[100], ink: palette.gold[700] },
-};
-
-/**
- * Each level's colour, matching the web lobby's badges exactly (`LEVEL_STYLE` in
- * `frontend/src/app/child/games/page.tsx`). Deliberately not per-category: the level colours mean
- * "how hard", and a meaning that changed shade every row would mean nothing at all.
- */
-const LEVEL_TINT: Record<GameLevel, Tint> = {
-  beginner: { fill: palette.success[100], ink: palette.success[700] },
-  intermediate: { fill: palette.warning[100], ink: palette.warning[700] },
-  hard: { fill: palette.xp[100], ink: palette.xp[700] },
-};
+import { GRADIENT } from '@/theme/accents';
+// Subject and level colours live with the theme so Past games can reuse them; see that module for
+// why each tint is the pair it is.
+import { CATEGORY_TINT, LEVEL_TINT } from '@/theme/gameTints';
 
 /** Points are gold and XP is purple everywhere else in the app; the picker does not invent its own. */
 const POINTS_INK = palette.gold[700];
@@ -164,7 +127,7 @@ function TodaysPick({ category, game, onPlay }: {
     <View style={[styles.pickOuter, elevation.lift]}>
       {/* {0,0}->{1,1} approximates CSS's 135deg (top-left to bottom-right). */}
       <LinearGradient
-        colors={[palette.xp[600], palette.xp[500], palette.primary[500]]}
+        colors={GRADIENT.brand.colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.pickGradient}

@@ -5,9 +5,11 @@
  *
  * `quietWeek` is honoured literally: when the server says nothing happened, this says nothing happened.
  * The temptation is to fill the space with encouragement, and a child who did nothing all week knows
- * they did nothing — manufactured praise for it is the fastest way to make every other message on the
- * screen untrustworthy.
+ * they did nothing. Manufactured praise for it is the fastest way to make every other message on the
+ * screen untrustworthy. The colour changes nothing about that: a quiet week gets a calm header, not a
+ * celebratory one.
  */
+import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
@@ -15,20 +17,36 @@ import { AppText } from '@/components/AppText';
 import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile, type IoniconName } from '@/components/IconTile';
 import { Screen } from '@/components/Screen';
+import { StatTile } from '@/components/StatTile';
 import { NetworkError } from '@/lib/api';
 import { recapQuery } from '@/lib/childProfileApi';
 import { asDate } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import type { AccentTone } from '@/theme/accents';
 
-function Stat({ label, value }: { label: string; value: number | string }) {
+/** A card that leads with a coloured tile: best day, streak, team-ups. */
+function Highlight({ icon, tone, title, children }: {
+  icon: IoniconName;
+  tone: AccentTone;
+  title: string;
+  children: ReactNode;
+}) {
   const theme = useTheme();
   return (
-    <View style={styles.stat}>
-      <AppText style={[styles.statValue, { color: theme.foreground }]}>{value}</AppText>
-      <AppText style={[styles.statLabel, { color: theme.mutedForeground }]}>{label}</AppText>
-    </View>
+    <Card>
+      <View style={styles.highlight}>
+        <IconTile tone={tone} icon={icon} size={44} />
+        <View style={styles.grow}>
+          <AppText style={[styles.title, { color: theme.cardForeground }]}>{title}</AppText>
+          {children}
+        </View>
+      </View>
+    </Card>
   );
 }
 
@@ -52,7 +70,7 @@ export default function Recap() {
     return (
       <Screen scroll>
         <BackLink label="Back to Me" href="/(child)/me" />
-        <Card>
+        <Card status="late">
           <AppText style={[styles.title, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your week'}
           </AppText>
@@ -74,66 +92,61 @@ export default function Recap() {
     <Screen>
       <BackLink label="Back to Me" href="/(child)/me" />
       <ScrollView>
-        <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-          Your week
-        </AppText>
+        <GradientHeader
+          tone={data.quietWeek ? 'teal' : 'success'}
+          icon="calendar"
+          eyebrow="Your week"
+          title={data.quietWeek ? 'A quiet week' : `${data.tasksApproved} ${data.tasksApproved === 1 ? 'task' : 'tasks'} done`}
+          subtitle={data.quietWeek ? undefined : `${data.pointsEarned} points earned`}
+        />
 
         {data.quietWeek ? (
-          <Card>
-            <AppText style={[styles.body, { color: theme.cardForeground }]}>
-              A quiet week — nothing finished yet. There&apos;s always next week.
-            </AppText>
-          </Card>
+          <EmptyState emoji="🌙" title="Nothing finished yet." message="There's always next week." />
         ) : (
           <>
-            <Card>
-              <View style={styles.statRow}>
-                <Stat label="Tasks done" value={data.tasksApproved} />
-                <Stat label="Points earned" value={data.pointsEarned} />
-                <Stat label="Points spent" value={data.pointsSpent} />
-                <Stat label="Games played" value={data.gamesPlayed} />
-              </View>
-            </Card>
+            <View style={styles.statRow}>
+              <StatTile label="Tasks done" value={data.tasksApproved} variant="success" />
+              <StatTile label="Points earned" value={data.pointsEarned} variant="gold" />
+            </View>
+            <View style={styles.statRow}>
+              <StatTile label="Points spent" value={data.pointsSpent} variant="peach" />
+              <StatTile label="Games played" value={data.gamesPlayed} variant="xp" />
+            </View>
 
             {best && bestDate && (
-              <Card>
-                <AppText style={[styles.title, { color: theme.cardForeground }]}>Best day</AppText>
+              <Highlight icon="star" tone="gold" title="Best day">
                 <AppText style={[styles.body, { color: theme.mutedForeground }]}>
-                  {bestDate.toLocaleDateString(undefined, { weekday: 'long' })} — {best.tasksApproved}{' '}
+                  {bestDate.toLocaleDateString(undefined, { weekday: 'long' })}: {best.tasksApproved}{' '}
                   {best.tasksApproved === 1 ? 'task' : 'tasks'}
                 </AppText>
-              </Card>
+              </Highlight>
             )}
 
-            <Card>
-              <AppText style={[styles.title, { color: theme.cardForeground }]}>Streak</AppText>
+            <Highlight icon="flame" tone="peach" title="Streak">
               <AppText style={[styles.body, { color: theme.mutedForeground }]}>
                 {data.currentStreak} days now · {data.longestStreak} is your best
               </AppText>
-            </Card>
+            </Highlight>
 
             {data.achievementsUnlocked.length > 0 && (
-              <Card>
-                <AppText style={[styles.title, { color: theme.cardForeground }]}>
-                  Unlocked this week
-                </AppText>
+              <Highlight icon="trophy" tone="gold" title="Unlocked this week">
                 {data.achievementsUnlocked.map((a) => (
-                  // Name only — `icon` here is `Achievement.iconUrl`, a real image URL rather than an
+                  // Name only: `icon` here is `Achievement.iconUrl`, a real image URL rather than an
                   // emoji, so putting it in a Text node would print the URL.
                   <AppText key={a.name} style={[styles.body, { color: theme.mutedForeground }]}>
                     {a.name}
                   </AppText>
                 ))}
-              </Card>
+              </Highlight>
             )}
 
             {data.teamUpsCompleted > 0 && (
-              <Card>
-                <AppText style={[styles.body, { color: theme.cardForeground }]}>
+              <Highlight icon="people" tone="primary" title="Team-ups">
+                <AppText style={[styles.body, { color: theme.mutedForeground }]}>
                   You worked together on {data.teamUpsCompleted}{' '}
                   {data.teamUpsCompleted === 1 ? 'task' : 'tasks'}.
                 </AppText>
-              </Card>
+              </Highlight>
             )}
           </>
         )}
@@ -143,26 +156,14 @@ export default function Recap() {
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[3],
-  },
   title: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
-    marginBottom: spacing[1],
   },
   body: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
-  statRow: { flexDirection: 'row', flexWrap: 'wrap' },
-  stat: { width: '50%', paddingVertical: spacing[2], paddingRight: spacing[2] },
-  statValue: {
-    fontSize: fontSize.xl.fontSize,
-    lineHeight: fontSize.xl.lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  statLabel: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight },
+  statRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[2] },
+  highlight: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  grow: { flex: 1 },
   footer: { marginTop: spacing[4] },
 });

@@ -55,3 +55,30 @@ export function isOverdue(value: Date | string | null | undefined, now = new Dat
   if (!due) return false;
   return startOfDay(due) < startOfDay(now);
 }
+
+/**
+ * The date an assignment row shows, and whether it reads as late.
+ *
+ * ⚠️ Home and Tasks used to answer this differently, and a child saw the same task as "In 3 days" on
+ * one tab and "Today" on the next. Home read the parent task's `dueDate`; Tasks preferred the
+ * assignment's own `instanceDate`, because a recurring task gives every day's row the same `dueDate`
+ * and four days of "Brush teeth" were otherwise indistinguishable (reported once as duplicated tasks).
+ *
+ * The Tasks rule is the right one, so it lives here and both screens call it: show which day this
+ * instance is for when that differs from the task's due date, otherwise the due date. Overdue is judged
+ * on whichever date is actually shown, so the colour can never disagree with the words beside it.
+ */
+export function assignmentDate(
+  instanceDate: Date | string | null | undefined,
+  dueDate: Date | string | null | undefined,
+  now = new Date(),
+): { label: string | null; overdue: boolean } {
+  const due = dueLabel(dueDate, now);
+  const instance = dueLabel(instanceDate, now);
+  const showInstance = instance !== null && instance !== due;
+
+  return {
+    label: showInstance ? instance : due,
+    overdue: isOverdue(showInstance ? instanceDate : dueDate, now),
+  };
+}

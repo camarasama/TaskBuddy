@@ -25,6 +25,8 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Celebration } from '@/components/Celebration';
 import { Field } from '@/components/Field';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile, type IoniconName } from '@/components/IconTile';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { Screen } from '@/components/Screen';
 import {
@@ -43,21 +45,36 @@ import { describeError } from '@/lib/errors';
 import { pickPhoto, type PickedImage } from '@/lib/imageUpload';
 import { isDone } from '@/lib/taskStatus';
 import { fontSize, fontWeight, palette, radius, spacing, useTheme } from '@/theme';
+import type { AccentTone, GradientTone } from '@/theme/accents';
 
 /** What the child is told their task is currently doing. Words, never colour alone. */
 const STATUS_LINE: Record<string, string> = {
   pending: 'Not started yet.',
   in_progress: 'Started. Finish it when you are ready.',
-  completed: 'Done — waiting for a grown-up to check it.',
+  completed: 'Done, waiting for a grown-up to check it.',
   approved: 'Approved. Nice work.',
-  rejected: 'Sent back — have another go.',
+  rejected: 'Sent back, have another go.',
   expired: 'This one ran out of time.',
 };
 
-function Row({ label, value }: { label: string; value: string }) {
+/**
+ * The header's colour and one-word state, per status. The same colours the Tasks list uses for these
+ * states: teal still to do, purple waiting on a grown-up, green approved, peach sent back.
+ */
+const STATUS_HEADER: Record<string, { tone: GradientTone; eyebrow: string; icon: IoniconName }> = {
+  pending: { tone: 'teal', eyebrow: 'To do', icon: 'checkbox-outline' },
+  in_progress: { tone: 'teal', eyebrow: 'Started', icon: 'play' },
+  completed: { tone: 'brand', eyebrow: 'Waiting for a grown-up', icon: 'hourglass' },
+  approved: { tone: 'success', eyebrow: 'Approved', icon: 'checkmark-circle' },
+  rejected: { tone: 'peach', eyebrow: 'Sent back', icon: 'arrow-undo' },
+  expired: { tone: 'teal', eyebrow: 'Ran out of time', icon: 'time' },
+};
+
+function Row({ label, value, icon, tone }: { label: string; value: string; icon: IoniconName; tone: AccentTone }) {
   const theme = useTheme();
   return (
     <View style={styles.row}>
+      <IconTile tone={tone} icon={icon} size={32} />
       <AppText style={[styles.rowLabel, { color: theme.mutedForeground }]}>{label}</AppText>
       <AppText style={[styles.rowValue, { color: theme.cardForeground }]}>{value}</AppText>
     </View>
@@ -223,29 +240,33 @@ export default function ChildTaskDetail() {
 
     return (
       <Screen scroll>
-        <Card status="pending">
-          <AppText style={[styles.title, { color: theme.cardForeground }]}>{poolTask.title}</AppText>
-          <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>
-            Nobody has taken this one yet.
-          </AppText>
-
+        <GradientHeader
+          tone="gold"
+          icon="sparkles"
+          eyebrow="Up for grabs"
+          title={poolTask.title}
+          subtitle="Nobody has taken this one yet."
+        />
+        <Card>
           {poolTask.description ? (
-            <AppText style={[styles.body, { color: theme.cardForeground }]}>
+            <AppText style={[styles.description, { color: theme.cardForeground }]}>
               {poolTask.description}
             </AppText>
           ) : null}
 
-          <Row label="Worth" value={`${poolTask.pointsValue} points`} />
+          <Row label="Worth" value={`${poolTask.pointsValue} points`} icon="star" tone="gold" />
           {dueLabel(poolTask.dueDate) ? (
-            <Row label="Due" value={dueLabel(poolTask.dueDate) as string} />
+            <Row label="Due" value={dueLabel(poolTask.dueDate) as string} icon="calendar" tone="primary" />
           ) : null}
           {poolTask.estimatedMinutes != null ? (
-            <Row label="Should take" value={`${poolTask.estimatedMinutes} min`} />
+            <Row label="Should take" value={`${poolTask.estimatedMinutes} min`} icon="time" tone="xp" />
           ) : null}
           {poolTask.claimsRemaining != null ? (
             <Row
               label="Spots left"
               value={`${poolTask.claimsRemaining}`}
+              icon="people"
+              tone="peach"
             />
           ) : null}
           {poolTask.requiresPhotoEvidence ? (
@@ -322,28 +343,34 @@ export default function ChildTaskDetail() {
   const done = isDone(status);
   const overdue = !done && isOverdue(task.dueDate);
   const photos = assignment.evidence?.filter((e) => e.fileUrl || e.thumbnailUrl) ?? [];
+  const header = STATUS_HEADER[status] ?? STATUS_HEADER.pending;
 
   return (
     <Screen scroll>
-      <Card status={status === 'rejected' ? 'late' : done ? 'done' : 'pending'}>
-        <AppText style={[styles.title, { color: theme.cardForeground }]}>{task.title}</AppText>
-        <AppText style={[styles.statusLine, { color: status === 'rejected' ? theme.destructive : theme.mutedForeground }]}>
-          {STATUS_LINE[status] ?? status}
-        </AppText>
+      {/* The state is said three ways on purpose: the colour, the word above the title, and the full
+          sentence below it. Colour alone would fail a colour-blind child. */}
+      <GradientHeader
+        tone={header.tone}
+        icon={header.icon}
+        eyebrow={header.eyebrow}
+        title={task.title}
+        subtitle={STATUS_LINE[status] ?? status}
+      />
 
+      <Card status={status === 'rejected' ? 'late' : done ? 'done' : 'pending'}>
         {task.description ? (
-          <AppText style={[styles.body, { color: theme.cardForeground }]}>{task.description}</AppText>
+          <AppText style={[styles.description, { color: theme.cardForeground }]}>{task.description}</AppText>
         ) : null}
 
-        <Row label="Worth" value={`${task.pointsValue} points`} />
+        <Row label="Worth" value={`${task.pointsValue} points`} icon="star" tone="gold" />
         {dueLabel(task.dueDate) ? (
-          <Row label="Due" value={dueLabel(task.dueDate) as string} />
+          <Row label="Due" value={dueLabel(task.dueDate) as string} icon="calendar" tone="primary" />
         ) : null}
         {dueLabel(assignment.instanceDate) ? (
-          <Row label="For" value={dueLabel(assignment.instanceDate) as string} />
+          <Row label="For" value={dueLabel(assignment.instanceDate) as string} icon="today" tone="xp" />
         ) : null}
         {status === 'approved' && assignment.pointsAwarded != null ? (
-          <Row label="Earned" value={`${assignment.pointsAwarded} points`} />
+          <Row label="Earned" value={`${assignment.pointsAwarded} points`} icon="trophy" tone="success" />
         ) : null}
         {overdue ? (
           <AppText style={[styles.statusLine, { color: theme.destructive }]}>This one is late.</AppText>
@@ -353,7 +380,10 @@ export default function ChildTaskDetail() {
       {/* The single most important thing on a sent-back task, and the list has never shown it. */}
       {status === 'rejected' && assignment.rejectionReason ? (
         <Card status="late">
-          <AppText style={[styles.rowLabel, { color: theme.mutedForeground }]}>What to fix</AppText>
+          <View style={styles.noteHead}>
+            <IconTile tone="destructive" icon="chatbubble-ellipses" size={32} />
+            <AppText style={[styles.noteLabel, { color: theme.cardForeground }]}>What to fix</AppText>
+          </View>
           <AppText style={[styles.body, { color: theme.cardForeground }]}>
             {assignment.rejectionReason}
           </AppText>
@@ -362,7 +392,10 @@ export default function ChildTaskDetail() {
 
       {photos.length > 0 && (
         <Card>
-          <AppText style={[styles.rowLabel, { color: theme.mutedForeground }]}>Your photo</AppText>
+          <View style={styles.noteHead}>
+            <IconTile tone="peach" icon="camera" size={32} />
+            <AppText style={[styles.noteLabel, { color: theme.cardForeground }]}>Your photo</AppText>
+          </View>
           {photos.map((evidence) => (
             <Pressable
               key={evidence.id}
@@ -394,7 +427,7 @@ export default function ChildTaskDetail() {
             <View style={styles.actions}>
               <Button
                 label="Start"
-                variant="secondary"
+                variant="soft"
                 onPress={() => void run(() => doStart(assignment.id))}
                 busy={busy}
               />
@@ -426,14 +459,14 @@ export default function ChildTaskDetail() {
               <View style={styles.actions}>
                 <Button
                   label={photo ? 'Take a different one' : 'Take a photo'}
-                  variant="secondary"
+                  variant="soft"
                   onPress={() => void choosePhoto('camera')}
                   busy={photoBusy}
                   disabled={busy}
                 />
                 <Button
                   label="Choose a photo"
-                  variant="secondary"
+                  variant="soft"
                   onPress={() => void choosePhoto('library')}
                   busy={photoBusy}
                   disabled={busy}
@@ -481,12 +514,14 @@ export default function ChildTaskDetail() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: fontSize.lg.fontSize, lineHeight: fontSize.lg.lineHeight, fontWeight: fontWeight.semibold },
+  description: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, marginBottom: spacing[2] },
+  noteHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[1] },
+  noteLabel: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, fontWeight: fontWeight.semibold },
   body: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, marginTop: spacing[2] },
   meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
   statusLine: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[2] },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3], marginTop: spacing[2] },
-  rowLabel: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[2] },
+  rowLabel: { flex: 1, fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
   rowValue: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, fontWeight: fontWeight.medium },
   actions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
   photoBlock: { marginTop: spacing[3], gap: spacing[1] },

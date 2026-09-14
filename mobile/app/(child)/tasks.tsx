@@ -16,7 +16,7 @@
  * here would be a second implementation of one rule, disagreeing the first time either moved.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -25,8 +25,14 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card, type CardStatus } from '@/components/Card';
 import { Celebration } from '@/components/Celebration';
+import { Chip } from '@/components/Chip';
+import { EmptyState } from '@/components/EmptyState';
 import { Field } from '@/components/Field';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile } from '@/components/IconTile';
 import { Screen } from '@/components/Screen';
+import { SectionTitle } from '@/components/SectionTitle';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { NetworkError } from '@/lib/api';
 import {
   availableTasksQuery,
@@ -39,11 +45,11 @@ import {
   type ChildTask,
   type MyAssignment,
 } from '@/lib/childTasksApi';
-import { dueLabel, isOverdue } from '@/lib/dates';
+import { assignmentDate, dueLabel } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { pickPhoto, type PickedImage } from '@/lib/imageUpload';
 import { isDone } from '@/lib/taskStatus';
-import { fontSize, fontWeight, minTouchTarget, onGradient, palette, radius, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, onGradient, palette, radius, spacing, useTheme } from '@/theme';
 
 /**
  * Segments mirror the web's tabs, and the parity is not cosmetic — it was a bug. A single
@@ -77,39 +83,31 @@ function SegmentChips({
   counts: Record<Segment, number>;
   onChange: (next: Segment) => void;
 }) {
-  const theme = useTheme();
+  // One shared track rather than this screen's own row of outlined chips; Rewards uses the same one.
+  return (
+    <SegmentedControl
+      options={SEGMENTS.map((segment) => ({ ...segment, count: counts[segment.key] }))}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+/** The screen's masthead: what is waiting, in words. Teal, the colour tasks carry on Home. */
+function TasksHeader({ counts }: { counts: Record<Segment, number> }) {
+  const parts = [
+    counts.active > 0 ? `${counts.active} to do` : null,
+    counts.returned > 0 ? `${counts.returned} sent back` : null,
+  ].filter(Boolean);
 
   return (
-    // Horizontally scrollable: four chips with counts do not fit a narrow phone. `flexGrow: 0` plus
-    // `alignItems: 'center'` on the content container stop the chips stretching full-height, which is
-    // the default for a horizontal ScrollView's content and shipped once as full-height pills.
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.chipScroller}
-      contentContainerStyle={styles.chipRow}
-    >
-      {SEGMENTS.map((segment) => {
-        const selected = segment.key === value;
-        const count = counts[segment.key];
-        return (
-          <Pressable
-            key={segment.key}
-            onPress={() => onChange(segment.key)}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            // The count is part of the name for a screen reader, not a separate unlabelled number.
-            accessibilityLabel={`${segment.label}, ${count}`}
-            style={[styles.chip, { backgroundColor: selected ? theme.primary : theme.card, borderColor: selected ? theme.primary : theme.border }]}
-          >
-            <AppText style={[styles.chipLabel, { color: selected ? theme.primaryForeground : theme.cardForeground }]}>
-              {segment.label}
-              {count > 0 ? ` ${count}` : ''}
-            </AppText>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+    <GradientHeader
+      tone="teal"
+      icon="checkbox"
+      eyebrow="Tasks"
+      title="Your tasks"
+      subtitle={parts.length > 0 ? parts.join(' · ') : 'Nothing to do right now'}
+    />
   );
 }
 
@@ -149,6 +147,27 @@ function TaskTick({ done, busy, onPress, label }: {
   );
 }
 
+/**
+ * The status of a row as a coloured pill that also says it in words: colour lets a child scan the
+ * list, the label is what a screen reader and a colour-blind child get.
+ */
+function StatusChips({ item }: { item: MyAssignment }) {
+  const { task, status } = item;
+  const done = isDone(status);
+
+  return (
+    <View style={styles.chipRow}>
+      {status === 'rejected' && <Chip compact variant="late" icon="arrow-undo" label="Sent back" />}
+      {status === 'completed' && <Chip compact variant="xp" icon="hourglass-outline" label="Waiting for a grown-up" />}
+      {status === 'approved' && (
+        <Chip compact variant="done" icon="checkmark-circle" label={`Approved, +${task.pointsValue} points`} />
+      )}
+      {status === 'in_progress' && <Chip compact variant="info" icon="play" label="Started" />}
+      {task.requiresPhotoEvidence && !done && <Chip compact variant="peach" icon="camera" label="Photo needed" />}
+    </View>
+  );
+}
+
 /** One of the child's own tasks, with whatever action it currently affords. */
 function AssignmentRow(
   { item, busy, linked = false, onStart, onComplete }:
@@ -157,23 +176,17 @@ function AssignmentRow(
   const theme = useTheme();
   const { task, status } = item;
   const done = isDone(status);
-  const due = dueLabel(task.dueDate);
   // Sortable-by-eye stripe: rejected reads as the one that needs another go, done as finished, and
   // everything else (pending/in_progress) as still open.
   const cardStatus: CardStatus = status === 'rejected' ? 'late' : done ? 'done' : 'pending';
 
-  // Which day's instance this is. A recurring task has one assignment per day and every one carries
-  // the *parent task's* `dueDate`, so without this, four days of "Brush teeth" are four indistinguishable
-  // rows — reported once as the app duplicating tasks. Do NOT collapse these into one row per task; the
-  // per-day row is the fix, not the bug. Used bare, no "For " prefix: `dueLabel` already returns whole
-  // phrases ("Today", "3 days overdue"), and prefixing shipped once as "For 3 days overdue".
-  const instanceLabel = dueLabel(item.instanceDate);
-  const showInstance = instanceLabel !== null && instanceLabel !== due;
-  const dateLabel = showInstance ? instanceLabel : due;
-
-  // Overdue is judged on whichever date the row is actually showing, so the colour cannot disagree
-  // with the words next to it.
-  const showOverdue = !done && isOverdue(showInstance ? item.instanceDate : task.dueDate);
+  // Which day's instance this is, preferred over the parent task's `dueDate`. A recurring task has one
+  // assignment per day and every one carries the same `dueDate`, so without this, four days of "Brush
+  // teeth" are four indistinguishable rows, reported once as the app duplicating tasks. Do NOT collapse
+  // these into one row per task; the per-day row is the fix, not the bug. The rule lives in
+  // `assignmentDate` so Home cannot drift from it again.
+  const date = assignmentDate(item.instanceDate, task.dueDate);
+  const showOverdue = !done && date.overdue;
 
   return (
     // The ring is how "this is the one your notification meant" is said without a sentence of prose
@@ -190,34 +203,26 @@ function AssignmentRow(
       <View style={styles.tickRow}>
         <TaskTick done={done} busy={busy} onPress={onComplete} label={`Mark "${task.title}" done`} />
         <View style={styles.tickRowText}>
-          <AppText style={[styles.taskName, { color: theme.cardForeground }]}>{task.title}</AppText>
-          <AppText style={[styles.meta, { color: showOverdue ? theme.destructive : theme.mutedForeground }]}>
-            {[dateLabel, `${task.pointsValue} pts`].filter(Boolean).join(' · ')}
-          </AppText>
-          {/* Status in words — a rejected task especially must not rely on colour alone. */}
-          {status === 'rejected' && (
-            <AppText style={[styles.statusLine, { color: theme.destructive }]}>
-              Sent back — have another go.{item.rejectionReason ? ` "${item.rejectionReason}"` : ''}
+          <View style={styles.titleRow}>
+            <AppText style={[styles.taskName, styles.grow, { color: theme.cardForeground }]}>{task.title}</AppText>
+            <Chip compact variant="gold" icon="star" label={`${task.pointsValue} pts`} />
+          </View>
+          {date.label && (
+            <AppText style={[styles.meta, { color: showOverdue ? theme.destructive : theme.mutedForeground }]}>
+              {date.label}
             </AppText>
           )}
-          {status === 'completed' && (
-            <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>Done — waiting for a grown-up to check it.</AppText>
-          )}
-          {status === 'approved' && (
-            <AppText style={[styles.statusLine, { color: theme.primary }]}>Approved. {task.pointsValue} points added.</AppText>
-          )}
-          {status === 'in_progress' && (
-            <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>Started</AppText>
-          )}
-          {task.requiresPhotoEvidence && !done && (
-            <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>
-              This one asks for a photo.
+          <StatusChips item={item} />
+          {/* Status in words: a rejected task especially must not rely on colour alone. */}
+          {status === 'rejected' && (
+            <AppText style={[styles.statusLine, { color: theme.destructive }]}>
+              Have another go.{item.rejectionReason ? ` "${item.rejectionReason}"` : ''}
             </AppText>
           )}
           {/* `Start` survives as a secondary control — see the note on `TaskTick`. */}
           {!done && status !== 'in_progress' && (
             <View style={styles.rowActions}>
-              <Button label="Start" variant="secondary" onPress={onStart} disabled={busy} />
+              <Button label="Start" variant="soft" onPress={onStart} disabled={busy} />
             </View>
           )}
         </View>
@@ -238,13 +243,18 @@ function AvailableRow(
 
   // The server says no; the child deserves to know which no it is. A row of disabled buttons with no
   // reason is the most common way a rules-heavy screen reads as broken.
+  //
+  // The pending-primaries reason is NOT repeated here. The section heading already says "Finish your
+  // current task first." once for the whole list, and printing it again inside every card made the
+  // same sentence appear twice on one screen. The row just says it is locked.
   const blockedReason = task.canSelfAssign
     ? null
     : hasPendingPrimaries
-      ? 'Finish your current task first.'
+      ? null
       : task.claimsRemaining === 0
         ? 'Someone else already took this one.'
         : 'You can’t pick this one up right now.';
+  const lockedByCurrentTask = !task.canSelfAssign && hasPendingPrimaries;
 
   return (
     /*
@@ -261,19 +271,34 @@ function AvailableRow(
       accessibilityLabel={`Open "${task.title}"`}
     >
       <Card>
-        <AppText style={[styles.taskName, { color: theme.cardForeground }]}>{task.title}</AppText>
-        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-          {[due, `${task.pointsValue} pts`].filter(Boolean).join(' · ')}
-          {task.claimsRemaining !== null ? ` · ${task.claimsRemaining} left` : ''}
-        </AppText>
+        <View style={styles.tickRow}>
+          <IconTile tone="gold" icon="sparkles" size={40} muted={lockedByCurrentTask} />
+          <View style={styles.tickRowText}>
+            <View style={styles.titleRow}>
+              <AppText style={[styles.taskName, styles.grow, { color: theme.cardForeground }]}>{task.title}</AppText>
+              <Chip compact variant="gold" icon="star" label={`${task.pointsValue} pts`} />
+            </View>
+            {(due || task.claimsRemaining !== null) && (
+              <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
+                {[due, task.claimsRemaining !== null ? `${task.claimsRemaining} left` : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </AppText>
+            )}
 
-        {blockedReason ? (
-          <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>{blockedReason}</AppText>
-        ) : (
-          <View style={styles.rowActions}>
-            <Button label="Pick this up" onPress={onClaim} disabled={busy} />
+            {lockedByCurrentTask ? (
+              <View style={styles.chipRow}>
+                <Chip compact variant="info" icon="lock-closed" label="Locked for now" />
+              </View>
+            ) : blockedReason ? (
+              <AppText style={[styles.statusLine, { color: theme.mutedForeground }]}>{blockedReason}</AppText>
+            ) : (
+              <View style={styles.rowActions}>
+                <Button label="Pick this up" onPress={onClaim} disabled={busy} />
+              </View>
+            )}
           </View>
-        )}
+        </View>
       </Card>
     </Pressable>
   );
@@ -488,6 +513,7 @@ export default function ChildTasks() {
   if (mine.isPending) {
     return (
       <Screen>
+        <TasksHeader counts={counts} />
         <SegmentChips value={segment} counts={counts} onChange={setSegment} />
         <Card>
           <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Loading…</AppText>
@@ -500,8 +526,9 @@ export default function ChildTasks() {
     const offline = mine.error instanceof NetworkError;
     return (
       <Screen scroll>
+        <TasksHeader counts={counts} />
         <SegmentChips value={segment} counts={counts} onChange={setSegment} />
-        <Card>
+        <Card status="late">
           <AppText style={[styles.statusLine, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your tasks'}
           </AppText>
@@ -516,8 +543,6 @@ export default function ChildTasks() {
 
   return (
     <Screen>
-      <SegmentChips value={segment} counts={counts} onChange={setSegment} />
-
       {actionError !== null && (
         <Card status="late">
           <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
@@ -542,19 +567,23 @@ export default function ChildTasks() {
           if (mine.hasNextPage && !mine.isFetchingNextPage) void mine.fetchNextPage();
         }}
         onEndReachedThreshold={0.4}
+        // The masthead and the switch scroll with the list, so a short phone is not left with half its
+        // height pinned to a header.
+        ListHeaderComponent={
+          <>
+            <TasksHeader counts={counts} />
+            <SegmentChips value={segment} counts={counts} onChange={setSegment} />
+          </>
+        }
         ListEmptyComponent={
           // Not rendered as "nothing here" when there are tasks to pick up below — an empty message
           // sitting above a list of claimable tasks contradicts itself.
-          segment === 'active' && showPool ? null : (
-            <Card>
-              <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                {segment === 'active'
-                  ? 'Nothing to do right now.'
-                  : segment === 'completed'
-                    ? 'Nothing finished yet.'
-                    : 'Nothing has been sent back. Good going.'}
-              </AppText>
-            </Card>
+          segment === 'active' && showPool ? null : segment === 'active' ? (
+            <EmptyState emoji="✅" title="Nothing to do right now." />
+          ) : segment === 'completed' ? (
+            <EmptyState emoji="📋" title="Nothing finished yet." />
+          ) : (
+            <EmptyState emoji="👍" title="Nothing has been sent back. Good going." />
           )
         }
         ListFooterComponent={
@@ -566,14 +595,13 @@ export default function ChildTasks() {
             */}
             {showPool && (
               <View style={styles.poolBlock}>
-                <AppText style={[styles.poolHeading, { color: theme.cardForeground }]}>
-                  Available tasks
-                </AppText>
-                {hasPendingPrimaries && (
-                  <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-                    Finish your current task first.
-                  </AppText>
-                )}
+                {/* Said once, here, for the whole section. Each locked card only shows a lock. */}
+                <SectionTitle
+                  title="Available tasks"
+                  icon="sparkles"
+                  tone="gold"
+                  hint={hasPendingPrimaries ? 'Finish your current task first.' : 'Tasks you can pick up yourself.'}
+                />
                 {pool.map((task) => (
                   <AvailableRow
                     key={task.id}
@@ -602,7 +630,7 @@ export default function ChildTasks() {
       >
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalSheet, { backgroundColor: theme.card }]}>
-            <AppText style={[styles.taskName, { color: theme.cardForeground }]}>
+            <AppText variant="display" style={[styles.sheetTitle, { color: theme.cardForeground }]}>
               {completing?.task.title}
             </AppText>
             <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
@@ -639,14 +667,14 @@ export default function ChildTasks() {
                 <View style={styles.rowActions}>
                   <Button
                     label={photo ? 'Take a different one' : 'Take a photo'}
-                    variant="secondary"
+                    variant="soft"
                     onPress={() => void choosePhoto('camera')}
                     busy={photoBusy}
                     disabled={actingId !== null}
                   />
                   <Button
                     label="Choose a photo"
-                    variant="secondary"
+                    variant="soft"
                     onPress={() => void choosePhoto('library')}
                     busy={photoBusy}
                     disabled={actingId !== null}
@@ -682,12 +710,11 @@ const styles = StyleSheet.create({
   tick: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   tickDone: { borderWidth: 0 },
   linked: { borderWidth: 2, borderRadius: radius.lg },
-  poolBlock: { marginTop: spacing[5], gap: spacing[2] },
-  poolHeading: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, fontWeight: fontWeight.semibold },
-  chipScroller: { flexGrow: 0, marginBottom: spacing[3] },
-  chipRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  chip: { paddingHorizontal: spacing[3], minHeight: minTouchTarget, justifyContent: 'center', borderRadius: radius.full, borderWidth: 1 },
-  chipLabel: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.medium },
+  poolBlock: { marginTop: spacing[2] },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2] },
+  grow: { flex: 1 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[2], marginTop: spacing[2] },
+  sheetTitle: { fontSize: fontSize.lg.fontSize, lineHeight: fontSize.lg.lineHeight, fontWeight: fontWeight.bold },
   taskName: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, fontWeight: fontWeight.semibold },
   meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
   statusLine: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[2] },
