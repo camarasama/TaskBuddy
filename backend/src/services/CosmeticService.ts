@@ -16,6 +16,7 @@
 
 import { prisma } from './database';
 import { ConflictError, NotFoundError, ValidationError } from '../middleware/errorHandler';
+import { debitPoints } from './PointsWallet';
 
 /** One item may be equipped per category. */
 export const COSMETIC_CATEGORIES = ['frame', 'background', 'hat'] as const;
@@ -120,7 +121,9 @@ export async function purchase(params: {
   }
 
   return prisma.$transaction(async (tx) => {
-    const newBalance = profile.pointsBalance - item.pointsCost;
+    // The check above is the friendly message; this is the enforcement. Two purchases of different
+    // items fired together both passed it, and would otherwise have overdrawn the balance.
+    const newBalance = await debitPoints(tx, childId, item.pointsCost, 'You do not have enough points for this.');
 
     // Clear the category first, so the new item can be worn straight away without ever leaving two
     // equipped in the same slot — even briefly.
@@ -131,11 +134,6 @@ export async function purchase(params: {
 
     await tx.childCosmetic.create({
       data: { childId, itemId, isEquipped: true },
-    });
-
-    await tx.childProfile.update({
-      where: { userId: childId },
-      data: { pointsBalance: newBalance },
     });
 
     // Same shape as a reward redemption: negative amount, balanceAfter, reference to the source.

@@ -24,6 +24,9 @@
 
 import { prisma } from './database';
 import { calculateLevelFromXp, GAMIFICATION_M7 } from '../utils/gamification';
+import { claimed, creditPoints } from './PointsWallet';
+
+type Db = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /**
  * Checks if a child levelled up after a recent XP award.
@@ -66,8 +69,12 @@ export async function checkAndApplyLevelUp(
   // have already filled. `currentLevelXp` is what `experiencePoints` stores.
   const { level: calculatedLevel, currentLevelXp } = calculateLevelFromXp(profile.totalXpEarned);
 
+  // The higher of the caller's snapshot and the row: if a concurrent award already moved `level`
+  // (and paid for it), those levels must not be paid again here.
+  const fromLevel = Math.max(oldLevel, profile.level);
+
   // No level-up occurred
-  if (calculatedLevel <= oldLevel) {
+  if (calculatedLevel <= fromLevel) {
     // Still normalise both projections in case they drifted (safety net). This is also the path that
     // repairs rows written before this service owned `experiencePoints`.
     if (profile.level !== calculatedLevel || profile.experiencePoints !== currentLevelXp) {
@@ -82,37 +89,46 @@ export async function checkAndApplyLevelUp(
   // Level-up detected - award bonus Points for EACH level gained
   // (Edge case: a very large XP award could jump multiple levels at once)
   let totalBonusPoints = 0;
-  for (let lvl = oldLevel + 1; lvl <= calculatedLevel; lvl++) {
+  for (let lvl = fromLevel + 1; lvl <= calculatedLevel; lvl++) {
     totalBonusPoints += lvl * GAMIFICATION_M7.LEVEL_MULTIPLIER;
   }
 
-  const newBalance = profile.pointsBalance + totalBonusPoints;
+  // Claim, credit and ledger row succeed or fail together. Inside the caller's transaction when there
+  // is one; otherwise in a transaction of their own.
+  const payBonus = async (d: Db): Promise<boolean> => {
+    // Claim the level change on the level we read. Two awards landing together (a quiz and an approval)
+    // both see the same threshold crossed; only the one that moves `level` pays the bonus.
+    const leveled = await claimed(
+      d.childProfile.updateMany({
+        where: { userId: childId, level: profile.level },
+        data: { level: calculatedLevel, experiencePoints: currentLevelXp },
+      }),
+    );
+    if (!leveled) return false;
 
-  // Update profile: new level + within-level remainder + bonus points added to balance
-  await db.childProfile.update({
-    where: { userId: childId },
-    data: {
-      level: calculatedLevel,
-      experiencePoints: currentLevelXp,
-      pointsBalance: newBalance,
-    },
-  });
+    const newBalance = await creditPoints(d, childId, totalBonusPoints);
 
-  // Create a milestone_bonus ledger entry for the bonus Points
-  await db.pointsLedger.create({
-    data: {
-      childId,
-      transactionType: 'milestone_bonus',
-      pointsAmount: totalBonusPoints,
-      balanceAfter: newBalance,
-      referenceType: 'level_up',
-      referenceId: childId, // Self-reference - no external record to link
-      description:
-        calculatedLevel === oldLevel + 1
-          ? `Level up! Reached Level ${calculatedLevel} - bonus ${totalBonusPoints} Points`
-          : `Multi-level up! Level ${oldLevel} → ${calculatedLevel} - bonus ${totalBonusPoints} Points`,
-    },
-  });
+    // Create a milestone_bonus ledger entry for the bonus Points
+    await d.pointsLedger.create({
+      data: {
+        childId,
+        transactionType: 'milestone_bonus',
+        pointsAmount: totalBonusPoints,
+        balanceAfter: newBalance,
+        referenceType: 'level_up',
+        referenceId: childId, // Self-reference - no external record to link
+        description:
+          calculatedLevel === oldLevel + 1
+            ? `Level up! Reached Level ${calculatedLevel} - bonus ${totalBonusPoints} Points`
+            : `Multi-level up! Level ${oldLevel} → ${calculatedLevel} - bonus ${totalBonusPoints} Points`,
+      },
+    });
+    return true;
+  };
+  const leveled = tx ? await payBonus(tx) : await prisma.$transaction(payBonus);
+  if (!leveled) {
+    return { leveledUp: false, oldLevel, newLevel: calculatedLevel, bonusPointsAwarded: 0 };
+  }
 
   return {
     leveledUp: true,

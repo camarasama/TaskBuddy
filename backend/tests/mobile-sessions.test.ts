@@ -128,7 +128,9 @@ describe('P0-4: mobile parent sessions last 90 days, not 7', () => {
   it('the access token stays short-lived on mobile — revocation must stay responsive', () => {
     const web = authService.generateTokens(PARENT);
     const mobile = authService.generateTokens(PARENT, { isMobile: true });
-    expect(mobile.expiresIn).toBe(web.expiresIn);
+    // `expiresIn` is `exp - now` in whole seconds, so the two calls can straddle a second boundary
+    // under a loaded CI runner. Within a second is the same lifetime; a 90-day token is not.
+    expect(Math.abs(mobile.expiresIn - web.expiresIn)).toBeLessThanOrEqual(1);
   });
 });
 

@@ -23,19 +23,23 @@
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 
-jest.mock('../src/services/database', () => ({
-  prisma: {
-    childProfile: { findUnique: jest.fn(), update: jest.fn() },
+jest.mock('../src/services/database', () => {
+  // The level-up is claimed with a conditional updateMany and paid inside a transaction; this mock
+  // runs the transaction callback against the same client.
+  const prisma: any = {
+    childProfile: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     pointsLedger: { create: jest.fn() },
-  },
-}));
+  };
+  prisma.$transaction = jest.fn((cb: (tx: unknown) => unknown) => cb(prisma));
+  return { prisma };
+});
 
 import { checkAndApplyLevelUp } from '../src/services/levelService';
 import { calculateLevelFromXp, xpRequiredForLevel } from '../src/utils/gamification';
 import { prisma } from '../src/services/database';
 
 const p = prisma as unknown as {
-  childProfile: { findUnique: jest.Mock; update: jest.Mock };
+  childProfile: { findUnique: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
   pointsLedger: { create: jest.Mock };
 };
 
@@ -48,7 +52,8 @@ const cumulative = (level: number) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  p.childProfile.update.mockResolvedValue({});
+  p.childProfile.update.mockResolvedValue({ pointsBalance: 0 });
+  p.childProfile.updateMany.mockResolvedValue({ count: 1 });
   p.pointsLedger.create.mockResolvedValue({});
 });
 
@@ -67,9 +72,32 @@ describe('checkAndApplyLevelUp owns experiencePoints', () => {
 
     expect(result.leveledUp).toBe(true);
     expect(result.newLevel).toBe(3);
-    expect(p.childProfile.update).toHaveBeenCalledWith(
+    expect(p.childProfile.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ level: 3, experiencePoints: 40 }) })
     );
+  });
+
+  it('claims the level change on the level it read, so two awards cannot both pay the bonus', async () => {
+    const totalXpEarned = cumulative(3) + 40;
+    p.childProfile.findUnique.mockResolvedValue({ totalXpEarned, level: 2, experiencePoints: 0, pointsBalance: 0 });
+    p.childProfile.updateMany.mockResolvedValue({ count: 0 }); // a concurrent award moved `level` first
+
+    const result = await checkAndApplyLevelUp('child-1', 2);
+
+    expect(p.childProfile.updateMany.mock.calls[0][0].where).toEqual({ userId: 'child-1', level: 2 });
+    expect(result).toMatchObject({ leveledUp: false, bonusPointsAwarded: 0 });
+    expect(p.pointsLedger.create).not.toHaveBeenCalled();
+  });
+
+  it('does not pay again for levels a concurrent award already recorded', async () => {
+    // The caller's snapshot says level 2, but the row already reads 3 (another award paid for it).
+    const totalXpEarned = cumulative(3) + 40;
+    p.childProfile.findUnique.mockResolvedValue({ totalXpEarned, level: 3, experiencePoints: 40, pointsBalance: 0 });
+
+    const result = await checkAndApplyLevelUp('child-1', 2);
+
+    expect(result.bonusPointsAwarded).toBe(0);
+    expect(p.pointsLedger.create).not.toHaveBeenCalled();
   });
 
   it('repairs a drifted remainder even when no level was gained', async () => {

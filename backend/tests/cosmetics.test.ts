@@ -14,18 +14,27 @@
 jest.mock('../src/services/database', () => {
   const tx = {
     childCosmetic: { updateMany: jest.fn(), create: jest.fn(), update: jest.fn() },
-    childProfile: { update: jest.fn() },
+    // The spend is a guarded decrement (PointsWallet.debitPoints) followed by a read-back. The mock
+    // honours the balance each test sets on the outer findUnique, so "cannot afford" still fails.
+    childProfile: {
+      updateMany: jest.fn(async ({ where, data }: any) => {
+        const profile = await outer.childProfile.findUnique();
+        if (!profile || profile.pointsBalance < where.pointsBalance.gte) return { count: 0 };
+        profile.pointsBalance -= data.pointsBalance.decrement;
+        return { count: 1 };
+      }),
+      findUnique: jest.fn(() => outer.childProfile.findUnique()),
+    },
     pointsLedger: { create: jest.fn() },
   };
-  return {
-    prisma: {
-      cosmeticItem: { findFirst: jest.fn(), findMany: jest.fn() },
-      childCosmetic: { findUnique: jest.fn(), findMany: jest.fn(), updateMany: jest.fn() },
-      childProfile: { findUnique: jest.fn() },
-      $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
-      __tx: tx,
-    },
+  const outer: any = {
+    cosmeticItem: { findFirst: jest.fn(), findMany: jest.fn() },
+    childCosmetic: { findUnique: jest.fn(), findMany: jest.fn(), updateMany: jest.fn() },
+    childProfile: { findUnique: jest.fn() },
+    $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
+    __tx: tx,
   };
+  return { prisma: outer };
 });
 
 import { COSMETIC_CATEGORIES, CosmeticService } from '../src/services/CosmeticService';
@@ -38,7 +47,7 @@ const p = prisma as unknown as {
   childProfile: { findUnique: jest.Mock };
   __tx: {
     childCosmetic: { updateMany: jest.Mock; create: jest.Mock; update: jest.Mock };
-    childProfile: { update: jest.Mock };
+    childProfile: { updateMany: jest.Mock; findUnique: jest.Mock };
     pointsLedger: { create: jest.Mock };
   };
 };
@@ -46,13 +55,17 @@ const p = prisma as unknown as {
 const CHILD = 'child-1';
 const ITEM = 'item-1';
 
+let balance: { pointsBalance: number } = { pointsBalance: 500 };
+
 const crown = { id: ITEM, category: 'hat', name: 'Crown', assetKey: 'hat-crown', pointsCost: 320, isActive: true };
 
 beforeEach(() => {
   jest.clearAllMocks();
   p.cosmeticItem.findFirst.mockResolvedValue(crown);
   p.childCosmetic.findUnique.mockResolvedValue(null);
-  p.childProfile.findUnique.mockResolvedValue({ pointsBalance: 500 });
+  // A fresh object per test: the guarded-decrement mock mutates it.
+  p.childProfile.findUnique.mockImplementation(async () => balance);
+  balance = { pointsBalance: 500 };
   p.__tx.childCosmetic.create.mockResolvedValue({ id: 'owned-1' });
 });
 
@@ -112,9 +125,19 @@ describe('purchase', () => {
     });
   });
 
-  it('decrements the balance by exactly the cost', async () => {
+  it('decrements the balance by exactly the cost, and only if it still covers it', async () => {
     await CosmeticService.purchase({ childId: CHILD, itemId: ITEM });
-    expect(p.__tx.childProfile.update.mock.calls[0][0].data).toEqual({ pointsBalance: 180 });
+    expect(p.__tx.childProfile.updateMany.mock.calls[0][0]).toEqual({
+      where: { userId: CHILD, pointsBalance: { gte: 320 } },
+      data: { pointsBalance: { decrement: 320 } },
+    });
+  });
+
+  it('charges nothing when a parallel purchase spent the points after the affordability check', async () => {
+    // Both requests read 500 before either wrote; the second spend must not overdraw.
+    p.__tx.childProfile.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(CosmeticService.purchase({ childId: CHILD, itemId: ITEM })).rejects.toThrow(/not have enough points/i);
+    expect(p.__tx.pointsLedger.create).not.toHaveBeenCalled();
   });
 
   it('does ownership, balance and ledger in ONE transaction', async () => {
@@ -147,7 +170,7 @@ describe('purchase', () => {
   it('charges nothing when the purchase is refused', async () => {
     p.childProfile.findUnique.mockResolvedValue({ pointsBalance: 10 });
     await expect(CosmeticService.purchase({ childId: CHILD, itemId: ITEM })).rejects.toThrow();
-    expect(p.__tx.childProfile.update).not.toHaveBeenCalled();
+    expect(p.__tx.childProfile.updateMany).not.toHaveBeenCalled();
     expect(p.__tx.pointsLedger.create).not.toHaveBeenCalled();
   });
 

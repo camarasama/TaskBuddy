@@ -16,7 +16,7 @@ import request from 'supertest';
  */
 jest.mock('../src/services/database', () => ({
   prisma: {
-    taskAssignment: { findFirst: jest.fn(), update: jest.fn() },
+    taskAssignment: { findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
     taskEvidence: { create: jest.fn().mockResolvedValue({}) },
     familySettings: { findUnique: jest.fn().mockResolvedValue(null) },
     user: { findUnique: jest.fn().mockResolvedValue(null) },
@@ -54,6 +54,8 @@ import { prisma } from '../src/services/database';
 
 const findAssignment = prisma.taskAssignment.findFirst as jest.Mock;
 const updateAssignment = prisma.taskAssignment.update as jest.Mock;
+// Completion is a conditional write on the status (a double tap must not complete twice).
+const claimCompletion = prisma.taskAssignment.updateMany as jest.Mock;
 const familySettings = prisma.familySettings.findUnique as jest.Mock;
 
 const HOUR = 60 * 60 * 1000;
@@ -62,6 +64,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   CURRENT = { userId: 'kid1', role: 'child', familyId: 'fam1' };
   updateAssignment.mockImplementation(async ({ data }: any) => ({ id: 'a1', ...data, task: {}, child: {} }));
+  claimCompletion.mockResolvedValue({ count: 1 });
+  (prisma.taskAssignment.findUniqueOrThrow as jest.Mock).mockResolvedValue({ id: 'a1', task: {}, child: {} });
   familySettings.mockResolvedValue(null);
 });
 
@@ -86,9 +90,9 @@ const completableAssignment = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-/** The Date written to `completedAt` / `startedAt` by the assignment update under test. */
+/** The Date written to `completedAt` / `startedAt` by the assignment write under test. */
 const writtenStamp = (field: 'completedAt' | 'startedAt'): Date =>
-  updateAssignment.mock.calls[0][0].data[field];
+  (field === 'completedAt' ? claimCompletion : updateAssignment).mock.calls[0][0].data[field];
 
 // ─── PUT /assignments/:id/complete ───────────────────────────────────────────
 
@@ -136,7 +140,7 @@ describe('complete — the completedAt trust window', () => {
       .send({ completedAt: new Date(Date.now() + 6 * HOUR).toISOString() });
 
     expect(res.status).toBe(400);
-    expect(updateAssignment).not.toHaveBeenCalled(); // no half-applied completion
+    expect(claimCompletion).not.toHaveBeenCalled(); // no half-applied completion
   });
 
   it('clamps a completedAt older than 48h up to now − 48h', async () => {

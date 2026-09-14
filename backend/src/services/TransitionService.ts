@@ -28,6 +28,7 @@ import { AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
 
 import { prisma } from './database';
 import { AuditService } from './AuditService';
+import { claimed } from './PointsWallet';
 import { ConflictError, NotFoundError, ValidationError } from '../middleware/errorHandler';
 
 /** Days a parent has before the default applies. Agreed 2026-08-11. */
@@ -126,7 +127,22 @@ export async function resolveTransition(input: {
     }
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
+    // Claim the decision before moving any points. Two co-parents deciding at once both passed the
+    // pending check above; without this claim a transfer would pay the sibling twice.
+    const won = await claimed(
+      tx.accountTransition.updateMany({
+        where: { id: transition.id, status: 'pending' },
+        data: {
+          status: 'resolved',
+          decision,
+          transferToChildId: decision === 'transfer' ? transferToChildId : null,
+          resolvedAt: new Date(),
+        },
+      }),
+    );
+    if (!won) throw new ConflictError('This has already been decided.');
+
     const profile = await tx.childProfile.findUnique({
       where: { userId: transition.childId },
       select: { pointsBalance: true },
@@ -141,7 +157,9 @@ export async function resolveTransition(input: {
     }
 
     // Zeroed for transfer AND discard: in both cases the points leave this account. Leaving them
-    // behind on a discard would mean "discarded" points still spendable.
+    // behind on a discard would mean "discarded" points still spendable. An absolute write is right
+    // here (and allow-listed in the points source guard): the decision is already claimed, and
+    // "nothing left on this account" is the intended end state, whatever arrived in between.
     if (balance > 0) {
       await tx.childProfile.update({
         where: { userId: transition.childId },
@@ -149,28 +167,23 @@ export async function resolveTransition(input: {
       });
     }
 
-    const updated = await tx.accountTransition.update({
-      where: { id: transition.id },
-      data: {
-        status: 'resolved',
-        decision,
-        transferToChildId: decision === 'transfer' ? transferToChildId : null,
-        resolvedAt: new Date(),
-      },
-    });
-
-    await AuditService.logAction({
-      actorId,
-      action: 'UPDATE',
-      resourceType: 'account_transition',
-      resourceId: transition.id,
-      familyId,
-      ipAddress,
-      metadata: { decision, transferToChildId: transferToChildId ?? null, points: balance },
-    });
-
-    return updated;
+    const updated = await tx.accountTransition.findUniqueOrThrow({ where: { id: transition.id } });
+    return { updated, balance };
   });
+
+  // After the commit, not inside the transaction: the audit write uses its own pooled connection, and
+  // while co-parents' requests wait on the claimed row that connection may not be available in time.
+  await AuditService.logAction({
+    actorId,
+    action: 'UPDATE',
+    resourceType: 'account_transition',
+    resourceId: transition.id,
+    familyId,
+    ipAddress,
+    metadata: { decision, transferToChildId: transferToChildId ?? null, points: result.balance },
+  });
+
+  return result.updated;
 }
 
 /**
@@ -190,13 +203,21 @@ export async function expireOverdue(now: Date = new Date()) {
   for (const row of overdue) {
     // Per-row isolation: one family's bad data must not abort the whole sweep.
     try {
-      await prisma.$transaction(async (tx) => {
+      const expired = await prisma.$transaction(async (tx) => {
+        // Claimed first: a parent resolving at the deadline must not have their transfer followed by
+        // this sweep zeroing the account (or the reverse).
+        const won = await claimed(
+          tx.accountTransition.updateMany({
+            where: { id: row.id, status: 'pending' },
+            data: { status: 'expired', decision: 'discard', resolvedAt: now },
+          }),
+        );
+        if (!won) return false;
+        // Allow-listed absolute write, same reasoning as resolveTransition.
         await tx.childProfile.updateMany({ where: { userId: row.childId }, data: { pointsBalance: 0 } });
-        await tx.accountTransition.update({
-          where: { id: row.id },
-          data: { status: 'expired', decision: 'discard', resolvedAt: now },
-        });
+        return true;
       });
+      if (!expired) continue;
       await AuditService.logSystem({
         action: 'UPDATE',
         resourceType: 'account_transition',

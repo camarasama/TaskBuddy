@@ -13,6 +13,7 @@ import { checkAssignmentLimits } from '../utils/assignmentLimits';
 import { getTaskOverlaps } from '../utils/overlapCheck';
 import { NotFoundError, ForbiddenError, ConflictError } from '../middleware/errorHandler';
 import { resolveClientTimestamp } from '../utils/clientTimestamp';
+import { claimed, creditPoints, forceDebitPoints } from './PointsWallet';
 
 interface CreateTaskParams {
   familyId: string;
@@ -210,9 +211,18 @@ export class TaskService {
       throw new ConflictError('Task is already completed or approved');
     }
 
-    const updated = await prisma.taskAssignment.update({
+    // Conditional on the status, not just the id: two taps (or an offline replay racing the live
+    // request) both passed the check above, and on an auto-approve task each would have paid.
+    const submitted = await claimed(
+      prisma.taskAssignment.updateMany({
+        where: { id: assignmentId, status: { in: ['pending', 'in_progress', 'rejected'] } },
+        data: { status: 'completed', completedAt: completionTime, rejectionReason: null },
+      }),
+    );
+    if (!submitted) throw new ConflictError('Task is already completed or approved');
+
+    const updated = await prisma.taskAssignment.findUniqueOrThrow({
       where: { id: assignmentId },
-      data: { status: 'completed', completedAt: completionTime, rejectionReason: null },
       include: {
         task: true,
         child: { select: { id: true, firstName: true, lastName: true } },
@@ -265,26 +275,25 @@ export class TaskService {
         const difficulty = (assignment.task.difficulty ?? 'medium') as keyof typeof GAMIFICATION_M7.TASK_XP;
         const baseXp = GAMIFICATION_M7.TASK_XP[difficulty] ?? GAMIFICATION_M7.TASK_XP.medium;
         const basePoints = assignment.task.pointsValue;
-        const newPointsBalance = profile.pointsBalance + basePoints;
-        const newTotalXpEarned = profile.totalXpEarned + baseXp;
         const oldLevel = profile.level;
 
         const autoApproveResult = await prisma.$transaction(async (tx) => {
-          const approvedAssignment = await tx.taskAssignment.update({
-            where: { id: assignmentId },
-            data: { status: 'approved', approvedAt: new Date(), pointsAwarded: basePoints, xpAwarded: baseXp },
-          });
+          // A parent can approve the same submission in the gap since it was marked completed. Whoever
+          // flips completed -> approved first pays; the other pays nothing.
+          const won = await claimed(
+            tx.taskAssignment.updateMany({
+              where: { id: assignmentId, status: 'completed' },
+              data: { status: 'approved', approvedAt: new Date(), pointsAwarded: basePoints, xpAwarded: baseXp },
+            }),
+          );
+          if (!won) return null;
 
-          await tx.childProfile.update({
-            where: { userId: assignment.childId },
-            data: {
-              pointsBalance: newPointsBalance,
-              totalPointsEarned: { increment: basePoints },
-              totalTasksCompleted: { increment: 1 },
-              // `experiencePoints` is deliberately absent: `checkAndApplyLevelUp` below derives it
-              // from `totalXpEarned`. See the header note in `levelService.ts`.
-              totalXpEarned: newTotalXpEarned,
-            },
+          const newBalance = await creditPoints(tx, assignment.childId, basePoints, {
+            totalPointsEarned: { increment: basePoints },
+            totalTasksCompleted: { increment: 1 },
+            // `experiencePoints` is deliberately absent: `checkAndApplyLevelUp` below derives it
+            // from `totalXpEarned`. See the header note in `levelService.ts`.
+            totalXpEarned: { increment: baseXp },
           });
 
           await tx.pointsLedger.create({
@@ -292,7 +301,7 @@ export class TaskService {
               childId: assignment.childId,
               transactionType: 'earned',
               pointsAmount: basePoints,
-              balanceAfter: newPointsBalance,
+              balanceAfter: newBalance,
               referenceType: 'task_completion',
               referenceId: assignment.id,
               description: `Auto-approved: ${assignment.task.title}`,
@@ -300,8 +309,12 @@ export class TaskService {
             },
           });
 
-          return { assignment: approvedAssignment, pointsAwarded: basePoints, xpAwarded: baseXp, newBalance: newPointsBalance };
+          const approvedAssignment = await tx.taskAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
+          return { assignment: approvedAssignment, pointsAwarded: basePoints, xpAwarded: baseXp, newBalance };
         });
+
+        // Lost to a parent's approval: the submission itself succeeded, and the parent path paid.
+        if (!autoApproveResult) return { assignment: updated };
 
         const levelUpResult = await checkAndApplyLevelUp(assignment.childId, oldLevel);
         const unlockedAchievements = await checkAndUnlockAchievements(assignment.childId);
@@ -386,25 +399,24 @@ export class TaskService {
       const difficulty = (assignment.task.difficulty ?? 'medium') as keyof typeof GAMIFICATION_M7.TASK_XP;
       const baseXp = GAMIFICATION_M7.TASK_XP[difficulty] ?? GAMIFICATION_M7.TASK_XP.medium;
       const basePoints = assignment.task.pointsValue;
-      const newPointsBalance = profile.pointsBalance + basePoints;
-      const newTotalXpEarned = profile.totalXpEarned + baseXp;
       const oldLevel = profile.level;
 
       const result = await prisma.$transaction(async (tx) => {
-        const updatedAssignment = await tx.taskAssignment.update({
-          where: { id: assignmentId },
-          data: { status: 'approved', approvedAt: new Date(), approvedBy: parentId, pointsAwarded: basePoints, xpAwarded: baseXp },
-        });
+        // Claimed on the status: a double tap, or two co-parents approving together, both found the
+        // assignment `completed` above. Only the first flip pays.
+        const won = await claimed(
+          tx.taskAssignment.updateMany({
+            where: { id: assignmentId, status: 'completed' },
+            data: { status: 'approved', approvedAt: new Date(), approvedBy: parentId, pointsAwarded: basePoints, xpAwarded: baseXp },
+          }),
+        );
+        if (!won) throw new ConflictError('This task has already been reviewed.');
 
-        await tx.childProfile.update({
-          where: { userId: assignment.childId },
-          data: {
-            pointsBalance: newPointsBalance,
-            totalPointsEarned: { increment: basePoints },
-            totalTasksCompleted: { increment: 1 },
-            // Derived by `checkAndApplyLevelUp` below, same as the auto-approve path above.
-            totalXpEarned: newTotalXpEarned,
-          },
+        const newBalance = await creditPoints(tx, assignment.childId, basePoints, {
+          totalPointsEarned: { increment: basePoints },
+          totalTasksCompleted: { increment: 1 },
+          // Derived by `checkAndApplyLevelUp` below, same as the auto-approve path above.
+          totalXpEarned: { increment: baseXp },
         });
 
         await tx.pointsLedger.create({
@@ -412,7 +424,7 @@ export class TaskService {
             childId: assignment.childId,
             transactionType: 'earned',
             pointsAmount: basePoints,
-            balanceAfter: newPointsBalance,
+            balanceAfter: newBalance,
             referenceType: 'task_completion',
             referenceId: assignment.id,
             description: `Completed: ${assignment.task.title}`,
@@ -421,7 +433,8 @@ export class TaskService {
           },
         });
 
-        return { assignment: updatedAssignment, pointsAwarded: basePoints, xpAwarded: baseXp, newBalance: newPointsBalance };
+        const updatedAssignment = await tx.taskAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
+        return { assignment: updatedAssignment, pointsAwarded: basePoints, xpAwarded: baseXp, newBalance };
       });
 
       const levelUpResult = await checkAndApplyLevelUp(assignment.childId, oldLevel);
@@ -566,10 +579,14 @@ export class TaskService {
 
       return { ...result, levelUp: levelUpResult, unlockedAchievements };
     } else {
-      const updated = await prisma.taskAssignment.update({
-        where: { id: assignmentId },
-        data: { status: 'rejected', rejectionReason, approvedBy: parentId },
-      });
+      const rejected = await claimed(
+        prisma.taskAssignment.updateMany({
+          where: { id: assignmentId, status: 'completed' },
+          data: { status: 'rejected', rejectionReason, approvedBy: parentId },
+        }),
+      );
+      if (!rejected) throw new ConflictError('This task has already been reviewed.');
+      const updated = await prisma.taskAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
 
       await AuditService.logAction({
         actorId: parentId,
@@ -661,39 +678,39 @@ export class TaskService {
     const profile = assignment.child.childProfile!;
     const points = assignment.pointsAwarded ?? 0;
     const xp = assignment.xpAwarded ?? 0;
-    const newBalance = profile.pointsBalance - points;
 
     const result = await prisma.$transaction(async (tx) => {
-      const updatedAssignment = await tx.taskAssignment.update({
-        where: { id: assignmentId },
-        data: {
-          status: 'rejected',
-          rejectionReason: reason ?? 'Approval revoked by parent',
-          approvedAt: null,
-          approvedBy: null,
-          pointsAwarded: 0,
-          xpAwarded: 0,
-        },
-      });
+      // Claimed on the status so a double tap cannot claw the points back twice.
+      const won = await claimed(
+        tx.taskAssignment.updateMany({
+          where: { id: assignmentId, status: 'approved' },
+          data: {
+            status: 'rejected',
+            rejectionReason: reason ?? 'Approval revoked by parent',
+            approvedAt: null,
+            approvedBy: null,
+            pointsAwarded: 0,
+            xpAwarded: 0,
+          },
+        }),
+      );
+      if (!won) throw new ConflictError('This approval has already been revoked.');
 
-      await tx.childProfile.update({
-        where: { userId: assignment.childId },
-        data: {
-          pointsBalance: newBalance,
-          totalPointsEarned: { decrement: points },
-          totalTasksCompleted: { decrement: 1 },
-          /**
-           * Clamped, not `{ decrement: xp }`.
-           *
-           * `experiencePoints` is the remainder within the current level, so it is routinely smaller
-           * than the XP being reversed. Revoking a 35 XP task from a child sitting 10 XP into a new
-           * level drove it to -25, and the bar rendered empty or inverted. The level is deliberately
-           * left alone here (see the note on this method), so the remainder cannot simply be
-           * re-derived from `totalXpEarned` either; flooring at zero is the honest answer.
-           */
-          experiencePoints: Math.max(0, profile.experiencePoints - xp),
-          totalXpEarned: { decrement: xp },
-        },
+      // May go negative by design; see the note on this method.
+      const newBalance = await forceDebitPoints(tx, assignment.childId, points, {
+        totalPointsEarned: { decrement: points },
+        totalTasksCompleted: { decrement: 1 },
+        /**
+         * Clamped, not `{ decrement: xp }`.
+         *
+         * `experiencePoints` is the remainder within the current level, so it is routinely smaller
+         * than the XP being reversed. Revoking a 35 XP task from a child sitting 10 XP into a new
+         * level drove it to -25, and the bar rendered empty or inverted. The level is deliberately
+         * left alone here (see the note on this method), so the remainder cannot simply be
+         * re-derived from `totalXpEarned` either; flooring at zero is the honest answer.
+         */
+        experiencePoints: Math.max(0, profile.experiencePoints - xp),
+        totalXpEarned: { decrement: xp },
       });
 
       await tx.pointsLedger.create({
@@ -710,8 +727,10 @@ export class TaskService {
         },
       });
 
+      const updatedAssignment = await tx.taskAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
       return { assignment: updatedAssignment, pointsReversed: points, xpReversed: xp, newBalance };
     });
+    const { newBalance } = result;
 
     await AuditService.logAction({
       actorId: parentId,

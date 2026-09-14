@@ -110,9 +110,9 @@ describe('completeChallenge — server-authoritative', () => {
     db.dailyChallenge.findFirst.mockResolvedValue(challenge);
     db.challengeCompletion.findUnique.mockResolvedValue(null);
     db.taskAssignment.count.mockResolvedValue(3); // exactly the target
-    db.__tx.childProfile.findUnique.mockResolvedValue({ pointsBalance: 100 });
     db.__tx.challengeCompletion.create.mockResolvedValue({});
-    db.__tx.childProfile.update.mockResolvedValue({});
+    // The bonus is an increment; the row it returns (100 + 30) is the balance the ledger records.
+    db.__tx.childProfile.update.mockResolvedValue({ pointsBalance: 130 });
     db.__tx.pointsLedger.create.mockResolvedValue({});
 
     const result = await completeChallenge('ch1', 'child-1', 'f1');
@@ -122,6 +122,8 @@ describe('completeChallenge — server-authoritative', () => {
     const ledger = db.__tx.pointsLedger.create.mock.calls[0][0].data;
     expect(ledger.pointsAmount).toBe(30);
     expect(ledger.referenceType).toBe('daily_challenge');
+    expect(ledger.balanceAfter).toBe(130);
+    expect(db.__tx.childProfile.update.mock.calls[0][0].data).toEqual({ pointsBalance: { increment: 30 } });
   });
 
   it('REJECTS a claim when the child has not done enough tasks — no points awarded', async () => {

@@ -18,6 +18,7 @@ import { Router } from 'express';
 import { prisma } from '../services/database';
 import { checkAndApplyLevelUp } from '../services/levelService';
 import { authenticate, requireChild } from '../middleware/auth';
+import { creditPoints } from '../services/PointsWallet';
 import {
   ValidationError,
   ConflictError,
@@ -594,16 +595,11 @@ gamesRouter.post('/sessions/:id/submit', async (req, res, next) => {
       if (pointsAwarded > 0 || xpAwarded > 0) {
         const profile = await tx.childProfile.findUnique({ where: { userId: childId } });
         if (profile) {
-          const newBalance = profile.pointsBalance + pointsAwarded;
-          await tx.childProfile.update({
-            where: { userId: childId },
-            data: {
-              pointsBalance: newBalance,
-              totalPointsEarned: { increment: pointsAwarded },
-              // `experiencePoints` is derived by `checkAndApplyLevelUp` at the end of this
-              // transaction; see the header note in `levelService.ts`.
-              totalXpEarned: { increment: xpAwarded },
-            },
+          const newBalance = await creditPoints(tx, childId, pointsAwarded, {
+            totalPointsEarned: { increment: pointsAwarded },
+            // `experiencePoints` is derived by `checkAndApplyLevelUp` at the end of this
+            // transaction; see the header note in `levelService.ts`.
+            totalXpEarned: { increment: xpAwarded },
           });
 
           if (pointsAwarded > 0) {

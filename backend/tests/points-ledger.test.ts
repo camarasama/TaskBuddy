@@ -9,7 +9,7 @@ import { TaskService } from '../src/services/TaskService';
  */
 jest.mock('../src/services/database', () => {
   const tx = {
-    taskAssignment: { update: jest.fn() },
+    taskAssignment: { update: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
     childProfile: { update: jest.fn() },
     pointsLedger: { create: jest.fn() },
   };
@@ -38,11 +38,13 @@ import { prisma } from '../src/services/database';
 const db = prisma as unknown as {
   taskAssignment: { findFirst: jest.Mock };
   __tx: {
-    taskAssignment: { update: jest.Mock };
+    taskAssignment: { update: jest.Mock; updateMany: jest.Mock; findUniqueOrThrow: jest.Mock };
     childProfile: { update: jest.Mock };
     pointsLedger: { create: jest.Mock };
   };
 };
+
+let currentBalance = 120;
 
 const approvedAssignment = (overrides: Record<string, unknown> = {}) => ({
   id: 'a1',
@@ -62,7 +64,15 @@ const approvedAssignment = (overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   jest.clearAllMocks();
   db.__tx.taskAssignment.update.mockResolvedValue({ id: 'a1', status: 'rejected' });
-  db.__tx.childProfile.update.mockResolvedValue({});
+  // The revoke is claimed on status: 'approved' (updateMany), then the row is read back.
+  db.__tx.taskAssignment.updateMany.mockResolvedValue({ count: 1 });
+  db.__tx.taskAssignment.findUniqueOrThrow.mockResolvedValue({ id: 'a1', status: 'rejected' });
+  // The clawback is a decrement that returns the row; simulate the database applying it to the
+  // balance the fixture's profile holds.
+  db.__tx.childProfile.update.mockImplementation(async ({ data }: any) => ({
+    pointsBalance: currentBalance - data.pointsBalance.decrement,
+  }));
+  currentBalance = 120;
   db.__tx.pointsLedger.create.mockResolvedValue({});
 });
 
@@ -112,6 +122,7 @@ describe('revokeApproval writes an append-only reversal (FR-03)', () => {
         },
       }),
     );
+    currentBalance = 10;
 
     const result = await TaskService.revokeApproval({
       assignmentId: 'a1',
@@ -129,7 +140,7 @@ describe('revokeApproval writes an append-only reversal (FR-03)', () => {
     await TaskService.revokeApproval({ assignmentId: 'a1', familyId: 'f1', parentId: 'p1' });
 
     const data = db.__tx.childProfile.update.mock.calls[0][0].data;
-    expect(data.pointsBalance).toBe(70);
+    expect(data.pointsBalance).toEqual({ decrement: 50 });
     expect(data.totalPointsEarned).toEqual({ decrement: 50 });
     expect(data.totalXpEarned).toEqual({ decrement: 20 });
     expect(data.totalTasksCompleted).toEqual({ decrement: 1 });
@@ -149,11 +160,24 @@ describe('revokeApproval writes an append-only reversal (FR-03)', () => {
 
     await TaskService.revokeApproval({ assignmentId: 'a1', familyId: 'f1', parentId: 'p1' });
 
-    const data = db.__tx.taskAssignment.update.mock.calls[0][0].data;
+    const { where, data } = db.__tx.taskAssignment.updateMany.mock.calls[0][0];
+    expect(where).toEqual({ id: 'a1', status: 'approved' });
     expect(data.status).toBe('rejected');
     expect(data.approvedAt).toBeNull();
     expect(data.pointsAwarded).toBe(0);
     expect(data.xpAwarded).toBe(0);
+  });
+
+  it('claws back nothing when a double tap already revoked it', async () => {
+    // Both taps found the assignment approved; the first flipped it, so the second must not pay.
+    db.taskAssignment.findFirst.mockResolvedValue(approvedAssignment());
+    db.__tx.taskAssignment.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      TaskService.revokeApproval({ assignmentId: 'a1', familyId: 'f1', parentId: 'p1' }),
+    ).rejects.toThrow(/already been revoked/i);
+    expect(db.__tx.childProfile.update).not.toHaveBeenCalled();
+    expect(db.__tx.pointsLedger.create).not.toHaveBeenCalled();
   });
 
   it('refuses an assignment that is not approved (cross-family or wrong status)', async () => {

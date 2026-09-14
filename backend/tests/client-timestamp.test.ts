@@ -11,13 +11,21 @@ process.env.TZ = 'UTC';
  * that an honoured timestamp actually reaches the streak's day maths, so a 23:50 completion synced
  * at 00:10 still counts for the 23rd.
  */
-jest.mock('../src/services/database', () => ({
-  prisma: {
+jest.mock('../src/services/database', () => {
+  // The streak write is conditional on the state it started from (updateMany), and a milestone bonus
+  // runs in a transaction; this mock runs the callback against the same client.
+  const prisma: any = {
     familySettings: { findUnique: jest.fn() },
-    childProfile: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({}) },
+    childProfile: {
+      findUnique: jest.fn(),
+      update: jest.fn().mockResolvedValue({ pointsBalance: 0 }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     pointsLedger: { create: jest.fn().mockResolvedValue({}) },
-  },
-}));
+  };
+  prisma.$transaction = jest.fn((cb: (tx: unknown) => unknown) => cb(prisma));
+  return { prisma };
+});
 jest.mock('../src/services/SocketService', () => ({ emitStreakMilestone: jest.fn() }));
 
 import {
@@ -109,7 +117,7 @@ describe('resolveClientTimestamp — stale timestamps are clamped, not rejected'
 
 const settings = prisma.familySettings.findUnique as jest.Mock;
 const findProfile = prisma.childProfile.findUnique as jest.Mock;
-const updateProfile = prisma.childProfile.update as jest.Mock;
+const updateProfile = prisma.childProfile.updateMany as jest.Mock;
 
 const written = () => updateProfile.mock.calls[0][0].data;
 

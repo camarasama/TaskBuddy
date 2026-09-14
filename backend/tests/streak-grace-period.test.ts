@@ -12,13 +12,21 @@ process.env.TZ = 'UTC';
  * We freeze the clock with fake timers so the two rows that matter — exactly AT the deadline vs one
  * minute past — are reproducible.
  */
-jest.mock('../src/services/database', () => ({
-  prisma: {
+jest.mock('../src/services/database', () => {
+  // The streak write is conditional on the state it started from (updateMany), and a milestone bonus
+  // runs in a transaction; this mock runs the callback against the same client.
+  const prisma: any = {
     familySettings: { findUnique: jest.fn() },
-    childProfile: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({}) },
+    childProfile: {
+      findUnique: jest.fn(),
+      update: jest.fn().mockResolvedValue({ pointsBalance: 0 }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     pointsLedger: { create: jest.fn().mockResolvedValue({}) },
-  },
-}));
+  };
+  prisma.$transaction = jest.fn((cb: (tx: unknown) => unknown) => cb(prisma));
+  return { prisma };
+});
 jest.mock('../src/services/SocketService', () => ({
   emitStreakMilestone: jest.fn(),
 }));
@@ -28,7 +36,7 @@ import { prisma } from '../src/services/database';
 
 const settings = prisma.familySettings.findUnique as jest.Mock;
 const findProfile = prisma.childProfile.findUnique as jest.Mock;
-const updateProfile = prisma.childProfile.update as jest.Mock;
+const updateProfile = prisma.childProfile.updateMany as jest.Mock;
 
 /** Days before the frozen "today", at midday so it is unambiguously that calendar date. */
 const daysAgo = (n: number) => {
@@ -60,6 +68,42 @@ function profile(overrides: Record<string, unknown> = {}) {
     ...overrides,
   });
 }
+
+describe('evaluateStreak: two evaluations landing together', () => {
+  const ledger = () => prisma.pointsLedger.create as jest.Mock;
+
+  it('pays the 7-day milestone bonus when this evaluation records the new streak', async () => {
+    freeze('2026-07-24T09:00:00Z');
+    settings.mockResolvedValue({ streakGracePeriodHours: 0 });
+    profile({ currentStreakDays: 6, lastActivityDate: daysAgo(1) });
+    updateProfile.mockResolvedValueOnce({ count: 1 });
+
+    await evaluateStreak('c1', 'f1');
+
+    expect(writtenStreak()).toBe(7);
+    expect(ledger()).toHaveBeenCalledTimes(1);
+    expect(ledger().mock.calls[0][0].data).toMatchObject({ transactionType: 'milestone_bonus', pointsAmount: 35 });
+  });
+
+  it('pays nothing when a concurrent evaluation already recorded the same streak', async () => {
+    // Two approvals read the same profile (6 days, active yesterday). The first write wins; the
+    // second matches no row, because the state it started from is gone, and must not pay again.
+    freeze('2026-07-24T09:00:00Z');
+    settings.mockResolvedValue({ streakGracePeriodHours: 0 });
+    const yesterday = daysAgo(1);
+    profile({ currentStreakDays: 6, lastActivityDate: yesterday });
+    updateProfile.mockResolvedValueOnce({ count: 0 });
+
+    await evaluateStreak('c1', 'f1');
+
+    expect(updateProfile.mock.calls[0][0].where).toEqual({
+      userId: 'c1',
+      currentStreakDays: 6,
+      lastActivityDate: yesterday,
+    });
+    expect(ledger()).not.toHaveBeenCalled();
+  });
+});
 
 describe('evaluateStreak — non-grace boundaries', () => {
   it('starts a streak at 1 for a child with no prior activity', async () => {

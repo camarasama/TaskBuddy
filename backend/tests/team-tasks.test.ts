@@ -60,6 +60,10 @@ beforeEach(() => {
   p.task.findUnique.mockResolvedValue(task());
   p.task.updateMany.mockResolvedValue({ count: 1 });
   p.__tx.childProfile.findUnique.mockResolvedValue({ pointsBalance: 100 });
+  // The credit is an increment that returns the row, so balanceAfter is what the database holds.
+  p.__tx.childProfile.update.mockImplementation(async ({ data }: any) => ({
+    pointsBalance: 100 + data.pointsBalance.increment,
+  }));
 });
 
 // ─── teamProgress ─────────────────────────────────────────────────────────────
@@ -135,12 +139,13 @@ describe('awardTeamBonusIfComplete', () => {
     expect(row).toMatchObject({
       transactionType: 'bonus',
       pointsAmount: 15,
-      balanceAfter: 115, // 100 + 15, read inside the same transaction
+      balanceAfter: 115, // 100 + 15, read back from the row the credit wrote
       referenceType: 'team_bonus',
       referenceId: TASK,
     });
-    // And the profile update carries the same figure, so the two can never disagree.
-    expect(p.__tx.childProfile.update.mock.calls[0][0].data.pointsBalance).toBe(115);
+    // The balance moves by increment (never an absolute value computed from an earlier read, which
+    // loses a credit that lands at the same moment), and the ledger records what that write produced.
+    expect(p.__tx.childProfile.update.mock.calls[0][0].data.pointsBalance).toEqual({ increment: 15 });
   });
 
   it('increments lifetime earnings as well as the spendable balance', async () => {

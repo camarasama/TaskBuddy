@@ -21,6 +21,7 @@ import {
   type StreakMilestoneDay,
 } from '../utils/gamification';
 import { emitStreakMilestone } from './SocketService';
+import { claimed, creditPoints } from './PointsWallet';
 
 /**
  * Evaluates and updates a child's streak after a task is completed or approved.
@@ -342,15 +343,28 @@ export async function evaluateStreak(
   // more recent activity, or the next real completion would look like it followed a gap.
   const newLastActivity = lastActivity && lastActivity > now ? lastActivity : now;
 
-  await prisma.childProfile.update({
-    where: { userId: childId },
-    data: {
-      currentStreakDays: newStreak,
-      longestStreakDays: newLongest,
-      lastActivityDate: newLastActivity,
-      streakFreezes: newFreezes,
-    },
-  });
+  /*
+    Conditional on the state this evaluation started from. Two approvals landing together both read
+    the same profile and compute the same new streak; without the condition both would also pay the
+    milestone bonus below. Whichever write lands second matches nothing, and since it started from
+    the same state the first one already recorded the same outcome, so it simply stops.
+  */
+  const applied = await claimed(
+    prisma.childProfile.updateMany({
+      where: {
+        userId: childId,
+        currentStreakDays: childProfile.currentStreakDays,
+        lastActivityDate: childProfile.lastActivityDate,
+      },
+      data: {
+        currentStreakDays: newStreak,
+        longestStreakDays: newLongest,
+        lastActivityDate: newLastActivity,
+        streakFreezes: newFreezes,
+      },
+    }),
+  );
+  if (!applied) return;
 
   if (freezesConsumed > 0) {
     console.log(
@@ -370,21 +384,12 @@ export async function evaluateStreak(
       GAMIFICATION_M7.STREAK_MILESTONE_POINTS[newStreak as StreakMilestoneDay];
 
     if (bonusPoints) {
-      const currentProfile = await prisma.childProfile.findUnique({
-        where: { userId: childId },
-        select: { pointsBalance: true },
-      });
-
-      if (currentProfile) {
-        const newBalance = currentProfile.pointsBalance + bonusPoints;
-
-        await prisma.childProfile.update({
-          where: { userId: childId },
-          data: { pointsBalance: newBalance },
-        });
+      // Balance and ledger row together, so the ledger can never disagree with the balance.
+      await prisma.$transaction(async (tx) => {
+        const newBalance = await creditPoints(tx, childId, bonusPoints);
 
         // Create milestone_bonus ledger entry - Points only, no XP
-        await prisma.pointsLedger.create({
+        await tx.pointsLedger.create({
           data: {
             childId,
             transactionType: 'milestone_bonus',
@@ -395,10 +400,10 @@ export async function evaluateStreak(
             description: `🔥 ${newStreak}-day streak milestone! Bonus ${bonusPoints} Points`,
           },
         });
+      });
 
-        // P1 - Real-time: push streak:milestone to child's user room
-        emitStreakMilestone(childId, { childId, streakCount: newStreak, bonusPoints });
-      }
+      // P1 - Real-time: push streak:milestone to child's user room
+      emitStreakMilestone(childId, { childId, streakCount: newStreak, bonusPoints });
     }
   }
 }

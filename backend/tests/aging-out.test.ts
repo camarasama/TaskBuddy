@@ -9,7 +9,10 @@ jest.mock('../src/services/database', () => ({
   prisma: {
     user: { findMany: jest.fn(), findFirst: jest.fn() },
     childProfile: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
-    accountTransition: { create: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+    accountTransition: {
+      create: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(),
+      updateMany: jest.fn(), findUniqueOrThrow: jest.fn(),
+    },
     $transaction: jest.fn(),
   },
 }));
@@ -30,7 +33,10 @@ import {
 const p = prisma as unknown as {
   user: { findMany: jest.Mock; findFirst: jest.Mock };
   childProfile: { findUnique: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
-  accountTransition: { create: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock; update: jest.Mock };
+  accountTransition: {
+    create: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock; update: jest.Mock;
+    updateMany: jest.Mock; findUniqueOrThrow: jest.Mock;
+  };
   $transaction: jest.Mock;
 };
 
@@ -41,6 +47,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   // Run the callback against the same mocked client, which is what the real $transaction does.
   p.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+  // Decisions are claimed with a conditional write on status: 'pending'. Default: this caller wins.
+  p.accountTransition.updateMany.mockResolvedValue({ count: 1 });
+  p.accountTransition.findUniqueOrThrow.mockResolvedValue({ id: 't1', status: 'resolved' });
 });
 
 describe('findNewlyAged', () => {
@@ -145,6 +154,20 @@ describe('resolveTransition', () => {
       resolveTransition({ transitionId: 't1', familyId: 'f', actorId: 'parent', decision: 'discard' }),
     ).rejects.toThrow(/already been decided/i);
   });
+
+  it('moves no points when a co-parent claims the decision in the same instant', async () => {
+    // Both passed the pending check; the other request flipped the status first.
+    p.accountTransition.findFirst.mockResolvedValue(pending);
+    p.user.findFirst.mockResolvedValue({ id: 'sib' });
+    p.childProfile.findUnique.mockResolvedValue({ pointsBalance: 75 });
+    p.accountTransition.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      resolveTransition({ transitionId: 't1', familyId: 'f', actorId: 'parent', decision: 'transfer', transferToChildId: 'sib' }),
+    ).rejects.toThrow(/already been decided/i);
+    expect(p.accountTransition.updateMany.mock.calls[0][0].where).toEqual({ id: 't1', status: 'pending' });
+    expect(p.childProfile.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('expireOverdue', () => {
@@ -162,6 +185,16 @@ describe('expireOverdue', () => {
     const done = await expireOverdue(NOW);
 
     expect(done).toEqual(['t2']);
+  });
+
+  it('leaves the balance alone when a parent decided just before the sweep reached the row', async () => {
+    p.accountTransition.findMany.mockResolvedValue([{ id: 't1', childId: 'a', familyId: 'f1' }]);
+    p.accountTransition.updateMany.mockResolvedValue({ count: 0 });
+
+    const done = await expireOverdue(NOW);
+
+    expect(done).toEqual([]);
+    expect(p.childProfile.updateMany).not.toHaveBeenCalled();
   });
 
   it('only looks at rows past their deadline', async () => {
