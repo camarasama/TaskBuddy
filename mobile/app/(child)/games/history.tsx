@@ -8,22 +8,35 @@
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { GAME_CATEGORY_LABELS, GAME_LEVEL_LABELS, type GameHistoryEntry } from '@taskbuddy/shared';
+import {
+  GAME_CATEGORY_EMOJI,
+  GAME_CATEGORY_LABELS,
+  GAME_LEVEL_LABELS,
+  GAME_REWARD_ACCURACY_FLOOR,
+  type GameHistoryEntry,
+} from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
 import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { Chip } from '@/components/Chip';
+import { EmptyState } from '@/components/EmptyState';
+import { GradientHeader } from '@/components/GradientHeader';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
 import { asDate } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { historyQuery } from '@/lib/gamesApi';
-import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
+import { CATEGORY_TINT } from '@/theme/gameTints';
 
 function HistoryRow({ entry }: { entry: GameHistoryEntry }) {
   const theme = useTheme();
   const played = asDate(entry.playedAt);
+  const tint = CATEGORY_TINT[entry.game.category];
+  // The same floor the server pays against, so "Passed" here means points or XP were actually earned.
+  const passed = entry.totalQuestions > 0 && entry.correctCount / entry.totalQuestions >= GAME_REWARD_ACCURACY_FLOOR;
 
   return (
     <Pressable
@@ -34,23 +47,36 @@ function HistoryRow({ entry }: { entry: GameHistoryEntry }) {
       accessibilityLabel={`${GAME_CATEGORY_LABELS[entry.game.category]}, ${entry.correctCount} out of ${entry.totalQuestions}`}
     >
       <Card>
-        <AppText style={[styles.title, { color: theme.cardForeground }]}>
-          {GAME_CATEGORY_LABELS[entry.game.category]} · {GAME_LEVEL_LABELS[entry.game.level]}
-        </AppText>
-        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-          {entry.correctCount} of {entry.totalQuestions} right
-          {entry.pointsAwarded > 0 ? ` · +${entry.pointsAwarded} pts` : ''}
-          {entry.xpAwarded > 0 ? ` · +${entry.xpAwarded} XP` : ''}
-        </AppText>
-        {played && (
-          <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-            {played.toLocaleDateString(undefined, {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-            })}
-          </AppText>
-        )}
+        <View style={styles.row}>
+          {/* The subject's own emoji and colour, the same as on the picker. */}
+          <View style={[styles.tile, { backgroundColor: tint.fill }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <AppText style={styles.tileEmoji}>{GAME_CATEGORY_EMOJI[entry.game.category]}</AppText>
+          </View>
+          <View style={styles.grow}>
+            <AppText style={[styles.title, { color: theme.cardForeground }]}>
+              {GAME_CATEGORY_LABELS[entry.game.category]} · {GAME_LEVEL_LABELS[entry.game.level]}
+            </AppText>
+            {played && (
+              <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
+                {played.toLocaleDateString(undefined, {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                })}
+              </AppText>
+            )}
+            <View style={styles.chips}>
+              <Chip
+                compact
+                variant={passed ? 'done' : 'pending'}
+                icon={passed ? 'checkmark-circle' : 'refresh'}
+                label={`${entry.correctCount} of ${entry.totalQuestions} right`}
+              />
+              {entry.pointsAwarded > 0 && <Chip compact variant="gold" icon="star" label={`+${entry.pointsAwarded} pts`} />}
+              {entry.xpAwarded > 0 && <Chip compact variant="xp" icon="flash" label={`+${entry.xpAwarded} XP`} />}
+            </View>
+          </View>
+        </View>
       </Card>
     </Pressable>
   );
@@ -76,7 +102,7 @@ export default function GameHistory() {
     return (
       <Screen scroll>
         <BackLink label="Back to Games" href="/(child)/games" />
-        <Card>
+        <Card status="late">
           <AppText style={[styles.title, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load your games'}
           </AppText>
@@ -94,38 +120,37 @@ export default function GameHistory() {
   return (
     <Screen>
       <BackLink label="Back to Games" href="/(child)/games" />
-      <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-        Past games
-      </AppText>
-
       <FlatList
         data={data.sessions}
         keyExtractor={(item) => item.sessionId}
-        renderItem={({ item }) => <HistoryRow entry={item} />}
-        ListEmptyComponent={
-          <Card>
-            <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-              You haven&apos;t finished a game yet.
-            </AppText>
-          </Card>
+        ListHeaderComponent={
+          <GradientHeader
+            tone="brand"
+            icon="time"
+            eyebrow="Games"
+            title="Past games"
+            subtitle={`${data.sessions.length} ${data.sessions.length === 1 ? 'game' : 'games'} finished`}
+          />
         }
+        renderItem={({ item }) => <HistoryRow entry={item} />}
+        ListEmptyComponent={<EmptyState emoji="🎮" title="You haven't finished a game yet." />}
       />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[3],
-  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  tile: { width: 48, height: 48, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
+  // No lineHeight: an emoji sized against a line box gets clipped at the top on Android.
+  tileEmoji: { fontSize: 24 },
+  grow: { flex: 1 },
   title: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
   },
   meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[2] },
   footer: { marginTop: spacing[4] },
 });

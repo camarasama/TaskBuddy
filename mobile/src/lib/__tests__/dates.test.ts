@@ -6,7 +6,7 @@
  * `dueDate < new Date()` compiles and silently compares a string to a Date. Both mistakes are
  * invisible in review, which is why the string path is tested explicitly here rather than assumed.
  */
-import { asDate, dueLabel, isOverdue } from '../dates';
+import { asDate, assignmentDate, dueLabel, isOverdue } from '../dates';
 
 describe('asDate', () => {
   it('accepts the ISO string the API actually sends', () => {
@@ -84,5 +84,33 @@ describe('isOverdue', () => {
 
   it('is false without a due date', () => {
     expect(isOverdue(null, now)).toBe(false);
+  });
+});
+
+describe('assignmentDate', () => {
+  const now = new Date(2026, 8, 14, 12, 0, 0);
+  const today = new Date(2026, 8, 14, 0, 0, 0);
+  const inThreeDays = new Date(2026, 8, 17, 23, 59, 0);
+  const yesterday = new Date(2026, 8, 13, 0, 0, 0);
+
+  it('shows the instance day when it differs from the due date (the Home/Tasks mismatch)', () => {
+    expect(assignmentDate(today, inThreeDays, now)).toEqual({ label: 'Today', overdue: false });
+  });
+
+  it('falls back to the due date when the instance day says the same thing', () => {
+    expect(assignmentDate(today, today, now)).toEqual({ label: 'Today', overdue: false });
+  });
+
+  it('uses the due date when there is no instance date', () => {
+    expect(assignmentDate(null, inThreeDays, now)).toEqual({ label: 'In 3 days', overdue: false });
+  });
+
+  it('judges overdue on the date it shows, so colour and words agree', () => {
+    // Yesterday's instance of a task whose rolling due date is today reads as late, not as "Today".
+    expect(assignmentDate(yesterday, today, now)).toEqual({ label: 'Yesterday', overdue: true });
+  });
+
+  it('accepts the ISO strings the API sends', () => {
+    expect(assignmentDate(today.toISOString(), inThreeDays.toISOString(), now).label).toBe('Today');
   });
 });

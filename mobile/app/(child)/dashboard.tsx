@@ -36,6 +36,8 @@ import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CardHeading } from '@/components/CardHeading';
+import { Chip } from '@/components/Chip';
+import { IconTile } from '@/components/IconTile';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
@@ -47,11 +49,12 @@ import {
   buyShield,
   shieldsQuery,
 } from '@/lib/streakShieldsApi';
-import { dueLabel, isOverdue } from '@/lib/dates';
+import { assignmentDate } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { completionPercent, isDone } from '@/lib/taskStatus';
 import { useAuth } from '@/stores/auth';
 import { elevation, fontSize, fontWeight, onGradient, palette, radius, spacing, useTheme } from '@/theme';
+import { GRADIENT } from '@/theme/accents';
 
 type TodaysTask = ChildDashboardResponse['todaysTasks'][number];
 
@@ -70,8 +73,10 @@ function Hero({ level, name, seed, avatarEmoji, greeting }: {
   return (
     <View style={[styles.heroOuter, elevation.lift]}>
       {/* {0,0}->{1,1} approximates CSS's 135deg (top-left to bottom-right). */}
+      {/* The shared brand gradient. It was xp 600/500 here, and white on xp 500 is 3.96:1, under AA for
+          the greeting's size; see `theme/accents.ts`. */}
       <LinearGradient
-        colors={[palette.xp[600], palette.xp[500], palette.primary[500]]}
+        colors={GRADIENT.brand.colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroGradient}
@@ -100,13 +105,13 @@ function Hero({ level, name, seed, avatarEmoji, greeting }: {
   );
 }
 
-/** The single most looked-at element on the child side. Fixed gold gradient; text is dark gold
- *  (`gold[800]`), never white — see the hard rule that gold's light steps cannot carry white text. */
+/** The single most looked-at element on the child side. Fixed gold gradient; text is dark gold, never
+ *  white: gold's light steps cannot carry white text. Gold 900 on the shared gold gradient is 5.66:1. */
 function Wallet({ pointsBalance }: { pointsBalance: number }) {
   return (
     <View style={[styles.walletOuter, elevation.lift]}>
       <LinearGradient
-        colors={[palette.gold[300], palette.gold[500]]}
+        colors={GRADIENT.gold.colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.walletGradient}
@@ -114,8 +119,8 @@ function Wallet({ pointsBalance }: { pointsBalance: number }) {
         accessibilityRole="text"
         accessibilityLabel={`${pointsBalance} points to spend`}
       >
-        <AppText style={[styles.walletLabel, { color: palette.gold[800] }]}>Points to spend</AppText>
-        <AppText variant="display" style={[styles.walletValue, { color: palette.gold[800] }]}>
+        <AppText style={[styles.walletLabel, { color: GRADIENT.gold.ink }]}>Points to spend</AppText>
+        <AppText variant="display" style={[styles.walletValue, { color: GRADIENT.gold.ink }]}>
           {pointsBalance}
         </AppText>
       </LinearGradient>
@@ -262,8 +267,10 @@ function TaskRow({ item, first }: { item: TodaysTask; first: boolean }) {
   const theme = useTheme();
   const { assignment, task } = item;
   const done = isDone(assignment.status);
-  const overdue = !done && isOverdue(task.dueDate);
-  const due = dueLabel(task.dueDate);
+  // The same date rule as the Tasks tab. This row used to read the task's due date alone, so a task
+  // assigned for today but due in three days said "In 3 days" here and "Today" one tab over.
+  const date = assignmentDate(assignment.instanceDate, task.dueDate);
+  const overdue = !done && date.overdue;
 
   return (
     // ⚠️ This row was a plain `View`. Tapping a task on the home tab did nothing at all, on either
@@ -293,10 +300,11 @@ function TaskRow({ item, first }: { item: TodaysTask; first: boolean }) {
           {done
             ? assignment.status === 'approved'
               ? 'Approved'
-              : 'Done — waiting for approval'
-            : [due, `${task.pointsValue} pts`].filter(Boolean).join(' · ')}
+              : 'Done, waiting for approval'
+            : date.label ?? 'No due date'}
         </AppText>
       </View>
+      <Chip compact variant="gold" icon="star" label={`${task.pointsValue} pts`} />
     </Pressable>
   );
 }
@@ -408,7 +416,7 @@ export default function ChildDashboard() {
           <AppText style={[styles.body, { color: theme.mutedForeground }]}>
             {goal.pointsNeeded === 0
               ? 'You can afford it now!'
-              : `${goal.pointsNeeded} points to go — about ${goal.tasksToGo} ${
+              : `${goal.pointsNeeded} points to go, about ${goal.tasksToGo} ${
                   goal.tasksToGo === 1 ? 'task' : 'tasks'
                 }`}
           </AppText>
@@ -471,14 +479,7 @@ export default function ChildDashboard() {
               key={entry.achievement.id}
               style={[styles.taskRow, { borderTopColor: theme.border }, index === 0 && styles.firstRow]}
             >
-              <Ionicons
-                name="ribbon"
-                size={20}
-                color={palette.gold[600]}
-                style={styles.taskMark}
-                importantForAccessibility="no"
-                accessibilityElementsHidden
-              />
+              <IconTile tone="gold" icon="trophy" size={32} />
               {/* Name only. `Achievement.iconUrl` is a real image URL, not an emoji — printing it in a
                   Text node would show the URL. The achievements screen renders it properly. */}
               <View style={styles.taskText}>
@@ -602,8 +603,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tickDone: { borderWidth: 0 },
-  // Nudged down to sit on the title's first line rather than above it.
-  taskMark: { marginTop: 2 },
   taskText: { flex: 1 },
   taskName: {
     fontSize: fontSize.base.fontSize,

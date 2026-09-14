@@ -12,7 +12,7 @@
  * confirm step is the difference between a considered purchase and a mis-tap costing weeks of chores.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Modal, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ChildGoal } from '@taskbuddy/shared';
 
@@ -20,8 +20,15 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Celebration } from '@/components/Celebration';
+import { Chip, type ChipVariant } from '@/components/Chip';
+import { EmptyState } from '@/components/EmptyState';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconButton } from '@/components/IconButton';
+import { IconTile, type IoniconName } from '@/components/IconTile';
 import { clampPercent, ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
+import { SectionTitle } from '@/components/SectionTitle';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { NetworkError } from '@/lib/api';
 import { childDashboardQuery } from '@/lib/childDashboardApi';
 import {
@@ -37,7 +44,8 @@ import {
   type MyRedemption,
 } from '@/lib/childRewardsApi';
 import { describeError } from '@/lib/errors';
-import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
+import type { AccentTone } from '@/theme/accents';
 
 type Segment = 'shop' | 'mine';
 
@@ -47,47 +55,16 @@ const SEGMENTS: { key: Segment; label: string }[] = [
 ];
 
 function SegmentChips({ value, onChange }: { value: Segment; onChange: (next: Segment) => void }) {
-  const theme = useTheme();
-
-  return (
-    <View style={styles.chipRow}>
-      {SEGMENTS.map((segment) => {
-        const selected = segment.key === value;
-        return (
-          <Pressable
-            key={segment.key}
-            onPress={() => onChange(segment.key)}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: selected ? theme.primary : theme.card,
-                borderColor: selected ? theme.primary : theme.border,
-              },
-            ]}
-          >
-            <AppText
-              style={[
-                styles.chipLabel,
-                { color: selected ? theme.primaryForeground : theme.cardForeground },
-              ]}
-            >
-              {segment.label}
-            </AppText>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
+  return <SegmentedControl options={SEGMENTS} value={value} onChange={onChange} />;
 }
 
-/** A plain uppercase section label, matching `CardHeading`'s scale without the icon — these sections
- *  are named by list position, not by a gamification accent. */
-function SectionHeader({ title }: { title: string }) {
-  const theme = useTheme();
-  return <AppText style={[styles.sectionHeader, { color: theme.mutedForeground }]}>{title}</AppText>;
-}
+/** A reward's tile, by size. Rewards carry no artwork, so the tier picks the sticker. */
+const TIER_TILE: Record<string, { icon: IoniconName; tone: AccentTone }> = {
+  small: { icon: 'star', tone: 'gold' },
+  medium: { icon: 'gift', tone: 'peach' },
+  large: { icon: 'trophy', tone: 'xp' },
+};
+const DEFAULT_TILE = { icon: 'gift' as IoniconName, tone: 'gold' as AccentTone };
 
 function RewardRow({
   reward,
@@ -122,24 +99,34 @@ function RewardRow({
       ? goalInfo.percent
       : clampPercent(reward.pointsCost > 0 ? (pointsBalance / reward.pointsCost) * 100 : 100);
   const pointsToGo = isGoal && goalInfo ? goalInfo.pointsNeeded : pointsShort;
+  const tile = (reward.tier && TIER_TILE[reward.tier]) || DEFAULT_TILE;
 
   return (
     <Card status={isGoal ? 'info' : undefined}>
       {isGoal && (
-        <AppText style={[styles.badge, { color: theme.primary }]}>YOU&apos;RE SAVING FOR THIS</AppText>
+        <View style={styles.goalBadge}>
+          <Chip compact variant="primary" icon="flag" label="You're saving for this" />
+        </View>
       )}
 
-      <AppText style={[styles.name, { color: theme.cardForeground }]}>{reward.name}</AppText>
-      <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-        {reward.pointsCost} points
-        {reward.remainingForChild !== null ? ` · ${reward.remainingForChild} left for you` : ''}
-      </AppText>
+      <View style={styles.headRow}>
+        <IconTile tone={tile.tone} icon={tile.icon} size={48} />
+        <View style={styles.grow}>
+          <AppText style={[styles.name, { color: theme.cardForeground }]}>{reward.name}</AppText>
+          <View style={styles.chipRow}>
+            <Chip compact variant="gold" icon="star" label={`${reward.pointsCost} points`} />
+            {reward.remainingForChild !== null && (
+              <Chip compact variant="info" label={`${reward.remainingForChild} left for you`} />
+            )}
+          </View>
+        </View>
+      </View>
 
       {/* FR-09 pooled rewards: the bar is the whole point of a shared goal. */}
       {reward.collaborative && (
         <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
           Shared: {reward.collaborative.pooled} of {reward.collaborative.goal} points
-          {reward.collaborative.funded ? ' — funded!' : ''}
+          {reward.collaborative.funded ? ', funded!' : ''}
         </AppText>
       )}
 
@@ -159,17 +146,24 @@ function RewardRow({
         blocked && <AppText style={[styles.meta, { color: theme.mutedForeground }]}>{blocked}</AppText>
       )}
 
+      {/* One real purchase button, and the two preferences as icons beside it. */}
       <View style={styles.rowActions}>
-        <Button label="Get it" onPress={onRedeem} disabled={busy || blocked !== null} />
-        <Button
+        <View style={styles.grow}>
+          <Button label="Get it" onPress={onRedeem} disabled={busy || blocked !== null} />
+        </View>
+        <IconButton
+          icon={reward.wishlisted ? 'heart' : 'heart-outline'}
           label={reward.wishlisted ? 'Un-heart' : 'Heart'}
-          variant="secondary"
+          tone="destructive"
+          active={Boolean(reward.wishlisted)}
           onPress={onToggleWish}
           disabled={busy}
         />
-        <Button
+        <IconButton
+          icon={isGoal ? 'flag' : 'flag-outline'}
           label={isGoal ? 'Unpin' : 'Save for'}
-          variant="secondary"
+          tone="primary"
+          active={isGoal}
           onPress={onToggleGoal}
           disabled={busy}
         />
@@ -178,26 +172,32 @@ function RewardRow({
   );
 }
 
+/** Where a redemption is, as a pill a child can read at a glance. */
+const REDEMPTION_STATE: Record<string, { label: string; variant: ChipVariant; icon: IoniconName }> = {
+  fulfilled: { label: 'Received', variant: 'done', icon: 'checkmark-circle' },
+  cancelled: { label: 'Cancelled, points refunded', variant: 'late', icon: 'close-circle' },
+  approved: { label: 'Approved, on its way', variant: 'info', icon: 'thumbs-up' },
+  pending: { label: 'Waiting for a grown-up', variant: 'xp', icon: 'hourglass-outline' },
+};
+
 function RedemptionRow({ item }: { item: MyRedemption }) {
   const theme = useTheme();
-
   // Said plainly: "pending"/"approved" are internal words, and what a child wants to know is whether
   // the thing is coming.
-  const line =
-    item.status === 'fulfilled'
-      ? 'Received'
-      : item.status === 'cancelled'
-        ? 'Cancelled — points refunded'
-        : item.status === 'approved'
-          ? 'Approved — waiting to get it'
-          : 'Waiting for a grown-up';
+  const state = REDEMPTION_STATE[item.status] ?? REDEMPTION_STATE.pending;
 
   return (
     <Card>
-      <AppText style={[styles.name, { color: theme.cardForeground }]}>{item.reward.name}</AppText>
-      <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-        {item.pointsSpent} points · {line}
-      </AppText>
+      <View style={styles.headRow}>
+        <IconTile tone={item.status === 'fulfilled' ? 'success' : 'gold'} icon="gift" size={44} />
+        <View style={styles.grow}>
+          <AppText style={[styles.name, { color: theme.cardForeground }]}>{item.reward.name}</AppText>
+          <View style={styles.chipRow}>
+            <Chip compact variant={state.variant} icon={state.icon} label={state.label} />
+            <Chip compact variant="gold" icon="star" label={`${item.pointsSpent} points`} />
+          </View>
+        </View>
+      </View>
     </Card>
   );
 }
@@ -279,22 +279,34 @@ export default function ChildRewards() {
       .sort(byPrice);
 
     type Row =
-      | { kind: 'header'; key: string; title: string }
+      | { kind: 'header'; key: string; title: string; icon: IoniconName; tone: AccentTone }
       | { kind: 'reward'; key: string; reward: ChildReward };
     const rows: Row[] = [];
     if (goalReward) rows.push({ kind: 'reward', key: goalReward.id, reward: goalReward });
-    const section = (title: string, items: ChildReward[]) => {
+    const section = (title: string, icon: IoniconName, tone: AccentTone, items: ChildReward[]) => {
       if (items.length === 0) return;
-      rows.push({ kind: 'header', key: `header-${title}`, title });
+      rows.push({ kind: 'header', key: `header-${title}`, title, icon, tone });
       rows.push(...items.map((reward) => ({ kind: 'reward' as const, key: reward.id, reward })));
     };
-    section('You can get these now', affordable);
-    section('Saving up', savingUp);
-    section('Not available right now', unavailable);
+    section('You can get these now', 'checkmark-circle', 'success', affordable);
+    section('Saving up', 'hourglass', 'gold', savingUp);
+    section('Not available right now', 'lock-closed', 'warning', unavailable);
     return rows;
   }, [shop.data, goalRewardId, pointsBalance]);
 
   const active = segment === 'shop' ? shop : mine;
+
+  // The balance as a masthead, the same gold as the wallet on Home, so the number reads as the same
+  // thing on both tabs.
+  const header = (
+    <GradientHeader
+      tone="gold"
+      icon="gift"
+      eyebrow="Points to spend"
+      title={`${pointsBalance}`}
+      subtitle="Rewards your family chose for you"
+    />
+  );
 
   async function confirmRedeem() {
     if (!confirming) return;
@@ -310,6 +322,7 @@ export default function ChildRewards() {
   if (active.isPending) {
     return (
       <Screen>
+        {header}
         <SegmentChips value={segment} onChange={setSegment} />
         <Card>
           <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Loading…</AppText>
@@ -322,8 +335,9 @@ export default function ChildRewards() {
     const offline = active.error instanceof NetworkError;
     return (
       <Screen scroll>
+        {header}
         <SegmentChips value={segment} onChange={setSegment} />
-        <Card>
+        <Card status="late">
           <AppText style={[styles.name, { color: theme.destructive }]}>
             {offline ? 'No connection' : 'Could not load rewards'}
           </AppText>
@@ -340,12 +354,6 @@ export default function ChildRewards() {
 
   return (
     <Screen>
-      <SegmentChips value={segment} onChange={setSegment} />
-
-      <AppText style={[styles.balance, { color: theme.foreground }]}>
-        {pointsBalance} points to spend
-      </AppText>
-
       {actionError !== null && (
         <Card status="late">
           <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
@@ -358,9 +366,15 @@ export default function ChildRewards() {
         <FlatList
           data={shopRows}
           keyExtractor={(row) => row.key}
+          ListHeaderComponent={
+            <>
+              {header}
+              <SegmentChips value={segment} onChange={setSegment} />
+            </>
+          }
           renderItem={({ item: row }) =>
             row.kind === 'header' ? (
-              <SectionHeader title={row.title} />
+              <SectionTitle title={row.title} icon={row.icon} tone={row.tone} />
             ) : (
               <RewardRow
                 reward={row.reward}
@@ -380,26 +394,20 @@ export default function ChildRewards() {
               />
             )
           }
-          ListEmptyComponent={
-            <Card>
-              <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                No rewards yet. Ask a grown-up to add some.
-              </AppText>
-            </Card>
-          }
+          ListEmptyComponent={<EmptyState emoji="🎁" title="No rewards yet." message="Ask a grown-up to add some." />}
         />
       ) : (
         <FlatList
           data={mine.data?.redemptions ?? []}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <RedemptionRow item={item} />}
-          ListEmptyComponent={
-            <Card>
-              <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                You haven&apos;t got anything yet. Keep saving!
-              </AppText>
-            </Card>
+          ListHeaderComponent={
+            <>
+              {header}
+              <SegmentChips value={segment} onChange={setSegment} />
+            </>
           }
+          renderItem={({ item }) => <RedemptionRow item={item} />}
+          ListEmptyComponent={<EmptyState emoji="🪙" title="You haven't got anything yet." message="Keep saving!" />}
         />
       )}
 
@@ -411,7 +419,7 @@ export default function ChildRewards() {
       >
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalSheet, { backgroundColor: theme.card }]}>
-            <AppText style={[styles.name, { color: theme.cardForeground }]}>
+            <AppText variant="display" style={[styles.sheetTitle, { color: theme.cardForeground }]}>
               Spend {confirming?.pointsCost} points?
             </AppText>
             <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
@@ -451,43 +459,19 @@ export default function ChildRewards() {
 }
 
 const styles = StyleSheet.create({
-  sectionHeader: {
-    fontSize: fontSize.xs.fontSize,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginTop: spacing[4],
-    marginBottom: spacing[2],
-  },
-  rewardProgress: { marginTop: spacing[2] },
-  chipRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[3] },
-  chip: {
-    paddingHorizontal: spacing[3],
-    minHeight: minTouchTarget,
-    justifyContent: 'center',
-    borderRadius: radius.full,
-    borderWidth: 1,
-  },
-  chipLabel: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.medium },
-  balance: {
-    fontSize: fontSize.lg.fontSize,
-    lineHeight: fontSize.lg.lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[3],
-  },
-  badge: {
-    fontSize: fontSize.xs.fontSize,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1,
-    marginBottom: spacing[1],
-  },
+  rewardProgress: { marginTop: spacing[3] },
+  goalBadge: { marginBottom: spacing[3] },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  grow: { flex: 1 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[2] },
   name: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
   },
-  meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
-  rowActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[3] },
+  sheetTitle: { fontSize: fontSize.lg.fontSize, lineHeight: fontSize.lg.lineHeight, fontWeight: fontWeight.bold },
+  meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[2] },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: spacing[4] },
   actions: { marginTop: spacing[4] },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   modalSheet: {

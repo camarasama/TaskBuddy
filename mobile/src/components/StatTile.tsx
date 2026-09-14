@@ -13,7 +13,8 @@ import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { fontSize, fontWeight, palette, spacing, radius } from '@/theme';
 
-export type StatTileVariant = 'warning' | 'success' | 'gold' | 'info';
+/** `xp` and `peach` added for the child screens (level and streak). Peach text is 800 for AA; see Chip. */
+export type StatTileVariant = 'warning' | 'success' | 'gold' | 'info' | 'xp' | 'peach';
 
 interface StatTileColors {
   background: string;
@@ -25,6 +26,8 @@ const VARIANT_COLOR: Record<StatTileVariant, StatTileColors> = {
   success: { background: palette.success[100], foreground: palette.success[700] },
   gold: { background: palette.gold[100], foreground: palette.gold[700] },
   info: { background: palette.primary[100], foreground: palette.primary[700] },
+  xp: { background: palette.xp[100], foreground: palette.xp[700] },
+  peach: { background: palette.peach[100], foreground: palette.peach[800] },
 };
 
 interface StatTileProps {
