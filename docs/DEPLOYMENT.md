@@ -10,7 +10,8 @@ real credentials exist only in the VPS `.env` files (see the Environment section
 ## Topology
 
 Single OVH VPS (Ubuntu, 2 vCPU / 4 GB RAM / 2 GB swap), all services **native (no Docker)**,
-coexisting with another app on the same box (GNFS — do not touch its services, DB, or nginx vhosts).
+coexisting with two other workloads on the same box (GNFS and the Evolution Prime IT site; do not
+touch their services, DBs, or nginx vhosts). See *Coexists with two other workloads* under Gotchas.
 
 ```
 Cloudflare DNS (grey-cloud A records) ──► VPS public IP
@@ -493,8 +494,22 @@ a pair.
   `backend/.env` fails loudly. Neither file should be shell-sourced.
 
   `prisma migrate status` remains the check for whether migrations applied (cwd must be `backend/`).
-- **Coexists with GNFS** (node on `:3001`, DB `gnfs`, its own nginx vhosts). TaskBuddy uses
-  ports 3100/3200 and a separate DB/role. Never edit GNFS's config.
+- **Coexists with two other workloads on this box.** TaskBuddy uses ports 3100/3200 and its own
+  DB/role, and collides with neither. Never edit their config.
+  - **GNFS**: Next.js under PM2 (user `gnfs`) on **`:3000`**, DB `gnfs`, vhost
+    `gnfs.evolutionprimeit.com`.
+  - **Evolution Prime IT**: static site at `/var/www/evolutionprimeit` plus a contact-form
+    handler, `ep-contact.service` (systemd, user `www-data`), on **`:3001`**. Its vhost proxies
+    only `location /api/` to that port.
+
+  Earlier revisions of this file listed GNFS on `:3001`. That was a misattribution: `:3001` has
+  always belonged to `ep-contact`, and GNFS is pinned to `:3000` by `PORT` in its
+  `ecosystem.config.js` (with no `PORT` in its `.env` to override it). Corrected 2026-08-09.
+
+  **Keep `PORT=3100` in `backend/.env`.** `backend/src/config/index.ts` falls back to **3001** when
+  `PORT` is unset, the one number on this box that is already taken. The systemd unit sets no
+  `PORT`, so that `.env` line is the only thing preventing the backend from racing `ep-contact` for
+  the port on its next restart. Verify with `ss -tlnp 'sport = :3100'` after any env change.
 - **No Redis** at launch (single instance).
 - **Shared package** (`@taskbuddy/shared`) must resolve to its compiled `dist/` at runtime
   (its `package.json` exports point there); `node dist/index.js` cannot run the TS source.
@@ -568,7 +583,7 @@ Results — backend runs `/opt/nodejs/22/bin/node dist/index.js` (confirmed via 
 | `sharp` 0.34.5 / libvips 8.17.3 | 300×300 `fit:cover` thumbnail produced |
 | `/health` | `{"status":"ok","db":"up"}` |
 | Frontend | HTTP 200 |
-| GNFS (`pm2-gnfs.service`) | active, serving on `:3001`, **0 restarts, up since 2026-07-08** |
+| GNFS (`pm2-gnfs.service`) | active, **0 restarts, up since 2026-07-08** (recorded as `:3001` at the time; actually `:3000`, see Gotchas) |
 
 GNFS's zero restarts across the 07-21 cutover is the evidence it was never disturbed. The frontend
 unit carries no `ExecStart` override — it inherits Node 22 purely through
