@@ -62,7 +62,7 @@ export function AvatarUpload({ currentUrl, initials, size = 'md', onUpload }: Av
         className={`${s.outer} rounded-full overflow-hidden bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold ${s.text}`}
       >
         {displayUrl ? (
-          <img src={displayUrl} alt={initials} className="w-full h-full object-cover" />
+          <img referrerPolicy="no-referrer" src={displayUrl} alt={initials} className="w-full h-full object-cover" />
         ) : (
           <span>{initials}</span>
         )}

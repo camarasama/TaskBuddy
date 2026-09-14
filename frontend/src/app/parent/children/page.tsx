@@ -189,7 +189,7 @@ function ChildCard({
         <div className="flex items-center gap-3">
           <div className="w-14 h-14 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-xl overflow-hidden">
             {child.avatarUrl ? (
-              <img src={child.avatarUrl} alt={child.firstName} className="w-full h-full object-cover" />
+              <img referrerPolicy="no-referrer" src={child.avatarUrl} alt={child.firstName} className="w-full h-full object-cover" />
             ) : (
               getInitials(child.firstName, child.lastName)
             )}

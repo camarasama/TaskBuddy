@@ -173,12 +173,51 @@ export function infoTable(rows: string): string {
   </table>`;
 }
 
+// ─── Escaping ─────────────────────────────────────────────────────────────────
+
+const HTML_ESCAPES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+/** Escape text for an HTML body or a double-quoted attribute. */
+export function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}
+
+/**
+ * Escape every string in the template data, however deeply nested (digest children, reward lists).
+ *
+ * Templates are template literals, and until the security audit of 2026-09-14 nothing escaped what
+ * went into them. A family named `x</strong><p><a href="https://evil.example">Restore access</a>`
+ * produced a working link inside a genuine, DKIM-signed TaskBuddy email, and the co-parent invite
+ * sends that email to any address. Escaping here, once, at the single place every template passes
+ * through, means a new template is safe without remembering to be.
+ *
+ * URLs are escaped too. They are built server-side, and `&amp;` inside `href` is valid HTML that
+ * every mail client decodes. Dates, numbers and booleans pass through unchanged.
+ */
+export function escapeTemplateData<T>(value: T): T {
+  if (typeof value === 'string') return escapeHtml(value) as unknown as T;
+  if (Array.isArray(value)) return value.map((v) => escapeTemplateData(v)) as unknown as T;
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = escapeTemplateData(v);
+    return out as T;
+  }
+  return value;
+}
+
 // ─── Template dispatcher ─────────────────────────────────────────────────────
 
 export async function renderTemplate(
   triggerType: EmailTriggerType,
-  data: Record<string, any>,
+  rawData: Record<string, any>,
 ): Promise<string> {
+  const data = escapeTemplateData(rawData);
   switch (triggerType) {
     case 'welcome':
       return buildWelcome(data as any);

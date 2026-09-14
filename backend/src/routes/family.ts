@@ -25,6 +25,7 @@ import { isOwnStorageUrl } from '../services/storage';
 import { createNotification } from './notifications';
 import { SessionService } from '../services/SessionService';
 import { toPublicProfile, toPublicUser } from '../utils/publicUser';
+import { displayText, ownStorageUrl } from '../utils/textFields';
 
 export const familyRouter = Router();
 
@@ -33,8 +34,8 @@ familyRouter.use(authenticate, familyIsolation);
 
 // Validation schemas
 const addChildSchema = z.object({
-  firstName: z.string().min(1).max(50),
-  lastName: z.string().min(1).max(50),
+  firstName: displayText(1, 50),
+  lastName: displayText(1, 50),
   dateOfBirth: z.string()
     .refine((date) => !isNaN(Date.parse(date)), { message: 'Invalid date format' })
     .refine((date) => isAgeBetween(date, AGE_LIMITS.CHILD_MIN, AGE_LIMITS.CHILD_MAX), {
@@ -102,12 +103,12 @@ const streakPauseSchema = z
   );
 
 const updateChildSchema = z.object({
-  firstName: z.string().min(1).max(50).optional(),
-  lastName: z.string().min(1).max(50).optional(),
+  firstName: displayText(1, 50).optional(),
+  lastName: displayText(1, 50).optional(),
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/).optional(),
   // Nullable so a parent can REMOVE an approved photo, not just replace it. Prisma treats
   // undefined as "leave alone" and null as "clear", which is exactly the distinction needed.
-  avatarUrl: z.string().url().nullable().optional(),
+  avatarUrl: ownStorageUrl(isOwnStorageUrl).nullable().optional(),
   // FR-10: the schema has carried avatarEmoji since M10 but this endpoint never accepted it, so
   // there was no way to set it. Constrained to a short string (an emoji can be several code
   // points — flags and ZWJ sequences are long) and validated against the picker's own list so a
@@ -145,7 +146,7 @@ const updateSettingsSchema = z.object({
 });
 
 const updateFamilySchema = z.object({
-  familyName: z.string().min(2).max(100),
+  familyName: displayText(2, 100),
 });
 
 // M4: Schema for sending a co-parent invitation

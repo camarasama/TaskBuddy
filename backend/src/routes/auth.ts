@@ -26,7 +26,7 @@ import { getClient, isMobileClient } from '../utils/client';
 import { authenticate, requireParent } from '../middleware/auth';
 import { requireCsrf, issueCsrfCookie, clearCsrfCookie } from '../middleware/csrf';
 import { uploadPhoto } from '../middleware/upload';
-import { uploadFile } from '../services/storage';
+import { isOwnStorageUrl, uploadFile } from '../services/storage';
 import { prisma } from '../services/database';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../middleware/errorHandler';
 import { isPasswordBreached } from '../utils/passwordBreach';
@@ -40,6 +40,7 @@ import { EmailService } from '../services/email';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { isAccessDenied } from '../utils/accessDenylist';
 import { toPublicUser } from '../utils/publicUser';
+import { displayText, ownStorageUrl } from '../utils/textFields';
 
 export const authRouter = Router();
 
@@ -94,10 +95,10 @@ function deliverTokens<T extends { refreshToken?: string }>(
  * phoneNumber (optional E.164). Unchanged from M7/M8.
  */
 const registerSchema = z.object({
-  familyName: z.string().min(2).max(100),
+  familyName: displayText(2, 100),
   parent: z.object({
-    firstName: z.string().min(1).max(50),
-    lastName: z.string().min(1).max(50),
+    firstName: displayText(1, 50),
+    lastName: displayText(1, 50),
     email: z.string().email(),
     password: z.string().min(VALIDATION.PASSWORD.NEW_MIN_LENGTH),
     dateOfBirth: z.string().regex(
@@ -172,8 +173,8 @@ const resetPasswordSchema = z.object({
 
 const acceptInviteSchema = z.object({
   token: z.string().min(1),
-  firstName: z.string().min(1).max(50),
-  lastName: z.string().min(1).max(50),
+  firstName: displayText(1, 50),
+  lastName: displayText(1, 50),
   password: z.string().min(VALIDATION.PASSWORD.NEW_MIN_LENGTH),
   dateOfBirth: z.string().regex(
     /^\d{4}-\d{2}-\d{2}$/,
@@ -192,8 +193,8 @@ const acceptInviteSchema = z.object({
 const adminRegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(VALIDATION.PASSWORD.NEW_MIN_LENGTH),
-  firstName: z.string().min(1).max(50),
-  lastName: z.string().min(1).max(50),
+  firstName: displayText(1, 50),
+  lastName: displayText(1, 50),
   inviteCode: z.string().min(1),
 });
 
@@ -979,7 +980,7 @@ authRouter.get('/me', authenticate, async (req, res, next) => {
 
 // PUT /auth/me - Update current parent's own profile (avatarUrl etc.)
 const updateMeSchema = z.object({
-  avatarUrl: z.string().url().nullable().optional(),
+  avatarUrl: ownStorageUrl(isOwnStorageUrl).nullable().optional(),
   gender: z.enum(['male', 'female']).nullable().optional(),
 });
 
