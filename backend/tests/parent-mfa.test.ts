@@ -131,6 +131,72 @@ describe('FR-17: disable requires a valid code', () => {
       parentUser({ mfaEnabledAt: new Date(), mfaSecret: encryptSecret(secret) }),
     );
     await expect(authService.disableMfa('par1', wrongCode(secret))).rejects.toThrow(/invalid/i);
+    // The only write is the failure counter (security audit 2026-09-14): 2FA itself is untouched.
+    expect(update).toHaveBeenCalledTimes(1);
+    const data = update.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('mfaSecret');
+    expect(data).not.toHaveProperty('mfaEnabledAt');
+    expect(data.failedLoginAttempts).toBe(1);
+  });
+
+  it('refuses even the right code while the account is locked', async () => {
+    const secret = authenticator.generateSecret();
+    findUnique.mockResolvedValue(
+      parentUser({
+        mfaEnabledAt: new Date(),
+        mfaSecret: encryptSecret(secret),
+        lockedUntil: new Date(Date.now() + 60_000),
+      }),
+    );
+    await expect(authService.disableMfa('par1', authenticator.generate(secret))).rejects.toThrow(/locked/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('security audit 2026-09-14: the code challenge has a per-account lockout', () => {
+  const enrolled = (secret: string, over: Record<string, unknown> = {}) =>
+    parentUser({ mfaEnabledAt: new Date(), mfaSecret: encryptSecret(secret), ...over });
+
+  it('counts a wrong code as a failed login', async () => {
+    const secret = authenticator.generateSecret();
+    findUnique.mockResolvedValue(enrolled(secret, { failedLoginAttempts: 2, lastFailedLoginAt: new Date() }));
+
+    await expect(authService.verifyMfaAndLogin('par1', wrongCode(secret))).rejects.toThrow(/invalid/i);
+
+    expect(update.mock.calls[0][0].data.failedLoginAttempts).toBe(3);
+  });
+
+  it('locks after the fifth consecutive wrong code', async () => {
+    const secret = authenticator.generateSecret();
+    findUnique.mockResolvedValue(enrolled(secret, { failedLoginAttempts: 4, lastFailedLoginAt: new Date() }));
+
+    await expect(authService.verifyMfaAndLogin('par1', wrongCode(secret))).rejects.toThrow(/invalid/i);
+
+    expect(update.mock.calls[0][0].data.lockedUntil).toBeInstanceOf(Date);
+  });
+
+  it('refuses the right code while locked, so guessing cannot continue through the lock', async () => {
+    const secret = authenticator.generateSecret();
+    findUnique.mockResolvedValue(enrolled(secret, { lockedUntil: new Date(Date.now() + 60_000) }));
+
+    await expect(authService.verifyMfaAndLogin('par1', authenticator.generate(secret))).rejects.toThrow(/locked/i);
+  });
+
+  it('a correct password does not reset the counter for an enrolled account', async () => {
+    // Otherwise every fresh login would hand back a full allowance of code guesses.
+    const secret = authenticator.generateSecret();
+    const password = 'correct horse battery staple';
+    findUnique.mockResolvedValue(
+      enrolled(secret, {
+        passwordHash: await bcrypt.hash(password, 4),
+        failedLoginAttempts: 3,
+        lastFailedLoginAt: new Date(),
+      }),
+    );
+
+    const result = await authService.login({ email: 'p@example.com', password } as any);
+
+    expect(result).toMatchObject({ mfaRequired: true });
     expect(update).not.toHaveBeenCalled();
   });
 });

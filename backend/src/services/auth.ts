@@ -20,6 +20,7 @@ import {
 import type { TokenPayload } from '../middleware/auth';
 import { getAgeGroup, VALIDATION } from '@taskbuddy/shared';
 import { generateFamilyCode } from '../utils/familyCode';
+import { toPublicProfile, toPublicUser } from '../utils/publicUser';
 
 const SALT_ROUNDS = 12;
 
@@ -248,7 +249,7 @@ export class AuthService {
     }
 
     // Remove sensitive data
-    const { passwordHash: _, ...userWithoutPassword } = result.user;
+    const userWithoutPassword = toPublicUser(result.user);
 
     return {
       family: result.family,
@@ -288,21 +289,46 @@ export class AuthService {
       throw new UnauthorizedError('Invalid email or password');
     }
 
+    // F-9 / FR-17: any MFA-enrolled account (admins since F-9, parents since FR-17) must clear a
+    // TOTP challenge before receiving a session. Children have no password login, so they never
+    // reach here; keying on mfaEnabledAt alone is therefore correct and role-agnostic.
+    //
+    // The failure counter is NOT cleared yet for these accounts (security audit 2026-09-14): the
+    // challenge shares it, and clearing it on the password step would let someone who knows the
+    // password reset their allowance of code guesses with every fresh login. It clears when the
+    // code is right.
+    if (user.mfaEnabledAt) {
+      return { mfaRequired: true as const, user: toPublicUser(user) };
+    }
+
     // Update last login, clearing any accumulated failures
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date(), ...CLEAR_LOCKOUT },
     });
 
-    // F-9 / FR-17: any MFA-enrolled account (admins since F-9, parents since FR-17) must clear a
-    // TOTP challenge before receiving a session. Children have no password login, so they never
-    // reach here; keying on mfaEnabledAt alone is therefore correct and role-agnostic.
-    if (user.mfaEnabledAt) {
-      const { passwordHash: _p, mfaSecret: _s, ...safe } = user;
-      return { mfaRequired: true as const, user: safe };
-    }
-
     return this.issueSession(user, ctx);
+  }
+
+  /**
+   * Check a TOTP code under the same lockout as a password (security audit 2026-09-14, M4).
+   *
+   * Six digits with a +-1 step window is three good codes in a million. With no per-account counter,
+   * someone holding the password could try about a thousand codes per challenge token per IP. Wrong
+   * codes now count toward the password lockout (4 free, then 1 min, 5 min, 15 min, 1 hour), and a
+   * locked account refuses even the right code until the lock expires.
+   */
+  private async verifyCodeWithLockout(
+    user: { id: string; mfaSecret: string | null; lockedUntil: Date | null; failedLoginAttempts: number; lastFailedLoginAt: Date | null; role: string },
+    code: string,
+  ): Promise<void> {
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedError('Account is temporarily locked. Please try again later.');
+    }
+    if (!user.mfaSecret || !verifyMfaCode(decryptSecret(user.mfaSecret), code)) {
+      await recordFailedLogin(user);
+      throw new UnauthorizedError('Invalid authentication code');
+    }
   }
 
   /** Mint tokens + create the refresh session for an already-authenticated user. */
@@ -317,8 +343,7 @@ export class AuthService {
       { isMobile: ctx.isMobile }
     );
     await SessionService.create(user.id, tokens.refreshToken, { ...ctx, isChild: false });
-    const { passwordHash: _, mfaSecret: _s, ...userWithoutPassword } = user;
-    return { user: userWithoutPassword, profile: user.childProfile, tokens };
+    return { user: toPublicUser(user), profile: toPublicProfile(user.childProfile), tokens };
   }
 
   /** Begin MFA enrollment: generate + store an encrypted (not-yet-enabled) secret, return the URI. */
@@ -359,10 +384,8 @@ export class AuthService {
     if (!user || !user.mfaEnabledAt || !user.mfaSecret) {
       throw new UnauthorizedError('MFA is not enabled for this account');
     }
-    if (!verifyMfaCode(decryptSecret(user.mfaSecret), code)) {
-      throw new UnauthorizedError('Invalid authentication code');
-    }
-    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    await this.verifyCodeWithLockout(user, code);
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), ...CLEAR_LOCKOUT } });
     return this.issueSession(user, ctx);
   }
 
@@ -379,12 +402,12 @@ export class AuthService {
     if (user.role === 'admin' && config.mfa.required) {
       throw new ForbiddenError('Two-factor authentication is mandatory for admins and cannot be disabled.');
     }
-    if (!verifyMfaCode(decryptSecret(user.mfaSecret), code)) {
-      throw new UnauthorizedError('Invalid authentication code');
-    }
+    // Same lockout as the login challenge: a hijacked session must not be able to brute-force its way
+    // to switching the second factor off.
+    await this.verifyCodeWithLockout(user, code);
     await prisma.user.update({
       where: { id: userId },
-      data: { mfaSecret: null, mfaEnabledAt: null },
+      data: { mfaSecret: null, mfaEnabledAt: null, ...CLEAR_LOCKOUT },
     });
   }
 
@@ -468,8 +491,8 @@ export class AuthService {
     });
 
     // Remove sensitive data
-    const { passwordHash: _, ...userWithoutPassword } = user;
-    const { pinHash: __, ...profileWithoutPin } = user.childProfile;
+    const { childProfile: _profile, ...userWithoutPassword } = toPublicUser(user);
+    const profileWithoutPin = toPublicProfile(user.childProfile);
 
     return {
       user: userWithoutPassword,
@@ -921,12 +944,11 @@ export class AuthService {
 
     // Remove sensitive data. mfaSecret is the (encrypted) TOTP secret — never send it to the
     // client; only mfaEnabledAt is kept, so the UI can show whether 2FA is on (FR-17).
-    const { passwordHash: _, mfaSecret: _mfa, ...userWithoutPassword } = user;
-    let profile: Record<string, unknown> | undefined;
-    if (user.childProfile) {
-      const { pinHash: _pin, ...safeProfile } = user.childProfile;
-      profile = safeProfile;
-    }
+    // Everything in utils/publicUser SENSITIVE_* stays on the server: the password and PIN hashes,
+    // the encrypted TOTP secret (only mfaEnabledAt is kept, so the UI can show whether 2FA is on),
+    // reset and verification token hashes, and the lockout counters.
+    const { childProfile: _profile, ...userWithoutPassword } = toPublicUser(user);
+    const profile = toPublicProfile(user.childProfile) ?? undefined;
 
     return {
       ...userWithoutPassword,

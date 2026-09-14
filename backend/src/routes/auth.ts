@@ -22,7 +22,7 @@ import { inviteService } from '../services/invite';
 import { SessionService } from '../services/SessionService';
 import { jwtVerifyOptions, signMfaToken, verifyMfaToken } from '../utils/jwt';
 import { hashToken } from '../utils/tokens';
-import { getClient, isMobileClient, isMobilePlatform } from '../utils/client';
+import { getClient, isMobileClient } from '../utils/client';
 import { authenticate, requireParent } from '../middleware/auth';
 import { requireCsrf, issueCsrfCookie, clearCsrfCookie } from '../middleware/csrf';
 import { uploadPhoto } from '../middleware/upload';
@@ -39,6 +39,7 @@ import { AuditService } from '../services/AuditService';
 import { EmailService } from '../services/email';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { isAccessDenied } from '../utils/accessDenylist';
+import { toPublicUser } from '../utils/publicUser';
 
 export const authRouter = Router();
 
@@ -230,7 +231,8 @@ function getCookieOptions(isChild = false) {
  */
 function sessionContext(req: Request) {
   const client = getClient(req);
-  const mobile = client !== null && isMobilePlatform(client.platform);
+  // isMobileClient, not the header alone: a browser tab must not open a 90-day mobile session.
+  const mobile = isMobileClient(req);
 
   return {
     ip: req.ip,
@@ -990,8 +992,7 @@ authRouter.put('/me', authenticate, requireParent, validateBody(updateMeSchema),
         gender: req.body.gender ?? undefined,
       },
     });
-    const { passwordHash: _, ...user } = updated;
-    res.json({ success: true, data: { user } });
+    res.json({ success: true, data: { user: toPublicUser(updated) } });
   } catch (error) {
     next(error);
   }

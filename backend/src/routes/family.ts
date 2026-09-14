@@ -24,6 +24,7 @@ import { EmailService } from '../services/email';
 import { isOwnStorageUrl } from '../services/storage';
 import { createNotification } from './notifications';
 import { SessionService } from '../services/SessionService';
+import { toPublicProfile, toPublicUser } from '../utils/publicUser';
 
 export const familyRouter = Router();
 
@@ -279,11 +280,8 @@ familyRouter.get('/me/members', async (req, res, next) => {
 
     // Remove sensitive data
     const sanitizedMembers = members.map((member) => {
-      const { passwordHash, ...user } = member;
-      const profile = member.childProfile
-        ? { ...member.childProfile, pinHash: undefined }
-        : undefined;
-      return { ...user, childProfile: profile };
+      const { childProfile: _profile, ...user } = toPublicUser(member);
+      return { ...user, childProfile: toPublicProfile(member.childProfile) ?? undefined };
     });
 
     res.json({
@@ -643,10 +641,8 @@ familyRouter.get('/me/children/:id', async (req, res, next) => {
     }
 
     // Remove sensitive data
-    const { passwordHash, ...user } = child;
-    const profile = child.childProfile
-      ? { ...child.childProfile, pinHash: undefined }
-      : undefined;
+    const { childProfile: _profile, ...user } = toPublicUser(child);
+    const profile = toPublicProfile(child.childProfile) ?? undefined;
 
     res.json({
       success: true,
@@ -1059,10 +1055,8 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
     });
 
     // Remove sensitive data
-    const { passwordHash, ...user } = updatedChild;
-    const profile = updatedChild.childProfile
-      ? { ...updatedChild.childProfile, pinHash: undefined }
-      : undefined;
+    const { childProfile: _profile, ...user } = toPublicUser(updatedChild);
+    const profile = toPublicProfile(updatedChild.childProfile) ?? undefined;
 
     // M8 - Audit: child profile updated by parent
     await AuditService.logAction({

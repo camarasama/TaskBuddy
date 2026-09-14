@@ -42,6 +42,7 @@ import { seedGames } from './routes/gamesSeed';
 import { seedSystemTemplates } from './routes/templatesSeed';
 import { seedCosmetics } from './routes/cosmeticsSeed';
 import { SessionService } from './services/SessionService';
+import { redactUrl } from './utils/logRedaction';
 
 // Validate environment configuration
 validateConfig();
@@ -148,6 +149,8 @@ app.use(cookieParser());
 
 // Logging
 if (config.env !== 'test') {
+  // Both formats read `:url`; redefining it keeps tokens in query strings out of the logs.
+  morgan.token('url', (req: express.Request) => redactUrl(req.originalUrl || req.url || ''));
   app.use(morgan(config.env === 'production' ? 'combined' : 'dev'));
 }
 
@@ -181,6 +184,10 @@ app.use('/api/v1/auth/admin/register', authLimiter);
 // limiter. /child/pin-reset/complete is NOT here: its input is a 256-bit random token, not a
 // guessable credential, so it needs no dedicated limiter — same reasoning as /reset-password.
 app.use('/api/v1/auth/child/pin-reset/request', authLimiter);
+// A six-digit code is a guessable credential too (security audit 2026-09-14, M4). The per-account
+// lockout in authService is the real bound; this stops one IP spending it across many accounts.
+app.use('/api/v1/auth/mfa/challenge', authLimiter);
+app.use('/api/v1/auth/mfa/disable', authLimiter);
 
 // API routes
 app.use('/api/v1', apiRouter);

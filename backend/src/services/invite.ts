@@ -23,6 +23,7 @@ import { SessionService, type SessionContext } from './SessionService';
 import { hashToken } from '../utils/tokens';
 // M9 - Replaces the inline nodemailer call that was here in M4-M8
 import { EmailService } from './email';
+import { toPublicUser } from '../utils/publicUser';
 
 const SALT_ROUNDS = 12;
 const INVITE_EXPIRES_HOURS = parseInt(process.env.INVITE_TOKEN_EXPIRES_HOURS || '168', 10); // 7 days
@@ -248,7 +249,7 @@ export class InviteService {
     );
     await SessionService.create(result.id, tokens.refreshToken, { ...ctx, isChild: false });
 
-    const { passwordHash: _, ...userWithoutPassword } = result;
+    const userWithoutPassword = toPublicUser(result);
 
     return {
       user: userWithoutPassword,
