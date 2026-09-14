@@ -460,7 +460,7 @@ export default function ParentSettingsPage() {
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-sm font-semibold text-primary-700 flex-shrink-0 overflow-hidden">
                     {parent.avatarUrl ? (
-                      <img src={parent.avatarUrl} alt={parent.firstName} className="w-full h-full object-cover" />
+                      <img referrerPolicy="no-referrer" src={parent.avatarUrl} alt={parent.firstName} className="w-full h-full object-cover" />
                     ) : (
                       <>{parent.firstName[0]}{parent.lastName[0]}</>
                     )}

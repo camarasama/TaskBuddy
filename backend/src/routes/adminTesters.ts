@@ -35,6 +35,7 @@ import { NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { EmailService } from '../services/email';
 import { AuditService } from '../services/AuditService';
 import { config } from '../config';
+import { displayText } from '../utils/textFields';
 
 export const adminTestersRouter = Router();
 
@@ -43,8 +44,8 @@ adminTestersRouter.use(authenticate, requireAdmin);
 const idParam = z.object({ id: z.string().uuid() });
 
 const testerSchema = z.object({
-  firstName: z.string().min(1).max(50),
-  lastName: z.string().min(1).max(50),
+  firstName: displayText(1, 50),
+  lastName: displayText(1, 50),
   email: z.string().email(),
   /**
    * Optional, and nothing in this stack sends SMS. Collected only because the owner wants it on the

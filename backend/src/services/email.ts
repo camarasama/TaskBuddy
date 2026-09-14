@@ -181,12 +181,15 @@ export class EmailService {
       toEmail,
       toUserId,
       familyId,
-      subject,
+      subject: rawSubject,
       templateData,
       referenceType,
       referenceId,
       skipPreferenceCheck = false,
     } = input;
+    // Subjects interpolate names people typed (family, child, inviter). A line break there must not
+    // reach the header, whatever the transport does with it.
+    const subject = rawSubject.replace(/[\r\n\t]+/g, ' ').trim();
 
     // 1. Check notification preferences
     if (!skipPreferenceCheck) {

@@ -17,7 +17,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { prisma } from './database';
-import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../middleware/errorHandler';
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError, AppError } from '../middleware/errorHandler';
 import { authService } from './auth';
 import { SessionService, type SessionContext } from './SessionService';
 import { hashToken } from '../utils/tokens';
@@ -48,6 +48,10 @@ export interface AcceptInviteInput {
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
+/** Co-parent invitations a family may send per rolling day. A real family needs one or two. */
+export const INVITES_PER_FAMILY_PER_DAY = 10;
+const INVITE_QUOTA_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 export class InviteService {
   // POST /families/me/invite
   async sendInvite(input: SendInviteInput): Promise<{ acceptUrl: string; emailSent: boolean }> {
@@ -74,6 +78,21 @@ export class InviteService {
 
     if (existingMember) {
       throw new ConflictError('This email address is already a member of your family');
+    }
+
+    // 2b. Per-family daily quota (security audit 2026-09-14). The invite email goes to any address
+    //     from TaskBuddy's own sender, carrying the family and inviter names, so without a cap one
+    //     free account was a spam and phishing relay that would burn the sending domain. Counted from
+    //     the table, so a restart does not reset it, and cancelled invites still count.
+    const sentToday = await prisma.familyInvitation.count({
+      where: { familyId, createdAt: { gt: new Date(Date.now() - INVITE_QUOTA_WINDOW_MS) } },
+    });
+    if (sentToday >= INVITES_PER_FAMILY_PER_DAY) {
+      throw new AppError(
+        429,
+        'INVITE_LIMIT',
+        'You have sent a lot of invitations today. Please try again tomorrow.',
+      );
     }
 
     // 3. Check there's no unexpired pending invite for this email+family combo

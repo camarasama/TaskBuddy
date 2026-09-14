@@ -38,7 +38,30 @@ export function weekKey(date: Date): string {
   return monday.toISOString().slice(0, 10);
 }
 
+/**
+ * The pixel's own signing key, derived from the JWT secret rather than being the JWT secret.
+ *
+ * Security audit 2026-09-14: using one secret for two jobs means a weakness in either use weakens the
+ * other. The derivation is one-way, so pixel signatures reveal nothing usable for tokens.
+ */
+function pixelKey(): Buffer {
+  return crypto.createHmac('sha256', config.jwt.secret).update('taskbuddy:digest-open:v1').digest();
+}
+
 export function signDigestOpen(familyId: string, week: string): string {
+  return crypto
+    .createHmac('sha256', pixelKey())
+    .update(`digest-open:${familyId}:${week}`)
+    .digest('hex')
+    .slice(0, 32);
+}
+
+/**
+ * Signature under the key used before 2026-09-14. Digests already in inboxes carry these, so they are
+ * still counted for two weekly digests. Delete this, and its use below, after LEGACY_PIXEL_UNTIL.
+ */
+export const LEGACY_PIXEL_UNTIL = new Date('2026-10-05T00:00:00Z');
+function signDigestOpenLegacy(familyId: string, week: string): string {
   return crypto
     .createHmac('sha256', config.jwt.secret)
     .update(`digest-open:${familyId}:${week}`)
@@ -60,12 +83,13 @@ trackRouter.get('/digest/:familyId/:week/:sig', (req, res) => {
   const { familyId, week } = req.params;
   const sig = req.params.sig.replace(/\.gif$/, '');
 
-  const expected = signDigestOpen(familyId, week);
-
   // timingSafeEqual throws on length mismatch, so guard first.
+  const matches = (expected: string) =>
+    sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+
   const valid =
-    sig.length === expected.length &&
-    crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+    matches(signDigestOpen(familyId, week)) ||
+    (Date.now() < LEGACY_PIXEL_UNTIL.getTime() && matches(signDigestOpenLegacy(familyId, week)));
 
   if (valid) {
     // Fire-and-forget; AnalyticsService swallows its own failures.
