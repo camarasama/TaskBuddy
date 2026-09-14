@@ -22,7 +22,8 @@ describe('CSP + security headers (F-5, Phase 4)', () => {
 
     const csp = map['Content-Security-Policy-Report-Only'];
     expect(csp).toBeDefined();
-    expect(map['Content-Security-Policy']).toBeUndefined(); // report-only first, not enforcing
+    // The full policy is report-only; the enforced header carries frame-ancestors and nothing else.
+    expect(map['Content-Security-Policy']).toBe("frame-ancestors 'none'");
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("base-uri 'self'");
@@ -86,11 +87,36 @@ describe('CSP connect-src carries the Sentry ingest origin (OI-2 prep)', () => {
     }
   });
 
-  it('is still Report-Only — the OI-2 enforce flip is deliberately NOT taken here', async () => {
+  it('keeps the full policy Report-Only; the only ENFORCED CSP is frame-ancestors', async () => {
+    // The OI-2 enforce flip of the whole policy is still deliberately not taken. Framing is the
+    // exception (security audit 2026-09-14): enforced on its own, it cannot break scripts or images.
     const rules = await config.headers();
-    const keys = rules[0].headers.map((h: { key: string }) => h.key);
-    expect(keys).toContain('Content-Security-Policy-Report-Only');
-    expect(keys).not.toContain('Content-Security-Policy');
+    const map: Record<string, string> = Object.fromEntries(
+      rules[0].headers.map((h: { key: string; value: string }) => [h.key, h.value]),
+    );
+    expect(map['Content-Security-Policy-Report-Only']).toContain("script-src 'self'");
+    expect(map['Content-Security-Policy']).toBe("frame-ancestors 'none'");
+    expect(map['X-Frame-Options']).toBe('DENY');
+  });
+
+  it('sends a 180-day HSTS in production only, and never on localhost', async () => {
+    const prev = process.env.NODE_ENV;
+    const read = async () => {
+      const rules = await config.headers();
+      return rules[0].headers.find((h: { key: string }) => h.key === 'Strict-Transport-Security');
+    };
+    try {
+      (process.env as Record<string, string>).NODE_ENV = 'production';
+      expect((await read())?.value).toBe('max-age=15552000');
+      (process.env as Record<string, string>).NODE_ENV = 'development';
+      expect(await read()).toBeUndefined();
+    } finally {
+      (process.env as Record<string, string>).NODE_ENV = prev as string;
+    }
+  });
+
+  it('does not advertise the framework', () => {
+    expect(config.poweredByHeader).toBe(false);
   });
 });
 
