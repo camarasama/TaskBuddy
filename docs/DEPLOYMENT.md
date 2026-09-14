@@ -510,7 +510,13 @@ a pair.
   `PORT` is unset, the one number on this box that is already taken. The systemd unit sets no
   `PORT`, so that `.env` line is the only thing preventing the backend from racing `ep-contact` for
   the port on its next restart. Verify with `ss -tlnp 'sport = :3100'` after any env change.
-- **No Redis** at launch (single instance).
+- **Set `HOST=127.0.0.1` in `backend/.env`.** Unset, the API listens on every interface, so port
+  3100 is reachable directly and only ufw stands in front of it. With it, the API answers only
+  through nginx. Local development leaves it unset so a phone on the LAN can reach the laptop.
+- **No Redis** at launch (single instance). The signed-out access-token list
+  (`backend/src/utils/accessDenylist.ts`) lives in process memory for the same reason, refilled from
+  `refresh_sessions` at boot. Running a second backend process would need it moved to Postgres or
+  Redis, or a device signed out on one process would keep working on the other.
 - **Shared package** (`@taskbuddy/shared`) must resolve to its compiled `dist/` at runtime
   (its `package.json` exports point there); `node dist/index.js` cannot run the TS source.
 - Backend must `trust proxy` in production (set) so rate limiting keys on the real client IP.

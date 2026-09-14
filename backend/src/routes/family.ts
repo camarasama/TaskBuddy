@@ -23,6 +23,7 @@ import { GRACE_GRANT_HOURS } from '@taskbuddy/shared';
 import { EmailService } from '../services/email';
 import { isOwnStorageUrl } from '../services/storage';
 import { createNotification } from './notifications';
+import { SessionService } from '../services/SessionService';
 
 export const familyRouter = Router();
 
@@ -1132,6 +1133,9 @@ familyRouter.delete('/me/children/:id', requireParent, async (req, res, next) =>
         deletedAt: new Date(),
       },
     });
+
+    // A removed child's phone must stop working now, not when its 24-hour access token runs out.
+    await SessionService.revokeAllForUser(child.id, 'parent_revoke');
 
     // M8 - Audit: child account deactivated by parent
     await AuditService.logAction({

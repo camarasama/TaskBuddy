@@ -334,6 +334,11 @@ adminRouter.patch('/families/:id/suspend', validateBody(suspendSchema), async (r
       },
     });
 
+    // Sign every member out now. familyIsolation refuses a suspended family on most routes, but not
+    // all routes use it, and without this each device's access token kept working until it expired
+    // (up to 24 hours for a child).
+    await SessionService.revokeAllForFamily(req.params.id, 'admin');
+
     // Audit: admin suspended a family
     await AuditService.logAction({
       actorId: req.user!.userId,

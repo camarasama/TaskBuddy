@@ -21,6 +21,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from './database';
 import { UnauthorizedError } from '../middleware/errorHandler';
 import { AuditService } from './AuditService';
+import { denyAccess, maxAccessTtlMs, pruneAccessDenylist } from '../utils/accessDenylist';
 
 // Hard cap on how long a single login (chain of rotations) may live, regardless of rotation.
 const PARENT_ABSOLUTE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -81,7 +82,25 @@ function claims(token: string): { jti?: string; exp?: number } {
 /** Thrown when a conditional rotate loses a race - treated as reuse by the caller. */
 class ConcurrentRotationError extends Error {}
 
+/**
+ * Stop the access tokens issued by these sessions, not just their refresh tokens.
+ *
+ * Every row created within the longest access-token lifetime may have minted a token that is still
+ * valid, including rows already ROTATED: a request in flight can still carry the previous access
+ * token. Older rows cannot have a live access token, so they are skipped.
+ */
+async function denyRecentAccess(where: { chainId?: { in: string[] }; userId?: string }): Promise<void> {
+  const ttl = maxAccessTtlMs();
+  const since = new Date(Date.now() - ttl);
+  const rows = await prisma.refreshSession.findMany({
+    where: { ...where, createdAt: { gt: since } },
+    select: { id: true, createdAt: true },
+  });
+  for (const row of rows) denyAccess(row.id, row.createdAt.getTime() + ttl);
+}
+
 async function revokeChain(chainId: string, reason: RevokeReason): Promise<void> {
+  await denyRecentAccess({ chainId: { in: [chainId] } });
   await prisma.refreshSession.updateMany({
     where: { chainId, revokedAt: null },
     data: { revokedAt: new Date(), revokedReason: reason },
@@ -201,6 +220,12 @@ export const SessionService = {
   /** Revoke a single session by its token (logout). No-op if the token is unknown. */
   async revokeByToken(refreshJwt: string | undefined | null, reason: RevokeReason): Promise<void> {
     if (!refreshJwt) return;
+    // Signing out ends this device's access token too, not only its refresh token.
+    const row = await prisma.refreshSession.findUnique({
+      where: { tokenHash: sha256(refreshJwt) },
+      select: { chainId: true },
+    });
+    if (row) await denyRecentAccess({ chainId: { in: [row.chainId] } });
     await prisma.refreshSession.updateMany({
       where: { tokenHash: sha256(refreshJwt), revokedAt: null },
       data: { revokedAt: new Date(), revokedReason: reason },
@@ -248,15 +273,23 @@ export const SessionService = {
    * audit event that reads like a stolen token. A parent signing out a phone should not look like
    * an attack in the audit log.
    *
-   * Returns the row's owner, or null if no live session has that id — callers use this to
-   * authorise, so a wrong/stale id is indistinguishable from one belonging to someone else.
+   * `allowedUserIds` is who the caller may sign out (themselves, or their children). Returns the
+   * row's owner, or null, and revokes nothing, when no live session has that id OR it belongs to
+   * someone not on the list: the two cases are indistinguishable to the caller on purpose.
    */
-  async revokeById(sessionId: string, reason: RevokeReason): Promise<{ userId: string } | null> {
+  async revokeById(
+    sessionId: string,
+    reason: RevokeReason,
+    allowedUserIds: readonly string[],
+  ): Promise<{ userId: string } | null> {
     const row = await prisma.refreshSession.findFirst({
       where: { id: sessionId, revokedAt: null },
       select: { userId: true, chainId: true },
     });
-    if (!row) return null;
+    // Ownership is checked BEFORE revoking (security audit 2026-09-14, M3). This used to revoke first
+    // and let the route 404 afterwards, so any signed-in user who knew a session id could sign that
+    // device out: a child signing out a parent, or one family signing out another.
+    if (!row || !allowedUserIds.includes(row.userId)) return null;
 
     await revokeChain(row.chainId, reason);
     return { userId: row.userId };
@@ -264,6 +297,7 @@ export const SessionService = {
 
   /** Revoke every live session for a user (password change/reset, admin action, PIN reset). */
   async revokeAllForUser(userId: string, reason: RevokeReason): Promise<number> {
+    await denyRecentAccess({ userId });
     const { count } = await prisma.refreshSession.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date(), revokedReason: reason },
@@ -271,8 +305,37 @@ export const SessionService = {
     return count;
   },
 
+  /** Every family member's sessions: a suspension, or a family being deleted. */
+  async revokeAllForFamily(familyId: string, reason: RevokeReason): Promise<number> {
+    const members = await prisma.user.findMany({ where: { familyId }, select: { id: true } });
+    let total = 0;
+    for (const m of members) total += await this.revokeAllForUser(m.id, reason);
+    return total;
+  },
+
+  /**
+   * Refill the access-token denylist after a restart.
+   *
+   * Finds sessions revoked within the longest access-token lifetime (except rotations, which are the
+   * normal refresh path and must not sign anyone out) and denies their chains' recent rows, exactly
+   * as the live revoke did.
+   */
+  async hydrateAccessDenylist(): Promise<number> {
+    const since = new Date(Date.now() - maxAccessTtlMs());
+    const revoked = await prisma.refreshSession.findMany({
+      where: { revokedAt: { gt: since }, NOT: { revokedReason: 'rotated' } },
+      select: { chainId: true },
+      distinct: ['chainId'],
+    });
+    if (revoked.length === 0) return 0;
+    const chainIds = revoked.map((r) => r.chainId);
+    await denyRecentAccess({ chainId: { in: chainIds } });
+    return chainIds.length;
+  },
+
   /** Delete rows whose natural expiry is well past - called daily from the scheduler. */
   async sweepExpired(): Promise<number> {
+    pruneAccessDenylist();
     const cutoff = new Date(Date.now() - SWEEP_RETENTION_MS);
     const { count } = await prisma.refreshSession.deleteMany({
       where: { expiresAt: { lt: cutoff } },

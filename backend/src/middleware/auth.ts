@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { UnauthorizedError, ForbiddenError, AppError } from './errorHandler';
 import { jwtVerifyOptions } from '../utils/jwt';
+import { isAccessDenied } from '../utils/accessDenylist';
 import type { UserRole } from '@taskbuddy/shared';
 // M8 - needed to check if a family is suspended before allowing access
 import { prisma } from '../services/database';
@@ -41,6 +42,12 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
     // Verify token - algorithm + issuer + audience pinned (see utils/jwt).
     const payload = jwt.verify(token, config.jwt.secret, jwtVerifyOptions) as TokenPayload;
 
+    // A valid signature is not enough once the session behind the token has been signed out
+    // (a device revoked, a PIN or password reset, a suspension). See utils/accessDenylist.
+    if (isAccessDenied(payload.jti)) {
+      throw new UnauthorizedError('This session has been signed out. Please sign in again.');
+    }
+
     // Attach user info to request
     req.user = payload;
     req.familyId = payload.familyId;
@@ -64,8 +71,11 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
 
     if (token) {
       const payload = jwt.verify(token, config.jwt.secret, jwtVerifyOptions) as TokenPayload;
-      req.user = payload;
-      req.familyId = payload.familyId;
+      // A signed-out session is treated as no session at all.
+      if (!isAccessDenied(payload.jti)) {
+        req.user = payload;
+        req.familyId = payload.familyId;
+      }
     }
 
     next();
