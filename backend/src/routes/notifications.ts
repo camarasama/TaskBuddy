@@ -12,7 +12,7 @@
  *   npx prisma migrate dev --name add_notification_composite_index
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../services/database';
 import { toSkipTake, buildMeta } from '../utils/pagination';
 import { authenticate } from '../middleware/auth';
@@ -38,7 +38,7 @@ function getUser(req: Request): AuthUser {
 
 // ─── GET / - List notifications ───────────────────────────────────────────────
 
-notificationsRouter.get('/', async (req: Request, res: Response) => {
+notificationsRouter.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getUser(req);
     const unreadOnly = req.query.unreadOnly === 'true';
@@ -69,25 +69,25 @@ notificationsRouter.get('/', async (req: Request, res: Response) => {
       pagination: buildMeta(total, page, limit),
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch notifications', detail: String(err) });
+    next(err);
   }
 });
 
 // ─── GET /unread-count - Fast badge count ────────────────────────────────────
 
-notificationsRouter.get('/unread-count', async (req: Request, res: Response) => {
+notificationsRouter.get('/unread-count', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getUser(req);
     const count = await prisma.notification.count({ where: { userId, isRead: false } });
     res.json({ count });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch unread count', detail: String(err) });
+    next(err);
   }
 });
 
 // ─── PUT /:id/read - Mark single notification as read ────────────────────────
 
-notificationsRouter.put('/:id/read', async (req: Request, res: Response) => {
+notificationsRouter.put('/:id/read', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getUser(req);
     const { id } = req.params;
@@ -115,13 +115,13 @@ notificationsRouter.put('/:id/read', async (req: Request, res: Response) => {
 
     res.json({ notification: updated, unreadCount });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to mark notification as read', detail: String(err) });
+    next(err);
   }
 });
 
 // ─── PUT /read-all - Mark all notifications as read ──────────────────────────
 
-notificationsRouter.put('/read-all', async (req: Request, res: Response) => {
+notificationsRouter.put('/read-all', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getUser(req);
     const result = await prisma.notification.updateMany({
@@ -130,13 +130,13 @@ notificationsRouter.put('/read-all', async (req: Request, res: Response) => {
     });
     res.json({ updated: result.count, unreadCount: 0 });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to mark all notifications as read', detail: String(err) });
+    next(err);
   }
 });
 
 // ─── DELETE /:id - Delete a notification ─────────────────────────────────────
 
-notificationsRouter.delete('/:id', async (req: Request, res: Response) => {
+notificationsRouter.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getUser(req);
     const { id } = req.params;
@@ -161,7 +161,7 @@ notificationsRouter.delete('/:id', async (req: Request, res: Response) => {
 
     res.json({ deleted: true, unreadCount });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete notification', detail: String(err) });
+    next(err);
   }
 });
 
@@ -174,7 +174,7 @@ notificationsRouter.delete('/:id', async (req: Request, res: Response) => {
  *
  * A user with two devices legitimately has two rows, which is why this is not keyed on userId.
  */
-notificationsRouter.post('/push/expo-token', async (req: Request, res: Response) => {
+notificationsRouter.post('/push/expo-token', async (req: Request, res: Response, next: NextFunction) => {
   const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
 
   // Expo's own format. Rejected here rather than discovered at send time, when the failure would be
@@ -186,13 +186,20 @@ notificationsRouter.post('/push/expo-token', async (req: Request, res: Response)
 
   const userId = (req as Request & { user?: { userId: string } }).user!.userId;
 
-  await prisma.expoPushToken.upsert({
-    where: { token },
-    // Re-registering on a different account moves the token: the device now belongs to whoever is
-    // signed in, and leaving it on the previous user would push their notifications to this phone.
-    update: { userId, lastSeenAt: new Date() },
-    create: { userId, token, platform: 'android' },
-  });
+  try {
+    await prisma.expoPushToken.upsert({
+      where: { token },
+      // Re-registering on a different account moves the token: the device now belongs to whoever is
+      // signed in, and leaving it on the previous user would push their notifications to this phone.
+      update: { userId, lastSeenAt: new Date() },
+      create: { userId, token, platform: 'android' },
+    });
+  } catch (err) {
+    // Express 4 does not catch a rejected async handler; without this a database error left the
+    // request hanging until the client timed out.
+    next(err);
+    return;
+  }
 
   res.json({ success: true, data: { registered: true } });
 });
@@ -201,19 +208,24 @@ notificationsRouter.post('/push/expo-token', async (req: Request, res: Response)
 // POST, not DELETE: the client's `api.delete` sends no body, and a push token is too long and too
 // punctuation-heavy to want in a URL.
 
-notificationsRouter.post('/push/expo-token/remove', async (req: Request, res: Response) => {
+notificationsRouter.post('/push/expo-token/remove', async (req: Request, res: Response, next: NextFunction) => {
   const token = typeof req.body?.token === 'string' ? req.body.token : '';
   const userId = (req as Request & { user?: { userId: string } }).user!.userId;
 
   // Scoped to the caller so one account cannot unregister another's device by guessing a token.
-  await prisma.expoPushToken.deleteMany({ where: { token, userId } });
+  try {
+    await prisma.expoPushToken.deleteMany({ where: { token, userId } });
+  } catch (err) {
+    next(err);
+    return;
+  }
 
   res.json({ success: true, data: { removed: true } });
 });
 
 // ─── POST /push/subscribe - Save web push subscription ───────────────────────
 
-notificationsRouter.post('/push/subscribe', async (req: Request, res: Response) => {
+notificationsRouter.post('/push/subscribe', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getUser(req);
     const { endpoint, keys } = req.body as { endpoint: string; keys: { p256dh: string; auth: string } };
@@ -228,21 +240,23 @@ notificationsRouter.post('/push/subscribe', async (req: Request, res: Response) 
     });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to save subscription', detail: String(err) });
+    next(err);
   }
 });
 
 // ─── DELETE /push/unsubscribe - Remove web push subscription ─────────────────
 
-notificationsRouter.delete('/push/unsubscribe', async (req: Request, res: Response) => {
+notificationsRouter.delete('/push/unsubscribe', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getUser(req);
     const { endpoint } = req.body as { endpoint?: string };
-    const where = endpoint ? { endpoint } : { userId };
-    await prisma.pushSubscription.deleteMany({ where: where as any });
+    // Always scoped to the caller. `{ endpoint }` alone deleted whoever owned that endpoint, so any
+    // signed-in account could silence another account's browser notifications given the URL.
+    const where = endpoint ? { endpoint, userId } : { userId };
+    await prisma.pushSubscription.deleteMany({ where });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to remove subscription', detail: String(err) });
+    next(err);
   }
 });
 
