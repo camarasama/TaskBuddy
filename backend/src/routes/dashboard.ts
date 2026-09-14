@@ -8,6 +8,7 @@ import { CalendarService } from '../services/CalendarService';
 import { isStreakAtRisk } from '../services/streakService';
 import { buildWeekRecap } from '../services/RecapService';
 import { getTodayChallenge } from '../services/ChallengeService';
+import { toPublicProfile, toPublicUser } from '../utils/publicUser';
 
 /**
  * Roadmap §5.1 traffic-light: one word for "how is this child doing today".
@@ -113,10 +114,8 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
           Promise.resolve(isStreakAtRisk(child.id, req.familyId!)).catch(() => false),
         ]);
 
-        const { passwordHash, ...user } = child;
-        const profile = child.childProfile
-          ? { ...child.childProfile, pinHash: undefined }
-          : undefined;
+        const { childProfile: _profile, ...user } = toPublicUser(child);
+        const profile = toPublicProfile(child.childProfile) ?? undefined;
 
         return {
           user: { ...user, childProfile: profile },
@@ -411,8 +410,8 @@ dashboardRouter.get('/child', requireChild, async (req, res, next) => {
     const goal = await GoalService.getGoal(req.user!.userId);
 
     // Remove sensitive data
-    const { passwordHash, ...userWithoutPassword } = user;
-    const { pinHash, ...profileWithoutPin } = user.childProfile;
+    const { childProfile: _profile, ...userWithoutPassword } = toPublicUser(user);
+    const profileWithoutPin = toPublicProfile(user.childProfile);
 
     res.json({
       success: true,

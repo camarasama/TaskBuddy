@@ -101,4 +101,41 @@ describe('auth routes deliver the refresh token by cookie only, never in the bod
     expect(res.status).toBe(200);
     expectRefreshCookieButNotBody(res);
   });
+
+  // Security audit 2026-09-14: script running on our own site (an XSS) could add the native-app
+  // header to a credentialed refresh and read the rotated refresh token out of the JSON body.
+  // A browser cannot drop `Origin`; the app's HTTP stack never sends it.
+  it('POST /refresh from our own web origin claiming to be the Android app still gets a cookie only', async () => {
+    const spy = jest.spyOn(authService, 'refreshToken').mockResolvedValue(TOKENS as never);
+    const origin = (process.env.CLIENT_URL || 'http://localhost:3000').split(',')[0].trim();
+
+    const csrf = 'f'.repeat(64);
+    const res = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Origin', origin)
+      .set('X-Client', 'taskbuddy-android/1.1.0')
+      .set('Cookie', ['refreshToken=some-old-cookie-token', `csrfToken=${csrf}`])
+      .set('X-CSRF-Token', csrf)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expectRefreshCookieButNotBody(res);
+    // Nor does it get the 90-day mobile session lifetime.
+    expect(spy.mock.calls[0][1]).toMatchObject({ isMobile: false });
+  });
+
+  it('POST /login from our own web origin claiming to be the Android app still gets a cookie only', async () => {
+    const spy = jest.spyOn(authService, 'login').mockResolvedValue({ user: USER, tokens: TOKENS } as never);
+    const origin = (process.env.CLIENT_URL || 'http://localhost:3000').split(',')[0].trim();
+
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .set('Origin', origin)
+      .set('X-Client', 'taskbuddy-android/1.1.0')
+      .send({ email: 'pat@example.com', password: 'Password123!' });
+
+    expect(res.status).toBe(200);
+    expectRefreshCookieButNotBody(res);
+    expect(spy.mock.calls[0][1]).toMatchObject({ isMobile: false });
+  });
 });

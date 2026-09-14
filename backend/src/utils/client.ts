@@ -53,8 +53,35 @@ export function isMobilePlatform(platform: string): platform is MobilePlatform {
   return (MOBILE_PLATFORMS as readonly string[]).includes(platform);
 }
 
-/** True only for a well-formed header naming a known native platform. */
+/**
+ * True when the request comes from a page on one of our own web origins (CLIENT_URL).
+ *
+ * Browsers attach `Origin` to every cross-origin fetch and cannot remove it; the native app's HTTP
+ * stack never sends it. So our own origin in `Origin` means "a browser tab on our site" regardless of
+ * what `X-Client` claims.
+ */
+export function isOwnWebOrigin(req: Request): boolean {
+  const origin = req.get('origin');
+  if (!origin) return false;
+  const webOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  return webOrigins.includes(origin);
+}
+
+/**
+ * True only for a well-formed header naming a known native platform, sent by something that is not
+ * a browser tab on our own site.
+ *
+ * The Origin half closes a gap the header alone left open (security audit 2026-09-14): script
+ * running on app.gettaskbuddy.com (an XSS) could add `X-Client: taskbuddy-android/1.1.0` to a
+ * credentialed `/auth/refresh` and receive the rotated refresh token in the JSON body, plus a 90-day
+ * "mobile" session, defeating the HttpOnly cookie. Other origins are already refused by CORS and
+ * hold no cookie, so our own web origins are the only ones that need the rule.
+ */
 export function isMobileClient(req: Request): boolean {
+  if (isOwnWebOrigin(req)) return false;
   const client = getClient(req);
   return client !== null && isMobilePlatform(client.platform);
 }
