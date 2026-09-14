@@ -34,7 +34,8 @@ describe('the edit form offers only Save and Cancel', () => {
 
   it('keeps both of the buttons that should be there', () => {
     expect(FORM).toMatch(/label=\{editing \? 'Save changes' : 'Create task'\}/);
-    expect(FORM).toMatch(/label="Cancel"/);
+    // Cancel lives in the pinned save bar (`FormFooter`) since the parent visual pass.
+    expect(FORM).toMatch(/(label|secondaryLabel)="Cancel"/);
   });
 
   it('no longer imports or calls the delete endpoint', () => {

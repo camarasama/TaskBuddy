@@ -24,7 +24,11 @@ import type { Notification } from '@taskbuddy/shared';
 import { AppText } from '@/components/AppText';
 import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile, type IoniconName } from '@/components/IconTile';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { NetworkError } from '@/lib/api';
@@ -37,7 +41,8 @@ import {
   markRead,
   notificationsQuery,
 } from '@/lib/notificationsApi';
-import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, radius, spacing, useTheme } from '@/theme';
+import type { AccentTone } from '@/theme/accents';
 
 function when(value: Date | string | null | undefined): string {
   const at = asDate(value);
@@ -48,6 +53,31 @@ function when(value: Date | string | null | undefined): string {
   if (minutes < 60 * 24) return `${Math.round(minutes / 60)}h ago`;
   return at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
+
+/**
+ * A tile per kind of notification, so the list scans by colour: amber for something waiting on you,
+ * green for good news, gold for points and rewards. Keyed on `notificationType`; anything not listed
+ * (a type added later) falls back to the plain teal bell rather than guessing. The keys are the
+ * `notificationType` values the backend actually writes (grep `notificationType:` in backend/src).
+ */
+const KIND: Record<string, { icon: IoniconName; tone: AccentTone }> = {
+  task_submitted: { icon: 'hourglass', tone: 'warning' },
+  task_assigned: { icon: 'checkbox', tone: 'primary' },
+  task_approved: { icon: 'checkmark-circle', tone: 'success' },
+  task_rejected: { icon: 'arrow-undo', tone: 'destructive' },
+  task_expiring: { icon: 'time', tone: 'warning' },
+  task_expired: { icon: 'time', tone: 'destructive' },
+  task_archived: { icon: 'archive', tone: 'primary' },
+  task_comment: { icon: 'chatbubble-ellipses', tone: 'primary' },
+  task_limit_reached: { icon: 'alert-circle', tone: 'warning' },
+  reward_redeemed: { icon: 'gift', tone: 'gold' },
+  reward_fulfilled: { icon: 'gift', tone: 'success' },
+  level_up: { icon: 'trending-up', tone: 'xp' },
+  team_bonus: { icon: 'people', tone: 'xp' },
+  child_avatar_pending: { icon: 'image', tone: 'peach' },
+  child_avatar_reviewed: { icon: 'image', tone: 'success' },
+};
+const FALLBACK_KIND = { icon: 'notifications' as IoniconName, tone: 'primary' as AccentTone };
 
 function Row({
   item,
@@ -69,15 +99,29 @@ function Row({
       // screen reader and nothing to anyone who cannot distinguish it.
       accessibilityLabel={`${item.isRead ? '' : 'Unread. '}${item.title}. ${item.message}`}
     >
-      <Card style={item.isRead ? undefined : { borderLeftColor: theme.primary, borderLeftWidth: 4 }}>
-        <View style={styles.headRow}>
-          <AppText style={[styles.title, { color: theme.cardForeground }]}>{item.title}</AppText>
-          {!item.isRead && <AppText style={[styles.new, { color: theme.primary }]}>New</AppText>}
+      <Card status={item.isRead ? undefined : 'info'}>
+        <View style={styles.row}>
+          <IconTile
+            tone={(KIND[item.notificationType] ?? FALLBACK_KIND).tone}
+            icon={(KIND[item.notificationType] ?? FALLBACK_KIND).icon}
+            size={40}
+            muted={item.isRead}
+          />
+          <View style={styles.grow}>
+            <View style={styles.headRow}>
+              <AppText style={[styles.title, { color: theme.cardForeground }]}>{item.title}</AppText>
+              {!item.isRead && (
+                <View style={[styles.newPill, { backgroundColor: theme.primary }]}>
+                  <AppText style={[styles.new, { color: theme.primaryForeground }]}>New</AppText>
+                </View>
+              )}
+            </View>
+            <AppText style={[styles.body, { color: theme.mutedForeground }]}>{item.message}</AppText>
+            <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
+              {when(item.createdAt)}
+            </AppText>
+          </View>
         </View>
-        <AppText style={[styles.body, { color: theme.mutedForeground }]}>{item.message}</AppText>
-        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-          {when(item.createdAt)}
-        </AppText>
       </Card>
     </Pressable>
   );
@@ -163,17 +207,10 @@ export function NotificationList({
     return (
       <Screen scroll>
         <BackLink label={back.label} href={back.href} />
-        <Card>
-          <AppText style={[styles.title, { color: theme.destructive }]}>
-            {offline ? 'No connection' : 'Could not load notifications'}
-          </AppText>
-          <AppText style={[styles.body, { color: theme.cardForeground }]}>
-            {describeError(list.error)}
-          </AppText>
-        </Card>
-        <View style={styles.action}>
-          <Button label="Try again" onPress={() => void list.refetch()} />
-        </View>
+        <Callout kind="danger" title={offline ? 'No connection' : 'Could not load notifications'} live>
+          {describeError(list.error)}
+        </Callout>
+        <Button label="Try again" onPress={() => void list.refetch()} />
       </Screen>
     );
   }
@@ -181,19 +218,17 @@ export function NotificationList({
   return (
     <Screen>
       <BackLink label={back.label} href={back.href} />
-      <View style={styles.headRow}>
-        <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-          Notifications
-        </AppText>
-      </View>
-
-      {unread > 0 && (
-        <View style={styles.action}>
-          <Button label="Mark all as read" variant="secondary" onPress={() => void onMarkAll()} />
-        </View>
-      )}
 
       <FlatList
+        ListHeaderComponent={
+          <GradientHeader
+            tone="teal"
+            icon="notifications"
+            eyebrow="Notifications"
+            title={unread > 0 ? `${unread} unread` : 'All caught up'}
+            actions={unread > 0 ? [{ label: 'Mark all as read', icon: 'checkmark-done', onPress: () => void onMarkAll() }] : undefined}
+          />
+        }
         data={notifications}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
@@ -205,28 +240,19 @@ export function NotificationList({
         onEndReachedThreshold={0.4}
         refreshing={list.isRefetching}
         onRefresh={() => void list.refetch()}
-        ListEmptyComponent={
-          <Card>
-            <AppText style={[styles.body, { color: theme.cardForeground }]}>
-              Nothing here yet.
-            </AppText>
-          </Card>
-        }
+        ListEmptyComponent={<EmptyState emoji="🔔" title="Nothing here yet." />}
       />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-  },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
+  grow: { flex: 1 },
   headRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     gap: spacing[2],
   },
   title: {
@@ -235,8 +261,8 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     flexShrink: 1,
   },
+  newPill: { borderRadius: radius.full, paddingHorizontal: spacing[2], paddingVertical: 2 },
   new: { fontSize: fontSize.xs.fontSize, fontWeight: fontWeight.bold },
   body: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
   meta: { fontSize: fontSize.xs.fontSize, marginTop: spacing[2] },
-  action: { marginVertical: spacing[3] },
 });

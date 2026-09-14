@@ -75,6 +75,12 @@ export function Field({ label, error, hint, secureTextEntry, ...inputProps }: Fi
     });
   }, [revealed]);
 
+  /**
+   * Focus is tracked only to draw the ring. The caller's own `onFocus`/`onBlur` still run: they come
+   * through `inputProps` and are called here rather than overwritten by the spread below.
+   */
+  const [focused, setFocused] = useState(false);
+
   function toggleReveal() {
     const next = !revealed;
     setRevealed(next);
@@ -86,13 +92,22 @@ export function Field({ label, error, hint, secureTextEntry, ...inputProps }: Fi
 
   return (
     <View style={styles.wrapper}>
-      <AppText style={[styles.label, { color: theme.mutedForeground }]}>{label}</AppText>
+      {/* Foreground, not muted: on a long form the label is what the eye scans for. */}
+      <AppText style={[styles.label, { color: theme.foreground }]}>{label}</AppText>
       <View style={styles.inputRow}>
         <TextInput
           // Before the spread, so a call site can still override it. A masked field that capitalises
           // the first character the moment it is revealed looks like the value was typed wrong.
           autoCapitalize={maskable ? 'none' : undefined}
           {...inputProps}
+          onFocus={(event) => {
+            setFocused(true);
+            inputProps.onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            inputProps.onBlur?.(event);
+          }}
           secureTextEntry={maskable && !revealed}
           /**
            * After the spread, because these two are not the call site's to relax.
@@ -115,10 +130,13 @@ export function Field({ label, error, hint, secureTextEntry, ...inputProps }: Fi
           style={[
             styles.input,
             {
-              backgroundColor: theme.card,
+              // A resting field sits slightly recessed (the app backdrop colour) so it reads as a place to
+              // type; focus lifts it to the card colour with a teal border. Error wins over focus.
+              backgroundColor: focused ? theme.card : theme.appBackground,
               color: theme.cardForeground,
-              borderColor: error ? theme.destructive : theme.input,
+              borderColor: error ? theme.destructive : focused ? theme.ring : theme.input,
             },
+            focused && !error && styles.inputFocused,
             inputProps.multiline && styles.multiline,
             // Keeps the value from running under the button rather than letting the two overlap.
             maskable && styles.inputWithToggle,
@@ -183,7 +201,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: fontSize.sm.fontSize,
     lineHeight: fontSize.sm.lineHeight,
-    fontWeight: fontWeight.medium,
+    fontWeight: fontWeight.semibold,
     marginBottom: spacing[2],
   },
   /** Positioning context for the reveal button, which overlays the input's trailing edge. */
@@ -191,14 +209,16 @@ const styles = StyleSheet.create({
   input: {
     minHeight: minTouchTarget,
     borderRadius: radius.lg,
-    borderWidth: 1,
+    borderWidth: 1.5,
     paddingHorizontal: spacing[4],
     paddingVertical: spacing[3],
     fontSize: fontSize.base.fontSize,
   },
+  // Two dp wider border when focused, so the ring is visible without relying on colour alone.
+  inputFocused: { borderWidth: 2 },
   hint: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
+    fontSize: fontSize.xs.fontSize,
+    lineHeight: fontSize.xs.lineHeight,
     marginTop: spacing[2],
   },
   /** Tall enough for a couple of lines without the user having to scroll inside the box to see them. */

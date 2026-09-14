@@ -27,18 +27,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
-import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
+import { Callout } from '@/components/Callout';
+import { GradientHeader } from '@/components/GradientHeader';
 import { Screen } from '@/components/Screen';
 import { verifyConsent } from '@/lib/consentApi';
 import { describeError } from '@/lib/errors';
-import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import { spacing } from '@/theme';
 
 type State = 'verifying' | 'done' | 'failed';
 
 export default function ConsentConfirm() {
-  const theme = useTheme();
   const { token } = useLocalSearchParams<{ token?: string }>();
   const [state, setState] = useState<State>('verifying');
   const [message, setMessage] = useState('');
@@ -65,33 +64,34 @@ export default function ConsentConfirm() {
 
   return (
     <Screen>
-      <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-        {state === 'verifying' ? 'Confirming…' : state === 'done' ? "You're confirmed" : 'That did not work'}
-      </AppText>
+      <GradientHeader
+        tone={state === 'done' ? 'success' : state === 'failed' ? 'amber' : 'teal'}
+        icon={state === 'done' ? 'checkmark-circle' : state === 'failed' ? 'alert-circle' : 'shield-checkmark'}
+        eyebrow="Parental consent"
+        title={state === 'verifying' ? 'Confirming…' : state === 'done' ? "You're confirmed" : 'That did not work'}
+      />
 
-      <Card>
-        <AppText style={[styles.body, { color: theme.cardForeground }]}>
-          {state === 'verifying' && 'One moment while we check your confirmation link.'}
-          {state === 'done' && 'Thank you. You can add your children now.'}
-          {state === 'failed' && message}
-        </AppText>
-      </Card>
+      {state === 'verifying' && <Callout kind="info">One moment while we check your confirmation link.</Callout>}
+      {state === 'done' && <Callout kind="success">Thank you. You can add your children now.</Callout>}
+      {state === 'failed' && (
+        <Callout kind="warning" live>
+          {message}
+        </Callout>
+      )}
 
       {state === 'done' && (
-        <View style={styles.actions}>
-          <Button label="Add a child" onPress={() => router.replace('/(parent)/children')} />
-        </View>
+        <Button label="Add a child" onPress={() => router.replace('/(parent)/children')} />
       )}
 
       {state === 'failed' && (
-        <View style={styles.actions}>
+        <View>
           <Button label="Try again" onPress={() => void run()} />
           <View style={styles.gap} />
           {/* A dead end here strands the one person the whole flow depends on. The consent screen can
               always send a fresh email, so it is the useful place to land, not the home screen. */}
           <Button
             label="Send a new email"
-            variant="secondary"
+            variant="soft"
             onPress={() => router.replace('/(parent)/consent')}
           />
         </View>
@@ -101,13 +101,5 @@ export default function ConsentConfirm() {
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[4],
-  },
-  body: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight },
-  actions: { marginTop: spacing[5] },
   gap: { height: spacing[2] },
 });

@@ -2,38 +2,38 @@
  * Children screen.
  *
  * Richer than the dashboard's summary rows: lifetime totals, both streaks, and the sign-in identity a
- * parent actually gets asked for ("what's my username again?").
+ * parent actually gets asked for ("what's my username again?"). Tapping a child opens the edit form,
+ * which is also where extra time and a holiday pause live.
  *
- * Read-only for now. Editing a child, resetting a PIN and approving a chosen avatar photo all exist on
- * the web; the first two are ordinary follow-ups, but the avatar one is deliberately not here — see the
- * note further down.
+ * Purple is the children's colour across the app (their own home screen opens on it), so the masthead
+ * here is purple rather than the parent teal.
+ *
+ * A photo a child picked for themselves is flagged here but reviewed on the web; see the note on
+ * `pendingAvatarUrl` below.
  */
 import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { AppText } from '@/components/AppText';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
+import { AppText } from '@/components/AppText';
+import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
+import { Chip } from '@/components/Chip';
+import { EmptyState } from '@/components/EmptyState';
+import { GradientHeader } from '@/components/GradientHeader';
+import { NavTile } from '@/components/NavTile';
 import { Screen } from '@/components/Screen';
+import { SectionTitle } from '@/components/SectionTitle';
+import { StatTile } from '@/components/StatTile';
 import { NetworkError } from '@/lib/api';
 import { childrenQuery, type ChildMember } from '@/lib/childrenApi';
 import { asDate } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.stat}>
-      <AppText style={[styles.statValue, { color: theme.cardForeground }]}>{value}</AppText>
-      <AppText style={[styles.statLabel, { color: theme.mutedForeground }]} numberOfLines={2}>
-        {label}
-      </AppText>
-    </View>
-  );
-}
 
 function ChildCard({ child }: { child: ChildMember }) {
   const theme = useTheme();
@@ -43,35 +43,47 @@ function ChildCard({ child }: { child: ChildMember }) {
   return (
     <Card>
       <View style={styles.header}>
-        <AppText style={[styles.name, { color: theme.cardForeground }]} numberOfLines={1}>
-          {profile.avatarEmoji ? `${profile.avatarEmoji} ` : ''}
-          {child.firstName} {child.lastName}
-        </AppText>
-        {/* Levels come straight from the server — see the note in childrenApi.ts on why nothing here
-            derives a level or a progress bar. */}
-        <AppText style={[styles.level, { color: theme.primary }]}>Level {profile.level}</AppText>
+        <Avatar seed={child.id} name={child.firstName} size={52} />
+        <View style={styles.grow}>
+          <AppText style={[styles.name, { color: theme.cardForeground }]} numberOfLines={1}>
+            {profile.avatarEmoji ? `${profile.avatarEmoji} ` : ''}
+            {child.firstName} {child.lastName}
+          </AppText>
+          <View style={styles.chips}>
+            {/* The sign-in identity: what a parent is asked for when a child forgets. */}
+            {child.username ? (
+              <Chip compact variant="info" icon="person" label={`Signs in as ${child.username}`} />
+            ) : (
+              <Chip compact variant="pending" label="No username yet" />
+            )}
+            <Chip compact variant="xp" label={`Level ${profile.level}`} />
+          </View>
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={theme.mutedForeground}
+          importantForAccessibility="no"
+          accessibilityElementsHidden
+        />
       </View>
-
-      {/* The question parents are actually asked, so it is on the card rather than a detail screen. */}
-      <AppText style={[styles.identity, { color: theme.mutedForeground }]}>
-        {child.username ? `Signs in as “${child.username}”` : 'No username set — add one on the web'}
-      </AppText>
 
       <View style={styles.statRow}>
-        <Stat label="Points to spend" value={profile.pointsBalance} />
-        <Stat label="Earned all time" value={profile.totalPointsEarned} />
-        <Stat label="Tasks completed" value={profile.totalTasksCompleted} />
-        <Stat label="XP this level" value={profile.experiencePoints} />
+        <StatTile value={profile.pointsBalance} label="Points to spend" variant="gold" />
+        <StatTile value={profile.totalTasksCompleted} label="Tasks done" variant="success" />
+      </View>
+      <View style={styles.statRow}>
+        <StatTile value={profile.experiencePoints} label="XP this level" variant="xp" />
+        <StatTile
+          value={profile.currentStreakDays}
+          label={profile.longestStreakDays > 0 ? `Day streak, best ${profile.longestStreakDays}` : 'Day streak'}
+          variant="peach"
+        />
       </View>
 
-      <View style={[styles.streaks, { borderTopColor: theme.border }]}>
-        <AppText style={[styles.streakText, { color: theme.mutedForeground }]}>
-          {profile.currentStreakDays > 0
-            ? `${profile.currentStreakDays}-day streak`
-            : 'No streak right now'}
-          {profile.longestStreakDays > 0 ? ` · best ${profile.longestStreakDays}` : ''}
-        </AppText>
-        <AppText style={[styles.streakText, { color: theme.mutedForeground }]}>
+      <View style={styles.seen}>
+        <Ionicons name="time-outline" size={16} color={theme.mutedForeground} importantForAccessibility="no" accessibilityElementsHidden />
+        <AppText style={[styles.seenText, { color: theme.mutedForeground }]}>
           {lastSeen
             ? `Last signed in ${lastSeen.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
             : 'Has not signed in yet'}
@@ -79,17 +91,16 @@ function ChildCard({ child }: { child: ChildMember }) {
       </View>
 
       {/*
-        A photo the child chose is waiting for review. Flagged, not shown.
-
-        Displaying it would put a child's photograph on this screen, and `PRIVACY.md` plus the Play
-        Data safety form still need updating for children's photos before that ships anywhere near
-        production — a Families-policy item, not a styling one. Reviewing on the web is the honest
-        instruction until that is done.
+        A photo the child chose is waiting for review. Flagged, not shown: displaying it would put a
+        child's photograph on this list, which is a Families-policy decision rather than a styling one.
+        Reviewing on the web is the honest instruction until that is decided.
       */}
       {profile.pendingAvatarUrl ? (
-        <AppText style={[styles.pending, { color: theme.primary }]}>
-          A profile photo is waiting for your review — approve or decline it on the web.
-        </AppText>
+        <View style={styles.pending}>
+          <Callout kind="warning" icon="image-outline">
+            A profile photo is waiting for your review. Approve or decline it on the web.
+          </Callout>
+        </View>
       ) : null}
     </Card>
   );
@@ -98,32 +109,26 @@ function ChildCard({ child }: { child: ChildMember }) {
 export default function Children() {
   const theme = useTheme();
   const { data, error, isPending, isError, refetch, isRefetching } = useQuery(childrenQuery());
-
   const children = useMemo(() => data ?? [], [data]);
 
   const header = (
-    <View>
-      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Children</AppText>
-      <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
-        {isPending
-          ? 'Loading…'
-          : `${children.length} ${children.length === 1 ? 'child' : 'children'}`}
-      </AppText>
-    </View>
+    <GradientHeader
+      tone="brand"
+      icon="people"
+      eyebrow="Children"
+      title={isPending ? 'Loading…' : `${children.length} ${children.length === 1 ? 'child' : 'children'}`}
+      subtitle="Tap a child to edit, give extra time or pause a streak"
+      actions={[{ label: 'Add a child', icon: 'add', onPress: () => router.push('/(parent)/child-form') }]}
+    />
   );
 
   if (isError) {
     return (
       <Screen>
         {header}
-        <Card>
-          <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
-            {error instanceof NetworkError ? 'No connection' : 'Could not load your children'}
-          </AppText>
-          <AppText style={[styles.streakText, { color: theme.cardForeground }]}>
-            {describeError(error)}
-          </AppText>
-        </Card>
+        <Callout kind="danger" title={error instanceof NetworkError ? 'No connection' : 'Could not load your children'} live>
+          {describeError(error)}
+        </Callout>
         <Button label="Try again" onPress={() => void refetch()} />
       </Screen>
     );
@@ -153,29 +158,24 @@ export default function Children() {
               <ActivityIndicator color={theme.primary} />
             </View>
           ) : (
-            <Card>
-              <AppText style={[styles.streakText, { color: theme.cardForeground }]}>
-                No children yet. Tap "Add a child" to make one.
-              </AppText>
-            </Card>
+            <EmptyState emoji="👋" title="No children yet." message='Tap "Add a child" to make one.' />
           )
         }
         ListFooterComponent={
-          // The way into the P0-4 revoke controls. Here rather than in the tab bar because six tabs do
-          // not fit, and because "which devices are my children signed in on" is a question you ask
-          // while looking at your children.
-          <View style={styles.footerAction}>
-            <Button label="Add a child" onPress={() => router.push('/(parent)/child-form')} />
-            <View style={styles.footerGap} />
-            <Button
-              label="Show family code"
-              variant="secondary"
+          <View>
+            <SectionTitle title="Signing in" icon="qr-code" tone="primary" />
+            <NavTile
+              title="Family code"
+              icon="qr-code"
+              tone="primary"
+              subtitle="Let a child sign in by scanning it"
               onPress={() => router.push('/(parent)/family-code')}
             />
-            <View style={styles.footerGap} />
-            <Button
-              label="Signed-in devices"
-              variant="secondary"
+            <NavTile
+              title="Signed-in devices"
+              icon="phone-portrait"
+              tone="peach"
+              subtitle="See your children's devices and sign them out"
               onPress={() => router.push('/(parent)/devices')}
             />
           </View>
@@ -186,60 +186,14 @@ export default function Children() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  subtitle: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    marginTop: spacing[1],
-    marginBottom: spacing[4],
-  },
-  cardTitle: {
-    fontSize: fontSize.xs.fontSize,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: spacing[2],
-  },
   listContent: { paddingBottom: spacing[6] },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    gap: spacing[3],
-  },
-  name: {
-    flex: 1,
-    fontSize: fontSize.lg.fontSize,
-    lineHeight: fontSize.lg.lineHeight,
-    fontWeight: fontWeight.semibold,
-  },
-  level: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.bold },
-  identity: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    marginTop: spacing[1],
-  },
-  statRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing[3] },
-  stat: { width: '50%', paddingVertical: spacing[2], paddingRight: spacing[2] },
-  statValue: {
-    fontSize: fontSize.xl.fontSize,
-    lineHeight: fontSize.xl.lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  statLabel: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight },
-  streaks: { borderTopWidth: 1, paddingTop: spacing[3], marginTop: spacing[2], gap: spacing[1] },
-  streakText: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  pending: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    fontWeight: fontWeight.medium,
-    marginTop: spacing[3],
-  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  grow: { flex: 1 },
+  name: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, fontWeight: fontWeight.semibold },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[1], marginTop: spacing[1] },
+  statRow: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
+  seen: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: spacing[3] },
+  seenText: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
+  pending: { marginTop: spacing[3], marginBottom: -spacing[4] },
   centred: { paddingVertical: spacing[6], alignItems: 'center' },
-  footerAction: { marginTop: spacing[4] },
-  footerGap: { height: spacing[2] },
 });

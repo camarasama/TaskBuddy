@@ -29,6 +29,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { AppText } from '@/components/AppText';
 import { Card } from '@/components/Card';
+import { IconTile } from '@/components/IconTile';
 import { ProgressBar } from '@/components/ProgressBar';
 import { ONBOARDING_STEPS, onboardingQuery } from '@/lib/onboardingApi';
 import { plural } from '@/lib/plural';
@@ -63,13 +64,8 @@ export function SetupChecklistCard() {
     >
       <Card status="info">
         <View style={styles.row}>
-          <Ionicons
-            name="sparkles"
-            size={ICON_SIZE}
-            color={theme.primary}
-            importantForAccessibility="no"
-            accessibilityElementsHidden
-          />
+          {/* The same purple sparkles tile the welcome screen's header uses, so the two read as one flow. */}
+          <IconTile tone="xp" icon="sparkles" size={44} />
           <View style={styles.text}>
             <AppText style={[styles.title, { color: theme.cardForeground }]}>
               {completed === 0 ? 'Finish setting up TaskBuddy' : 'Nearly there'}

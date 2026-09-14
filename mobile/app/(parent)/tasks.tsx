@@ -16,9 +16,14 @@ import { AppText } from '@/components/AppText';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card, type CardStatus } from '@/components/Card';
 import { Chip } from '@/components/Chip';
+import { EmptyState } from '@/components/EmptyState';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile } from '@/components/IconTile';
 import { Screen } from '@/components/Screen';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
 import { NetworkError } from '@/lib/api';
 import { dueLabel, isOverdue } from '@/lib/dates';
@@ -58,6 +63,8 @@ type TabKey = 'all' | 'active' | 'completed' | 'archived';
 const FILTERS: { key: TabKey; label: string; filters: TaskFilters }[] = [
   { key: 'all', label: 'All', filters: {} },
   { key: 'active', label: 'Active', filters: { status: 'active', view: 'open' } },
+  // "Completed" is the owner's own word for this tab (see archive-not-delete.test.ts). On a narrow
+  // phone the shared switch shrinks the label to fit rather than renaming it.
   { key: 'completed', label: 'Completed', filters: { status: 'active', view: 'done' } },
   { key: 'archived', label: 'Archived', filters: { status: 'archived' } },
 ];
@@ -69,21 +76,13 @@ function FilterChips({
   value: TabKey;
   onChange: (next: TabKey) => void;
 }) {
+  // The same shared switch as the child app's Tasks and Rewards tabs.
   return (
-    <View style={styles.chipRow}>
-      {FILTERS.map((filter) => (
-        <Chip
-          key={filter.key}
-          label={filter.label}
-          // Settled pairing for a filter chip: `primary` (filled) for the selected one, `info` (tinted)
-          // for the rest. Left undecided by the primitives unit, now fixed here for every filter chip
-          // in the app.
-          variant={filter.key === value ? 'primary' : 'info'}
-          selected={filter.key === value}
-          onPress={() => onChange(filter.key)}
-        />
-      ))}
-    </View>
+    <SegmentedControl
+      options={FILTERS.map((filter) => ({ key: filter.key, label: filter.label }))}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 
@@ -91,8 +90,8 @@ function FilterChips({
  * A task's stripe, matching the same states the dashboard's approval queue uses: `late` beats
  * `pending` beats no stripe at all, and a task is never both. `done` is deliberately not derived here:
  * "all assignments approved" would need to special-case an unassigned task (zero assignments is not
- * the same as zero *un*approved ones), and the row already says the approved count in words via
- * `assignmentSummary`, so a green stripe would be repeating rather than adding information.
+ * the same as zero *un*approved ones), and the row already says the approved count in words as a pill,
+ * so a green stripe would be repeating rather than adding information.
  */
 function taskCardStatus(task: ParentTask): CardStatus | undefined {
   if (isOverdue(task.dueDate) && task.status === 'active') return 'late';
@@ -114,19 +113,6 @@ function taskPriority(task: ParentTask): number {
  * Counts rather than a list of names: a task assigned to three children with different statuses turns
  * into an unreadable row otherwise, and the number waiting on the parent is the part that matters.
  */
-function assignmentSummary(task: ParentTask): string {
-  const total = task.assignments.length;
-  if (total === 0) return 'Unassigned';
-
-  const awaiting = task.assignments.filter((a) => a.status === 'completed').length;
-  const approved = task.assignments.filter((a) => a.status === 'approved').length;
-
-  const parts = [`${total} assigned`];
-  if (awaiting > 0) parts.push(`${awaiting} awaiting approval`);
-  if (approved > 0) parts.push(`${approved} approved`);
-  return parts.join(' · ');
-}
-
 /**
  * The action revealed by swiping a row left.
  *
@@ -173,43 +159,64 @@ function SwipeAction({
   );
 }
 
+const DIFFICULTY_LABEL: Record<string, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const RECURRENCE_LABEL: Record<string, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  weekdays: 'Weekdays',
+  weekends: 'Weekends',
+};
+
 function TaskRow({ task }: { task: ParentTask }) {
   const theme = useTheme();
   const due = dueLabel(task.dueDate);
   const overdue = isOverdue(task.dueDate) && task.status === 'active';
+  const status = taskCardStatus(task);
+  const awaiting = task.assignments.filter((a) => a.status === 'completed').length;
+  const approved = task.assignments.filter((a) => a.status === 'approved').length;
+  const total = task.assignments.length;
 
   return (
-    <Card status={taskCardStatus(task)}>
-      <View style={styles.rowHeader}>
-        <AppText style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
-          {task.title}
-        </AppText>
-        <AppText style={[styles.points, { color: theme.foreground }]}>{task.pointsValue} pts</AppText>
-      </View>
-
-      <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-        {assignmentSummary(task)}
-      </AppText>
-
-      <View style={styles.badgeRow}>
-        {due !== null && (
-          // Overdue is said in words ("N days overdue") as well as coloured, so the state does not
-          // depend on distinguishing red from grey.
-          <AppText
-            style={[styles.badge, { color: overdue ? theme.destructive : theme.mutedForeground }]}
-          >
-            {due}
+    <Card status={status}>
+      <View style={styles.row}>
+        {/* The tile turns amber when a child is waiting on this task, so the list scans by colour. */}
+        <IconTile
+          tone={awaiting > 0 ? 'warning' : 'primary'}
+          icon={awaiting > 0 ? 'hourglass' : task.status === 'archived' ? 'archive' : 'checkbox'}
+          size={40}
+          muted={task.status === 'archived'}
+        />
+        <View style={styles.grow}>
+          <View style={styles.titleRow}>
+            <AppText style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
+              {task.title}
+            </AppText>
+            <Chip compact variant="gold" icon="star" label={`${task.pointsValue} pts`} />
+          </View>
+          <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
+            {total === 0 ? 'Unassigned' : `${total} assigned`}
           </AppText>
-        )}
-        {task.difficulty && (
-          <AppText style={[styles.badge, { color: theme.mutedForeground }]}>{task.difficulty}</AppText>
-        )}
-        {task.status !== 'active' && (
-          <AppText style={[styles.badge, { color: theme.mutedForeground }]}>{task.status}</AppText>
-        )}
-        {task.requiresPhotoEvidence && (
-          <AppText style={[styles.badge, { color: theme.mutedForeground }]}>photo required</AppText>
-        )}
+          <View style={styles.chips}>
+            {awaiting > 0 && <Chip compact variant="pending" icon="hourglass" label={`${awaiting} to approve`} />}
+            {approved > 0 && <Chip compact variant="done" icon="checkmark-circle" label={`${approved} approved`} />}
+            {/* Overdue is said in words ("N days overdue") as well as coloured, so the state does not
+                depend on distinguishing red from grey. */}
+            {due !== null && (
+              <Chip compact variant={overdue ? 'late' : 'info'} icon="calendar" label={due} />
+            )}
+            {task.difficulty && <Chip compact variant="xp" label={DIFFICULTY_LABEL[task.difficulty] ?? task.difficulty} />}
+            {task.requiresPhotoEvidence && <Chip compact variant="peach" icon="camera" label="Photo" />}
+            {task.isRecurring && (
+              <Chip
+                compact
+                variant="info"
+                icon="repeat"
+                label={task.recurrencePattern ? RECURRENCE_LABEL[task.recurrencePattern] ?? 'Repeats' : 'Repeats'}
+              />
+            )}
+            {task.status !== 'active' && <Chip compact variant="late" icon="archive" label={task.status === 'archived' ? 'Archived' : 'Paused'} />}
+          </View>
+        </View>
       </View>
     </Card>
   );
@@ -316,14 +323,21 @@ export default function ParentTasks() {
 
   const header = (
     <View>
-      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Tasks</AppText>
-      <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
-        {isPending ? 'Loading…' : `${total} ${total === 1 ? 'task' : 'tasks'}`}
-      </AppText>
+      <GradientHeader
+        tone="teal"
+        icon="checkbox"
+        eyebrow="Tasks"
+        title={isPending ? 'Loading…' : `${total} ${total === 1 ? 'task' : 'tasks'}`}
+        actions={[
+          { label: 'New task', icon: 'add', onPress: () => router.push('/(parent)/task-form') },
+          {
+            label: 'From a template',
+            icon: 'sparkles',
+            onPress: () => router.push({ pathname: '/(parent)/task-form', params: { template: '1' } }),
+          },
+        ]}
+      />
       <FilterChips value={tab} onChange={setTab} />
-      <View style={styles.headerAction}>
-        <Button label="New task" onPress={() => router.push('/(parent)/task-form')} />
-      </View>
     </View>
   );
 
@@ -331,12 +345,9 @@ export default function ParentTasks() {
     return (
       <Screen>
         {header}
-        <Card>
-          <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
-            {error instanceof NetworkError ? 'No connection' : 'Could not load tasks'}
-          </AppText>
-          <AppText style={[styles.meta, { color: theme.cardForeground }]}>{describeError(error)}</AppText>
-        </Card>
+        <Callout kind="danger" title={error instanceof NetworkError ? 'No connection' : 'Could not load tasks'} live>
+          {describeError(error)}
+        </Callout>
         <Button label="Try again" onPress={() => void refetch()} />
       </Screen>
     );
@@ -397,11 +408,11 @@ export default function ParentTasks() {
               <ActivityIndicator color={theme.primary} />
             </View>
           ) : (
-            <Card>
-              <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                {tab === 'all' ? 'No tasks yet. Tap New task to make one.' : `No ${tab} tasks.`}
-              </AppText>
-            </Card>
+            <EmptyState
+              emoji={tab === 'archived' ? '🗄️' : '📋'}
+              title={tab === 'all' ? 'No tasks yet.' : `No ${FILTERS.find((f) => f.key === tab)?.label.toLowerCase()} tasks.`}
+              message={tab === 'all' ? 'Tap New task to make one.' : undefined}
+            />
           )
         }
         ListFooterComponent={
@@ -432,7 +443,7 @@ export default function ParentTasks() {
           onPress={() => setConfirming(null)}
         />
         <View style={[styles.sheet, { backgroundColor: theme.card }]}>
-          <AppText style={[styles.sheetTitle, { color: theme.cardForeground }]}>
+          <AppText variant="display" style={[styles.sheetTitle, { color: theme.cardForeground }]}>
             Archive {confirming?.title}?
           </AppText>
           <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
@@ -440,7 +451,7 @@ export default function ParentTasks() {
             taken back, and you can restore it from the Archived tab.
           </AppText>
           <View style={styles.sheetActions}>
-            <Button label="Archive" onPress={confirmArchive} />
+            <Button label="Archive" variant="softDanger" onPress={confirmArchive} />
             <Button label="Keep it" variant="secondary" onPress={() => setConfirming(null)} />
           </View>
         </View>
@@ -450,48 +461,18 @@ export default function ParentTasks() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  subtitle: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    marginTop: spacing[1],
-    marginBottom: spacing[4],
-  },
-  cardTitle: {
-    fontSize: fontSize.xs.fontSize,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: spacing[2],
-  },
-  headerAction: { marginBottom: spacing[3] },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
   listContent: { paddingBottom: spacing[6] },
-  rowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing[3],
-    marginBottom: spacing[1],
-  },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
+  grow: { flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2] },
   taskTitle: {
     flex: 1,
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
   },
-  points: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.base.lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3], marginTop: spacing[2] },
-  badge: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight },
+  meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[1], marginTop: spacing[2] },
   centred: { paddingVertical: spacing[6], alignItems: 'center' },
   // Full height of whatever row it sits behind, so the target is never a sliver at the top.
   swipeAction: {
@@ -512,9 +493,9 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: { padding: spacing[5], borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
   sheetTitle: {
-    fontSize: fontSize.base.fontSize,
-    lineHeight: fontSize.base.lineHeight,
-    fontWeight: fontWeight.semibold,
+    fontSize: fontSize.lg.fontSize,
+    lineHeight: fontSize.lg.lineHeight,
+    fontWeight: fontWeight.bold,
     marginBottom: spacing[2],
   },
   sheetActions: { marginTop: spacing[4], gap: spacing[2] },

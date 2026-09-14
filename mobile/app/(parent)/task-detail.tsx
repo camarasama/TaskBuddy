@@ -23,11 +23,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AssignmentStatus, TaskComment } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
+import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
+import { Chip, type ChipVariant } from '@/components/Chip';
+import { EmptyState } from '@/components/EmptyState';
 import { Field } from '@/components/Field';
+import { GradientHeader } from '@/components/GradientHeader';
+import type { IoniconName } from '@/components/IconTile';
+import { InfoRow } from '@/components/InfoRow';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { Screen } from '@/components/Screen';
+import { SectionTitle } from '@/components/SectionTitle';
 import { asDate, dueLabel, isOverdue } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import {
@@ -41,7 +49,8 @@ import {
   restoreTask,
   type TaskDetail,
 } from '@/lib/parentWriteApi';
-import { fontSize, fontWeight, minTouchTarget, palette, radius, spacing, type SemanticTheme, useTheme } from '@/theme';
+import { useAuth } from '@/stores/auth';
+import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
 
 type Assignment = TaskDetail['assignments'][number];
 
@@ -57,21 +66,20 @@ const STATUS_LABELS: Record<AssignmentStatus, string> = {
   expired: 'Expired',
 };
 
-/** Matches the web's colour meaning (green/amber/red) via the shared token ramps, not hex literals. */
-function statusColor(theme: SemanticTheme, status: AssignmentStatus): string {
-  switch (status) {
-    case 'approved':
-      return palette.success[600];
-    case 'completed':
-      return palette.warning[600];
-    case 'rejected':
-      return theme.destructive;
-    case 'in_progress':
-      return theme.primary;
-    default:
-      return theme.mutedForeground;
-  }
-}
+/**
+ * Matches the web's colour meaning (green approved, amber waiting, red sent back) as a pill with the
+ * status in words, so the state never depends on telling the colours apart.
+ */
+const STATUS_CHIP: Record<AssignmentStatus, { variant: ChipVariant; icon: IoniconName }> = {
+  pending: { variant: 'info', icon: 'ellipse-outline' },
+  in_progress: { variant: 'info', icon: 'play' },
+  completed: { variant: 'pending', icon: 'hourglass' },
+  approved: { variant: 'done', icon: 'checkmark-circle' },
+  rejected: { variant: 'late', icon: 'arrow-undo' },
+  expired: { variant: 'late', icon: 'time' },
+};
+
+const DIFFICULTY_LABEL: Record<string, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 /** "8 Aug at 3:45 PM" — used for completedAt/approvedAt, which are timestamps, not just dates. */
 function formatDateTime(value: Date | string | null | undefined): string | null {
@@ -88,6 +96,7 @@ function formatDateTime(value: Date | string | null | undefined): string | null 
  */
 function CommentThread({ assignmentId }: { assignmentId: string }) {
   const theme = useTheme();
+  const me = useAuth((state) => state.user?.id);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
@@ -135,20 +144,34 @@ function CommentThread({ assignmentId }: { assignmentId: string }) {
       ) : comments.length === 0 ? (
         <AppText style={[styles.meta, { color: theme.mutedForeground }]}>No comments yet.</AppText>
       ) : (
-        comments.map((c) => (
-          <View key={c.id} style={styles.commentRow}>
-            <AppText style={[styles.commentAuthor, { color: theme.cardForeground }]}>
-              {c.author ? `${c.author.firstName} ${c.author.lastName}`.trim() : 'Someone'}
-            </AppText>
-            <AppText style={[styles.meta, { color: theme.cardForeground }]}>{c.content}</AppText>
-          </View>
-        ))
+        comments.map((c) => {
+          // Your own messages sit on the right in teal, everyone else's on the left, so a thread reads
+          // as a conversation rather than a log.
+          const mine = c.authorId === me;
+          return (
+            <View
+              key={c.id}
+              style={[
+                styles.bubble,
+                mine ? styles.bubbleMine : styles.bubbleTheirs,
+                mine
+                  ? { backgroundColor: theme.card, borderColor: theme.primary, borderWidth: 1 }
+                  : { backgroundColor: theme.muted },
+              ]}
+            >
+              <AppText style={[styles.commentAuthor, { color: theme.mutedForeground }]}>
+                {c.author ? `${c.author.firstName} ${c.author.lastName}`.trim() : 'Someone'}
+              </AppText>
+              <AppText style={[styles.meta, { color: theme.cardForeground }]}>{c.content}</AppText>
+            </View>
+          );
+        })
       )}
 
       {error !== null && (
-        <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
+        <Callout kind="danger" live>
           {error}
-        </AppText>
+        </Callout>
       )}
 
       <View style={styles.commentComposer}>
@@ -186,42 +209,49 @@ function AssignmentCard({
   const completed = formatDateTime(assignment.completedAt);
   const approved = formatDateTime(assignment.approvedAt);
 
+  const chip = STATUS_CHIP[assignment.status];
+
   return (
     <Card>
       <View style={styles.assignmentHeader}>
+        <Avatar seed={assignment.child.id} name={assignment.child.firstName} size={40} />
         <View style={styles.assignmentChild}>
           <AppText style={[styles.childName, { color: theme.cardForeground }]}>
             {assignment.child.firstName} {assignment.child.lastName}
           </AppText>
-          <AppText style={[styles.statusBadge, { color: statusColor(theme, assignment.status) }]}>
-            {STATUS_LABELS[assignment.status]}
-          </AppText>
+          {completed && (
+            <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Completed {completed}</AppText>
+          )}
         </View>
+        <Chip compact variant={chip.variant} icon={chip.icon} label={STATUS_LABELS[assignment.status]} />
+      </View>
 
-        {canReset && (
+      {approved && (
+        <View style={styles.chipRow}>
+          <Chip compact variant="done" icon="checkmark-circle" label={`Approved ${approved}`} />
+          {assignment.pointsAwarded != null ? (
+            <Chip compact variant="gold" icon="star" label={`+${assignment.pointsAwarded} pts`} />
+          ) : null}
+        </View>
+      )}
+      {assignment.status === 'rejected' && assignment.rejectionReason && (
+        <View style={styles.inline}>
+          <Callout kind="danger" icon="arrow-undo" title="Sent back">
+            {assignment.rejectionReason}
+          </Callout>
+        </View>
+      )}
+
+      {canReset && (
+        <View style={styles.resetRow}>
           <Button
             label="Restore"
-            variant="secondary"
+            variant="soft"
             onPress={() => onReset(assignment.id)}
             busy={resetting}
             disabled={resetting}
           />
-        )}
-      </View>
-
-      {completed && (
-        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Completed {completed}</AppText>
-      )}
-      {approved && (
-        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-          Approved {approved}
-          {assignment.pointsAwarded != null ? ` · +${assignment.pointsAwarded} pts` : ''}
-        </AppText>
-      )}
-      {assignment.status === 'rejected' && assignment.rejectionReason && (
-        <AppText style={[styles.meta, { color: theme.destructive }]}>
-          Rejected: {assignment.rejectionReason}
-        </AppText>
+        </View>
       )}
 
       {photos.length > 0 && (
@@ -245,7 +275,7 @@ function AssignmentCard({
                   // backend/src/routes/tasks.ts). Used exactly as received — never build a URL from an
                   // object key or cache one past this render; see approvals.tsx for the same rule.
                   source={{ uri: (photo.thumbnailUrl || photo.fileUrl) as string }}
-                  style={[styles.photo, { borderColor: theme.border }]}
+                  style={[styles.photo, { backgroundColor: theme.muted }]}
                   resizeMode="cover"
                 />
               </Pressable>
@@ -258,9 +288,9 @@ function AssignmentCard({
         <View style={styles.evidenceSection}>
           <AppText style={[styles.commentHeading, { color: theme.mutedForeground }]}>Notes</AppText>
           {notes.map((note) => (
-            <AppText key={note.id} style={[styles.noteText, { color: theme.cardForeground }]}>
-              &ldquo;{note.note}&rdquo;
-            </AppText>
+            <View key={note.id} style={[styles.quote, { backgroundColor: theme.muted }]}>
+              <AppText style={[styles.noteText, { color: theme.cardForeground }]}>&ldquo;{note.note}&rdquo;</AppText>
+            </View>
           ))}
         </View>
       )}
@@ -273,12 +303,11 @@ function AssignmentCard({
 // ── Problem state (missing id / load failure) ────────────────────────────────
 
 function ProblemState({ message }: { message: string }) {
-  const theme = useTheme();
   return (
     <Screen>
-      <Card>
-        <AppText style={[styles.meta, { color: theme.cardForeground }]}>{message}</AppText>
-      </Card>
+      <Callout kind="warning" title="This task could not be opened">
+        {message}
+      </Callout>
       <Button label="Back to tasks" onPress={() => router.replace('/(parent)/tasks')} />
     </Screen>
   );
@@ -392,98 +421,88 @@ export default function TaskDetailScreen() {
         <AppText style={[styles.backLabel, { color: theme.mutedForeground }]}>‹ Back to Tasks</AppText>
       </Pressable>
 
+      <GradientHeader
+        tone="teal"
+        icon="checkbox"
+        eyebrow={[
+          task.taskTag === 'primary' ? 'Must do' : 'Bonus',
+          task.difficulty ? DIFFICULTY_LABEL[task.difficulty] ?? task.difficulty : null,
+          task.status !== 'active' ? (task.status === 'archived' ? 'Archived' : 'Paused') : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        title={task.title}
+        subtitle={task.description ?? undefined}
+      />
+
+      <View style={styles.headerActions}>
+        <View style={styles.grow}>
+          <Button
+            label="Edit"
+            variant="soft"
+            onPress={() => router.push({ pathname: '/(parent)/task-form', params: { id } })}
+          />
+        </View>
+        <View style={styles.grow}>
+          <Button
+            label={task.status === 'archived' ? 'Restore' : 'Archive'}
+            variant={task.status === 'archived' ? 'soft' : 'softDanger'}
+            busy={statusBusy}
+            disabled={statusBusy}
+            onPress={() => {
+              setStatusBusy(true);
+              statusMutation.mutate({ taskId: id, archived: task.status === 'archived' });
+            }}
+          />
+        </View>
+      </View>
+
       <Card>
-        <View style={styles.headerTop}>
-          <View style={styles.headerTitleBlock}>
-            <View style={styles.badgeRow}>
-              <AppText style={[styles.badge, { color: theme.mutedForeground }]}>{task.difficulty}</AppText>
-              <AppText style={[styles.badge, { color: theme.mutedForeground }]}>
-                {task.taskTag === 'primary' ? 'Primary' : 'Secondary'}
-              </AppText>
-              {task.status !== 'active' && (
-                <AppText style={[styles.badge, { color: theme.mutedForeground }]}>{task.status}</AppText>
-              )}
-            </View>
-            <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>
-              {task.title}
-            </AppText>
-            {task.description && (
-              <AppText style={[styles.description, { color: theme.mutedForeground }]}>
-                {task.description}
-              </AppText>
-            )}
-          </View>
-
-          <View style={styles.headerActions}>
-            <Button
-              label="Edit"
-              variant="secondary"
-              onPress={() => router.push({ pathname: '/(parent)/task-form', params: { id } })}
-            />
-            <Button
-              label={task.status === 'archived' ? 'Restore' : 'Archive'}
-              variant="secondary"
-              busy={statusBusy}
-              disabled={statusBusy}
-              onPress={() => {
-                setStatusBusy(true);
-                statusMutation.mutate({ taskId: id, archived: task.status === 'archived' });
-              }}
-            />
-          </View>
-        </View>
-
-        <View style={styles.metaList}>
-          <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-            {task.pointsValue} points
-          </AppText>
-          {due !== null && (
-            <AppText style={[styles.meta, { color: overdue ? theme.destructive : theme.cardForeground }]}>
-              Due {due}
-            </AppText>
-          )}
-          {task.estimatedMinutes != null && (
-            <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-              {task.estimatedMinutes} min
-            </AppText>
-          )}
-          {task.category && (
-            <AppText style={[styles.meta, { color: theme.cardForeground }]}>{task.category}</AppText>
-          )}
-          {task.requiresPhotoEvidence && (
-            <AppText style={[styles.meta, { color: theme.cardForeground }]}>Photo required</AppText>
-          )}
-          {task.isRecurring && (
-            <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-              Recurring{task.recurrencePattern ? ` · ${task.recurrencePattern}` : ''}
-            </AppText>
-          )}
-          {task.maxClaimsTotal != null && (
-            <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-              Max {task.maxClaimsTotal} claims
-            </AppText>
-          )}
-          {task.creator && (
-            <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-              Created by {task.creator.firstName} {task.creator.lastName}
-            </AppText>
-          )}
-        </View>
+        <InfoRow icon="star" tone="gold" label="Worth" value={`${task.pointsValue} points`} />
+        {due !== null && (
+          // Overdue is worded by `dueLabel` ("2 days overdue") as well as coloured.
+          <InfoRow icon="calendar" tone="primary" label="Due" value={due} alert={overdue} />
+        )}
+        {task.estimatedMinutes != null && (
+          <InfoRow icon="time" tone="xp" label="Takes" value={`${task.estimatedMinutes} min`} />
+        )}
+        {task.category && <InfoRow icon="pricetag" tone="peach" label="Category" value={task.category} />}
+        <InfoRow
+          icon="camera"
+          tone="peach"
+          label="Photo"
+          value={task.requiresPhotoEvidence ? 'Required' : 'Not needed'}
+        />
+        {task.isRecurring && (
+          <InfoRow
+            icon="repeat"
+            tone="success"
+            label="Repeats"
+            value={task.recurrencePattern ? task.recurrencePattern.charAt(0).toUpperCase() + task.recurrencePattern.slice(1) : 'Yes'}
+          />
+        )}
+        {task.maxClaimsTotal != null && (
+          <InfoRow icon="people" tone="xp" label="Claim limit" value={`${task.maxClaimsTotal} children`} />
+        )}
+        {task.creator && (
+          <InfoRow
+            icon="person"
+            tone="primary"
+            label="Created by"
+            value={`${task.creator.firstName} ${task.creator.lastName}`}
+          />
+        )}
       </Card>
 
       {resetError !== null && (
-        <Card style={{ borderColor: theme.destructive }}>
-          <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
-            {resetError}
-          </AppText>
-        </Card>
+        <Callout kind="danger" live>
+          {resetError}
+        </Callout>
       )}
 
       {active.length > 0 && (
         <View style={styles.section}>
-          <AppText style={[styles.sectionTitle, { color: theme.foreground }]}>
-            Active assignments
-          </AppText>
+          <SectionTitle title="Active assignments" icon="hourglass" tone="warning" />
           {active.map((a) => (
             <AssignmentCard
               key={a.id}
@@ -498,9 +517,7 @@ export default function TaskDetailScreen() {
 
       {resolved.length > 0 && (
         <View style={styles.section}>
-          <AppText style={[styles.sectionTitle, { color: theme.foreground }]}>
-            Completed assignments
-          </AppText>
+          <SectionTitle title="Completed assignments" icon="checkmark-circle" tone="success" />
           {resolved.map((a) => (
             <AssignmentCard
               key={a.id}
@@ -514,11 +531,7 @@ export default function TaskDetailScreen() {
       )}
 
       {task.assignments.length === 0 && (
-        <Card>
-          <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-            No assignments yet. Edit the task to assign children.
-          </AppText>
-        </Card>
+        <EmptyState emoji="🧒" title="No assignments yet." message="Edit the task to assign children." />
       )}
       <PhotoViewer uri={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </Screen>
@@ -528,29 +541,27 @@ export default function TaskDetailScreen() {
 const styles = StyleSheet.create({
   backRow: { minHeight: minTouchTarget, justifyContent: 'center', marginBottom: spacing[2] },
   backLabel: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
-  headerTitleBlock: { flex: 1 },
-  headerActions: { gap: spacing[2] },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3], marginBottom: spacing[1] },
-  badge: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight, textTransform: 'capitalize', fontWeight: fontWeight.medium },
-  title: { fontSize: fontSize.xl.fontSize, lineHeight: fontSize.xl.lineHeight, fontWeight: fontWeight.bold },
-  description: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[2] },
-  metaList: { marginTop: spacing[4], gap: spacing[2] },
+  grow: { flex: 1 },
+  headerActions: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[4] },
   meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  section: { marginTop: spacing[2] },
-  sectionTitle: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, fontWeight: fontWeight.semibold, marginBottom: spacing[3] },
-  assignmentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing[3], marginBottom: spacing[2] },
+  section: { marginTop: spacing[1] },
+  assignmentHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   assignmentChild: { flex: 1 },
   childName: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, fontWeight: fontWeight.semibold },
-  statusBadge: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight, fontWeight: fontWeight.medium, marginTop: spacing[1] },
-  evidenceSection: { marginTop: spacing[3] },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[1], marginTop: spacing[3] },
+  inline: { marginTop: spacing[3], marginBottom: -spacing[4] },
+  resetRow: { marginTop: spacing[3], alignSelf: 'flex-start' },
+  evidenceSection: { marginTop: spacing[4] },
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[2] },
-  photo: { width: 88, height: 88, borderRadius: radius.md, borderWidth: 1 },
-  noteText: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, fontStyle: 'italic', marginTop: spacing[1] },
+  photo: { width: 120, height: 120, borderRadius: radius.lg },
+  quote: { borderRadius: radius.lg, padding: spacing[3], marginTop: spacing[1] },
+  noteText: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, fontStyle: 'italic' },
   commentBox: { marginTop: spacing[4], paddingTop: spacing[3] },
   commentHeading: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight, fontWeight: fontWeight.bold, textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing[2] },
-  commentRow: { marginBottom: spacing[2] },
-  commentAuthor: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, fontWeight: fontWeight.semibold },
+  bubble: { borderRadius: radius.lg, paddingHorizontal: spacing[3], paddingVertical: spacing[2], marginBottom: spacing[2], maxWidth: '88%' },
+  bubbleTheirs: { alignSelf: 'flex-start', borderBottomLeftRadius: spacing[1] },
+  bubbleMine: { alignSelf: 'flex-end', borderBottomRightRadius: spacing[1] },
+  commentAuthor: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight, fontWeight: fontWeight.bold },
   commentComposer: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2], marginTop: spacing[2] },
   commentField: { flex: 1 },
 });
