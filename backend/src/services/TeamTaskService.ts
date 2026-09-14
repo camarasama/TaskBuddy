@@ -23,6 +23,7 @@
  */
 
 import { prisma } from './database';
+import { creditPoints } from './PointsWallet';
 
 export interface TeamMemberState {
   childId: string;
@@ -114,22 +115,16 @@ export async function awardTeamBonusIfComplete(
     const bonus = task.teamBonusPoints;
     const childIds = task.assignments.map((a) => a.childId);
 
-    // Sequential rather than parallel: each child's ledger row needs its own balanceAfter, which
-    // has to be read and written without another write landing in between.
+    // One transaction per child, so each ledger row carries that child's own balanceAfter.
     for (const childId of childIds) {
       await prisma.$transaction(async (tx) => {
         const profile = await tx.childProfile.findUnique({
           where: { userId: childId },
-          select: { pointsBalance: true },
+          select: { userId: true },
         });
         if (!profile) return;
 
-        const balanceAfter = profile.pointsBalance + bonus;
-
-        await tx.childProfile.update({
-          where: { userId: childId },
-          data: { pointsBalance: balanceAfter, totalPointsEarned: { increment: bonus } },
-        });
+        const balanceAfter = await creditPoints(tx, childId, bonus, { totalPointsEarned: { increment: bonus } });
 
         // Through the LEDGER, never a direct balance write — the rule from U8. A balance moved
         // without a matching row makes PointsLedgerReport stop reconciling.

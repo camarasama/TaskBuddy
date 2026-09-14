@@ -13,6 +13,7 @@
  */
 
 import { prisma } from './database';
+import { creditPoints } from './PointsWallet';
 
 const CHALLENGE_TYPE = 'task_count';
 
@@ -203,22 +204,13 @@ export async function completeChallenge(
   const bonus = challenge.bonusPoints;
 
   return prisma.$transaction(async (tx) => {
-    const profile = await tx.childProfile.findUnique({
-      where: { userId: childId },
-      select: { pointsBalance: true },
-    });
-    const newBalance = (profile?.pointsBalance ?? 0) + bonus;
-
     // The completion row is what makes this idempotent; the unique constraint will reject a racing
     // second call, so a concurrent double-claim fails rather than double-awarding.
     await tx.challengeCompletion.create({
       data: { challengeId, childId, bonusPointsAwarded: bonus },
     });
 
-    await tx.childProfile.update({
-      where: { userId: childId },
-      data: { pointsBalance: newBalance },
-    });
+    const newBalance = await creditPoints(tx, childId, bonus);
 
     await tx.pointsLedger.create({
       data: {

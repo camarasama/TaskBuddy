@@ -6,6 +6,7 @@ import { SocketService } from './SocketService';
 import { createNotification } from '../routes/notifications';
 import { checkRedemptionCaps, getRewardCapData } from '../utils/rewardCaps';
 import { NotFoundError, ConflictError, ValidationError } from '../middleware/errorHandler';
+import { debitPoints, lockKey } from './PointsWallet';
 
 interface RedeemParams {
   rewardId: string;
@@ -61,15 +62,26 @@ export class RewardService {
     });
 
     const result = await prisma.$transaction(async (tx) => {
-      const newBalance = profile.pointsBalance - reward.pointsCost;
+      // The checks above give a friendly message; these are the enforcement. Parallel redeems of one
+      // reward queue on the lock, so the cap re-count sees every redemption committed before ours,
+      // and the debit refuses a spend the balance no longer covers.
+      await lockKey(tx, `reward:${reward.id}`);
+      const capRecheck = await checkRedemptionCaps(reward.id, childId, {
+        expiresAt: reward.expiresAt,
+        maxRedemptionsTotal: reward.maxRedemptionsTotal,
+        maxRedemptionsPerChild: reward.maxRedemptionsPerChild,
+      }, tx);
+      if (!capRecheck.allowed) throw new ConflictError(capRecheck.reason!);
+
+      const newBalance = await debitPoints(
+        tx,
+        childId,
+        reward.pointsCost,
+        `Not enough points. You need ${reward.pointsCost} for this reward.`,
+      );
 
       const redemption = await tx.rewardRedemption.create({
         data: { rewardId: reward.id, childId, pointsSpent: reward.pointsCost, status: 'pending' },
-      });
-
-      await tx.childProfile.update({
-        where: { userId: childId },
-        data: { pointsBalance: newBalance },
       });
 
       await tx.pointsLedger.create({
@@ -220,25 +232,29 @@ export class RewardService {
       );
     }
 
-    // Don't let a child overshoot the goal — cap the contribution at what's still needed.
-    const priorTotal = await prisma.rewardContribution.aggregate({
-      where: { rewardId },
-      _sum: { points: true },
-    });
-    const alreadyPooled = priorTotal._sum.points ?? 0;
-    const remaining = reward.pointsCost - alreadyPooled;
-    if (remaining <= 0) throw new ConflictError('This reward has already been fully funded.');
-    const applied = Math.min(points, remaining);
-
     const result = await prisma.$transaction(async (tx) => {
-      const newBalance = profile.pointsBalance - applied;
+      // Parallel contributions queue on the lock, so the pooled total below includes every
+      // contribution committed before ours and two children cannot both fill the same last gap.
+      await lockKey(tx, `reward:${rewardId}`);
+
+      // Don't let a child overshoot the goal: cap the contribution at what's still needed.
+      const priorTotal = await tx.rewardContribution.aggregate({
+        where: { rewardId },
+        _sum: { points: true },
+      });
+      const alreadyPooled = priorTotal._sum.points ?? 0;
+      const remaining = reward.pointsCost - alreadyPooled;
+      if (remaining <= 0) throw new ConflictError('This reward has already been fully funded.');
+      const applied = Math.min(points, remaining);
+
+      const newBalance = await debitPoints(
+        tx,
+        childId,
+        applied,
+        `Not enough points. You tried to contribute ${applied}.`,
+      );
 
       await tx.rewardContribution.create({ data: { rewardId, childId, points: applied } });
-
-      await tx.childProfile.update({
-        where: { userId: childId },
-        data: { pointsBalance: newBalance },
-      });
 
       await tx.pointsLedger.create({
         data: {

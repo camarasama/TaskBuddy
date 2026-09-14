@@ -38,6 +38,10 @@ export interface RewardCapData {
  * @param rewardId  - the reward being redeemed
  * @param childId   - the child attempting the redemption
  * @param reward    - pre-fetched reward object (avoids an extra DB round-trip)
+ * @param db        - the transaction to count inside, when called under the reward lock. It must
+ *                    be the SAME connection: counting through the root client while a transaction
+ *                    holds the lock takes a second pooled connection per waiter, and ten parallel
+ *                    redeems starved the pool until every transaction timed out.
  * @returns CapCheckResult
  */
 export async function checkRedemptionCaps(
@@ -47,7 +51,8 @@ export async function checkRedemptionCaps(
     expiresAt: Date | null;
     maxRedemptionsTotal: number | null;
     maxRedemptionsPerChild: number | null;
-  }
+  },
+  db: Pick<typeof prisma, 'rewardRedemption'> = prisma,
 ): Promise<CapCheckResult> {
 
   // ── Gate 1: Expiry ──────────────────────────────────────────────────────────
@@ -65,7 +70,7 @@ export async function checkRedemptionCaps(
 
   // ── Gate 2: Household total cap ─────────────────────────────────────────────
   if (reward.maxRedemptionsTotal !== null && reward.maxRedemptionsTotal !== undefined) {
-    const totalUsed = await prisma.rewardRedemption.count({
+    const totalUsed = await db.rewardRedemption.count({
       where: {
         rewardId,
         status: { not: 'cancelled' },
@@ -83,7 +88,7 @@ export async function checkRedemptionCaps(
 
   // ── Gate 3: Per-child cap ───────────────────────────────────────────────────
   if (reward.maxRedemptionsPerChild !== null && reward.maxRedemptionsPerChild !== undefined) {
-    const childUsed = await prisma.rewardRedemption.count({
+    const childUsed = await db.rewardRedemption.count({
       where: {
         rewardId,
         childId,

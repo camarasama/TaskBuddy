@@ -5,8 +5,20 @@
  */
 jest.mock('../src/services/database', () => {
   const tx = {
-    rewardContribution: { create: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
-    childProfile: { update: jest.fn() },
+    rewardContribution: { aggregate: jest.fn(() => outer.rewardContribution.aggregate()), create: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
+    // Wallet writes (see PointsWallet): a guarded decrement that honours the balance the test set on
+    // the outer findUnique mock, and the read-back that follows it. `$executeRaw` is the reward lock.
+    childProfile: {
+      update: jest.fn(),
+      updateMany: jest.fn(async ({ where, data }: any) => {
+        const profile = await outer.childProfile.findUnique();
+        if (!profile || profile.pointsBalance < where.pointsBalance.gte) return { count: 0 };
+        profile.pointsBalance -= data.pointsBalance.decrement;
+        return { count: 1 };
+      }),
+      findUnique: jest.fn(() => outer.childProfile.findUnique()),
+    },
+    $executeRaw: jest.fn().mockResolvedValue(1),
     pointsLedger: { create: jest.fn() },
     reward: { updateMany: jest.fn() },
     // Funding now also records WHO paid: one redemption row per contributor, so a funded shared
@@ -14,15 +26,14 @@ jest.mock('../src/services/database', () => {
     // here so this file keeps testing the contribution accounting it was written for.
     rewardRedemption: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
   };
-  return {
-    prisma: {
-      reward: { findFirst: jest.fn() },
-      childProfile: { findUnique: jest.fn() },
-      rewardContribution: { aggregate: jest.fn() },
-      $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
-      __tx: tx,
-    },
+  const outer: any = {
+    reward: { findFirst: jest.fn() },
+    childProfile: { findUnique: jest.fn() },
+    rewardContribution: { aggregate: jest.fn() },
+    $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
+    __tx: tx,
   };
+  return { prisma: outer };
 });
 jest.mock('../src/services/achievements', () => ({ checkAndUnlockAchievements: jest.fn() }));
 jest.mock('../src/services/AuditService', () => ({

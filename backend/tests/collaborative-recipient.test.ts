@@ -16,22 +16,33 @@
 
 jest.mock('../src/services/database', () => {
   const tx = {
-    rewardContribution: { create: jest.fn(), groupBy: jest.fn() },
-    childProfile: { update: jest.fn() },
+    rewardContribution: { aggregate: jest.fn(() => outer.rewardContribution.aggregate()), create: jest.fn(), groupBy: jest.fn() },
+    // Wallet writes (see PointsWallet): a guarded decrement that honours the balance the test set on
+    // the outer findUnique mock, and the read-back that follows it. `$executeRaw` is the reward lock.
+    childProfile: {
+      update: jest.fn(),
+      updateMany: jest.fn(async ({ where, data }: any) => {
+        const profile = await outer.childProfile.findUnique();
+        if (!profile || profile.pointsBalance < where.pointsBalance.gte) return { count: 0 };
+        profile.pointsBalance -= data.pointsBalance.decrement;
+        return { count: 1 };
+      }),
+      findUnique: jest.fn(() => outer.childProfile.findUnique()),
+    },
+    $executeRaw: jest.fn().mockResolvedValue(1),
     pointsLedger: { create: jest.fn() },
     reward: { updateMany: jest.fn() },
     rewardRedemption: { createMany: jest.fn() },
   };
-  return {
-    prisma: {
-      reward: { findFirst: jest.fn() },
-      childProfile: { findUnique: jest.fn() },
-      rewardContribution: { aggregate: jest.fn() },
-      rewardRedemption: { findMany: jest.fn(), updateMany: jest.fn() },
-      $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
-      __tx: tx,
-    },
+  const outer: any = {
+    reward: { findFirst: jest.fn() },
+    childProfile: { findUnique: jest.fn() },
+    rewardContribution: { aggregate: jest.fn() },
+    rewardRedemption: { findMany: jest.fn(), updateMany: jest.fn() },
+    $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
+    __tx: tx,
   };
+  return { prisma: outer };
 });
 
 jest.mock('../src/services/AuditService', () => ({ AuditService: { logAction: jest.fn() } }));
@@ -123,7 +134,7 @@ describe('contribute — the completing contribution', () => {
     await RewardService.contribute({ rewardId: REWARD, familyId: FAMILY, childId: 'esi', points: 100 });
 
     // One profile update and one ledger row: the contribution itself. Fulfilment adds neither.
-    expect(p.__tx.childProfile.update).toHaveBeenCalledTimes(1);
+    expect(p.__tx.childProfile.updateMany).toHaveBeenCalledTimes(1);
     expect(p.__tx.pointsLedger.create).toHaveBeenCalledTimes(1);
   });
 

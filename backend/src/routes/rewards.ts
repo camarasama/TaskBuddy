@@ -19,7 +19,8 @@ import { GoalService } from '../services/GoalService';
 import { toSkipTake, buildMeta } from '../utils/pagination';
 import { authenticate, requireParent, familyIsolation } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
-import { NotFoundError, ForbiddenError } from '../middleware/errorHandler';
+import { NotFoundError, ForbiddenError, ConflictError } from '../middleware/errorHandler';
+import { claimed, creditPoints } from '../services/PointsWallet';
 import { getRewardCapData } from '../utils/rewardCaps';
 // M8 - Audit logging for all mutating reward routes
 import { AuditService } from '../services/AuditService';
@@ -576,21 +577,18 @@ rewardRouter.put('/redemptions/:id/cancel', async (req, res, next) => {
     }
 
     await prisma.$transaction(async (tx) => {
-      const profile = await tx.childProfile.findUnique({
-        where: { userId: redemption.childId },
-      });
+      // Claim the cancellation before refunding. The lookup above ran outside this transaction, so
+      // parallel cancels of one redemption all saw it pending; only the one that flips the status
+      // gets to refund.
+      const won = await claimed(
+        tx.rewardRedemption.updateMany({
+          where: { id: req.params.id, status: 'pending' },
+          data: { status: 'cancelled' },
+        }),
+      );
+      if (!won) throw new ConflictError('This redemption has already been cancelled or fulfilled.');
 
-      const newBalance = profile!.pointsBalance + redemption.pointsSpent;
-
-      await tx.rewardRedemption.update({
-        where: { id: req.params.id },
-        data: { status: 'cancelled' },
-      });
-
-      await tx.childProfile.update({
-        where: { userId: redemption.childId },
-        data: { pointsBalance: newBalance },
-      });
+      const newBalance = await creditPoints(tx, redemption.childId, redemption.pointsSpent);
 
       await tx.pointsLedger.create({
         data: {
