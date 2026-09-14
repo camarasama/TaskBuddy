@@ -45,7 +45,13 @@ export const TINT: Record<AccentTone, TintPair> = {
   destructive: { fill: palette.destructive[100], ink: palette.destructive[700], textInk: palette.destructive[700] },
 };
 
-export type GradientTone = 'brand' | 'teal' | 'success' | 'gold' | 'peach';
+/**
+ * `amber` and `danger` joined for the parent pass. Amber means "someone is waiting on you" (the
+ * approvals queue); danger is reserved for deleting the family account and nothing else, so a red
+ * header can never be mistaken for a routine screen. Warning 900 on warning 300 is 6.29:1; white on
+ * destructive 600 is 6.47:1.
+ */
+export type GradientTone = 'brand' | 'teal' | 'success' | 'gold' | 'peach' | 'amber' | 'danger';
 
 export interface GradientSpec {
   /** Stops for `expo-linear-gradient`, drawn top-left to bottom-right. */
@@ -65,4 +71,6 @@ export const GRADIENT: Record<GradientTone, GradientSpec> = {
   success: { colors: [palette.success[700], palette.primary[600]], ink: WHITE, badgeInk: palette.success[700] },
   gold: { colors: [palette.gold[300], palette.gold[400]], ink: palette.gold[900], badgeInk: palette.gold[700] },
   peach: { colors: [palette.peach[200], palette.peach[300]], ink: palette.peach[900], badgeInk: palette.peach[700] },
+  amber: { colors: [palette.warning[200], palette.warning[300]], ink: palette.warning[900], badgeInk: palette.warning[800] },
+  danger: { colors: [palette.destructive[600], palette.destructive[700]], ink: WHITE, badgeInk: palette.destructive[700] },
 };

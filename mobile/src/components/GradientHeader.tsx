@@ -14,11 +14,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import type { IoniconName } from '@/components/IconTile';
-import { elevation, fontSize, fontWeight, onGradient, radius, spacing } from '@/theme';
+import { elevation, fontSize, fontWeight, minTouchTarget, onGradient, radius, spacing } from '@/theme';
 import { GRADIENT, type GradientTone } from '@/theme/accents';
 
 interface GradientHeaderProps {
@@ -34,6 +34,19 @@ interface GradientHeaderProps {
   badge?: ReactNode;
   /** Rendered under the text: a progress bar or a row of chips. */
   children?: ReactNode;
+  /**
+   * White pill buttons on the band itself: a screen's main creation action ("New task") or the actions
+   * on the thing the header names ("Edit", "Archive"). Fixed white, like the games picker's "Play now",
+   * because a themed button would turn into a grey slab on the gradient in dark mode.
+   */
+  actions?: HeaderAction[];
+}
+
+export interface HeaderAction {
+  label: string;
+  icon?: IoniconName;
+  onPress: () => void;
+  disabled?: boolean;
 }
 
 export function GradientHeader({
@@ -45,6 +58,7 @@ export function GradientHeader({
   icon,
   badge,
   children,
+  actions,
 }: GradientHeaderProps) {
   const spec = GRADIENT[tone];
   const hasBadge = Boolean(badge || emoji || icon);
@@ -93,6 +107,27 @@ export function GradientHeader({
             ) : null}
           </View>
         </View>
+        {actions && actions.length > 0 ? (
+          <View style={styles.actions}>
+            {actions.map((action) => (
+              <Pressable
+                key={action.label}
+                onPress={action.onPress}
+                disabled={action.disabled}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                accessibilityState={{ disabled: action.disabled }}
+                style={({ pressed }) => [
+                  styles.action,
+                  { backgroundColor: onGradient, opacity: action.disabled ? 0.6 : pressed ? 0.85 : 1 },
+                ]}
+              >
+                {action.icon ? <Ionicons name={action.icon} size={16} color={spec.badgeInk} /> : null}
+                <AppText style={[styles.actionLabel, { color: spec.badgeInk }]}>{action.label}</AppText>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         {children ? <View style={styles.extra}>{children}</View> : null}
       </LinearGradient>
     </View>
@@ -135,4 +170,14 @@ const styles = StyleSheet.create({
     marginTop: spacing[1],
   },
   extra: { marginTop: spacing[4] },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[4] },
+  action: {
+    minHeight: minTouchTarget,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing[4],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  actionLabel: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, fontWeight: fontWeight.semibold },
 });

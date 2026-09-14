@@ -17,9 +17,16 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
+import { Chip } from '@/components/Chip';
+import { EmptyState } from '@/components/EmptyState';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile } from '@/components/IconTile';
 import { Screen } from '@/components/Screen';
+import { SectionTitle } from '@/components/SectionTitle';
 import { NetworkError } from '@/lib/api';
 import { dashboardQuery } from '@/lib/dashboardApi';
 import { asDate } from '@/lib/dates';
@@ -56,25 +63,33 @@ function DeviceRow({
   onRevoke: () => void;
 }) {
   const theme = useTheme();
+  const isApp = session.client.startsWith('taskbuddy-android');
 
   return (
     <Card style={session.isCurrent ? { borderColor: theme.primary, borderWidth: 2 } : undefined}>
-      <AppText style={[styles.name, { color: theme.cardForeground }]}>
-        {owner ? `${owner} — ` : ''}
-        {deviceLabel(session)}
-        {session.isCurrent ? ' (this device)' : ''}
-      </AppText>
-      <AppText style={[styles.meta, { color: theme.mutedForeground }]}>{lastSeen(session)}</AppText>
-      {session.ipAddress && (
-        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-          From {session.ipAddress}
-        </AppText>
-      )}
+      <View style={styles.row}>
+        <IconTile tone={isApp ? 'primary' : 'xp'} icon={isApp ? 'phone-portrait' : 'desktop'} size={44} />
+        <View style={styles.grow}>
+          <View style={styles.nameRow}>
+            <AppText style={[styles.name, { color: theme.cardForeground }]}>
+              {owner ? `${owner}: ` : ''}
+              {deviceLabel(session)}
+            </AppText>
+            {session.isCurrent && <Chip compact variant="primary" label="This device" />}
+          </View>
+          <AppText style={[styles.meta, { color: theme.mutedForeground }]}>{lastSeen(session)}</AppText>
+          {session.ipAddress && (
+            <AppText style={[styles.meta, { color: theme.mutedForeground }]}>From {session.ipAddress}</AppText>
+          )}
+        </View>
+      </View>
 
       <View style={styles.action}>
+        {/* Your own device is soft teal: signing yourself out is a legitimate choice, not a danger.
+            Anyone else's is soft red, because it ends a session somebody else is using. */}
         <Button
           label={session.isCurrent ? 'Sign out this device' : 'Sign out'}
-          variant="secondary"
+          variant={session.isCurrent ? 'soft' : 'softDanger'}
           onPress={onRevoke}
           disabled={busy}
         />
@@ -131,9 +146,23 @@ export default function Devices() {
     [invalidate]
   );
 
+  const header = (
+    <>
+      <BackLink label="Back" />
+      <GradientHeader
+        tone="teal"
+        icon="phone-portrait"
+        eyebrow="Security"
+        title="Signed-in devices"
+        subtitle="Signing a device out ends its session straight away. It will need to sign in again."
+      />
+    </>
+  );
+
   if (mine.isPending || children.isPending) {
     return (
       <Screen>
+        {header}
         <Card>
           <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Loading devices…</AppText>
         </Card>
@@ -146,23 +175,17 @@ export default function Devices() {
     const offline = error instanceof NetworkError;
     return (
       <Screen scroll>
-        <Card>
-          <AppText style={[styles.name, { color: theme.destructive }]}>
-            {offline ? 'No connection' : 'Could not load devices'}
-          </AppText>
-          <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-            {describeError(error)}
-          </AppText>
-        </Card>
-        <View style={styles.action}>
-          <Button
-            label="Try again"
-            onPress={() => {
-              void mine.refetch();
-              void children.refetch();
-            }}
-          />
-        </View>
+        {header}
+        <Callout kind="danger" title={offline ? 'No connection' : 'Could not load devices'} live>
+          {describeError(error)}
+        </Callout>
+        <Button
+          label="Try again"
+          onPress={() => {
+            void mine.refetch();
+            void children.refetch();
+          }}
+        />
       </Screen>
     );
   }
@@ -170,26 +193,17 @@ export default function Devices() {
   return (
     <Screen>
       <ScrollView>
-        <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-          Signed-in devices
-        </AppText>
-        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-          Signing a device out ends its session immediately. It will need to sign in again.
-        </AppText>
+        {header}
 
         {actionError !== null && (
-          <Card style={{ borderColor: theme.destructive, borderWidth: 1 }}>
-            <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
-              {actionError}
-            </AppText>
-          </Card>
+          <Callout kind="danger" live>
+            {actionError}
+          </Callout>
         )}
 
-        <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>YOUR DEVICES</AppText>
+        <SectionTitle title="Your devices" icon="phone-portrait" tone="primary" />
         {mine.data.sessions.length === 0 ? (
-          <Card>
-            <AppText style={[styles.meta, { color: theme.cardForeground }]}>None signed in.</AppText>
-          </Card>
+          <EmptyState emoji="📱" title="None signed in." />
         ) : (
           mine.data.sessions.map((session) => (
             <DeviceRow
@@ -202,15 +216,9 @@ export default function Devices() {
           ))
         )}
 
-        <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>
-          YOUR CHILDREN&apos;S DEVICES
-        </AppText>
+        <SectionTitle title="Your children's devices" icon="people" tone="xp" />
         {children.data.sessions.length === 0 ? (
-          <Card>
-            <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-              No child has signed in on a device yet.
-            </AppText>
-          </Card>
+          <EmptyState emoji="📱" title="No child has signed in on a device yet." />
         ) : (
           children.data.sessions.map((session) => (
             <DeviceRow
@@ -224,30 +232,19 @@ export default function Devices() {
         )}
 
         {/* Stated because its absence is a deliberate decision, not an oversight. */}
-        <Card>
-          <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-            You can&apos;t sign out another parent&apos;s devices — only they can do that from their
-            own account.
-          </AppText>
-        </Card>
+        <Callout kind="info">
+          You can&apos;t sign out another parent&apos;s devices. Only they can do that, from their own
+          account.
+        </Callout>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  sectionTitle: {
-    fontSize: fontSize.xs.fontSize,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1,
-    marginTop: spacing[5],
-    marginBottom: spacing[2],
-  },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
+  grow: { flex: 1 },
+  nameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[2] },
   name: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,

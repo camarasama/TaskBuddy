@@ -12,14 +12,20 @@
  * one-tap reject with no explanation is the interaction most likely to cause a bad evening in a real
  * family, so it costs a sentence.
  */
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
-import { AppText } from '@/components/AppText';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { AppText } from '@/components/AppText';
+import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
+import { Chip } from '@/components/Chip';
+import { EmptyState } from '@/components/EmptyState';
 import { Field } from '@/components/Field';
+import { GradientHeader } from '@/components/GradientHeader';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { Screen } from '@/components/Screen';
 import { NetworkError } from '@/lib/api';
@@ -61,32 +67,35 @@ function EvidenceBlock({
 
   return (
     <View style={styles.evidence}>
-      {photos.length > 0 && (
-        <View style={styles.photoRow}>
-          {photos.map((photo) => (
-            // Tappable: `cover` crops the thumbnail to fill, so the grid alone never shows the whole
-            // photo. Approving on the strength of a crop is not reviewing the work.
-            <Pressable
-              key={photo.id}
-              onPress={() => onOpenPhoto(photo.fileUrl as string)}
-              accessibilityRole="imagebutton"
-              accessibilityLabel="Open photo submitted as evidence"
-              accessibilityHint="Shows the photo full screen"
-            >
-              <Image
-                // Presigned and short-lived — never persisted anywhere. See approvalsApi.ts.
-                source={{ uri: photo.fileUrl as string }}
-                style={[styles.photo, { borderColor: theme.border }]}
-                resizeMode="cover"
-              />
-            </Pressable>
-          ))}
-        </View>
-      )}
+      {/* Full width rather than the old 96dp thumbnail: judging whether a room is tidy from a stamp-sized
+          picture is the decision this screen exists for. Tapping still opens the full-screen viewer. */}
+      {photos.map((photo) => (
+        <Pressable
+          key={photo.id}
+          onPress={() => onOpenPhoto(photo.fileUrl as string)}
+          accessibilityRole="imagebutton"
+          accessibilityLabel="Open photo submitted as evidence"
+          accessibilityHint="Shows the photo full screen"
+        >
+          {/* Presigned and short-lived, never persisted anywhere. See approvalsApi.ts. */}
+          <Image
+            source={{ uri: photo.fileUrl as string }}
+            style={[styles.photo, { backgroundColor: theme.muted }]}
+            resizeMode="cover"
+          />
+        </Pressable>
+      ))}
       {notes.map((note) => (
-        <AppText key={note.id} style={[styles.note, { color: theme.cardForeground }]}>
-          &ldquo;{note.note}&rdquo;
-        </AppText>
+        <View key={note.id} style={[styles.quote, { backgroundColor: theme.muted }]}>
+          <Ionicons
+            name="chatbubble-ellipses-outline"
+            size={16}
+            color={theme.mutedForeground}
+            importantForAccessibility="no"
+            accessibilityElementsHidden
+          />
+          <AppText style={[styles.note, { color: theme.cardForeground }]}>&ldquo;{note.note}&rdquo;</AppText>
+        </View>
       ))}
     </View>
   );
@@ -114,16 +123,19 @@ function ApprovalRow({
 
   return (
     <Card>
-      <View style={styles.rowHeader}>
-        <AppText style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
-          {item.task.title}
-        </AppText>
-        <AppText style={[styles.points, { color: theme.foreground }]}>{item.task.pointsValue} pts</AppText>
+      <View style={styles.childRow}>
+        <Avatar seed={item.child.id} name={item.child.firstName} size={40} />
+        <View style={styles.grow}>
+          <AppText style={[styles.childName, { color: theme.cardForeground }]}>{item.child.firstName}</AppText>
+          {submitted ? (
+            <AppText style={[styles.meta, { color: theme.mutedForeground }]}>{submitted}</AppText>
+          ) : null}
+        </View>
+        <Chip compact variant="gold" icon="star" label={`${item.task.pointsValue} pts`} />
       </View>
 
-      <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-        {item.child.firstName}
-        {submitted ? ` · ${submitted}` : ''}
+      <AppText style={[styles.taskTitle, { color: theme.cardForeground }]} numberOfLines={2}>
+        {item.task.title}
       </AppText>
 
       {item.task.description ? (
@@ -135,14 +147,16 @@ function ApprovalRow({
       <EvidenceBlock evidence={item.evidence} onOpenPhoto={onOpenPhoto} />
 
       {/*
-        A task that required a photo but has none is flagged rather than silently approvable — the
+        A task that required a photo but has none is flagged rather than silently approvable: the
         parent should know that before deciding, not after.
       */}
       {item.task.requiresPhotoEvidence &&
         item.evidence.filter((e) => e.evidenceType === 'photo').length === 0 && (
-          <AppText style={[styles.warning, { color: theme.destructive }]}>
-            This task asked for a photo, but none was attached.
-          </AppText>
+          <View style={styles.inlineCallout}>
+            <Callout kind="warning" icon="camera-outline">
+              This task asked for a photo, but none was attached.
+            </Callout>
+          </View>
         )}
 
       {rejecting ? (
@@ -184,12 +198,8 @@ function ApprovalRow({
             <Button label="Approve" onPress={onApprove} busy={busy} disabled={busy} />
           </View>
           <View style={styles.buttonHalf}>
-            <Button
-              label="Send back"
-              variant="secondary"
-              onPress={() => setRejecting(true)}
-              disabled={busy}
-            />
+            {/* Soft teal, not grey: sending back is a real decision, and a grey slab read as disabled. */}
+            <Button label="Send back" variant="soft" onPress={() => setRejecting(true)} disabled={busy} />
           </View>
         </View>
       )}
@@ -197,17 +207,15 @@ function ApprovalRow({
   );
 }
 
-/** Confirmation of what an approval actually did — points, level, streak. */
+/** Confirmation of what an approval actually did: points, level, streak. */
 function ResultBanner({ result, onDismiss }: { result: ApprovalResult; onDismiss: () => void }) {
-  const theme = useTheme();
-
   const parts: string[] = [];
   if (result.pointsAwarded) parts.push(`+${result.pointsAwarded} points`);
   if (result.newLevel) parts.push(`level ${result.newLevel}`);
   if (result.streakUpdated?.currentStreak) {
     parts.push(
       result.streakUpdated.isNewRecord
-        ? `${result.streakUpdated.currentStreak}-day streak — a new record`
+        ? `${result.streakUpdated.currentStreak}-day streak, a new record`
         : `${result.streakUpdated.currentStreak}-day streak`
     );
   }
@@ -215,13 +223,10 @@ function ResultBanner({ result, onDismiss }: { result: ApprovalResult; onDismiss
   if (unlocked > 0) parts.push(`${unlocked} achievement${unlocked === 1 ? '' : 's'} unlocked`);
 
   return (
-    <Pressable onPress={onDismiss} accessibilityRole="button">
-      <Card style={{ borderColor: theme.primary, borderWidth: 2 }}>
-        <AppText accessibilityRole="alert" style={[styles.resultText, { color: theme.cardForeground }]}>
-          Approved{parts.length > 0 ? ` — ${parts.join(', ')}` : ''}.
-        </AppText>
-        <AppText style={[styles.meta, { color: theme.mutedForeground }]}>Tap to dismiss</AppText>
-      </Card>
+    <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityHint="Dismisses this message">
+      <Callout kind="success" icon="sparkles" title="Approved" live>
+        {parts.length > 0 ? `${parts.join(', ')}. Tap to dismiss.` : 'Tap to dismiss.'}
+      </Callout>
     </Pressable>
   );
 }
@@ -275,13 +280,10 @@ export default function Approvals() {
   if (isError) {
     return (
       <Screen>
-        <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Approvals</AppText>
-        <Card>
-          <AppText style={[styles.cardTitle, { color: theme.destructive }]}>
-            {error instanceof NetworkError ? 'No connection' : 'Could not load approvals'}
-          </AppText>
-          <AppText style={[styles.meta, { color: theme.cardForeground }]}>{describeError(error)}</AppText>
-        </Card>
+        <GradientHeader tone="amber" icon="checkmark-done" eyebrow="Approvals" title="Approvals" />
+        <Callout kind="danger" title={error instanceof NetworkError ? 'No connection' : 'Could not load approvals'} live>
+          {describeError(error)}
+        </Callout>
         <Button label="Try again" onPress={() => void refetch()} />
       </Screen>
     );
@@ -289,23 +291,26 @@ export default function Approvals() {
 
   const header = (
     <View>
-      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>Approvals</AppText>
-      <AppText style={[styles.subtitle, { color: theme.mutedForeground }]}>
-        {isPending
-          ? 'Loading…'
-          : assignments.length === 0
-            ? 'Nothing waiting'
-            : `${assignments.length} waiting for you`}
-      </AppText>
+      {/* Amber: the one screen where someone is waiting on you. */}
+      <GradientHeader
+        tone="amber"
+        icon="checkmark-done"
+        eyebrow="Approvals"
+        title={
+          isPending
+            ? 'Loading…'
+            : assignments.length === 0
+              ? 'Nothing waiting'
+              : `${assignments.length} waiting for you`
+        }
+      />
 
       {lastResult && <ResultBanner result={lastResult} onDismiss={() => setLastResult(null)} />}
 
       {actionError !== null && (
-        <Card style={{ borderColor: theme.destructive }}>
-          <AppText accessibilityRole="alert" style={[styles.meta, { color: theme.destructive }]}>
-            {actionError}
-          </AppText>
-        </Card>
+        <Callout kind="danger" live>
+          {actionError}
+        </Callout>
       )}
     </View>
   );
@@ -334,11 +339,7 @@ export default function Approvals() {
               <ActivityIndicator color={theme.primary} />
             </View>
           ) : (
-            <Card>
-              <AppText style={[styles.meta, { color: theme.cardForeground }]}>
-                Nothing is waiting for approval. You&apos;re all caught up.
-              </AppText>
-            </Card>
+            <EmptyState emoji="🎉" title="Nothing is waiting for approval." message="You're all caught up." />
           )
         }
       />
@@ -348,72 +349,26 @@ export default function Approvals() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  subtitle: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    marginTop: spacing[1],
-    marginBottom: spacing[4],
-  },
-  cardTitle: {
-    fontSize: fontSize.xs.fontSize,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: spacing[2],
-  },
   listContent: { paddingBottom: spacing[6] },
-  rowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing[3],
-    marginBottom: spacing[1],
-  },
+  grow: { flex: 1 },
+  childRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  childName: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, fontWeight: fontWeight.semibold },
   taskTitle: {
-    flex: 1,
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
-  },
-  points: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.base.lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  description: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    marginTop: spacing[2],
-  },
-  evidence: { marginTop: spacing[3] },
-  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  photo: { width: 96, height: 96, borderRadius: radius.md, borderWidth: 1 },
-  note: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    fontStyle: 'italic',
-    marginTop: spacing[2],
-  },
-  warning: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    fontWeight: fontWeight.medium,
     marginTop: spacing[3],
   },
+  meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
+  description: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
+  evidence: { marginTop: spacing[3], gap: spacing[2] },
+  // 4:3 rather than square: the child's picker does not crop, so a square frame would chop the photo.
+  photo: { width: '100%', aspectRatio: 4 / 3, borderRadius: radius.lg },
+  quote: { flexDirection: 'row', gap: spacing[2], borderRadius: radius.lg, padding: spacing[3] },
+  note: { flex: 1, fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, fontStyle: 'italic' },
+  inlineCallout: { marginTop: spacing[3], marginBottom: -spacing[4] },
   rejectBox: { marginTop: spacing[4] },
   buttonRow: { flexDirection: 'row', gap: spacing[3], marginTop: spacing[4] },
   buttonHalf: { flex: 1 },
-  resultText: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    fontWeight: fontWeight.semibold,
-    marginBottom: spacing[1],
-  },
   centred: { paddingVertical: spacing[6], alignItems: 'center' },
 });

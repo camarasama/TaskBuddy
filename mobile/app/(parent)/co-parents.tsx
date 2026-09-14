@@ -16,10 +16,18 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
+import { Avatar } from '@/components/Avatar';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
+import { Chip } from '@/components/Chip';
 import { Field } from '@/components/Field';
+import { FormSection } from '@/components/FormSection';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile } from '@/components/IconTile';
 import { Screen } from '@/components/Screen';
+import { SectionTitle } from '@/components/SectionTitle';
 import { useToast } from '@/components/Toast';
 import { NetworkError } from '@/lib/api';
 import { asDate } from '@/lib/dates';
@@ -77,9 +85,23 @@ export default function CoParents() {
     [invalidate, toast]
   );
 
+  const header = (
+    <>
+      <BackLink label="Back to settings" href="/(parent)/settings" />
+      <GradientHeader
+        tone="brand"
+        icon="people"
+        eyebrow="Settings"
+        title="Co-parents"
+        subtitle="Adults who can manage this family"
+      />
+    </>
+  );
+
   if (isPending) {
     return (
       <Screen>
+        {header}
         <Card>
           <AppText style={[styles.detail, { color: theme.mutedForeground }]}>Loading…</AppText>
         </Card>
@@ -91,17 +113,11 @@ export default function CoParents() {
     const offline = error instanceof NetworkError;
     return (
       <Screen scroll>
-        <Card>
-          <AppText style={[styles.name, { color: theme.destructive }]}>
-            {offline ? 'No connection' : 'Could not load co-parents'}
-          </AppText>
-          <AppText style={[styles.detail, { color: theme.cardForeground }]}>
-            {describeError(error)}
-          </AppText>
-        </Card>
-        <View style={styles.action}>
-          <Button label="Try again" onPress={() => void refetch()} />
-        </View>
+        {header}
+        <Callout kind="danger" title={offline ? 'No connection' : 'Could not load co-parents'} live>
+          {describeError(error)}
+        </Callout>
+        <Button label="Try again" onPress={() => void refetch()} />
       </Screen>
     );
   }
@@ -111,30 +127,35 @@ export default function CoParents() {
   return (
     <Screen>
       <ScrollView keyboardShouldPersistTaps="handled">
-        <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-          Co-parents
-        </AppText>
+        {header}
 
+        <SectionTitle title="In your family" icon="people" tone="xp" />
         <Card>
-          <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>
-            IN YOUR FAMILY
-          </AppText>
-          {data.parents.map((parent) => {
+          {data.parents.map((parent, index) => {
             const isMe = parent.id === me?.id;
             return (
-              <View key={parent.id} style={[styles.row, { borderTopColor: theme.border }]}>
-                <AppText style={[styles.name, { color: theme.cardForeground }]}>
-                  {parent.firstName} {parent.lastName}
-                  {isMe ? ' (you)' : ''}
-                </AppText>
-                <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
-                  {parent.email}
-                </AppText>
+              <View
+                key={parent.id}
+                style={[styles.row, { borderTopColor: theme.border }, index === 0 && styles.firstRow]}
+              >
+                <View style={styles.person}>
+                  <Avatar seed={parent.id} name={parent.firstName} size={40} />
+                  <View style={styles.grow}>
+                    <AppText style={[styles.name, { color: theme.cardForeground }]}>
+                      {parent.firstName} {parent.lastName}
+                    </AppText>
+                    <AppText style={[styles.detail, { color: theme.mutedForeground }]}>{parent.email}</AppText>
+                  </View>
+                  <View style={styles.badges}>
+                    {isMe && <Chip compact variant="primary" label="You" />}
+                    {parent.isPrimaryParent && <Chip compact variant="info" icon="shield-checkmark" label="Owner" />}
+                  </View>
+                </View>
                 {!isMe && (
                   <View style={styles.action}>
                     <Button
                       label="Remove"
-                      variant="secondary"
+                      variant="softDanger"
                       onPress={() =>
                         setConfirmRemove({ id: parent.id, name: parent.firstName })
                       }
@@ -147,19 +168,17 @@ export default function CoParents() {
           })}
         </Card>
 
-        {/* Named, not a generic "are you sure?" — that is how the wrong row gets removed. */}
+        {/* Named, not a generic "are you sure?": that is how the wrong row gets removed. */}
         {confirmRemove && (
-          <Card style={{ borderColor: theme.destructive, borderWidth: 2 }}>
-            <AppText style={[styles.name, { color: theme.cardForeground }]}>
-              Remove {confirmRemove.name}?
-            </AppText>
-            <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
+          <Callout kind="danger" icon="person-remove" title={`Remove ${confirmRemove.name}?`}>
+            <AppText style={[styles.detail, { color: theme.cardForeground }]}>
               They will lose access to your children&apos;s data straight away. You can invite them
               again later.
             </AppText>
             <View style={styles.action}>
               <Button
                 label={`Yes, remove ${confirmRemove.name}`}
+                variant="danger"
                 onPress={() => {
                   const target = confirmRemove;
                   void run(() => doRemove(target.id), `${target.name} removed`).then((ok) => {
@@ -176,49 +195,59 @@ export default function CoParents() {
                 disabled={busy}
               />
             </View>
-          </Card>
+          </Callout>
         )}
 
         {data.pendingInvites.length > 0 && (
-          <Card>
-            <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>
-              INVITED, NOT YET ACCEPTED
-            </AppText>
-            {data.pendingInvites.map((invitation) => {
-              const expires = asDate(invitation.expiresAt);
-              return (
-                <View key={invitation.id} style={[styles.row, { borderTopColor: theme.border }]}>
-                  <AppText style={[styles.name, { color: theme.cardForeground }]}>
-                    {invitation.email}
-                  </AppText>
-                  {expires && (
-                    <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
-                      Expires {expires.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                    </AppText>
-                  )}
-                  <View style={styles.action}>
-                    <Button
-                      label="Cancel invite"
-                      variant="secondary"
-                      onPress={() =>
-                        void run(() => doRevoke(invitation.id), 'Invitation cancelled')
-                      }
-                      disabled={busy}
-                    />
+          <>
+            <SectionTitle title="Invited, not yet accepted" icon="mail" tone="warning" />
+            <Card>
+              {data.pendingInvites.map((invitation, index) => {
+                const expires = asDate(invitation.expiresAt);
+                return (
+                  <View
+                    key={invitation.id}
+                    style={[styles.row, { borderTopColor: theme.border }, index === 0 && styles.firstRow]}
+                  >
+                    <View style={styles.person}>
+                      <IconTile tone="warning" icon="mail" size={40} />
+                      <View style={styles.grow}>
+                        <AppText style={[styles.name, { color: theme.cardForeground }]}>{invitation.email}</AppText>
+                        {expires && (
+                          <View style={styles.chips}>
+                            <Chip
+                              compact
+                              variant="pending"
+                              icon="time"
+                              label={`Expires ${expires.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
+                            />
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.action}>
+                      <Button
+                        label="Cancel invite"
+                        variant="softDanger"
+                        onPress={() =>
+                          void run(() => doRevoke(invitation.id), 'Invitation cancelled')
+                        }
+                        disabled={busy}
+                      />
+                    </View>
                   </View>
-                </View>
-              );
-            })}
-          </Card>
+                );
+              })}
+            </Card>
+          </>
         )}
 
-        <Card>
-          <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>
-            INVITE SOMEONE
-          </AppText>
-          <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
-            They get an email with a link. Nothing changes until they accept it.
-          </AppText>
+        <FormSection
+          title="Invite someone"
+          icon="send"
+          tone="primary"
+          hint="They get an email with a link. Nothing changes until they accept it."
+        >
           <Field
             label="Their email"
             value={email}
@@ -238,7 +267,7 @@ export default function CoParents() {
             busy={busy}
             disabled={busy || !emailValid}
           />
-        </Card>
+        </FormSection>
 
         <View style={styles.footer} />
       </ScrollView>
@@ -247,19 +276,12 @@ export default function CoParents() {
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[4],
-  },
-  sectionTitle: {
-    fontSize: fontSize.xs.fontSize,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1,
-    marginBottom: spacing[2],
-  },
   row: { borderTopWidth: 1, paddingTop: spacing[3], marginTop: spacing[3] },
+  firstRow: { borderTopWidth: 0, paddingTop: 0, marginTop: 0 },
+  person: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  grow: { flex: 1 },
+  chips: { flexDirection: 'row', marginTop: spacing[1] },
+  badges: { alignItems: 'flex-end', gap: spacing[1] },
   name: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,

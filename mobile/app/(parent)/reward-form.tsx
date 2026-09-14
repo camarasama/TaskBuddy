@@ -33,10 +33,15 @@ import type { RankedRewardPreset } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
+import { Callout } from '@/components/Callout';
+import { ChoicePills } from '@/components/ChoicePills';
 import { DateField } from '@/components/DateField';
 import { Field } from '@/components/Field';
+import { FormFooter } from '@/components/FormFooter';
+import { FormSection } from '@/components/FormSection';
+import { GradientHeader } from '@/components/GradientHeader';
 import { Screen } from '@/components/Screen';
+import { ToggleRow } from '@/components/ToggleRow';
 import { useToast } from '@/components/Toast';
 import { describeError } from '@/lib/errors';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
@@ -75,9 +80,12 @@ function RewardFormScreen() {
   const theme = useTheme();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; ideas?: string }>();
   const id = typeof params.id === 'string' ? params.id : null;
   const editing = id !== null;
+  // "Need ideas?" on the Rewards header opens this form with the ideas sheet already up. Create only,
+  // for the reason at the top of the file.
+  const openIdeasFirst = params.ideas === '1' && !editing;
 
   // The catalogue is a plain (non-infinite) query, so reading the row from its cache is safe here —
   // unlike the task list, which is paginated and filtered.
@@ -101,7 +109,7 @@ function RewardFormScreen() {
   const [expiresAt, setExpiresAt] = useState(
     existing?.expiresAt ? String(existing.expiresAt).slice(0, 10) : ''
   );
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState(openIdeasFirst);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,156 +213,130 @@ function RewardFormScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView keyboardShouldPersistTaps="handled">
-        <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-          {editing ? 'Edit reward' : 'New reward'}
-        </AppText>
-
-        {/* Create only — see the note at the top on why an edit must not be overwritten. */}
-        {!editing && (
-          <>
-            <Button
-              label="Need ideas?"
-              variant="secondary"
-              onPress={() => setPicking(true)}
-              disabled={busy}
-            />
-            <AppText style={[styles.hint, { color: theme.mutedForeground }, styles.afterButton]}>
-              Or just fill it in yourself.
-            </AppText>
-          </>
-        )}
-
-        <Field
-          label="What is it?"
-          value={name}
-          onChangeText={setName}
-          editable={!busy}
-          maxLength={100}
-          hint={name.length > 0 && !nameValid ? 'At least 2 characters' : undefined}
-        />
-
-        <Field
-          label="Any details? (optional)"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          maxLength={500}
-          editable={!busy}
-        />
-
-        <Field
-          label="Points to buy it"
-          value={cost}
-          onChangeText={(next) => setCost(next.replace(/\D/g, ''))}
-          keyboardType="number-pad"
-          editable={!busy}
-          hint={!costValid && cost.length > 0 ? 'Between 1 and 100,000' : undefined}
-        />
-
-        <Field
-          label="Limit per child (optional)"
-          value={perChild}
-          onChangeText={(next) => setPerChild(next.replace(/\D/g, ''))}
-          keyboardType="number-pad"
-          editable={!busy}
-          hint="Leave blank for no limit"
-        />
-
-        <Field
-          label="Limit for the whole family (optional)"
-          value={total}
-          onChangeText={(next) => setTotal(next.replace(/\D/g, ''))}
-          keyboardType="number-pad"
-          editable={!busy}
-          hint="Leave blank for no limit"
-        />
-
-        {/* ── Parity block: both existed on the web create form with no mobile equivalent ── */}
-
-        <Card>
-          <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>SIZE</AppText>
-          <View style={styles.chipRow}>
-            {(['small', 'medium', 'large'] as const).map((option) => (
-              <Pressable
-                key={option}
-                onPress={() => setTier(option)}
-                disabled={busy}
-                accessibilityRole="button"
-                accessibilityState={{ selected: tier === option }}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: tier === option ? theme.primary : theme.card,
-                    borderColor: tier === option ? theme.primary : theme.border,
-                  },
-                ]}
-              >
-                <AppText
-                  style={[styles.chipLabel, { color: tier === option ? theme.primaryForeground : theme.cardForeground }]}
-                >
-                  {option === 'small' ? 'Small' : option === 'medium' ? 'Medium' : 'Big'}
-                </AppText>
-              </Pressable>
-            ))}
-          </View>
-        </Card>
-
-        <DateField
-          label="Expires (optional)"
-          value={expiresAt}
-          onChange={setExpiresAt}
-          editable={!busy}
-          hint="Leave blank and it never expires. It stays redeemable for the whole of the day you pick."
-          // The server refuses a past expiry, so tomorrow is the earliest offerable date.
-          minimumDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
-        />
-
-        <Pressable
-          onPress={() => setCollaborative((v) => !v)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: collaborative }}
-          disabled={busy}
-          style={styles.checkRow}
-        >
-          <AppText style={[styles.checkMark, { color: collaborative ? theme.primary : theme.border }]}>
-            {collaborative ? '☑' : '☐'}
-          </AppText>
-          <AppText style={[styles.checkLabel, { color: theme.foreground }]}>
-            Everyone saves for it together
-          </AppText>
-        </Pressable>
-
-        {error !== null && (
-          <Card style={{ borderColor: theme.destructive, borderWidth: 1 }}>
-            <AppText accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
-              {error}
-            </AppText>
-          </Card>
-        )}
-
-        <View style={styles.actions}>
+    <Screen
+      footer={
+        <FormFooter secondaryLabel="Cancel" onSecondary={() => router.back()} secondaryDisabled={busy}>
           <Button
             label={editing ? 'Save changes' : 'Create reward'}
             onPress={() => void submit()}
             busy={busy}
             disabled={!canSubmit}
           />
-          <View style={styles.gap} />
-          <Button label="Cancel" variant="secondary" onPress={() => router.back()} disabled={busy} />
-          {editing && (
-            <>
-              <View style={styles.gap} />
-              <Button
-                label="Delete reward"
-                variant="secondary"
-                onPress={() => void remove()}
-                disabled={busy}
+        </FormFooter>
+      }
+    >
+      <ScrollView keyboardShouldPersistTaps="handled">
+        <GradientHeader
+          tone="gold"
+          icon="gift"
+          eyebrow="Rewards"
+          title={editing ? 'Edit reward' : 'New reward'}
+          subtitle={editing ? undefined : 'What will they work for?'}
+          // Create only: see the note at the top on why an edit must not be overwritten.
+          actions={editing ? undefined : [{ label: 'Need ideas?', icon: 'bulb', onPress: () => setPicking(true), disabled: busy }]}
+        />
+
+        <FormSection title="The reward" icon="gift" tone="gold">
+          <Field
+            label="What is it?"
+            value={name}
+            onChangeText={setName}
+            editable={!busy}
+            maxLength={100}
+            hint={name.length > 0 && !nameValid ? 'At least 2 characters' : undefined}
+          />
+
+          <Field
+            label="Any details? (optional)"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            maxLength={500}
+            editable={!busy}
+          />
+        </FormSection>
+
+        <FormSection title="Price and size" icon="star" tone="gold">
+          <Field
+            label="Points to buy it"
+            value={cost}
+            onChangeText={(next) => setCost(next.replace(/\D/g, ''))}
+            keyboardType="number-pad"
+            editable={!busy}
+            hint={!costValid && cost.length > 0 ? 'Between 1 and 100,000' : undefined}
+          />
+
+          {/* ── Parity block: size and expiry existed on the web create form with no mobile equivalent ── */}
+          <AppText style={[styles.label, { color: theme.cardForeground }]}>Size</AppText>
+          {/* Same icons the shops use for each size, so the choice previews how it will look. */}
+          <ChoicePills
+            label="Size"
+            options={[
+              { value: 'small' as const, label: 'Small', icon: 'star' },
+              { value: 'medium' as const, label: 'Medium', icon: 'gift' },
+              { value: 'large' as const, label: 'Big', icon: 'trophy' },
+            ]}
+            value={tier}
+            onChange={setTier}
+            disabled={busy}
+          />
+        </FormSection>
+
+        <FormSection title="Limits" icon="lock-closed" tone="warning" hint="Blank means no limit">
+          <View style={styles.pair}>
+            <View style={styles.grow}>
+              <Field
+                label="Per child"
+                value={perChild}
+                onChangeText={(next) => setPerChild(next.replace(/\D/g, ''))}
+                keyboardType="number-pad"
+                editable={!busy}
+                placeholder="No limit"
               />
-            </>
-          )}
-        </View>
+            </View>
+            <View style={styles.grow}>
+              <Field
+                label="Whole family"
+                value={total}
+                onChangeText={(next) => setTotal(next.replace(/\D/g, ''))}
+                keyboardType="number-pad"
+                editable={!busy}
+                placeholder="No limit"
+              />
+            </View>
+          </View>
+
+          <DateField
+            label="Expires (optional)"
+            value={expiresAt}
+            onChange={setExpiresAt}
+            editable={!busy}
+            hint="Leave blank and it never expires. It stays redeemable for the whole of the day you pick."
+            // The server refuses a past expiry, so tomorrow is the earliest offerable date.
+            minimumDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
+          />
+
+          <ToggleRow
+            label="Everyone saves for it together"
+            detail="Children pool their points towards one shared reward."
+            value={collaborative}
+            onToggle={() => setCollaborative((v) => !v)}
+            disabled={busy}
+            divider
+          />
+        </FormSection>
+
+        {error !== null && (
+          <Callout kind="danger" live>
+            {error}
+          </Callout>
+        )}
+
+        {editing && (
+          <View style={styles.danger}>
+            <Button label="Delete reward" variant="softDanger" onPress={() => void remove()} disabled={busy} />
+          </View>
+        )}
       </ScrollView>
 
       <Modal
@@ -370,7 +352,7 @@ function RewardFormScreen() {
           onPress={() => setPicking(false)}
         />
         <View style={[styles.sheet, { backgroundColor: theme.card }]}>
-          <AppText style={[styles.sheetTitle, { color: theme.cardForeground }]}>Reward ideas</AppText>
+          <AppText variant="display" style={[styles.sheetTitle, { color: theme.cardForeground }]}>Reward ideas</AppText>
           <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
             Pick one to fill the form. You can change anything before saving.
           </AppText>
@@ -420,41 +402,16 @@ function RewardFormScreen() {
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[4],
-  },
   hint: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  sectionTitle: {
-    fontSize: fontSize.xs.fontSize,
+  label: {
+    fontSize: fontSize.sm.fontSize,
+    lineHeight: fontSize.sm.lineHeight,
     fontWeight: fontWeight.semibold,
-    letterSpacing: 0.6,
     marginBottom: spacing[2],
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: {
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2],
-    borderRadius: radius.full,
-    borderWidth: 1,
-    minHeight: minTouchTarget,
-    justifyContent: 'center',
-  },
-  chipLabel: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.medium },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    minHeight: minTouchTarget,
-    marginTop: spacing[3],
-  },
-  checkMark: { fontSize: fontSize.lg.fontSize },
-  checkLabel: { fontSize: fontSize.base.fontSize, flexShrink: 1 },
-  actions: { marginTop: spacing[5], marginBottom: spacing[6] },
-  gap: { height: spacing[2] },
-  afterButton: { marginTop: spacing[2], marginBottom: spacing[4] },
+  grow: { flex: 1 },
+  pair: { flexDirection: 'row', gap: spacing[2] },
+  danger: { marginBottom: spacing[4] },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
     padding: spacing[5],

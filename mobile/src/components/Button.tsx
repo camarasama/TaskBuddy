@@ -8,7 +8,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 
-import { fontSize, fontWeight, minTouchTarget, palette, radius, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, minTouchTarget, onGradient, palette, radius, spacing, useTheme } from '@/theme';
 
 /**
  * `soft` is a teal-tinted button: a real action that is not the screen's main one (Start, Pick a photo).
@@ -16,7 +16,19 @@ import { fontSize, fontWeight, minTouchTarget, palette, radius, spacing, useThem
  * the list read as disabled. It is a fixed `primary[100]`/`primary[700]` pair (7.04:1), so it reads the
  * same in both appearances, like `Chip`'s tints.
  */
-type Variant = 'primary' | 'secondary' | 'soft';
+type Variant = 'primary' | 'secondary' | 'soft' | 'danger' | 'softDanger';
+
+/**
+ * Fixed fills for the variants that do not follow the theme swap. `danger` is the one irreversible
+ * action (scheduling a family deletion): white on destructive 600, 6.47:1. `softDanger` is a
+ * reversible but consequential one (signing a device out, cancelling an invite): destructive 700 on
+ * destructive 100, 6.80:1.
+ */
+const FIXED: Partial<Record<Variant, { background: string; foreground: string }>> = {
+  soft: { background: palette.primary[100], foreground: palette.primary[700] },
+  danger: { background: palette.destructive[600], foreground: onGradient },
+  softDanger: { background: palette.destructive[100], foreground: palette.destructive[700] },
+};
 
 interface ButtonProps {
   label: string;
@@ -37,14 +49,10 @@ export function Button({
   const theme = useTheme();
   const inactive = disabled || busy;
 
-  const background =
-    variant === 'primary' ? theme.primary : variant === 'soft' ? palette.primary[100] : theme.secondary;
+  const fixed = FIXED[variant];
+  const background = fixed?.background ?? (variant === 'primary' ? theme.primary : theme.secondary);
   const foreground =
-    variant === 'primary'
-      ? theme.primaryForeground
-      : variant === 'soft'
-        ? palette.primary[700]
-        : theme.secondaryForeground;
+    fixed?.foreground ?? (variant === 'primary' ? theme.primaryForeground : theme.secondaryForeground);
 
   return (
     <Pressable

@@ -31,13 +31,39 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile, type IoniconName } from '@/components/IconTile';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { NetworkError } from '@/lib/api';
 import { CONSENT_STATUS_KEY, consentStatusQuery, requestConsent } from '@/lib/consentApi';
 import { describeError } from '@/lib/errors';
 import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import type { AccentTone } from '@/theme/accents';
+
+/** The three things a parent needs to know before asking for the link, one point each. */
+const POINTS: { icon: IoniconName; tone: AccentTone; title: string; text: string }[] = [
+  {
+    icon: 'shield-checkmark',
+    tone: 'primary',
+    title: 'The law asks us to check',
+    text: 'TaskBuddy is used by children, so before we create an account for yours the law requires us to confirm that you are their parent or guardian.',
+  },
+  {
+    icon: 'mail',
+    tone: 'primary',
+    title: 'We email you a link',
+    text: "Following it records your consent. That's the whole process, and it only needs doing once.",
+  },
+  {
+    icon: 'heart',
+    tone: 'success',
+    title: "Your child's data stays yours",
+    text: 'We use it only to run TaskBuddy. We never sell it or share it with advertisers, and you can withdraw consent at any time.',
+  },
+];
 
 export default function Consent() {
   const theme = useTheme();
@@ -65,31 +91,23 @@ export default function Consent() {
   if (isPending) {
     return (
       <Screen>
-        <Card>
-          <AppText style={[styles.detail, { color: theme.mutedForeground }]}>Loading…</AppText>
-        </Card>
+        <GradientHeader tone="teal" icon="shield-checkmark" eyebrow="Parental consent" title="Checking…" />
       </Screen>
     );
   }
 
-  // A failed status check is never a negative result — it is the app not knowing, which is a very
+  // A failed status check is never a negative result: it is the app not knowing, which is a very
   // different thing to tell a parent than "you haven't consented yet". Collapsing the two would make
   // a dropped connection look like a compliance problem.
   if (isError || !data) {
     const offline = error instanceof NetworkError;
     return (
       <Screen scroll>
-        <Card>
-          <AppText style={[styles.heading, { color: theme.destructive }]}>
-            {offline ? 'No connection' : 'Could not check your consent status'}
-          </AppText>
-          <AppText style={[styles.detail, { color: theme.cardForeground }]}>
-            {describeError(error)}
-          </AppText>
-        </Card>
-        <View style={styles.action}>
-          <Button label="Try again" onPress={() => void refetch()} />
-        </View>
+        <GradientHeader tone="teal" icon="shield-checkmark" eyebrow="Parental consent" title="Consent" />
+        <Callout kind="danger" title={offline ? 'No connection' : 'Could not check your consent status'} live>
+          {describeError(error)}
+        </Callout>
+        <Button label="Try again" onPress={() => void refetch()} />
       </Screen>
     );
   }
@@ -97,17 +115,11 @@ export default function Consent() {
   if (data.status === 'verified') {
     return (
       <Screen scroll>
-        <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>
-          You&apos;re all set
-        </AppText>
-        <Card>
-          <AppText style={[styles.detail, { color: theme.cardForeground }]}>
-            We have your consent on record. You can add your children now.
-          </AppText>
-          <View style={styles.action}>
-            <Button label="Add a child" onPress={() => router.push('/(parent)/children')} />
-          </View>
-        </Card>
+        <GradientHeader tone="success" icon="checkmark-circle" eyebrow="Parental consent" title="You're all set" />
+        <Callout kind="success" title="We have your consent on record">
+          You can add your children now.
+        </Callout>
+        <Button label="Add a child" onPress={() => router.push('/(parent)/children')} />
       </Screen>
     );
   }
@@ -116,61 +128,52 @@ export default function Consent() {
 
   return (
     <Screen scroll>
-      <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>
-        {pending ? 'Check your email' : 'Confirm you are the parent'}
-      </AppText>
+      <GradientHeader
+        tone="teal"
+        icon={pending ? 'mail-unread' : 'shield-checkmark'}
+        eyebrow="Before you add a child"
+        title={pending ? 'Check your email' : 'Confirm you are the parent'}
+        subtitle={pending ? undefined : 'It only needs doing once'}
+      />
 
-      <Card>
-        {pending ? (
-          <AppText style={[styles.detail, { color: theme.cardForeground }]}>
-            We&apos;ve sent you a confirmation link. Open it and TaskBuddy will let you add your
-            children straight away. It can take a minute to arrive — check your spam folder too.
-          </AppText>
-        ) : (
-          <View>
-            <AppText style={[styles.detail, { color: theme.cardForeground }]}>
-              TaskBuddy is used by children, so before we create an account for yours the law
-              requires us to confirm that you are their parent or guardian.
-            </AppText>
-            <AppText style={[styles.detail, styles.paragraphGap, { color: theme.cardForeground }]}>
-              We&apos;ll email you a link. Following it records your consent — that&apos;s the whole
-              process, and it only needs doing once.
-            </AppText>
-            <AppText
-              style={[styles.detail, styles.paragraphGap, { color: theme.mutedForeground }]}
-            >
-              We use your child&apos;s information only to run TaskBuddy. We never sell it or share
-              it with advertisers, and you can withdraw consent at any time.
-            </AppText>
-          </View>
-        )}
+      {pending ? (
+        <Callout kind="success" icon="mail" title="We've sent you a confirmation link">
+          Open it and TaskBuddy will let you add your children straight away. It can take a minute to
+          arrive, so check your spam folder too.
+        </Callout>
+      ) : (
+        <Card>
+          {POINTS.map((point, index) => (
+            <View key={point.title} style={[styles.point, index > 0 && [styles.pointGap, { borderTopColor: theme.border }]]}>
+              <IconTile tone={point.tone} icon={point.icon} size={40} />
+              <View style={styles.grow}>
+                <AppText style={[styles.heading, { color: theme.cardForeground }]}>{point.title}</AppText>
+                <AppText style={[styles.detail, { color: theme.mutedForeground }]}>{point.text}</AppText>
+              </View>
+            </View>
+          ))}
+        </Card>
+      )}
 
-        <View style={styles.action}>
-          <Button
-            label={pending ? 'Send it again' : 'Email me the link'}
-            onPress={() => void handleRequest()}
-            busy={sending}
-            disabled={sending}
-          />
-        </View>
-      </Card>
+      <Button
+        label={pending ? 'Send it again' : 'Email me the link'}
+        variant={pending ? 'soft' : 'primary'}
+        onPress={() => void handleRequest()}
+        busy={sending}
+        disabled={sending}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[4],
-  },
+  point: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
+  pointGap: { borderTopWidth: 1, paddingTop: spacing[3], marginTop: spacing[3] },
+  grow: { flex: 1 },
   heading: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
   },
-  detail: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  paragraphGap: { marginTop: spacing[3] },
-  action: { marginTop: spacing[4] },
+  detail: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
 });

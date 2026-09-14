@@ -12,15 +12,27 @@
  * `period` (weekly/monthly/all-time) instead (`getLeaderboardReport` in reports.ts). Showing date
  * fields that report silently ignores would be a control that lies about what it does, so the period
  * picker replaces the date fields rather than sitting alongside them.
+ *
+ * ## Dates are picked, not typed
+ *
+ * The range used to be two text boxes asking for YYYY-MM-DD, which a phone keyboard makes miserable
+ * and which invited a malformed value. `DateField` hands back exactly that format from a picker, so
+ * the backend receives the same string it always did and the format check is no longer needed.
+ *
+ * Reached from the Reports tile on the parent Home screen. Before that tile existed nothing in the app
+ * linked here.
  */
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
-import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
-import { Field } from '@/components/Field';
+import { ChoicePills } from '@/components/ChoicePills';
+import { DateField } from '@/components/DateField';
+import { FormFooter } from '@/components/FormFooter';
+import { FormSection } from '@/components/FormSection';
+import { GradientHeader } from '@/components/GradientHeader';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { describeError } from '@/lib/errors';
@@ -33,13 +45,12 @@ import {
   type LeaderboardPeriod,
   type ReportName,
 } from '@/lib/reportsApi';
-import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import { spacing } from '@/theme';
 
-/** `YYYY-MM-DD`, matching what the backend does with the query param: `new Date(value)`. */
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+/** Sentinel for "no child filter", since a pill needs a concrete value. Never sent to the server. */
+const ALL_CHILDREN = '__all__';
 
 export default function Reports() {
-  const theme = useTheme();
   const toast = useToast();
 
   const [report, setReport] = useState<ReportName>('task-completion');
@@ -50,15 +61,12 @@ export default function Reports() {
   const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
   const [busy, setBusy] = useState(false);
 
-  // Not the reason this screen exists — it exists to download, not to browse — but a parent picking
+  // Not the reason this screen exists (it exists to download, not to browse), but a parent picking
   // a report about one child needs to see names, not paste an id. Errors here are swallowed to "no
   // children found" rather than a card, which would crowd out the download flow this screen is for.
   const { data: children } = useQuery(childrenQuery());
 
   const isLeaderboard = report === 'leaderboard';
-  const startValid = startDate.length === 0 || DATE_PATTERN.test(startDate);
-  const endValid = endDate.length === 0 || DATE_PATTERN.test(endDate);
-  const canDownload = !busy && startValid && endValid;
 
   const handleDownload = async () => {
     setBusy(true);
@@ -81,134 +89,104 @@ export default function Reports() {
   };
 
   return (
-    <Screen>
-      <ScrollView keyboardShouldPersistTaps="handled">
-        <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-          Reports
-        </AppText>
-        <AppText style={[styles.body, { color: theme.mutedForeground }]}>
-          Pick a report and a format, then download it. Viewing reports in detail is on the web.
-        </AppText>
-
-        <Card>
-          <AppText style={[styles.title, { color: theme.cardForeground }]}>Report</AppText>
-          <View style={styles.chipRow}>
-            {EXPORTABLE_REPORTS.map((option) => (
-              <Button
-                key={option.name}
-                label={option.label}
-                variant={option.name === report ? 'primary' : 'secondary'}
-                onPress={() => setReport(option.name)}
-              />
-            ))}
-          </View>
-        </Card>
-
-        <Card>
-          <AppText style={[styles.title, { color: theme.cardForeground }]}>Format</AppText>
-          <View style={styles.chipRow}>
-            <Button
-              label="CSV"
-              variant={format === 'csv' ? 'primary' : 'secondary'}
-              onPress={() => setFormat('csv')}
-            />
-            <Button
-              label="PDF"
-              variant={format === 'pdf' ? 'primary' : 'secondary'}
-              onPress={() => setFormat('pdf')}
-            />
-          </View>
-        </Card>
-
-        <Card>
-          <AppText style={[styles.title, { color: theme.cardForeground }]}>Child</AppText>
-          <View style={styles.chipRow}>
-            <Button
-              label="All children"
-              variant={childId === undefined ? 'primary' : 'secondary'}
-              onPress={() => setChildId(undefined)}
-            />
-            {(children ?? []).map((child) => (
-              <Button
-                key={child.id}
-                label={`${child.firstName} ${child.lastName}`}
-                variant={childId === child.id ? 'primary' : 'secondary'}
-                onPress={() => setChildId(child.id)}
-              />
-            ))}
-          </View>
-        </Card>
-
-        {isLeaderboard ? (
-          <Card>
-            <AppText style={[styles.title, { color: theme.cardForeground }]}>Period</AppText>
-            <View style={styles.chipRow}>
-              {LEADERBOARD_PERIODS.map((option) => (
-                <Button
-                  key={option.value}
-                  label={option.label}
-                  variant={option.value === period ? 'primary' : 'secondary'}
-                  onPress={() => setPeriod(option.value)}
-                />
-              ))}
-            </View>
-          </Card>
-        ) : (
-          <Card>
-            <AppText style={[styles.title, { color: theme.cardForeground }]}>Date range</AppText>
-            <AppText style={[styles.body, { color: theme.mutedForeground }]}>
-              Optional. Leave blank for everything on record.
-            </AppText>
-            <Field
-              label="Start date"
-              placeholder="YYYY-MM-DD"
-              value={startDate}
-              onChangeText={setStartDate}
-              autoCapitalize="none"
-              autoCorrect={false}
-              hint={!startValid ? 'Use YYYY-MM-DD' : undefined}
-            />
-            <Field
-              label="End date"
-              placeholder="YYYY-MM-DD"
-              value={endDate}
-              onChangeText={setEndDate}
-              autoCapitalize="none"
-              autoCorrect={false}
-              hint={!endValid ? 'Use YYYY-MM-DD' : undefined}
-            />
-          </Card>
-        )}
-
-        <View style={styles.action}>
+    <Screen
+      footer={
+        <FormFooter>
           <Button
             label={busy ? 'Downloading…' : `Download ${format.toUpperCase()}`}
             onPress={() => void handleDownload()}
             busy={busy}
-            disabled={!canDownload}
+            disabled={busy}
           />
-        </View>
+        </FormFooter>
+      }
+    >
+      <ScrollView keyboardShouldPersistTaps="handled">
+        <BackLink label="Back to home" href="/(parent)/dashboard" />
+        <GradientHeader
+          tone="brand"
+          icon="document-text"
+          eyebrow="Reports"
+          title="Download a report"
+          subtitle="Pick a report and a format. Viewing reports in detail is on the web."
+        />
 
-        <View style={styles.footer} />
+        <FormSection title="Report" icon="document-text" tone="xp">
+          <ChoicePills
+            label="Report"
+            options={EXPORTABLE_REPORTS.map((option) => ({ value: option.name, label: option.label }))}
+            value={report}
+            onChange={setReport}
+          />
+        </FormSection>
+
+        <FormSection title="Format and child" icon="download" tone="primary">
+          <ChoicePills
+            label="Format"
+            options={[
+              { value: 'csv' as const, label: 'CSV', icon: 'grid' },
+              { value: 'pdf' as const, label: 'PDF', icon: 'document' },
+            ]}
+            value={format}
+            onChange={setFormat}
+          />
+          <View style={styles.gap} />
+          <ChoicePills
+            label="Child"
+            options={[
+              { value: ALL_CHILDREN, label: 'All children', icon: 'people' },
+              ...(children ?? []).map((child) => ({ value: child.id, label: `${child.firstName} ${child.lastName}` })),
+            ]}
+            value={childId ?? ALL_CHILDREN}
+            onChange={(next) => setChildId(next === ALL_CHILDREN ? undefined : next)}
+          />
+        </FormSection>
+
+        {isLeaderboard ? (
+          <FormSection title="Period" icon="podium" tone="gold">
+            <ChoicePills
+              label="Period"
+              options={LEADERBOARD_PERIODS.map((option) => ({ value: option.value, label: option.label }))}
+              value={period}
+              onChange={setPeriod}
+            />
+          </FormSection>
+        ) : (
+          <FormSection title="Date range" icon="calendar" tone="primary" hint="Optional. Leave blank for everything on record.">
+            <View style={styles.pair}>
+              <View style={styles.grow}>
+                <DateField label="From" value={startDate} onChange={setStartDate} maximumDate={endDate ? new Date(`${endDate}T00:00:00`) : new Date()} />
+              </View>
+              <View style={styles.grow}>
+                <DateField
+                  label="Until"
+                  value={endDate}
+                  onChange={setEndDate}
+                  minimumDate={startDate ? new Date(`${startDate}T00:00:00`) : undefined}
+                  maximumDate={new Date()}
+                />
+              </View>
+            </View>
+            {/* A picked date cannot be un-picked from the picker itself, so blank has its own way back. */}
+            {(startDate !== '' || endDate !== '') && (
+              <Button
+                label="Clear dates"
+                variant="soft"
+                onPress={() => {
+                  setStartDate('');
+                  setEndDate('');
+                }}
+              />
+            )}
+          </FormSection>
+        )}
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  title: {
-    fontSize: fontSize.base.fontSize,
-    lineHeight: fontSize.base.lineHeight,
-    fontWeight: fontWeight.semibold,
-    marginBottom: spacing[2],
-  },
-  body: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  action: { marginTop: spacing[2] },
-  footer: { height: spacing[8] },
+  gap: { height: spacing[4] },
+  pair: { flexDirection: 'row', gap: spacing[2] },
+  grow: { flex: 1 },
 });

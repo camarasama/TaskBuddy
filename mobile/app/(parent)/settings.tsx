@@ -35,11 +35,18 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Application from 'expo-application';
 
 import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
-import { CardHeading } from '@/components/CardHeading';
 import { Field } from '@/components/Field';
+import { FormSection } from '@/components/FormSection';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile, type IoniconName } from '@/components/IconTile';
+import { NavTile } from '@/components/NavTile';
 import { Screen } from '@/components/Screen';
+import { SectionTitle } from '@/components/SectionTitle';
+import { ToggleRow } from '@/components/ToggleRow';
 import { useToast } from '@/components/Toast';
 import { NetworkError } from '@/lib/api';
 import { describeError } from '@/lib/errors';
@@ -58,41 +65,7 @@ import {
   TERMS_URL,
 } from '@/lib/externalLinks';
 import { fontSize, fontWeight, minTouchTarget, spacing, useTheme } from '@/theme';
-
-function Toggle({
-  label,
-  detail,
-  value,
-  busy,
-  onToggle,
-}: {
-  label: string;
-  detail: string;
-  value: boolean;
-  busy: boolean;
-  onToggle: () => void;
-}) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      onPress={onToggle}
-      disabled={busy}
-      accessibilityRole="switch"
-      accessibilityState={{ checked: value, disabled: busy }}
-      accessibilityLabel={`${label}. ${detail}`}
-      style={styles.toggleRow}
-    >
-      <AppText style={[styles.mark, { color: value ? theme.primary : theme.border }]}>
-        {value ? '☑' : '☐'}
-      </AppText>
-      <View style={styles.toggleText}>
-        <AppText style={[styles.toggleLabel, { color: theme.cardForeground }]}>{label}</AppText>
-        <AppText style={[styles.detail, { color: theme.mutedForeground }]}>{detail}</AppText>
-      </View>
-    </Pressable>
-  );
-}
+import type { AccentTone } from '@/theme/accents';
 
 /**
  * A row that hands the user to something outside the app.
@@ -103,16 +76,23 @@ function Toggle({
  */
 function LinkRow({
   icon,
+  tone,
   label,
   detail,
   hint,
   onPress,
+  inApp = false,
+  divider = false,
 }: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: IoniconName;
+  tone: AccentTone;
   label: string;
   detail: string;
   hint: string;
   onPress: () => void;
+  /** Stays inside TaskBuddy, so it shows a chevron instead of the "opens outside" glyph. */
+  inApp?: boolean;
+  divider?: boolean;
 }) {
   const theme = useTheme();
 
@@ -122,22 +102,20 @@ function LinkRow({
       accessibilityRole="link"
       accessibilityLabel={label}
       accessibilityHint={hint}
-      style={({ pressed }) => [styles.linkRow, { opacity: pressed ? 0.7 : 1 }]}
+      style={({ pressed }) => [
+        styles.linkRow,
+        divider && [styles.divider, { borderTopColor: theme.border }],
+        { opacity: pressed ? 0.7 : 1 },
+      ]}
     >
-      <Ionicons
-        name={icon}
-        size={ICON_SIZE}
-        color={theme.mutedForeground}
-        importantForAccessibility="no"
-        accessibilityElementsHidden
-      />
+      <IconTile tone={tone} icon={icon} size={40} />
       <View style={styles.toggleText}>
         <AppText style={[styles.toggleLabel, { color: theme.cardForeground }]}>{label}</AppText>
         <AppText style={[styles.detail, { color: theme.mutedForeground }]}>{detail}</AppText>
       </View>
       {/* Signals "this leaves the app" to everyone who is not using the screen reader hint above. */}
       <Ionicons
-        name="open-outline"
+        name={inApp ? 'chevron-forward' : 'open-outline'}
         size={ICON_SIZE}
         color={theme.mutedForeground}
         importantForAccessibility="no"
@@ -185,7 +163,7 @@ function FamilyPreferences() {
   if (isPending) {
     return (
       <Card>
-        <AppText style={[styles.detail, { color: theme.mutedForeground }]}>Loading…</AppText>
+        <AppText style={[styles.detail, { color: theme.mutedForeground }]}>Loading your settings…</AppText>
       </Card>
     );
   }
@@ -193,17 +171,14 @@ function FamilyPreferences() {
   if (isError || !settings) {
     const offline = error instanceof NetworkError;
     return (
-      <Card>
-        <AppText style={[styles.toggleLabel, { color: theme.destructive }]}>
-          {offline ? 'No connection' : 'Could not load settings'}
-        </AppText>
-        <AppText style={[styles.detail, { color: theme.cardForeground }]}>
+      <>
+        <Callout kind="danger" title={offline ? 'No connection' : 'Could not load settings'} live>
           {describeError(error)}
-        </AppText>
-        <View style={styles.action}>
+        </Callout>
+        <View style={styles.retry}>
           <Button label="Try again" onPress={() => void refetch()} />
         </View>
-      </Card>
+      </>
     );
   }
 
@@ -213,70 +188,64 @@ function FamilyPreferences() {
 
   return (
     <>
-      <Card>
-        <Toggle
+      <FormSection title="How your family works" icon="people" tone="primary">
+        {/* Saved on change: see the top of the file. Each switch renders from the query, so a rejected
+            write snaps back rather than lying. */}
+        <ToggleRow
           label="Approve recurring tasks automatically"
           detail="Repeating tasks award points as soon as a child marks them done, without waiting for you."
           value={settings.autoApproveRecurringTasks}
-          busy={busy}
+          disabled={busy}
           onToggle={() =>
             void apply({ autoApproveRecurringTasks: !settings.autoApproveRecurringTasks })
           }
         />
-        <Toggle
+        <ToggleRow
           label="Daily challenges"
           detail="A small bonus goal each day, with extra points for finishing it."
           value={settings.enableDailyChallenges}
-          busy={busy}
+          disabled={busy}
           onToggle={() => void apply({ enableDailyChallenges: !settings.enableDailyChallenges })}
+          divider
         />
-        <Toggle
+        <ToggleRow
           label="Family leaderboard"
-          detail="Ranks your children against each other. Turning it off hides it from everyone — a reasonable choice if one child is always last."
+          detail="Ranks your children against each other. Turning it off hides it from everyone, a reasonable choice if one child is always last."
           value={settings.enableLeaderboard}
-          busy={busy}
+          disabled={busy}
           onToggle={() => void apply({ enableLeaderboard: !settings.enableLeaderboard })}
+          divider
         />
-      </Card>
+      </FormSection>
 
-      <Card>
-        <AppText style={[styles.toggleLabel, { color: theme.cardForeground }]}>
-          Streak grace period
-        </AppText>
-        <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
-          Hours after midnight a streak survives an unfinished day. 0 to 12.
-        </AppText>
+      <FormSection title="Streaks" icon="flame" tone="peach">
         <Field
-          label="Hours"
+          label="Grace period, in hours"
           value={graceValue}
           onChangeText={(next) => setGrace(next.replace(/\D/g, ''))}
           keyboardType="number-pad"
           editable={!busy}
-          hint={!graceValid ? 'Between 0 and 12' : undefined}
+          hint={graceValid ? 'Hours after midnight a streak survives an unfinished day. 0 to 12.' : undefined}
+          error={graceValid ? undefined : 'Between 0 and 12'}
         />
         <Button
           label="Save grace period"
-          variant="secondary"
+          variant="soft"
           onPress={() => {
             if (graceValid) void apply({ streakGracePeriodHours: graceNumber });
           }}
           disabled={busy || !graceValid}
         />
-      </Card>
+      </FormSection>
 
-      <Card>
-        <AppText style={[styles.toggleLabel, { color: theme.cardForeground }]}>Co-parents</AppText>
-        <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
-          Invite another adult, or manage who has access.
-        </AppText>
-        <View style={styles.action}>
-          <Button
-            label="Manage co-parents"
-            variant="secondary"
-            onPress={() => router.push('/(parent)/co-parents')}
-          />
-        </View>
-      </Card>
+      <SectionTitle title="People" icon="people" tone="xp" />
+      <NavTile
+        title="Co-parents"
+        icon="people"
+        tone="xp"
+        subtitle="Invite another adult, or manage who has access."
+        onPress={() => router.push('/(parent)/co-parents')}
+      />
     </>
   );
 }
@@ -302,10 +271,11 @@ function SupportAndAbout() {
 
   return (
     <>
+      <SectionTitle title="Support" icon="help-buoy" tone="primary" />
       <Card>
-        <CardHeading icon="help-buoy-outline" label="Support" />
         <LinkRow
-          icon="mail-outline"
+          icon="mail"
+          tone="primary"
           label="Contact support"
           detail="Report a problem or suggest something. Your app version is filled in for you."
           hint="Opens your email app"
@@ -320,42 +290,37 @@ function SupportAndAbout() {
             leading nowhere, the same call VersionBadge makes about a missing version. */}
         {applicationId !== null && (
           <LinkRow
-            icon="star-outline"
+            icon="star"
+            tone="gold"
             label="Rate TaskBuddy"
             detail="Leave a review on Google Play. It takes a minute and it genuinely helps."
             hint="Opens the Play Store"
             onPress={() =>
               open(playListingUrls(applicationId), 'Could not open the Play Store on this device.')
             }
+            divider
           />
         )}
       </Card>
 
+      <SectionTitle title="About" icon="document-text" tone="primary" />
       <Card>
-        <CardHeading icon="document-text-outline" label="About" />
         <LinkRow
-          icon="lock-closed-outline"
+          icon="lock-closed"
+          tone="primary"
           label="Privacy policy"
           detail="What we collect about you and your children, and why."
           hint="Opens in your browser"
           onPress={() => open([PRIVACY_URL], 'Could not open your browser.')}
         />
         <LinkRow
-          icon="reader-outline"
+          icon="reader"
+          tone="primary"
           label="Terms of service"
           detail="The agreement covering your use of TaskBuddy."
           hint="Opens in your browser"
           onPress={() => open([TERMS_URL], 'Could not open your browser.')}
-        />
-        {/* In-app, not a link out. Play's data-deletion policy expects the account holder to be
-            able to START deletion inside the app; a link to instructions is not that. The web page
-            at DELETE_ACCOUNT_URL stays published for anyone who has already uninstalled. */}
-        <LinkRow
-          icon="trash-outline"
-          label="Delete your account"
-          detail="Remove your family's account and everything in it."
-          hint="Opens in the app"
-          onPress={() => router.push('/(parent)/delete-account')}
+          divider
         />
         {version !== null && (
           <View style={styles.versionRow}>
@@ -370,18 +335,32 @@ function SupportAndAbout() {
           </View>
         )}
       </Card>
+
+      {/* Its own red section at the end, so it is never mistaken for a routine setting. */}
+      <SectionTitle title="Danger zone" icon="warning" tone="destructive" />
+      <Card>
+        {/* In-app, not a link out. Play's data-deletion policy expects the account holder to be
+            able to START deletion inside the app; a link to instructions is not that. The web page
+            at DELETE_ACCOUNT_URL stays published for anyone who has already uninstalled. */}
+        <LinkRow
+          icon="trash"
+          tone="destructive"
+          label="Delete your account"
+          detail="Remove your family's account and everything in it. Scheduled, and you can cancel it."
+          hint="Opens in the app"
+          onPress={() => router.push('/(parent)/delete-account')}
+          inApp
+        />
+      </Card>
     </>
   );
 }
 
 export default function Settings() {
-  const theme = useTheme();
-
   return (
     <Screen scroll>
-      <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-        Family settings
-      </AppText>
+      <BackLink label="Back to home" href="/(parent)/dashboard" />
+      <GradientHeader tone="teal" icon="settings" eyebrow="Settings" title="Family settings" />
 
       <FamilyPreferences />
       <SupportAndAbout />
@@ -395,19 +374,6 @@ export default function Settings() {
 const ICON_SIZE = 22;
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[4],
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing[3],
-    minHeight: minTouchTarget,
-    paddingVertical: spacing[2],
-  },
   linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,15 +381,15 @@ const styles = StyleSheet.create({
     minHeight: minTouchTarget,
     paddingVertical: spacing[2],
   },
+  divider: { borderTopWidth: 1, marginTop: spacing[1], paddingTop: spacing[3] },
   toggleText: { flex: 1 },
-  mark: { fontSize: fontSize.lg.fontSize, marginTop: spacing[1] },
   toggleLabel: {
     fontSize: fontSize.base.fontSize,
     lineHeight: fontSize.base.lineHeight,
     fontWeight: fontWeight.semibold,
   },
   detail: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
-  action: { marginTop: spacing[3] },
+  retry: { marginBottom: spacing[4] },
   versionRow: { paddingTop: spacing[3] },
   footer: { height: spacing[8] },
 });

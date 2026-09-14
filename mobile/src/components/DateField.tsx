@@ -25,6 +25,7 @@
  */
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { AppText } from './AppText';
@@ -94,7 +95,7 @@ export function DateField({
 
   return (
     <View style={styles.wrap}>
-      <AppText style={[styles.label, { color: theme.mutedForeground }]}>{label}</AppText>
+      <AppText style={[styles.label, { color: theme.foreground }]}>{label}</AppText>
 
       <Pressable
         onPress={() => editable && setOpen(true)}
@@ -104,7 +105,8 @@ export function DateField({
         accessibilityHint="Opens a date picker"
         style={[
           styles.control,
-          { borderColor: error ? theme.destructive : theme.border, backgroundColor: theme.card },
+          // Same resting look as `Field`, so a date sits in a form as one more field rather than a button.
+          { borderColor: error ? theme.destructive : theme.input, backgroundColor: theme.appBackground },
         ]}
       >
         <AppText
@@ -112,6 +114,13 @@ export function DateField({
         >
           {value ? formatDisplayDate(value) : 'DD/MM/YYYY'}
         </AppText>
+        <Ionicons
+          name="calendar-outline"
+          size={20}
+          color={theme.mutedForeground}
+          importantForAccessibility="no"
+          accessibilityElementsHidden
+        />
       </Pressable>
 
       {(error || hint) && (
@@ -139,17 +148,19 @@ const styles = StyleSheet.create({
   label: {
     fontSize: fontSize.sm.fontSize,
     lineHeight: fontSize.sm.lineHeight,
-    fontWeight: fontWeight.medium,
-    marginBottom: spacing[1],
+    fontWeight: fontWeight.semibold,
+    marginBottom: spacing[2],
   },
   control: {
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing[3],
+    borderWidth: 1.5,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing[4],
     paddingVertical: spacing[3],
     minHeight: 48,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   value: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight },
-  hint: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
+  hint: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight, marginTop: spacing[2] },
 });

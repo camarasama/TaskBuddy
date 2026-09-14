@@ -26,11 +26,16 @@ import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import Ionicons from '@expo/vector-icons/Ionicons';
+
 import { AppText } from '@/components/AppText';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
-import { CardHeading } from '@/components/CardHeading';
 import { Field } from '@/components/Field';
+import { FormSection } from '@/components/FormSection';
+import { GradientHeader } from '@/components/GradientHeader';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { NetworkError } from '@/lib/api';
@@ -44,7 +49,7 @@ import {
   type DeletionStatus,
 } from '@/lib/familyApi';
 import { useAuth } from '@/stores/auth';
-import { fontSize, fontWeight, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, palette, spacing, useTheme } from '@/theme';
 
 /** Matches the server's check in `scheduleDeletionSchema`. Trimmed and case-insensitive. */
 function confirmed(text: string): boolean {
@@ -74,8 +79,7 @@ function Scheduled({
   const theme = useTheme();
 
   return (
-    <Card>
-      <CardHeading icon="alert-circle-outline" label="Scheduled for deletion" />
+    <Callout kind="warning" icon="alert-circle" title="Scheduled for deletion">
       <AppText style={[styles.body, { color: theme.cardForeground }]}>
         Everything in your family account will be permanently erased on{' '}
         <AppText style={[styles.emphasis, { color: theme.destructive }]}>
@@ -84,7 +88,7 @@ function Scheduled({
         . That includes every child profile, every photo they uploaded, and all tasks, points and
         rewards.
       </AppText>
-      <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
+      <AppText style={[styles.detail, { color: theme.cardForeground }]}>
         Your children cannot sign in while this is scheduled. Nothing has been deleted yet, and
         cancelling puts everything back exactly as it was.
       </AppText>
@@ -93,13 +97,20 @@ function Scheduled({
           <Button label="Keep my account" onPress={onCancel} busy={busy} />
         </View>
       ) : (
-        <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
+        <AppText style={[styles.detail, styles.emphasis, { color: theme.cardForeground }]}>
           Only the primary parent can cancel this.
         </AppText>
       )}
-    </Card>
+    </Callout>
   );
 }
+
+/** What gets deleted, one line each, with a red cross so the list reads as losses rather than features. */
+const DELETED = [
+  'Every child profile, including photos they uploaded',
+  'All tasks, points, streaks, achievements and rewards',
+  'Your account and every co-parent account',
+];
 
 export default function DeleteAccount() {
   const theme = useTheme();
@@ -157,28 +168,30 @@ export default function DeleteAccount() {
   if (status.isError) {
     return (
       <Screen scroll>
-        <Card>
-          <AppText style={[styles.emphasis, { color: theme.destructive }]}>
-            {status.error instanceof NetworkError
-              ? 'No connection'
-              : 'Could not check your account'}
-          </AppText>
-          <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
-            {describeError(status.error)}
-          </AppText>
-          <View style={styles.action}>
-            <Button label="Try again" onPress={() => void status.refetch()} />
-          </View>
-        </Card>
+        <BackLink label="Back to settings" href="/(parent)/settings" />
+        <Callout
+          kind="danger"
+          title={status.error instanceof NetworkError ? 'No connection' : 'Could not check your account'}
+          live
+        >
+          {describeError(status.error)}
+        </Callout>
+        <Button label="Try again" onPress={() => void status.refetch()} />
       </Screen>
     );
   }
 
   return (
     <Screen scroll>
-      <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-        Delete account
-      </AppText>
+      <BackLink label="Back to settings" href="/(parent)/settings" />
+      {/* The only red header in the app, so this can never be mistaken for a routine screen. */}
+      <GradientHeader
+        tone="danger"
+        icon="trash"
+        eyebrow="Settings"
+        title="Delete account"
+        subtitle={`Nothing is erased for ${status.data?.graceDays ?? 30} days, and you can cancel`}
+      />
 
       {status.isPending || parents.isPending ? (
         <Card>
@@ -192,38 +205,37 @@ export default function DeleteAccount() {
           onCancel={() => stop.mutate()}
         />
       ) : isPrimary !== true ? (
-        <Card>
-          <CardHeading icon="information-circle-outline" label="Only the primary parent" />
-          <AppText style={[styles.body, { color: theme.cardForeground }]}>
-            The parent who created this family is the only one who can delete it. If you want to
-            leave, ask them to remove you from Co-parents instead. That ends your access without
-            touching anyone else&apos;s data.
-          </AppText>
-        </Card>
+        <Callout kind="info" title="Only the primary parent">
+          The parent who created this family is the only one who can delete it. If you want to
+          leave, ask them to remove you from Co-parents instead. That ends your access without
+          touching anyone else&apos;s data.
+        </Callout>
       ) : (
         <>
-          <Card>
-            <CardHeading icon="trash-outline" label="What gets deleted" />
-            <AppText style={[styles.body, { color: theme.cardForeground }]}>
-              This removes your whole family account, for everyone in it:
-            </AppText>
-            {[
-              'Every child profile, including photos they uploaded',
-              'All tasks, points, streaks, achievements and rewards',
-              'Your account and every co-parent account',
-            ].map((line) => (
-              <AppText key={line} style={[styles.bullet, { color: theme.mutedForeground }]}>
-                {'•'}  {line}
-              </AppText>
+          <FormSection title="What gets deleted" icon="trash" tone="destructive" hint="For everyone in your family">
+            {DELETED.map((line) => (
+              <View key={line} style={styles.lossRow}>
+                <Ionicons
+                  name="close-circle"
+                  size={18}
+                  color={palette.destructive[600]}
+                  importantForAccessibility="no"
+                  accessibilityElementsHidden
+                />
+                <AppText style={[styles.loss, { color: theme.cardForeground }]}>{line}</AppText>
+              </View>
             ))}
             <AppText style={[styles.detail, { color: theme.mutedForeground }]}>
               Nothing is erased for {status.data?.graceDays ?? 30} days, and you can cancel at any
               point in that window. After it passes, the data cannot be recovered by you or by us.
             </AppText>
-          </Card>
+          </FormSection>
 
-          <Card>
-            <CardHeading icon="lock-closed-outline" label="Confirm it is you" />
+          <Callout kind="warning" icon="lock-closed">
+            Your children can&apos;t sign in while deletion is scheduled.
+          </Callout>
+
+          <FormSection title="Confirm it is you" icon="lock-closed" tone="primary">
             <Field
               testID="delete-password"
               label="Your password"
@@ -242,22 +254,20 @@ export default function DeleteAccount() {
               autoCapitalize="characters"
               autoCorrect={false}
               editable={!busy}
-              hint={confirm.length > 0 && !confirmed(confirm) ? 'Type DELETE exactly' : undefined}
+              error={confirm.length > 0 && !confirmed(confirm) ? 'Type DELETE exactly' : undefined}
             />
-            <View style={styles.action}>
-              {/* No destructive Button variant exists in this app; the red framing above carries
-                  the weight, and the two gates carry the safety. */}
-              <Button
-                label="Schedule deletion"
-                onPress={() => schedule.mutate()}
-                busy={busy}
-                disabled={password.length === 0 || !confirmed(confirm)}
-              />
-            </View>
+            {/* Solid red: the one irreversible action in the app. The two gates carry the safety. */}
+            <Button
+              label="Schedule deletion"
+              variant="danger"
+              onPress={() => schedule.mutate()}
+              busy={busy}
+              disabled={password.length === 0 || !confirmed(confirm)}
+            />
             <View style={styles.action}>
               <Button label="Go back" variant="secondary" onPress={() => router.back()} disabled={busy} />
             </View>
-          </Card>
+          </FormSection>
         </>
       )}
 
@@ -267,23 +277,14 @@ export default function DeleteAccount() {
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[4],
-  },
-  body: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight },
+  body: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
   emphasis: { fontWeight: fontWeight.bold },
-  bullet: {
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
-    marginTop: spacing[2],
-  },
+  lossRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2], marginBottom: spacing[2] },
+  loss: { flex: 1, fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
   detail: {
     fontSize: fontSize.sm.fontSize,
     lineHeight: fontSize.sm.lineHeight,
-    marginTop: spacing[3],
+    marginTop: spacing[2],
   },
   action: { marginTop: spacing[3] },
   footer: { height: spacing[8] },

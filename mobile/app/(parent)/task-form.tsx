@@ -11,10 +11,12 @@
  * parent gets an inline message rather than a round trip and a generic failure — but never *only*
  * here: the server rejects independently and its answer is what the screen reports on submit.
  *
- * ## Difficulty is deliberately absent
+ * ## Difficulty is shown, never chosen
  *
  * The server derives it from `pointsValue` via `difficultyFromPoints()`. Offering a picker would
- * present a choice that is silently overruled, which is worse than not offering it.
+ * present a choice that is silently overruled, which is worse than not offering it. What the form does
+ * show is a read-only pill beside Points, computed with that same shared function, so a parent sees
+ * the difficulty their number will get before saving.
  *
  * ## Assignment is a multi-select, and empty is valid
  *
@@ -34,11 +36,20 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TaskTemplateRow } from '@taskbuddy/shared';
 
+import { difficultyFromPoints } from '@taskbuddy/shared';
+
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
+import { Callout } from '@/components/Callout';
+import { ChildPicker } from '@/components/ChildPicker';
+import { Chip } from '@/components/Chip';
+import { ChoicePills } from '@/components/ChoicePills';
 import { Field } from '@/components/Field';
+import { FormFooter } from '@/components/FormFooter';
+import { FormSection } from '@/components/FormSection';
+import { GradientHeader } from '@/components/GradientHeader';
 import { Screen } from '@/components/Screen';
+import { ToggleRow } from '@/components/ToggleRow';
 import { useToast } from '@/components/Toast';
 import { dashboardQuery } from '@/lib/dashboardApi';
 import { describeError } from '@/lib/errors';
@@ -52,6 +63,8 @@ import {
 } from '@/lib/parentWriteApi';
 import { fillFromTaskTemplate, taskTemplatesQuery } from '@/lib/templatesApi';
 import { fontSize, fontWeight, minTouchTarget, radius, spacing, useTheme } from '@/theme';
+
+const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as const;
 
 const MIN_POINTS = 5;
 const MAX_POINTS = 1000;
@@ -110,9 +123,12 @@ function TaskFormScreen() {
   const theme = useTheme();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; template?: string }>();
   const id = typeof params.id === 'string' ? params.id : null;
   const editing = id !== null;
+  // "From a template" on the Tasks header opens this form with the picker already up. Create only,
+  // for the same reason the button inside the form is.
+  const openTemplatesFirst = params.template === '1' && !editing;
 
   // The children list, for the assignment picker. Reuses the dashboard's cache rather than issuing
   // a second request — this screen is usually opened from a tab that has already loaded it.
@@ -139,7 +155,7 @@ function TaskFormScreen() {
   const [isTeamTask, setIsTeamTask] = useState(false);
   const [teamBonus, setTeamBonus] = useState('10');
   const [maxClaims, setMaxClaims] = useState('');
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState(openTemplatesFirst);
   /**
    * Populated once, when the fetch lands.
    *
@@ -266,284 +282,15 @@ function TaskFormScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView keyboardShouldPersistTaps="handled">
-        <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-          {editing ? 'Edit task' : 'New task'}
-        </AppText>
-
-        {/* Create only — see the top of the file. Ignoring it and typing into the fields is the same form. */}
-        {!editing && (
-          <View style={styles.templateCta}>
-            <Button label="Start from a template" variant="secondary" onPress={() => setPicking(true)} disabled={busy} />
-          </View>
-        )}
-
-        <Field
-          label="What needs doing?"
-          value={title}
-          onChangeText={setTitle}
-          editable={!busy}
-          maxLength={200}
-          hint={title.length > 0 && !titleValid ? 'At least 3 characters' : undefined}
-        />
-
-        <Field
-          label="Any details? (optional)"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          maxLength={1000}
-          editable={!busy}
-        />
-
-        <Field
-          label="Points"
-          value={points}
-          onChangeText={(next) => setPoints(next.replace(/\D/g, ''))}
-          keyboardType="number-pad"
-          editable={!busy}
-          hint={`${MIN_POINTS}–${MAX_POINTS}. Difficulty is worked out from this.`}
-        />
-
-        <Field
-          label="How long will it take? (optional)"
-          value={minutes}
-          onChangeText={(next) => setMinutes(next.replace(/\D/g, ''))}
-          keyboardType="number-pad"
-          editable={!busy}
-          hint={minutesValid ? 'Minutes. Leave blank if you’d rather not say.' : undefined}
-          error={minutesValid ? undefined : `Between 1 and ${MAX_MINUTES} minutes`}
-        />
-
-        <AppText style={[styles.label, { color: theme.foreground }]}>Due</AppText>
-        <View style={styles.chipRow}>
-          {DUE_PRESETS.map((preset) => {
-            const selected = preset.days === dueDays;
-            return (
-              <Pressable
-                key={preset.label}
-                onPress={() => setDueDays(preset.days)}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                disabled={busy}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: selected ? theme.primary : theme.card,
-                    borderColor: selected ? theme.primary : theme.border,
-                  },
-                ]}
-              >
-                <AppText
-                  style={[
-                    styles.chipLabel,
-                    { color: selected ? theme.primaryForeground : theme.cardForeground },
-                  ]}
-                >
-                  {preset.label}
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {!editing && (
-          <>
-            <AppText style={[styles.label, { color: theme.foreground }]}>Who&apos;s doing it?</AppText>
-            <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
-              Leave everyone unticked to let any child claim it.
-            </AppText>
-            <Card>
-              {children.length === 0 ? (
-                <AppText style={[styles.hint, { color: theme.cardForeground }]}>
-                  No children yet.
-                </AppText>
-              ) : (
-                children.map((child) => {
-                  const on = assigned.includes(child.user.id);
-                  return (
-                    <Pressable
-                      key={child.user.id}
-                      onPress={() =>
-                        setAssigned((prev) =>
-                          on ? prev.filter((c) => c !== child.user.id) : [...prev, child.user.id]
-                        )
-                      }
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: on }}
-                      disabled={busy}
-                      style={styles.checkRow}
-                    >
-                      <AppText style={[styles.checkMark, { color: on ? theme.primary : theme.border }]}>
-                        {on ? '☑' : '☐'}
-                      </AppText>
-                      <AppText style={[styles.checkLabel, { color: theme.cardForeground }]}>
-                        {child.user.firstName}
-                      </AppText>
-                    </Pressable>
-                  );
-                })
-              )}
-            </Card>
-          </>
-        )}
-
-        <Pressable
-          onPress={() => setRequiresPhoto((v) => !v)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: requiresPhoto }}
-          disabled={busy}
-          style={styles.checkRow}
-        >
-          <AppText style={[styles.checkMark, { color: requiresPhoto ? theme.primary : theme.border }]}>
-            {requiresPhoto ? '☑' : '☐'}
-          </AppText>
-          <AppText style={[styles.checkLabel, { color: theme.foreground }]}>
-            Ask for a photo when they finish
-          </AppText>
-        </Pressable>
-
-        {/* ── Parity block: everything below existed on web with no mobile equivalent ── */}
-
-        <Card>
-          <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>TYPE</AppText>
-          <View style={styles.chipRow}>
-            {(['primary', 'secondary'] as const).map((tag) => (
-              <Pressable
-                key={tag}
-                onPress={() => setTaskTag(tag)}
-                disabled={busy}
-                accessibilityRole="button"
-                accessibilityState={{ selected: taskTag === tag }}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: taskTag === tag ? theme.primary : theme.card,
-                    borderColor: taskTag === tag ? theme.primary : theme.border,
-                  },
-                ]}
-              >
-                <AppText
-                  style={[styles.chipLabel, { color: taskTag === tag ? theme.primaryForeground : theme.cardForeground }]}
-                >
-                  {tag === 'primary' ? 'Must do' : 'Bonus'}
-                </AppText>
-              </Pressable>
-            ))}
-          </View>
-          <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
-            Bonus tasks stay locked until their must-do tasks for the day are finished.
-          </AppText>
-        </Card>
-
-        <Pressable
-          onPress={() => setIsRecurring((v) => !v)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: isRecurring }}
-          disabled={busy}
-          style={styles.checkRow}
-        >
-          <AppText style={[styles.checkMark, { color: isRecurring ? theme.primary : theme.border }]}>
-            {isRecurring ? '☑' : '☐'}
-          </AppText>
-          <AppText style={[styles.checkLabel, { color: theme.foreground }]}>Repeat this task</AppText>
-        </Pressable>
-
-        {isRecurring && (
-          <Card>
-            <AppText style={[styles.sectionTitle, { color: theme.mutedForeground }]}>HOW OFTEN</AppText>
-            <View style={styles.chipRow}>
-              {RECURRENCE_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  onPress={() => setRecurrencePattern(option.value)}
-                  disabled={busy}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: recurrencePattern === option.value }}
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: recurrencePattern === option.value ? theme.primary : theme.card,
-                      borderColor: recurrencePattern === option.value ? theme.primary : theme.border,
-                    },
-                  ]}
-                >
-                  <AppText
-                    style={[
-                      styles.chipLabel,
-                      { color: recurrencePattern === option.value ? theme.primaryForeground : theme.cardForeground },
-                    ]}
-                  >
-                    {option.label}
-                  </AppText>
-                </Pressable>
-              ))}
-            </View>
-          </Card>
-        )}
-
-        <Pressable
-          onPress={() => setIsTeamTask((v) => !v)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: isTeamTask }}
-          disabled={busy}
-          style={styles.checkRow}
-        >
-          <AppText style={[styles.checkMark, { color: isTeamTask ? theme.primary : theme.border }]}>
-            {isTeamTask ? '☑' : '☐'}
-          </AppText>
-          <AppText style={[styles.checkLabel, { color: theme.foreground }]}>
-            Team-up task (two or more children)
-          </AppText>
-        </Pressable>
-
-        {isTeamTask && (
-          <Card>
-            <Field
-              label="Teamwork bonus"
-              value={teamBonus}
-              onChangeText={(next) => setTeamBonus(next.replace(/\D/g, ''))}
-              keyboardType="number-pad"
-              editable={!busy}
-              hint="Paid to everyone ON TOP of their own points, once every member is approved. 1 to 500."
-              error={teamBonus.trim() !== '' && !teamBonusValid ? 'Between 1 and 500.' : undefined}
-            />
-            {assigned.length < 2 && (
-              <AppText style={[styles.hint, { color: theme.destructive }]}>
-                Assign at least two children below, or this cannot be a team task.
-              </AppText>
-            )}
-          </Card>
-        )}
-
-        <Field
-          label="Limit how many children can claim it (optional)"
-          value={maxClaims}
-          onChangeText={(next) => setMaxClaims(next.replace(/\D/g, ''))}
-          keyboardType="number-pad"
-          editable={!busy}
-          hint="Leave blank for no limit. 1 to 100."
-          error={!maxClaimsValid ? 'Between 1 and 100, or blank.' : undefined}
-        />
-
-        {error !== null && (
-          <Card style={{ borderColor: theme.destructive, borderWidth: 1 }}>
-            <AppText accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
-              {error}
-            </AppText>
-          </Card>
-        )}
-
-        <View style={styles.actions}>
+    <Screen
+      footer={
+        <FormFooter secondaryLabel="Cancel" onSecondary={() => router.back()} secondaryDisabled={busy}>
           <Button
             label={editing ? 'Save changes' : 'Create task'}
             onPress={() => void submit()}
             busy={busy}
             disabled={!canSubmit}
           />
-          <View style={styles.gap} />
-          <Button label="Cancel" variant="secondary" onPress={() => router.back()} disabled={busy} />
           {/*
             Save and Cancel, and nothing else. This form used to carry a third button, "Delete task",
             which called `DELETE /tasks/:id`: a soft delete that stamps `deletedAt` and removes the
@@ -551,7 +298,198 @@ function TaskFormScreen() {
             archive. Withdrawing a task now lives on the list and the detail screen as Archive, which
             is reversible.
           */}
-        </View>
+        </FormFooter>
+      }
+    >
+      <ScrollView keyboardShouldPersistTaps="handled">
+        <GradientHeader
+          tone="teal"
+          icon="create"
+          eyebrow="Tasks"
+          title={editing ? 'Edit task' : 'New task'}
+          subtitle={editing ? undefined : 'Children see it straight away'}
+          // Create only: see the top of the file. Ignoring it and typing into the fields is the same form.
+          actions={
+            editing
+              ? undefined
+              : [{ label: 'Start from a template', icon: 'sparkles', onPress: () => setPicking(true), disabled: busy }]
+          }
+        />
+
+        <FormSection title="The task" icon="create" tone="primary">
+          <Field
+            label="What needs doing?"
+            value={title}
+            onChangeText={setTitle}
+            editable={!busy}
+            maxLength={200}
+            hint={title.length > 0 && !titleValid ? 'At least 3 characters' : undefined}
+          />
+
+          <Field
+            label="Any details? (optional)"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            maxLength={1000}
+            editable={!busy}
+          />
+        </FormSection>
+
+        <FormSection title="Points and time" icon="star" tone="gold">
+          <Field
+            label="Points"
+            value={points}
+            onChangeText={(next) => setPoints(next.replace(/\D/g, ''))}
+            keyboardType="number-pad"
+            editable={!busy}
+            hint={`${MIN_POINTS} to ${MAX_POINTS}. Difficulty is worked out from this.`}
+          />
+          {pointsValid && (
+            <View style={styles.difficulty}>
+              <AppText style={[styles.difficultyLabel, { color: theme.mutedForeground }]}>This counts as</AppText>
+              <Chip compact variant="xp" label={DIFFICULTY_LABEL[difficultyFromPoints(pointsValue)]} />
+            </View>
+          )}
+
+          <Field
+            label="How long will it take? (optional)"
+            value={minutes}
+            onChangeText={(next) => setMinutes(next.replace(/\D/g, ''))}
+            keyboardType="number-pad"
+            editable={!busy}
+            hint={minutesValid ? 'Minutes. Leave blank if you’d rather not say.' : undefined}
+            error={minutesValid ? undefined : `Between 1 and ${MAX_MINUTES} minutes`}
+          />
+        </FormSection>
+
+        <FormSection title="When" icon="calendar" tone="primary">
+          <AppText style={[styles.label, { color: theme.cardForeground }]}>Due</AppText>
+          <ChoicePills
+            label="Due"
+            options={DUE_PRESETS.map((preset) => ({ value: preset.days, label: preset.label }))}
+            value={dueDays}
+            onChange={setDueDays}
+            disabled={busy}
+          />
+
+          <View style={styles.gapLg} />
+          <ToggleRow
+            label="Repeat this task"
+            detail="A new copy appears for them on the days you choose."
+            value={isRecurring}
+            onToggle={() => setIsRecurring((v) => !v)}
+            disabled={busy}
+            divider
+          />
+          {isRecurring && (
+            <View style={styles.nested}>
+              <ChoicePills
+                label="How often"
+                options={RECURRENCE_OPTIONS}
+                value={recurrencePattern}
+                onChange={setRecurrencePattern}
+                disabled={busy}
+              />
+            </View>
+          )}
+        </FormSection>
+
+        <FormSection title="Who and what kind" icon="people" tone="xp">
+          {!editing && (
+            <>
+              <AppText style={[styles.label, { color: theme.cardForeground }]}>Who&apos;s doing it?</AppText>
+              {children.length === 0 ? (
+                <AppText style={[styles.hint, { color: theme.mutedForeground }]}>No children yet.</AppText>
+              ) : (
+                <ChildPicker
+                  options={children.map((child) => ({ id: child.user.id, firstName: child.user.firstName }))}
+                  selected={assigned}
+                  onToggle={(childId) =>
+                    setAssigned((prev) =>
+                      prev.includes(childId) ? prev.filter((c) => c !== childId) : [...prev, childId]
+                    )
+                  }
+                  disabled={busy}
+                />
+              )}
+              <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+                Leave everyone unselected to let any child claim it.
+              </AppText>
+              <View style={styles.gapLg} />
+            </>
+          )}
+
+          {/* ── Parity block: everything below existed on web with no mobile equivalent ── */}
+          <AppText style={[styles.label, { color: theme.cardForeground }]}>Type</AppText>
+          <ChoicePills
+            label="Type"
+            options={[
+              { value: 'primary' as const, label: 'Must do' },
+              { value: 'secondary' as const, label: 'Bonus' },
+            ]}
+            value={taskTag}
+            onChange={setTaskTag}
+            disabled={busy}
+          />
+          <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+            Bonus tasks stay locked until their must-do tasks for the day are finished.
+          </AppText>
+        </FormSection>
+
+        <FormSection title="Extras" icon="sparkles" tone="peach">
+          <ToggleRow
+            label="Ask for a photo when they finish"
+            detail="They can still finish without one if the camera is refused."
+            value={requiresPhoto}
+            onToggle={() => setRequiresPhoto((v) => !v)}
+            disabled={busy}
+          />
+
+          <ToggleRow
+            label="Team-up task"
+            detail="Two or more children share it and each gets a bonus."
+            value={isTeamTask}
+            onToggle={() => setIsTeamTask((v) => !v)}
+            disabled={busy}
+            divider
+          />
+          {isTeamTask && (
+            <View style={styles.nested}>
+              <Field
+                label="Teamwork bonus"
+                value={teamBonus}
+                onChangeText={(next) => setTeamBonus(next.replace(/\D/g, ''))}
+                keyboardType="number-pad"
+                editable={!busy}
+                hint="Paid to everyone ON TOP of their own points, once every member is approved. 1 to 500."
+                error={teamBonus.trim() !== '' && !teamBonusValid ? 'Between 1 and 500.' : undefined}
+              />
+              {assigned.length < 2 && (
+                <Callout kind="warning" icon="people">
+                  Assign at least two children above, or this cannot be a team task.
+                </Callout>
+              )}
+            </View>
+          )}
+
+          <View style={styles.gapLg} />
+          <Field
+            label="Limit how many children can claim it (optional)"
+            value={maxClaims}
+            onChangeText={(next) => setMaxClaims(next.replace(/\D/g, ''))}
+            keyboardType="number-pad"
+            editable={!busy}
+            hint="Leave blank for no limit. 1 to 100."
+            error={!maxClaimsValid ? 'Between 1 and 100, or blank.' : undefined}
+          />
+        </FormSection>
+
+        {error !== null && (
+          <Callout kind="danger" live>
+            {error}
+          </Callout>
+        )}
       </ScrollView>
 
       {/* Android back and a backdrop tap both dismiss it: a sheet that closes only via its own button
@@ -564,7 +502,7 @@ function TaskFormScreen() {
           onPress={() => setPicking(false)}
         />
         <View style={[styles.sheet, { backgroundColor: theme.card }]}>
-          <AppText style={[styles.sheetTitle, { color: theme.cardForeground }]}>Start from a template</AppText>
+          <AppText variant="display" style={[styles.sheetTitle, { color: theme.cardForeground }]}>Start from a template</AppText>
           <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
             Pick one to fill the form. You can change anything before saving.
           </AppText>
@@ -607,45 +545,17 @@ function TaskFormScreen() {
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[4],
-  },
   label: {
     fontSize: fontSize.sm.fontSize,
+    lineHeight: fontSize.sm.lineHeight,
     fontWeight: fontWeight.semibold,
-    marginTop: spacing[4],
     marginBottom: spacing[2],
   },
-  hint: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginBottom: spacing[2] },
-  sectionTitle: {
-    fontSize: fontSize.xs.fontSize,
-    fontWeight: fontWeight.semibold,
-    letterSpacing: 0.6,
-    marginBottom: spacing[2],
-  },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[2] },
-  chip: {
-    paddingHorizontal: spacing[3],
-    minHeight: minTouchTarget,
-    justifyContent: 'center',
-    borderRadius: radius.full,
-    borderWidth: 1,
-  },
-  chipLabel: { fontSize: fontSize.sm.fontSize, fontWeight: fontWeight.medium },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    minHeight: minTouchTarget,
-  },
-  checkMark: { fontSize: fontSize.lg.fontSize },
-  checkLabel: { fontSize: fontSize.base.fontSize, flexShrink: 1 },
-  actions: { marginTop: spacing[5], marginBottom: spacing[6] },
-  gap: { height: spacing[2] },
-  templateCta: { marginBottom: spacing[4] },
+  hint: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight, marginTop: spacing[2] },
+  difficulty: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: -spacing[2], marginBottom: spacing[4] },
+  difficultyLabel: { fontSize: fontSize.xs.fontSize, lineHeight: fontSize.xs.lineHeight },
+  gapLg: { height: spacing[4] },
+  nested: { marginTop: spacing[3] },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: { padding: spacing[5], borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
   sheetTitle: {

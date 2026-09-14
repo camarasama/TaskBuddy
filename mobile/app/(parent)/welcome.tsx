@@ -12,14 +12,15 @@
  * State is server-side (`FamilySettings.onboardingState` via `/onboarding`), so closing the app loses
  * nothing and a co-parent on another device sees the same checklist.
  *
- * ## Two honest departures from the web
+ * ## Step 2 opens the template picker directly
  *
- * 1. **Step 2 cannot deep-link into the template picker.** The web opens `/parent/tasks/new?templates=1`
- *    and the sheet is already up. `mobile/app/(parent)/task-form.tsx` opens its template sheet from a
- *    tap on "Start from a template" — there is no query-param entry, and adding one is a change to a
- *    screen outside this unit's scope. The copy below says so instead of quietly promising a sheet
- *    that will not open.
- * 2. **No confetti.** The web uses `react-confetti`; mobile has no equivalent lightweight dependency,
+ * The web opens `/parent/tasks/new?templates=1` with the sheet already up. Mobile could not until the
+ * parent visual pass gave `task-form.tsx` a `template=1` param (the Tasks header's "From a template"
+ * uses it too), so this step now does the same as the web.
+ *
+ * ## One honest departure from the web
+ *
+ * **No confetti.** The web uses `react-confetti`; mobile has no equivalent lightweight dependency,
  *    and this unit adds none. The success feedback here is a themed banner instead of particles — the
  *    real approval pipeline underneath (points, XP, socket event) is identical.
  *
@@ -32,7 +33,7 @@
  */
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
@@ -40,7 +41,11 @@ import type { ParentDashboardResponse } from '@taskbuddy/shared';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { Callout } from '@/components/Callout';
 import { Card } from '@/components/Card';
+import { Chip } from '@/components/Chip';
+import { GradientHeader } from '@/components/GradientHeader';
+import { IconTile } from '@/components/IconTile';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { APPROVALS_KEY, decideApproval } from '@/lib/approvalsApi';
@@ -57,7 +62,8 @@ import {
   type OnboardingStateResponse,
   type OnboardingStep,
 } from '@/lib/onboardingApi';
-import { fontSize, fontWeight, minTouchTarget, palette, radius, spacing, useTheme } from '@/theme';
+import { fontSize, fontWeight, minTouchTarget, onGradient, radius, spacing, useTheme } from '@/theme';
+import type { AccentTone } from '@/theme/accents';
 
 type Child = ParentDashboardResponse['children'][number];
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
@@ -67,7 +73,8 @@ interface StepDef {
   title: string;
   description: string;
   icon: IoniconName;
-  href?: '/(parent)/child-form' | '/(parent)/task-form' | '/(parent)/reward-form';
+  tone: AccentTone;
+  href?: Href;
   cta: string;
 }
 
@@ -76,24 +83,27 @@ const STEPS: readonly StepDef[] = [
     id: 'child',
     title: 'Add your first child',
     description: 'Give them a name and a 4-digit PIN. They sign in with your family code.',
-    icon: 'people-outline',
+    icon: 'people',
+    tone: 'xp',
     href: '/(parent)/child-form',
     cta: 'Add a child',
   },
   {
     id: 'tasks',
     title: 'Add a starter task',
-    // Honest about the extra tap: see the file header on why this cannot auto-open the way the web does.
-    description: 'A ready-made chore beats a blank list — once you’re there, tap "Start from a template".',
-    icon: 'checkbox-outline',
-    href: '/(parent)/task-form',
+    description: 'A ready-made chore beats a blank list. Pick one and change anything you like.',
+    icon: 'checkbox',
+    tone: 'primary',
+    // Opens with the template picker already up, the same as the web: see the file header.
+    href: { pathname: '/(parent)/task-form', params: { template: '1' } },
     cta: 'Add a task',
   },
   {
     id: 'reward',
     title: 'Add one reward',
     description: 'What will they work for? Pick an idea or write your own.',
-    icon: 'gift-outline',
+    icon: 'gift',
+    tone: 'gold',
     href: '/(parent)/reward-form',
     cta: 'Add a reward',
   },
@@ -101,7 +111,8 @@ const STEPS: readonly StepDef[] = [
     id: 'handoff',
     title: 'Try it together',
     description: 'Approve your child’s first task and watch the points land for real.',
-    icon: 'sparkles-outline',
+    icon: 'sparkles',
+    tone: 'peach',
     cta: 'Show me',
   },
 ];
@@ -152,7 +163,7 @@ export default function Welcome() {
     // reference eslint's exhaustive-deps correctly refuses to trust in a dependency list below.
     const child: Child | undefined = dashboard.data?.children[0];
     if (!child) {
-      toast.show('Add a child first — step 1.', 'error');
+      toast.show('Add a child first (step 1).', 'error');
       return;
     }
 
@@ -190,7 +201,7 @@ export default function Welcome() {
   if (onboarding.isPending || dashboard.isPending) {
     return (
       <Screen>
-        <AppText style={[styles.body, { color: theme.mutedForeground }]}>Loading your setup…</AppText>
+        <GradientHeader tone="brand" icon="sparkles" eyebrow="Welcome" title="Loading your setup…" />
       </Screen>
     );
   }
@@ -199,14 +210,10 @@ export default function Welcome() {
     const offline = onboarding.error instanceof NetworkError;
     return (
       <Screen scroll>
-        <Card>
-          <AppText style={[styles.heading, { color: theme.destructive }]}>
-            {offline ? 'No connection' : 'Could not load your setup progress'}
-          </AppText>
-          <AppText style={[styles.body, { color: theme.cardForeground }]}>
-            {describeError(onboarding.error)}
-          </AppText>
-        </Card>
+        <GradientHeader tone="brand" icon="sparkles" eyebrow="Welcome" title="Set up your family" />
+        <Callout kind="danger" title={offline ? 'No connection' : 'Could not load your setup progress'} live>
+          {describeError(onboarding.error)}
+        </Callout>
         <Button label="Try again" onPress={() => void onboarding.refetch()} />
       </Screen>
     );
@@ -217,45 +224,35 @@ export default function Welcome() {
 
   return (
     <Screen scroll>
-      <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-        {allDone ? 'You’re all set' : 'Let’s get you going'}
-      </AppText>
-      <AppText style={[styles.body, { color: theme.mutedForeground }]}>
-        {allDone
-          ? 'Everything is ready. Your family can start earning.'
-          : 'Four quick steps. Skip whenever you like — nothing here is required.'}
-      </AppText>
-
-      <View style={[styles.progressTrack, { backgroundColor: theme.muted }]}>
-        <View
-          style={[
-            styles.progressFill,
-            { backgroundColor: theme.primary, width: `${(completedCount / STEPS.length) * 100}%` },
-          ]}
-        />
-      </View>
-      <AppText style={[styles.progressLabel, { color: theme.mutedForeground }]}>
-        {completedCount} of {STEPS.length} done
-      </AppText>
+      <GradientHeader
+        tone={allDone ? 'success' : 'brand'}
+        icon={allDone ? 'checkmark-circle' : 'sparkles'}
+        eyebrow="Welcome"
+        title={allDone ? 'You’re all set' : 'Let’s get you going'}
+        subtitle={
+          allDone
+            ? 'Everything is ready. Your family can start earning.'
+            : 'Four quick steps. Skip whenever you like, nothing here is required.'
+        }
+      >
+        {/* White on the gradient, so the bar reads on either tone. */}
+        <View style={[styles.progressTrack, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+          <View
+            style={[
+              styles.progressFill,
+              { backgroundColor: onGradient, width: `${(completedCount / STEPS.length) * 100}%` },
+            ]}
+          />
+        </View>
+        <AppText style={[styles.progressLabel, { color: onGradient }]}>
+          {completedCount} of {STEPS.length} done
+        </AppText>
+      </GradientHeader>
 
       {celebration && (
-        <Card style={{ borderColor: palette.success[600], borderWidth: 2 }}>
-          <View style={styles.celebrationRow}>
-            <Ionicons
-              name="sparkles"
-              size={20}
-              color={palette.success[600]}
-              importantForAccessibility="no"
-              accessibilityElementsHidden
-            />
-            <AppText
-              accessibilityRole="alert"
-              style={[styles.celebrationText, { color: theme.cardForeground }]}
-            >
-              {celebration}
-            </AppText>
-          </View>
-        </Card>
+        <Callout kind="success" icon="sparkles" live>
+          {celebration}
+        </Callout>
       )}
 
       {STEPS.map((step, index) => {
@@ -265,13 +262,7 @@ export default function Welcome() {
         return (
           <Card key={step.id} style={isNext ? { borderColor: theme.primary, borderWidth: 2 } : undefined}>
             <View style={styles.stepRow}>
-              <Ionicons
-                name={isDone ? 'checkmark-circle' : step.icon}
-                size={22}
-                color={isDone ? palette.success[600] : theme.primary}
-                importantForAccessibility="no"
-                accessibilityElementsHidden
-              />
+              <IconTile tone={isDone ? 'success' : step.tone} icon={isDone ? 'checkmark-circle' : step.icon} size={44} />
               <View style={styles.stepText}>
                 <AppText
                   style={[
@@ -282,10 +273,13 @@ export default function Welcome() {
                 >
                   {step.title}
                 </AppText>
-                <AppText style={[styles.stepDescription, { color: theme.mutedForeground }]}>
-                  {step.description}
-                </AppText>
+                {!isDone && (
+                  <AppText style={[styles.stepDescription, { color: theme.mutedForeground }]}>
+                    {step.description}
+                  </AppText>
+                )}
               </View>
+              {isDone && <Chip compact variant="done" icon="checkmark" label="Done" />}
             </View>
 
             {!isDone && step.id !== 'handoff' && step.href && (
@@ -296,7 +290,7 @@ export default function Welcome() {
                 <View style={styles.stepActionsCol}>
                   <Button
                     label="Already done"
-                    variant="secondary"
+                    variant="soft"
                     onPress={() => void markDone(step.id)}
                   />
                 </View>
@@ -323,7 +317,7 @@ export default function Welcome() {
             style={styles.skipLink}
           >
             <AppText style={[styles.skipText, { color: theme.mutedForeground }]}>
-              Skip setup — I&apos;ll find my way around
+              Skip setup, I&apos;ll find my way around
             </AppText>
           </Pressable>
         )}
@@ -333,37 +327,19 @@ export default function Welcome() {
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-  },
-  body: {
-    fontSize: fontSize.base.fontSize,
-    lineHeight: fontSize.base.lineHeight,
-    marginTop: spacing[1],
-    marginBottom: spacing[4],
-  },
   progressTrack: {
     height: 8,
     borderRadius: radius.full,
     overflow: 'hidden',
-    marginBottom: spacing[1],
   },
   progressFill: { height: '100%', borderRadius: radius.full },
   progressLabel: {
     fontSize: fontSize.xs.fontSize,
     lineHeight: fontSize.xs.lineHeight,
-    marginBottom: spacing[4],
-  },
-  celebrationRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  celebrationText: {
-    flexShrink: 1,
-    fontSize: fontSize.sm.fontSize,
-    lineHeight: fontSize.sm.lineHeight,
     fontWeight: fontWeight.semibold,
+    marginTop: spacing[2],
   },
-  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   stepText: { flex: 1 },
   stepTitle: {
     fontSize: fontSize.base.fontSize,

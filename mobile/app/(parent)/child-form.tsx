@@ -31,10 +31,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
+import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
+import { Callout } from '@/components/Callout';
 import { DateField } from '@/components/DateField';
 import { Field } from '@/components/Field';
+import { FormFooter } from '@/components/FormFooter';
+import { FormSection } from '@/components/FormSection';
+import { GradientHeader } from '@/components/GradientHeader';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import {
@@ -343,97 +347,120 @@ function ChildFormScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView keyboardShouldPersistTaps="handled">
-        <AppText variant="display" style={[styles.heading, { color: theme.foreground }]}>
-          {editing ? 'Edit child' : 'Add a child'}
-        </AppText>
-
-        <Field label="First name" value={firstName} onChangeText={setFirstName} editable={!busy} />
-        <Field label="Last name" value={lastName} onChangeText={setLastName} editable={!busy} />
-
-        <Field
-          label="Username"
-          value={username}
-          onChangeText={setUsername}
-          autoCapitalize="none"
-          autoCorrect={false}
-          editable={!busy}
-          maxLength={20}
-          hint="What they type to sign in. Letters, numbers and _ only, 3–20 characters."
-        />
-
-        {!editing && (
-          <DateField
-            label="Date of birth"
-            value={dob}
-            onChange={setDob}
-            editable={!busy}
-            {...childDobBounds()}
-            error={dob.length > 0 && !dobValid
-              ? `TaskBuddy is for children aged ${AGE_LIMITS.CHILD_MIN} to ${AGE_LIMITS.CHILD_MAX}.`
-              : undefined}
-            hint={`TaskBuddy is for ages ${AGE_LIMITS.CHILD_MIN} to ${AGE_LIMITS.CHILD_MAX}.`}
+    <Screen
+      footer={
+        <FormFooter secondaryLabel="Cancel" onSecondary={() => router.back()} secondaryDisabled={busy}>
+          <Button
+            label={editing ? 'Save changes' : 'Add child'}
+            onPress={() => void submit()}
+            busy={busy}
+            disabled={!canSubmit}
           />
-        )}
-
-        <Field
-          label={editing ? 'New PIN (optional)' : 'PIN'}
-          value={pin}
-          onChangeText={(next) => setPin(next.replace(/\D/g, ''))}
-          keyboardType="number-pad"
-          secureTextEntry
-          maxLength={4}
-          editable={!busy}
-          hint={editing ? 'Leave blank to keep their current PIN.' : '4 digits.'}
+        </FormFooter>
+      }
+    >
+      <ScrollView keyboardShouldPersistTaps="handled">
+        {/* Purple, the children's colour; on edit the header carries the child's own avatar. */}
+        <GradientHeader
+          tone="brand"
+          icon="person-add"
+          eyebrow="Children"
+          title={editing ? `Edit ${existing?.firstName ?? 'child'}` : 'Add a child'}
+          subtitle={
+            editing
+              ? existing?.username
+                ? `Signs in as ${existing.username}`
+                : undefined
+              : 'They sign in with a username and PIN, no email needed'
+          }
+          badge={editing && id ? <Avatar seed={id} name={existing?.firstName ?? '?'} size={52} /> : undefined}
         />
 
-        {editing && (
-          <Card>
-            <AppText style={[styles.hint, { color: theme.cardForeground }]}>
-              Profile picture
-            </AppText>
-            <View style={styles.gap} />
-            <Button
-              label={uploading ? 'Uploading…' : 'Choose a picture'}
-              variant="secondary"
-              onPress={() => void chooseAvatar()}
-              busy={uploading}
-              disabled={busy}
+        <FormSection title="About them" icon="person" tone="xp">
+          <Field label="First name" value={firstName} onChangeText={setFirstName} editable={!busy} />
+          <Field label="Last name" value={lastName} onChangeText={setLastName} editable={!busy} />
+
+          <Field
+            label="Username"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!busy}
+            maxLength={20}
+            hint="What they type to sign in. Letters, numbers and _ only, 3 to 20 characters."
+          />
+
+          {!editing && (
+            <DateField
+              label="Date of birth"
+              value={dob}
+              onChange={setDob}
+              editable={!busy}
+              {...childDobBounds()}
+              error={dob.length > 0 && !dobValid
+                ? `TaskBuddy is for children aged ${AGE_LIMITS.CHILD_MIN} to ${AGE_LIMITS.CHILD_MAX}.`
+                : undefined}
+              hint={`TaskBuddy is for ages ${AGE_LIMITS.CHILD_MIN} to ${AGE_LIMITS.CHILD_MAX}.`}
             />
-          </Card>
+          )}
+
+          <Field
+            label={editing ? 'New PIN (optional)' : 'PIN'}
+            value={pin}
+            onChangeText={(next) => setPin(next.replace(/\D/g, ''))}
+            keyboardType="number-pad"
+            secureTextEntry
+            maxLength={4}
+            editable={!busy}
+            hint={editing ? 'Leave blank to keep their current PIN.' : '4 digits.'}
+          />
+        </FormSection>
+
+        {editing && id && (
+          <FormSection title="Profile picture" icon="camera" tone="peach">
+            <View style={styles.avatarRow}>
+              <Avatar seed={id} name={firstName || '?'} size={52} />
+              <AppText style={[styles.small, styles.grow, { color: theme.mutedForeground }]}>
+                Shown to your family in the app.
+              </AppText>
+              <Button
+                label={uploading ? 'Uploading…' : 'Choose'}
+                variant="soft"
+                onPress={() => void chooseAvatar()}
+                busy={uploading}
+                disabled={busy}
+              />
+            </View>
+          </FormSection>
         )}
 
         {consentNeeded && (
-          <Card style={{ borderColor: theme.primary, borderWidth: 2 }}>
-            <AppText style={[styles.hint, { color: theme.cardForeground }]}>
+          <Callout kind="info" icon="shield-checkmark" title="Confirm you're the parent first">
+            <AppText style={[styles.small, { color: theme.cardForeground }]}>
               {error ??
                 'Before adding a child we need to confirm you’re their parent. Check your email for the confirmation link.'}
             </AppText>
             <View style={styles.gap} />
             <Button
               label="Confirm I'm the parent"
-              variant="secondary"
+              variant="soft"
               onPress={() => router.push('/(parent)/consent')}
               disabled={busy}
             />
-          </Card>
+          </Callout>
         )}
 
         {error !== null && !consentNeeded && (
-          <Card style={{ borderColor: theme.destructive, borderWidth: 1 }}>
-            <AppText accessibilityRole="alert" style={[styles.hint, { color: theme.destructive }]}>
-              {error}
-            </AppText>
-          </Card>
+          <Callout kind="danger" live>
+            {error}
+          </Callout>
         )}
 
         {editing && (
-          <Card>
-            <AppText style={[styles.hint, { color: theme.cardForeground }]}>
-              Something came up tonight?
-            </AppText>
-            <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+          <FormSection title="Streak help" icon="flame" tone="peach">
+            <AppText style={[styles.subhead, { color: theme.cardForeground }]}>Something came up tonight?</AppText>
+            <AppText style={[styles.small, { color: theme.mutedForeground }]}>
               {graceActive && graceUntil
                 ? `${firstName || 'Their'} streak is held until ${formatGraceTime(graceUntil)}. They won't lose it before then.`
                 : `Give ${firstName || 'them'} another ${GRACE_GRANT_HOURS} hours before the streak counts today as missed. The task's own deadline doesn't change.`}
@@ -442,6 +469,7 @@ function ChildFormScreen() {
 
             <Button
               label={graceActive ? 'Extend again' : 'Give extra time'}
+              variant="soft"
               onPress={() => void giveGrace()}
               busy={graceBusy}
               disabled={busy}
@@ -457,15 +485,11 @@ function ChildFormScreen() {
                 />
               </>
             )}
-          </Card>
-        )}
 
-        {editing && (
-          <Card>
-            <AppText style={[styles.hint, { color: theme.cardForeground }]}>
-              Away from home?
-            </AppText>
-            <AppText style={[styles.hint, { color: theme.mutedForeground }]}>
+            <View style={[styles.divider, { borderTopColor: theme.border }]} />
+
+            <AppText style={[styles.subhead, { color: theme.cardForeground }]}>Away from home?</AppText>
+            <AppText style={[styles.small, { color: theme.mutedForeground }]}>
               Pause {firstName || 'their'} streak over a holiday. Missed days won&apos;t break it, and
               you won&apos;t get streak reminders while it&apos;s paused. Tasks they do finish still
               count as normal.
@@ -475,24 +499,33 @@ function ChildFormScreen() {
             {/* minimumDate today on both: the pause is forward-only, so the picker refuses what the
                 server would reject anyway, rather than letting a parent choose a date and then be
                 told no. */}
-            <DateField
-              label="From"
-              value={pauseFrom}
-              onChange={setPauseFrom}
-              editable={!pauseBusy && !busy}
-              minimumDate={new Date()}
-            />
-            <DateField
-              label="Until"
-              value={pauseUntil}
-              onChange={setPauseUntil}
-              editable={!pauseBusy && !busy}
-              minimumDate={pauseFrom ? new Date(`${pauseFrom}T00:00:00`) : new Date()}
-              hint={`Up to ${MAX_STREAK_PAUSE_DAYS} days.`}
-            />
+            <View style={styles.dateRow}>
+              <View style={styles.grow}>
+                <DateField
+                  label="From"
+                  value={pauseFrom}
+                  onChange={setPauseFrom}
+                  editable={!pauseBusy && !busy}
+                  minimumDate={new Date()}
+                />
+              </View>
+              <View style={styles.grow}>
+                <DateField
+                  label="Until"
+                  value={pauseUntil}
+                  onChange={setPauseUntil}
+                  editable={!pauseBusy && !busy}
+                  minimumDate={pauseFrom ? new Date(`${pauseFrom}T00:00:00`) : new Date()}
+                />
+              </View>
+            </View>
+            <AppText style={[styles.small, styles.dateHint, { color: theme.mutedForeground }]}>
+              Up to {MAX_STREAK_PAUSE_DAYS} days.
+            </AppText>
 
             <Button
               label={pauseActive ? 'Update pause' : 'Pause streak'}
+              variant="soft"
               onPress={() => void savePause()}
               busy={pauseBusy}
               disabled={busy || pauseFrom === '' || pauseUntil === ''}
@@ -508,75 +541,65 @@ function ChildFormScreen() {
                 />
               </>
             )}
-          </Card>
+          </FormSection>
         )}
 
         {/* Immediately before the submit control, per the brief. A Pressable rather than a
             switch: this is an agreement, and a row that reads as a statement with a tick is harder
             to flip by accident than a toggle. */}
         {!editing && (
-          <Pressable
-            onPress={() => setConsentAccepted((v) => !v)}
-            disabled={busy}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: consentAccepted, disabled: busy }}
-            accessibilityLabel="I confirm I am this child's parent or legal guardian and consent to TaskBuddy holding their information"
-            style={styles.consentRow}
-          >
-            <View
-              style={[
-                styles.consentBox,
-                {
-                  borderColor: consentAccepted ? theme.primary : theme.border,
-                  backgroundColor: consentAccepted ? theme.primary : 'transparent',
-                },
-              ]}
+          <FormSection title="Your consent" icon="shield-checkmark" tone="primary">
+            <Pressable
+              onPress={() => setConsentAccepted((v) => !v)}
+              disabled={busy}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: consentAccepted, disabled: busy }}
+              accessibilityLabel="I confirm I am this child's parent or legal guardian and consent to TaskBuddy holding their information"
+              style={styles.consentRow}
             >
-              {consentAccepted && <Ionicons name="checkmark" size={16} color={theme.primaryForeground} />}
-            </View>
-            <AppText style={[styles.hint, styles.consentText, { color: theme.cardForeground }]}>
-              I confirm I am this child&apos;s parent or legal guardian and I consent to TaskBuddy
-              holding their information. A confirmation email recording this consent will be sent to
-              everyone on this account.
-            </AppText>
-          </Pressable>
+              <View
+                style={[
+                  styles.consentBox,
+                  {
+                    borderColor: consentAccepted ? theme.primary : theme.border,
+                    backgroundColor: consentAccepted ? theme.primary : 'transparent',
+                  },
+                ]}
+              >
+                {consentAccepted && <Ionicons name="checkmark" size={16} color={theme.primaryForeground} />}
+              </View>
+              <AppText style={[styles.small, styles.grow, { color: theme.cardForeground }]}>
+                I confirm I am this child&apos;s parent or legal guardian and I consent to TaskBuddy
+                holding their information. A confirmation email recording this consent will be sent to
+                everyone on this account.
+              </AppText>
+            </Pressable>
+          </FormSection>
         )}
-
-        <View style={styles.actions}>
-          <Button
-            label={editing ? 'Save changes' : 'Add child'}
-            onPress={() => void submit()}
-            busy={busy}
-            disabled={!canSubmit}
-          />
-          <View style={styles.gap} />
-          <Button label="Cancel" variant="secondary" onPress={() => router.back()} disabled={busy} />
-        </View>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize['2xl'].fontSize,
-    lineHeight: fontSize['2xl'].lineHeight,
-    fontWeight: fontWeight.bold,
-    marginBottom: spacing[4],
-  },
-  hint: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
-  actions: { marginTop: spacing[5], marginBottom: spacing[6] },
-  consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3], marginTop: spacing[4] },
-  // 22dp with a generous row hit area: the box itself is small, the whole row is the target.
+  small: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
+  subhead: { fontSize: fontSize.base.fontSize, lineHeight: fontSize.base.lineHeight, fontWeight: fontWeight.semibold, marginBottom: spacing[1] },
+  grow: { flex: 1 },
+  avatarRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  divider: { borderTopWidth: 1, marginVertical: spacing[4] },
+  dateRow: { flexDirection: 'row', gap: spacing[2] },
+  // DateField keeps its own bottom margin; the shared hint sits tight under the pair.
+  dateHint: { marginTop: -spacing[2], marginBottom: spacing[3] },
+  consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
+  // 24dp with a generous row hit area: the box itself is small, the whole row is the target.
   consentBox: {
-    width: 22,
-    height: 22,
-    borderRadius: radius.sm,
+    width: 24,
+    height: 24,
+    borderRadius: radius.base,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
-  consentText: { flex: 1 },
   gap: { height: spacing[2] },
 });
