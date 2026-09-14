@@ -68,11 +68,24 @@ function buildCspDirectives() {
  *
  * No `preload`. That submits the domain to a browser-baked list which is slow and painful to leave.
  */
-const HSTS_MAX_AGE_SECONDS = 86400; // 1 day. See the note above before raising this.
+// Raised from 1 day to 180 days on 2026-09-14 (security audit): the 1-day value had been live and
+// uneventful since July, and 180 days matches what `api.` already sends.
+const HSTS_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
 
 function buildSecurityHeaders() {
   const headers = [
     { key: CSP_HEADER, value: buildCspDirectives() },
+    /**
+     * Framing is refused for real, now, even though the rest of the CSP is still report-only.
+     *
+     * Security audit 2026-09-14: `frame-ancestors 'none'` inside a Report-Only header is advisory, and
+     * there was no X-Frame-Options, so any site could put the signed-in parent app in an iframe and
+     * overlay it (one-click approve, revoke, fulfil). A second, ENFORCED CSP header carrying only
+     * frame-ancestors cannot break scripts, styles or images; browsers apply both policies.
+     * X-Frame-Options covers browsers that predate frame-ancestors.
+     */
+    { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+    { key: 'X-Frame-Options', value: 'DENY' },
     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     // camera stays enabled for evidence-photo capture; geolocation + microphone fully off.
@@ -91,6 +104,8 @@ function buildSecurityHeaders() {
 
 const nextConfig = {
   reactStrictMode: true,
+  // `X-Powered-By: Next.js` tells a scanner which framework advisories to try first. Nothing needs it.
+  poweredByHeader: false,
   images: {
     remotePatterns: [{ protocol: 'http', hostname: 'localhost' }],
   },
@@ -236,6 +251,9 @@ if (isProd) {
     skipWaiting: true,
     disable: false,
     customWorkerDir: 'src/service-worker',
+    // Passed through to Workbox. The generated sw.js.map was publicly served (security audit
+    // 2026-09-14); the service worker needs no source map in production.
+    sourcemap: false,
   });
   module.exports = withSentry(withPWA(nextConfig));
 } else {
