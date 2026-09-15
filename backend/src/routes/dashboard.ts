@@ -78,41 +78,53 @@ dashboardRouter.get('/parent', requireParent, async (req, res, next) => {
       },
     });
 
-    // Get stats for each child
-    const childrenWithStats = await Promise.all(
-      children.map(async (child) => {
-        const [todaysTasks, completedToday, pendingApproval, streakAtRisk] = await Promise.all([
-          // Today's assigned tasks
-          prisma.taskAssignment.count({
+    // Per-child task counts in THREE grouped queries, not three-per-child. The 2026-09-15 load test
+    // showed this endpoint queuing on the DB pool because it fired ~3 counts per child; a family with
+    // several children multiplied that. groupBy collapses each count to one query over all children.
+    // A child with no matching rows is simply absent from the result, so every count defaults to 0 -
+    // identical output to the old per-child count, which also returned 0 in that case.
+    const childUserIds = children.map((c) => c.id);
+    type CountRow = { childId: string; _count: { _all: number } };
+    const [todaysRows, completedRows, pendingRows] = childUserIds.length
+      ? await Promise.all([
+          prisma.taskAssignment.groupBy({
+            by: ['childId'],
+            where: { childId: { in: childUserIds }, instanceDate: today, task: { deletedAt: null } },
+            _count: { _all: true },
+          }) as unknown as Promise<CountRow[]>,
+          prisma.taskAssignment.groupBy({
+            by: ['childId'],
             where: {
-              childId: child.id,
-              instanceDate: today,
-              task: { deletedAt: null },
-            },
-          }),
-          // Completed today
-          prisma.taskAssignment.count({
-            where: {
-              childId: child.id,
+              childId: { in: childUserIds },
               instanceDate: today,
               status: { in: ['completed', 'approved'] },
               task: { deletedAt: null },
             },
-          }),
-          // Pending approval
-          prisma.taskAssignment.count({
-            where: {
-              childId: child.id,
-              status: 'completed',
-              task: { deletedAt: null },
-            },
-          }),
-          // Roadmap §5.1: the child dashboard has known this since M9; the PARENT — the person who
-          // can actually do something about it at dinner — has never been shown it.
-          // Promise.resolve so this does not depend on isStreakAtRisk staying async, and a failure
-          // degrades to "not at risk" rather than failing the whole dashboard.
-          Promise.resolve(isStreakAtRisk(child.id, req.familyId!)).catch(() => false),
-        ]);
+            _count: { _all: true },
+          }) as unknown as Promise<CountRow[]>,
+          prisma.taskAssignment.groupBy({
+            by: ['childId'],
+            where: { childId: { in: childUserIds }, status: 'completed', task: { deletedAt: null } },
+            _count: { _all: true },
+          }) as unknown as Promise<CountRow[]>,
+        ])
+      : [[], [], []];
+    const toMap = (rows: CountRow[]) => new Map(rows.map((r) => [r.childId, r._count._all]));
+    const todaysMap = toMap(todaysRows);
+    const completedMap = toMap(completedRows);
+    const pendingMap = toMap(pendingRows);
+
+    // Get stats for each child. isStreakAtRisk stays per-child (a small helper, not a task-assignment
+    // count); still parallelised, and a failure degrades to "not at risk" rather than failing the
+    // whole dashboard. See Roadmap §5.1: the parent, who can act at dinner, is shown the at-risk flag.
+    const childrenWithStats = await Promise.all(
+      children.map(async (child) => {
+        const todaysTasks = todaysMap.get(child.id) ?? 0;
+        const completedToday = completedMap.get(child.id) ?? 0;
+        const pendingApproval = pendingMap.get(child.id) ?? 0;
+        const streakAtRisk = await Promise.resolve(isStreakAtRisk(child.id, req.familyId!)).catch(
+          () => false,
+        );
 
         const { childProfile: _profile, ...user } = toPublicUser(child);
         const profile = toPublicProfile(child.childProfile) ?? undefined;
