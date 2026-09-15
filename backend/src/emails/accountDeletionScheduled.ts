@@ -58,7 +58,7 @@ export function buildAccountDeletionScheduled(data: AccountDeletionScheduledData
         </div>
         <p style="margin:16px 0 0;color:#94a3b8;font-size:13px;">
           If you did not expect this, cancel it now and change your password. Questions go to
-          privacy@gettaskbuddy.com.
+          info@evolutionprimeit.com.
         </p>
       </td>
     </tr>
