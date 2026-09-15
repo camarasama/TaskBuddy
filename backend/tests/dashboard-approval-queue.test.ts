@@ -99,6 +99,8 @@ describe('GET /dashboard/parent', () => {
           ]),
     );
     p.taskAssignment.count.mockResolvedValue(1);
+    // Per-child counts now come from groupBy (this suite asserts approvals/wishlist, not those counts).
+    p.taskAssignment.groupBy.mockResolvedValue([]);
     p.taskAssignment.findMany.mockResolvedValue([
       {
         id: 'assign-1',

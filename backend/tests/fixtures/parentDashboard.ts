@@ -13,7 +13,7 @@
 export interface DashboardPrismaMock {
   family: { findUnique: jest.Mock };
   user: { findMany: jest.Mock };
-  taskAssignment: { findMany: jest.Mock; count: jest.Mock };
+  taskAssignment: { findMany: jest.Mock; count: jest.Mock; groupBy: jest.Mock };
   rewardWishlist: { groupBy: jest.Mock; findFirst: jest.Mock };
   taskComment: { groupBy: jest.Mock };
   childProfile: { findUnique: jest.Mock };
@@ -28,7 +28,7 @@ export function makeDashboardPrismaMock(): DashboardPrismaMock {
   return {
     family: { findUnique: jest.fn() },
     user: { findMany: jest.fn() },
-    taskAssignment: { findMany: jest.fn(), count: jest.fn() },
+    taskAssignment: { findMany: jest.fn(), count: jest.fn(), groupBy: jest.fn() },
     rewardWishlist: { groupBy: jest.fn(), findFirst: jest.fn() },
     taskComment: { groupBy: jest.fn() },
     childProfile: { findUnique: jest.fn() },
@@ -61,6 +61,7 @@ export function primeDashboardDefaults(p: DashboardPrismaMock): void {
         ]),
   );
   p.taskAssignment.count.mockResolvedValue(0);
+  p.taskAssignment.groupBy.mockResolvedValue([]); // per-child counts; [] => every child defaults to 0
   p.taskAssignment.findMany.mockResolvedValue([]);
   p.rewardWishlist.groupBy.mockResolvedValue([]);
   p.rewardWishlist.findFirst.mockResolvedValue(null);

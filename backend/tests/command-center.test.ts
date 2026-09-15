@@ -59,14 +59,19 @@ async function callDashboard() {
   return json.mock.calls[0][0].data;
 }
 
-/** todaysTasks / completedToday, in the order the route's Promise.all resolves them. */
+/**
+ * Per-child counts, now served by three grouped queries (todays, completed, pending) rather than
+ * three counts per child. The default family has one child, 'child-1'; a zero count means the child
+ * is simply absent from that groupBy result. weeklyStats still uses taskAssignment.count (defaulted
+ * to 0 by primeDashboardDefaults).
+ */
 function primeCounts(todaysTasks: number, completedToday: number, pending = 0) {
-  p.taskAssignment.count
-    .mockResolvedValueOnce(todaysTasks)
-    .mockResolvedValueOnce(completedToday)
-    .mockResolvedValueOnce(pending)
-    // Remaining calls (weeklyStats: approved this week, approved last week) default to 0.
-    .mockResolvedValue(0);
+  const row = (n: number) => (n > 0 ? [{ childId: 'child-1', _count: { _all: n } }] : []);
+  p.taskAssignment.groupBy
+    .mockResolvedValueOnce(row(todaysTasks))
+    .mockResolvedValueOnce(row(completedToday))
+    .mockResolvedValueOnce(row(pending))
+    .mockResolvedValue([]);
 }
 
 beforeEach(() => {
@@ -142,10 +147,8 @@ describe('streak at risk', () => {
 
 describe('this week vs last', () => {
   it('reports a positive delta when the week improved', async () => {
+    // Per-child counts default to 0 via groupBy => []. Only the two weekly counts are sequenced here.
     p.taskAssignment.count
-      .mockResolvedValueOnce(0)   // todaysTasks
-      .mockResolvedValueOnce(0)   // completedToday
-      .mockResolvedValueOnce(0)   // pendingApproval
       .mockResolvedValueOnce(12)  // approved this week
       .mockResolvedValueOnce(4);  // approved last week
 
@@ -156,9 +159,7 @@ describe('this week vs last', () => {
   });
 
   it('reports a negative delta when it got worse — the dashboard must be able to say so', async () => {
-    p.taskAssignment.count
-      .mockResolvedValueOnce(0).mockResolvedValueOnce(0).mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(3).mockResolvedValueOnce(9);
+    p.taskAssignment.count.mockResolvedValueOnce(3).mockResolvedValueOnce(9);
 
     const data = await callDashboard();
     expect(data.weeklyStats.tasksCompletedDelta).toBe(-6);
@@ -172,9 +173,7 @@ describe('this week vs last', () => {
   });
 
   it('reports a real 0 when both weeks had the same non-zero activity', async () => {
-    p.taskAssignment.count
-      .mockResolvedValueOnce(0).mockResolvedValueOnce(0).mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(5).mockResolvedValueOnce(5);
+    p.taskAssignment.count.mockResolvedValueOnce(5).mockResolvedValueOnce(5);
 
     const data = await callDashboard();
     expect(data.weeklyStats.tasksCompletedDelta).toBe(0);
