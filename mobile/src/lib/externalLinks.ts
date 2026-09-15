@@ -19,8 +19,8 @@
  */
 import { Linking } from 'react-native';
 
-/** Contact for anything that is not a privacy request. `TERMS.md` names the same address. */
-export const SUPPORT_EMAIL = 'support@gettaskbuddy.com';
+/** The one monitored contact address, for support and privacy alike. `TERMS.md` and `PRIVACY.md` name it too. */
+export const SUPPORT_EMAIL = 'info@evolutionprimeit.com';
 
 /** Generated from `PRIVACY.md` by `marketing/build.mjs`. Cited on the Play Data safety form. */
 export const PRIVACY_URL = 'https://gettaskbuddy.com/privacy';

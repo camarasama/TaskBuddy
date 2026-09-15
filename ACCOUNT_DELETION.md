@@ -1,7 +1,7 @@
 # Deleting your TaskBuddy account and data
 
 **Provider:** Evolution Prime IT Ltd, the developer of **TaskBuddy** on Google Play.
-**Contact:** privacy@gettaskbuddy.com
+**Contact:** info@evolutionprimeit.com
 **Last updated:** 2026-09-11
 
 You can delete your TaskBuddy account, or just part of your family's data, at any time. All of it is
@@ -28,7 +28,7 @@ removed from the family instead, which ends their access and deletes nothing els
 before the date we showed you. Everything carries on exactly as it was. Children cannot sign in
 while a deletion is scheduled; cancelling restores that too.
 
-**Prefer to email?** Write to **privacy@gettaskbuddy.com** from the address on the account. We may
+**Prefer to email?** Write to **info@evolutionprimeit.com** from the address on the account. We may
 ask you to confirm you control that address. Without it, anyone who knew your email could erase
 your family's data. A request by email is honoured exactly the same way.
 
@@ -45,7 +45,7 @@ the website:
   nothing else.
 - **Cancel a pending invitation:** Settings → Co-parents → **Cancel invite**.
 
-For anything else, email **privacy@gettaskbuddy.com** and tell us what you would like removed.
+For anything else, email **info@evolutionprimeit.com** and tell us what you would like removed.
 
 ---
 
@@ -92,4 +92,4 @@ gone and cannot be recovered by us or by you. Backups are rotated on a fixed sch
 - [Terms of Service](https://gettaskbuddy.com/terms)
 
 If you have asked to delete something and it has not happened, or you are unsure what is held about
-your family, email **privacy@gettaskbuddy.com** and we will answer.
+your family, email **info@evolutionprimeit.com** and we will answer.

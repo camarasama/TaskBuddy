@@ -10,7 +10,7 @@
 **Version:** 1.3
 **Last updated:** 2026-08-06
 **Provider:** Evolution Prime IT Ltd ("we", "us", "our")
-**Contact:** support@gettaskbuddy.com
+**Contact:** info@evolutionprimeit.com
 
 ---
 
@@ -159,4 +159,4 @@ in-app or by email, and seek re-acceptance where required.
 
 ## 17. Contact
 
-Evolution Prime IT Ltd, support@gettaskbuddy.com.
+Evolution Prime IT Ltd, info@evolutionprimeit.com.

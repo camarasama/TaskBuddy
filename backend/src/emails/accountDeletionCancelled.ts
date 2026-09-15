@@ -29,7 +29,7 @@ export function buildAccountDeletionCancelled(data: AccountDeletionCancelledData
         </p>
         <p style="margin:16px 0 0;color:#94a3b8;font-size:13px;">
           If you did not cancel this and believe someone else has access to your account, change your
-          password and write to privacy@gettaskbuddy.com.
+          password and write to info@evolutionprimeit.com.
         </p>
       </td>
     </tr>

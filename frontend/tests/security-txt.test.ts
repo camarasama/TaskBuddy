@@ -40,9 +40,9 @@ describe('security.txt', () => {
   });
 
   it('reaches a mailbox that exists', () => {
-    // privacy@ is the fallback precisely because it is already published in the privacy policy, so
-    // it is monitored whether or not security@ has been created yet.
-    expect(field('Contact')).toContain('mailto:privacy@gettaskbuddy.com');
+    // The @gettaskbuddy.com addresses (security@, privacy@, support@) were never created. The company
+    // mailbox is the one that is monitored, and it is the only Contact, so nothing points at a void.
+    expect(field('Contact')).toEqual(['mailto:info@evolutionprimeit.com']);
   });
 
   it('has not expired, and is not about to', () => {

@@ -10,7 +10,7 @@
 **Version:** 1.3
 **Last updated:** 2026-08-06
 **Provider:** Evolution Prime IT Ltd ("we", "us", "our")
-**Contact:** privacy@gettaskbuddy.com
+**Contact:** info@evolutionprimeit.com
 
 ---
 
@@ -86,7 +86,7 @@ From the parent dashboard, a parent can at any time:
 - **Correct** child profile details;
 - **Export** the family's data (machine-readable JSON);
 - **Delete** a child profile, a co-parent's access, or a pending invitation;
-- **Delete the whole family account** by emailing privacy@gettaskbuddy.com; see
+- **Delete the whole family account** by emailing info@evolutionprimeit.com; see
   [how to delete your account](https://gettaskbuddy.com/delete-account);
 - **Withdraw consent** (which results in deletion of the child's data).
 
@@ -173,7 +173,7 @@ rather than only where a law compels it. The mechanism is the same either way, a
 them by geography would be both mean and hard to administer.
 
 Parents exercise these rights on behalf of their children. Most are self-served from the parent
-dashboard; otherwise contact privacy@gettaskbuddy.com and we will respond within the period the
+dashboard; otherwise contact info@evolutionprimeit.com and we will respond within the period the
 applicable law requires.
 
 You may also complain to your data-protection authority:
@@ -206,5 +206,5 @@ email, and where required we will seek renewed consent before the change affects
 
 ## 13. Contact and complaints
 
-Evolution Prime IT Ltd, privacy@gettaskbuddy.com.
+Evolution Prime IT Ltd, info@evolutionprimeit.com.
 Data Protection Officer / EU-UK representative: **not appointed**.
