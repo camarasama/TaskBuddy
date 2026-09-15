@@ -90,6 +90,12 @@ cd /opt/taskbuddy/app
 sudo -u taskbuddy npm -w backend run db:migrate:prod
 ```
 
+**Connection pool.** `DATABASE_URL` must carry `?connection_limit=15` in production. Prisma's default
+pool is `(2*CPU)+1` = 5 on the 2-core VPS; the 2026-09-15 load test showed the parent dashboard's
+many-queries-per-request queuing behind those 5 connections under load. 15 per API process is safe
+against `max_connections=100`. If the API is ever run as multiple workers (see the API concurrency
+note under Services), keep `15 * workers` well under 100. Applied on the VPS 2026-09-15.
+
 ## Environment / secrets
 
 Secrets live **only** in the VPS `.env` files, never in git. The full variable contract
