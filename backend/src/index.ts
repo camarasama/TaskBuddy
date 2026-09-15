@@ -43,6 +43,16 @@ import { seedSystemTemplates } from './routes/templatesSeed';
 import { seedCosmetics } from './routes/cosmeticsSeed';
 import { SessionService } from './services/SessionService';
 import { redactUrl } from './utils/logRedaction';
+import cluster from 'node:cluster';
+import { setupMaster, setupWorker } from '@socket.io/sticky';
+import { createAdapter as createClusterAdapter, setupPrimary as clusterAdapterSetupPrimary } from '@socket.io/cluster-adapter';
+import {
+  CLUSTER_WORKERS,
+  isClustered,
+  runsBackgroundJobs,
+  installPrimaryDenylistRelay,
+  installWorkerDenylistRelay,
+} from './cluster';
 
 // Validate environment configuration
 validateConfig();
@@ -252,28 +262,42 @@ function gracefulShutdown(signal: string): void {
   });
 }
 
-// Only boot the server + background work outside of tests (tests import `app` directly).
-if (config.env !== 'test') {
-  initScheduler();
-  startAgingOutCron();
-  initRecurringScheduler(); // M8 - midnight recurring task generation
-  startExpiryEmailCron();
-  startStreakAtRiskCron();
-  startDailyChallengeCron();
-  startDigestCron(); // growth roadmap §3.3 - Monday 07:00 UTC weekly parent digest
-  initSocketService(io); // M10 - Phase 5: wire socket emit helper
+// The worker (or single-process) side: wire sockets, run jobs where allowed, hydrate, and serve.
+function bootServer() {
+  // In cluster mode every worker shares one adapter so an event emitted on one worker reaches
+  // clients connected to another (a parent's approval must live-update the child's phone even if
+  // they landed on different workers); sticky pins each client to one worker. No Redis needed.
+  if (isClustered()) {
+    io.adapter(createClusterAdapter());
+    setupWorker(io);
+    installWorkerDenylistRelay();
+  }
 
-  seedGames().catch(console.error);
-  // Growth roadmap §3.1 - idempotent by (category, name); never overwrites an edit.
-  seedSystemTemplates().catch(console.error);
-  seedCosmetics().catch(console.error);
+  // Crons/seeds run on exactly one process (single-process, or worker 1), never once per worker.
+  if (runsBackgroundJobs()) {
+    initScheduler();
+    startAgingOutCron();
+    initRecurringScheduler(); // M8 - midnight recurring task generation
+    startExpiryEmailCron();
+    startStreakAtRiskCron();
+    startDailyChallengeCron();
+    startDigestCron(); // growth roadmap §3.3 - Monday 07:00 UTC weekly parent digest
+
+    seedGames().catch(console.error);
+    // Growth roadmap §3.1 - idempotent by (category, name); never overwrites an edit.
+    seedSystemTemplates().catch(console.error);
+    seedCosmetics().catch(console.error);
+  }
+
+  initSocketService(io); // wire the emit helper on EVERY worker, so any route can emit.
 
   // Refill the signed-out access-token list before serving, so a restart does not let a revoked
-  // device back in for the rest of its token's life. Failure is logged, not fatal: refusing to boot
-  // over this would turn a database blip into an outage.
-  const startListening = () => {
-    // HOST unset keeps the old behaviour (all interfaces), which phone testing over the LAN needs. On the
-    // VPS set HOST=127.0.0.1 so the API is reachable only through nginx, not by its port directly.
+  // device back in for the rest of its token's life. Every worker hydrates from the DB (idempotent).
+  // Failure is logged, not fatal: refusing to boot over this would turn a database blip into an outage.
+  const listenIfStandalone = () => {
+    // In cluster mode the primary owns the listening socket and sticky routes to this worker, so the
+    // worker must NOT listen. In single-process mode this IS the server and must listen.
+    if (isClustered()) return;
     const HOST = process.env.HOST || undefined;
     httpServer.listen(Number(PORT), HOST as string, () => {
       console.log(`
@@ -295,7 +319,35 @@ if (config.env !== 'test') {
       if (chains > 0) console.log(`[auth] Restored ${chains} signed-out session chain(s)`);
     })
     .catch((err) => console.error('[auth] Could not restore signed-out sessions:', err?.message))
-    .finally(startListening);
+    .finally(listenIfStandalone);
+}
+
+// The primary side (cluster mode only): own the listening socket, route connections to workers with
+// sticky, relay denylist events between workers, and fork. It runs no app code or jobs itself.
+function bootPrimary() {
+  setupMaster(httpServer, { loadBalancingMethod: 'least-connection' });
+  clusterAdapterSetupPrimary();
+  cluster.setupPrimary({ serialization: 'advanced' }); // cluster-adapter needs structured IPC
+  installPrimaryDenylistRelay();
+
+  const HOST = process.env.HOST || undefined;
+  httpServer.listen(Number(PORT), HOST as string, () => {
+    console.log(`🚀 TaskBuddy API (cluster primary) listening on :${PORT}, forking ${CLUSTER_WORKERS} workers`);
+  });
+  for (let i = 0; i < CLUSTER_WORKERS; i++) cluster.fork();
+  cluster.on('exit', (worker) => {
+    console.error(`[cluster] worker ${worker.process.pid} died; forking a replacement`);
+    cluster.fork();
+  });
+}
+
+// Only boot the server + background work outside of tests (tests import `app` directly).
+if (config.env !== 'test') {
+  if (isClustered() && cluster.isPrimary) {
+    bootPrimary();
+  } else {
+    bootServer();
+  }
 
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
