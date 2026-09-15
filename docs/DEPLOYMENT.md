@@ -39,6 +39,16 @@ sudo systemctl restart taskbuddy-backend
 sudo journalctl -u taskbuddy-backend -n 100 --no-pager
 ```
 
+### API concurrency (CLUSTER_WORKERS)
+
+The API is single-process by default. The 2026-09-15 load test found it CPU-bound on one core, so
+setting `CLUSTER_WORKERS=2` in `backend/.env` forks two workers across the two cores. It uses the
+Socket.IO cluster adapter + sticky sessions (no Redis) so live updates still reach every client, and
+crons run only on worker 1 so they never double-fire. Keep `CLUSTER_WORKERS * connection_limit` well
+under Postgres `max_connections=100` (2 * 15 = 30, fine). On this 2-core box the box also runs the
+frontend, Postgres and nginx, so 2 workers is a partial gain; the full doubling wants a 4-core VPS.
+**Enable it, restart, and re-run the load test (`.do_not_upload/loadtest`) before relying on it.**
+
 ### Node runtime (Node 22, side-by-side)
 
 TaskBuddy runs on **Node 22 LTS installed at `/opt/nodejs/22`** (isolated prefix, deliberately **not**

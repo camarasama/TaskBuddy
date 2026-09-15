@@ -42,10 +42,44 @@ export function maxAccessTtlMs(): number {
   return Math.max(parent, child);
 }
 
-export function denyAccess(jti: string, untilMs: number): void {
-  if (untilMs <= Date.now()) return;
+/** One denied session, as passed to a propagator. */
+export interface DenylistEntry {
+  jti: string;
+  until: number;
+}
+
+// Propagators let a multi-worker deployment share denials across processes (see src/cluster.ts).
+// Empty in single-process mode, so denyAccess behaves exactly as before.
+type DenyPropagator = (entry: DenylistEntry) => void;
+const propagators: DenyPropagator[] = [];
+
+/** Register a hook run on every LOCAL denial (not on remote ones), e.g. to broadcast over IPC. */
+export function registerDenyPropagator(fn: DenyPropagator): void {
+  propagators.push(fn);
+}
+
+function setDenied(jti: string, untilMs: number): boolean {
+  if (untilMs <= Date.now()) return false;
   const current = denied.get(jti);
-  if (!current || current < untilMs) denied.set(jti, untilMs);
+  if (!current || current < untilMs) {
+    denied.set(jti, untilMs);
+    return true;
+  }
+  return false;
+}
+
+export function denyAccess(jti: string, untilMs: number): void {
+  if (setDenied(jti, untilMs)) {
+    for (const p of propagators) p({ jti, until: untilMs });
+  }
+}
+
+/**
+ * Apply a denial that arrived from another worker. Same effect as denyAccess but does NOT re-run the
+ * propagators, or a relayed message would bounce between workers forever (see src/cluster.ts).
+ */
+export function applyRemoteDeny(jti: string, untilMs: number): void {
+  setDenied(jti, untilMs);
 }
 
 export function isAccessDenied(jti: string | undefined): boolean {
