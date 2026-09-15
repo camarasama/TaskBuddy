@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ReferralCard — the cross-family referral loop (growth roadmap §7).
+ * ReferralCard, the cross-family referral loop (growth roadmap §7).
  *
  * §7 is the only section of the roadmap with nothing built behind it, and this is the parent-facing
  * half of the one row in it that is code rather than marketing work.
@@ -37,7 +37,7 @@ export function ReferralCard() {
       const res = await familyApi.getReferral();
       setSummary(res.data as ReferralSummary);
     } catch {
-      // Non-fatal — the section simply does not render.
+      // Non-fatal, the section simply does not render.
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export function ReferralCard() {
       showSuccess('Link copied');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      showError('Could not copy — select the link and copy it manually');
+      showError('Could not copy. Select the link and copy it manually');
     }
   };
 
@@ -79,7 +79,7 @@ export function ReferralCard() {
 
       <p className="text-sm text-slate-600 mb-4">
         Share your link with a family who might find TaskBuddy useful. They get their own separate
-        account — your tasks, children and points stay private.
+        account. Your tasks, children and points stay private.
       </p>
 
       <div className="flex items-center gap-2 mb-4">

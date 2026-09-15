@@ -246,7 +246,7 @@ export default function ChildDashboardPage() {
     };
 
     /**
-     * A returned task changes exactly what `task:approved` changes — a card's status — so it gets the
+     * A returned task changes exactly what `task:approved` changes, a card's status, so it gets the
      * same refetch.
      *
      * ⚠️ Its absence was a reported bug: a parent returned a task, the bell lit up, and the dashboard
@@ -330,7 +330,7 @@ export default function ChildDashboardPage() {
   }).length;
   const totalTasks = dashboardData.todaysTasks.length;
 
-  // Friday, Saturday or Sunday — the roadmap's "Fri/Sat" ritual, with Sunday included so a weekend
+  // Friday, Saturday or Sunday, the roadmap's "Fri/Sat" ritual, with Sunday included so a weekend
   // away does not mean the prompt is missed entirely.
   const recapDay = new Date().getDay();
   const isRecapWeekend = recapDay === 5 || recapDay === 6 || recapDay === 0;
@@ -382,7 +382,7 @@ export default function ChildDashboardPage() {
           {/* U6 streak insurance: a banked freeze is only reassuring if the child knows it is there. */}
           {streakFreezes > 0 && (
             <p className="mt-2 text-sm text-slate-500">
-              🛡️ {streakFreezes} streak {streakFreezes === 1 ? 'saver' : 'savers'} banked — miss a day
+              🛡️ {streakFreezes} streak {streakFreezes === 1 ? 'saver' : 'savers'} banked. Miss a day
               and your streak survives.
             </p>
           )}
@@ -391,14 +391,14 @@ export default function ChildDashboardPage() {
         {/* Growth roadmap §4.2 */}
         <GoalCard goal={data?.goal} />
 
-        {/* U18 — the weekly ritual. The prompt appears Fri–Sun; the recap page itself is reachable
+        {/* U18, the weekly ritual. The prompt appears Fri-Sun; the recap page itself is reachable
             any day, because hiding a child's own summary of their own week would be odd. */}
         {isRecapWeekend && (
           <Link href="/child/recap" className="block">
             <div className="rounded-2xl bg-gradient-to-br from-primary-500 to-indigo-600 text-white p-5 shadow-lg">
               <p className="font-display font-bold text-lg">Your week is ready 🎉</p>
               <p className="text-white/85 text-sm mt-0.5">
-                See what you got done — tap to flip through.
+                See what you got done. Tap to flip through.
               </p>
             </div>
           </Link>
@@ -715,7 +715,7 @@ function TaskPreviewCard({ item }: { item: TaskAssignment }) {
   const isPending = status === 'completed'; // completed but not yet approved
 
   // Tapping a task here is a request to open THAT task, so it carries its assignment id and the
-  // tasks page selects the right tab and scrolls to the card — the same deep link a notification
+  // tasks page selects the right tab and scrolls to the card, the same deep link a notification
   // uses. Without the id this row dropped the child on a three-tab list to find it again.
   const href = item.assignment?.id
     ? `/child/tasks?assignment=${item.assignment.id}`

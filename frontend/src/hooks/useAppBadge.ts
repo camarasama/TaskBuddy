@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * hooks/useAppBadge — mirrors the pending-approval count onto the installed app icon.
+ * hooks/useAppBadge, mirrors the pending-approval count onto the installed app icon.
  *
  * Growth roadmap §3.4: approval latency is the loop's heartbeat, and a badge is the cheapest
- * possible reminder — it costs the parent no attention until they look at their home screen.
+ * possible reminder, it costs the parent no attention until they look at their home screen.
  *
  * Support is genuinely patchy and that is fine. The Badging API needs an INSTALLED PWA; on iOS it
  * additionally needs the app to have been added to the home screen (roadmap §2.3), and Firefox has
@@ -18,7 +18,7 @@ import { useEffect } from 'react';
 /**
  * True when this browser can show an app-icon badge.
  *
- * lib.dom declares setAppBadge as always present, but that is a compile-time fiction — Firefox and
+ * lib.dom declares setAppBadge as always present, but that is a compile-time fiction, Firefox and
  * non-installed contexts have no implementation. The runtime typeof check is the real test.
  */
 export function supportsAppBadge(): boolean {
@@ -29,7 +29,7 @@ export function supportsAppBadge(): boolean {
 /**
  * Set (or clear) the badge.
  *
- * A count of 0 clears rather than showing a zero — a "0" badge reads as a bug, and the Badging spec
+ * A count of 0 clears rather than showing a zero, a "0" badge reads as a bug, and the Badging spec
  * treats 0 as "clear" anyway; being explicit avoids relying on that.
  */
 export async function setAppBadge(count: number): Promise<void> {
@@ -48,7 +48,7 @@ export async function setAppBadge(count: number): Promise<void> {
 /**
  * Keep the app-icon badge in step with `pendingCount`.
  *
- * Deliberately does NOT clear on unmount: the badge should persist while the app is closed — that
+ * Deliberately does NOT clear on unmount: the badge should persist while the app is closed, that
  * is the entire point of it. It is cleared by the count reaching zero, not by navigation.
  */
 export function useAppBadge(pendingCount: number | undefined): void {

@@ -4,13 +4,13 @@
  * ## Why this exists
  *
  * A React error tells you *what* broke and almost never *where*. The `/child/tasks` crash arrived in
- * Sentry as `TypeError: i is not a function` with a stack made entirely of React reconciler frames —
+ * Sentry as `TypeError: i is not a function` with a stack made entirely of React reconciler frames,
  * `commitHookEffectListUnmount` calling an effect cleanup that was not a function. Every frame was
  * inside React, so nothing in it named the component whose effect it was, and no amount of reading
  * that trace could narrow it below "some component in the tree being unmounted".
  *
  * The component stack is the missing half, and React only ever hands it to a class boundary's
- * `componentDidCatch`. `global-error.tsx` is a function component receiving `{ error }` — Next's own
+ * `componentDidCatch`. `global-error.tsx` is a function component receiving `{ error }`, Next's own
  * boundary caught it and passed on the error alone. So the information existed and was thrown away
  * one component above the code that reports to Sentry.
  *

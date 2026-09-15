@@ -33,7 +33,7 @@ const TABS = [
   { id: 'r11', label: 'Exec Time',   icon: '⏱️' },
   { id: 'r12', label: 'Games',       icon: '🎮' },
   // Webhooks are configured by parents in settings, so the health of their own integrations is
-  // theirs to see — not an admin-only concern.
+  // theirs to see, not an admin-only concern.
   { id: 'r13', label: 'Webhooks',    icon: '🔗' },
 ] as const;
 

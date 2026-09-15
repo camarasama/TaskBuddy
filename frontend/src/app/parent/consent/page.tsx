@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * /parent/consent — COPPA verifiable parental consent (growth roadmap §3.2).
+ * /parent/consent, COPPA verifiable parental consent (growth roadmap §3.2).
  *
- * Child creation is blocked until this completes, so this screen is not optional decoration — it is
+ * Child creation is blocked until this completes, so this screen is not optional decoration, it is
  * the unblock. It is reached from the 403 CONSENT_REQUIRED response, from Settings, and from the
  * setup wizard.
  *
@@ -100,7 +100,7 @@ export default function ConsentPage() {
         {status === 'pending' ? (
           <p className="text-sm text-slate-600 mb-5 leading-relaxed">
             We&apos;ve sent you a confirmation link. Open it and TaskBuddy will let you add your
-            children straight away. It can take a minute to arrive — check your spam folder too.
+            children straight away. It can take a minute to arrive, so check your spam folder too.
           </p>
         ) : (
           <div className="text-sm text-slate-600 mb-5 leading-relaxed space-y-2 text-left">
@@ -109,7 +109,7 @@ export default function ConsentPage() {
               requires us to confirm that you are their parent or guardian.
             </p>
             <p>
-              We&apos;ll email you a link. Following it records your consent — that&apos;s the whole
+              We&apos;ll email you a link. Following it records your consent. That&apos;s the whole
               process, and it only needs doing once.
             </p>
             <p className="text-slate-500">

@@ -35,7 +35,7 @@ export function buildParentalConsent(data: ParentalConsentData): string {
         TaskBuddy. You can now add your children.
       </p>
       <p style="margin:0;color:#64748b;font-size:14px;line-height:1.6;">
-        <strong>If this wasn't you</strong>, reply to this email straight away — consent can be
+        <strong>If this wasn't you</strong>, reply to this email straight away: consent can be
         withdrawn and any child account removed on request.
       </p>
     </td>
@@ -67,7 +67,7 @@ export function buildParentalConsent(data: ParentalConsentData): string {
   <tr>
     <td style="padding:8px 40px 36px;">
       <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
-        This link expires in ${expiryDays} days. If you did not request this, ignore this email —
+        This link expires in ${expiryDays} days. If you did not request this, ignore this email:
         no child account will be created without your confirmation.
       </p>
     </td>

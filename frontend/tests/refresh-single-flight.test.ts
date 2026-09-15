@@ -4,7 +4,7 @@
  * Reported from the child dashboard: repeated 401s on /tasks that only cleared after several page
  * refreshes. The backend ROTATES refresh tokens and treats a spent one as reuse, revoking the whole
  * session chain and writing a SESSION_REUSE audit event. A page mount fires several queries at once,
- * so an expired access token meant every query refreshed with the same stored token — one won, the
+ * so an expired access token meant every query refreshed with the same stored token, one won, the
  * rest burned the session.
  *
  * The mobile client has been single-flight since it was written and says so in its header. The web
@@ -47,7 +47,7 @@ beforeEach(() => {
       return { ok: true, status: 200, json: async () => ({ data: { csrfToken: 't' } }) } as unknown as Response;
     }
 
-    // 401 until the refresh completes, 200 afterwards — an expired access token, not a permissions
+    // 401 until the refresh completes, 200 afterwards, an expired access token, not a permissions
     // failure. A mock that 401s forever would spin the retry loop instead of testing de-duplication.
     if (refreshed) {
       return { ok: true, status: 200, json: async () => ({ data: { tasks: [] } }) } as unknown as Response;
@@ -87,7 +87,7 @@ describe('401 with no in-memory token (hard navigation)', () => {
     // ⚠️ Access tokens are MEMORY ONLY for every role (F-5), so a hard refresh has no token by
     // definition. A page that fetches on mount races AuthContext's bootstrap, goes out
     // unauthenticated and 401s. The old guard required a token to even attempt a refresh, so this
-    // never recovered — reported as "failed to load dashboard" with a perfectly valid session.
+    // never recovered, reported as "failed to load dashboard" with a perfectly valid session.
     const api = require('../src/lib/api') as typeof import('../src/lib/api');
     api.setAccessToken(null);
 
@@ -103,7 +103,7 @@ describe('401 with no in-memory token (hard navigation)', () => {
     // Public pages call the API without a session (consent confirm, invite accept), and bouncing an
     // anonymous visitor to /login would be wrong.
     //
-    // This suite runs in node, where `window` does not exist — so the assertion is exact rather than
+    // This suite runs in node, where `window` does not exist, so the assertion is exact rather than
     // indirect: if the redirect ran, it would throw ReferenceError instead of the API error.
     failRefresh = true;
     const api = require('../src/lib/api') as typeof import('../src/lib/api');

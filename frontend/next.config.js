@@ -5,7 +5,7 @@ const isProd = process.env.NODE_ENV === 'production';
 // (browser console) without breaking the app.
 //
 // OI-2 (promote to enforcing): once a report-only window is clean, change CSP_HEADER below to
-// 'Content-Security-Policy' — that single line is the whole flip. The Sentry ingest origin is
+// 'Content-Security-Policy', that single line is the whole flip. The Sentry ingest origin is
 // already handled: it is derived from NEXT_PUBLIC_SENTRY_DSN at request time (see below), so no
 // account-specific host has to be hardcoded and no origin is silently missing at enforce time.
 const CSP_HEADER = 'Content-Security-Policy-Report-Only';
@@ -14,7 +14,7 @@ const CSP_HEADER = 'Content-Security-Policy-Report-Only';
  * Origin (scheme + host, no credentials, no path) of the Sentry ingest endpoint, derived from the
  * DSN. A DSN looks like `https://<publicKey>@o123.ingest.sentry.io/456`; `URL.host` drops the
  * userinfo, so the public key never lands in a response header. Returns null when Sentry is
- * disabled (DSN unset — the documented way to turn it off) or the DSN is unparseable, so a bad
+ * disabled (DSN unset, the documented way to turn it off) or the DSN is unparseable, so a bad
  * value degrades to "no extra origin" instead of poisoning connect-src.
  */
 function sentryIngestOrigin() {
@@ -131,7 +131,7 @@ const nextConfig = {
 };
 
 /**
- * Sentry's BUILD-time plugin — source maps and the release stamp.
+ * Sentry's BUILD-time plugin, source maps and the release stamp.
  *
  * ## What was missing, and what it cost
  *
@@ -142,7 +142,7 @@ const nextConfig = {
  * so Sentry had nothing to match a map against even if one had existed. Diagnosing one crash meant
  * downloading the deployed chunk and reading it at a byte offset by hand.
  *
- * Initialising the SDK and uploading source maps are easy to conflate. They are not the same thing —
+ * Initialising the SDK and uploading source maps are easy to conflate. They are not the same thing,
  * the mobile app has both (verified 2026-08-02); the web had only the first.
  *
  * ## Wrapping order
@@ -153,7 +153,7 @@ const nextConfig = {
  *
  * ## Degrades to a normal build without credentials
  *
- * The upload needs SENTRY_AUTH_TOKEN at BUILD time — and this project builds on the VPS, so the
+ * The upload needs SENTRY_AUTH_TOKEN at BUILD time, and this project builds on the VPS, so the
  * token has to exist there, not just on a laptop. Without it the build still succeeds and simply
  * uploads nothing, matching how `mobile/app.config.ts` treats the same three variables. An auth
  * token must never be committed, so an absent one cannot be allowed to break a deploy.
@@ -177,7 +177,7 @@ function withSentry(config) {
      *
      * Left to the plugin's own detection (the git SHA of the build tree) unless SENTRY_RELEASE is
      * set. Auto-detection is right for this project because the VPS builds from a checkout of the
-     * deployed commit, so the release lands equal to the SHA — which makes "which deploy introduced
+     * deployed commit, so the release lands equal to the SHA, which makes "which deploy introduced
      * this" answerable without any extra bookkeeping. The override exists for a build from a
      * detached or dirty tree, where the SHA would be misleading.
      */
@@ -191,7 +191,7 @@ function withSentry(config) {
      * build, and a deprecated option in a file nobody reads is how a future SDK bump breaks a deploy.
      */
     webpack: {
-      // Not a Vercel deployment — this would otherwise wire up cron monitors that do not exist.
+      // Not a Vercel deployment, this would otherwise wire up cron monitors that do not exist.
       automaticVercelMonitors: false,
       treeshake: {
         // Strips Sentry's own debug logging from the client bundle. Pure size win for a family
@@ -206,7 +206,7 @@ function withSentry(config) {
        *
        * This guard is the whole safety of the block and was added after watching a
        * credential-less build emit `chunks/9959-….js.map` at 2.4 MB. Next does not produce browser
-       * source maps in production on its own — **this plugin turns them on** so it has something to
+       * source maps in production on its own, **this plugin turns them on** so it has something to
        * upload. When the upload cannot happen, `deleteSourcemapsAfterUpload` has nothing to clean up
        * either, so the maps survive into `.next/static` and are served to anyone who asks for them.
        *
@@ -221,8 +221,8 @@ function withSentry(config) {
       /**
        * Delete the maps once they are uploaded.
        *
-       * Sentry does not need them at runtime — it resolves stack traces server-side from what was
-       * uploaded — so serving them publicly is cost without benefit.
+       * Sentry does not need them at runtime, it resolves stack traces server-side from what was
+       * uploaded, so serving them publicly is cost without benefit.
        *
        * Pointed enough to state: the postcss advisory patched in #126 was precisely about an
        * attacker-controlled `sourceMappingURL` causing arbitrary `.map` files to be read. Shipping
@@ -258,7 +258,7 @@ if (isProd) {
   module.exports = withSentry(withPWA(nextConfig));
 } else {
   // Dev is deliberately untouched: no upload, no release injection, and no plugin in the Turbopack
-  // path — this config's `turbopack: {}` branch is what `next dev` uses, and the Sentry webpack
+  // path, this config's `turbopack: {}` branch is what `next dev` uses, and the Sentry webpack
   // plugin has no business there.
   module.exports = nextConfig;
 }

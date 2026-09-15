@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!response.data) {
       throw new Error('Invalid response from server');
     }
-    // F-9: MFA-enrolled admin — hand the challenge token back to the login page; no session yet.
+    // F-9: MFA-enrolled admin, hand the challenge token back to the login page; no session yet.
     if ('mfaRequired' in response.data) {
       const { mfaToken } = response.data as unknown as { mfaToken: string };
       return { mfaRequired: true as const, mfaToken };

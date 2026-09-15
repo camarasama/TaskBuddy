@@ -73,7 +73,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
           <ul className="space-y-2">
             {flagged.map((a) => (
               <li key={`${a.childId}-${a.category}`} className="text-sm text-amber-900">
-                <span className="font-semibold">{a.childName}</span> — {formatLabel(a.category)}:{' '}
+                <span className="font-semibold">{a.childName}</span>, {formatLabel(a.category)}:{' '}
                 {a.reason}
               </li>
             ))}
@@ -119,7 +119,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <h3 className="text-sm font-semibold text-gray-700 px-4 pt-4 pb-1">Accuracy by subject</h3>
           <p className="text-xs text-gray-500 px-4 pb-2">
-            Counted over questions, not games — scraping 3 of 5 four times is not 100%.
+            Counted over questions, not games: scraping 3 of 5 four times is not 100%.
           </p>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -133,8 +133,8 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
                     <td className="px-3 py-2 text-gray-600">{m.plays}</td>
                     <td className="px-3 py-2 text-gray-500 text-xs">{m.questionsCorrect}/{m.questionsAnswered}</td>
                     <td className={`px-3 py-2 font-semibold ${accuracyTone(m.accuracy)}`}>
-                      {/* Never played shows a dash, not 0% — 0% would read as "gets everything wrong". */}
-                      {m.accuracy === null ? '—' : `${m.accuracy}%`}
+                      {/* Never played shows a dash, not 0%, 0% would read as "gets everything wrong". */}
+                      {m.accuracy === null ? '-' : `${m.accuracy}%`}
                     </td>
                   </tr>
                 ))}
@@ -154,7 +154,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
                 {report.recentSessions.map((s) => (
                   <tr key={s.sessionId} className="hover:bg-gray-50/50">
                     <td className="px-3 py-2 text-gray-500 text-xs">
-                      {s.playedAt ? new Date(s.playedAt).toLocaleDateString() : '—'}
+                      {s.playedAt ? new Date(s.playedAt).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-3 py-2 text-gray-700 font-medium">{s.childName}</td>
                     <td className="px-3 py-2 text-gray-600">{s.title}</td>
@@ -176,13 +176,13 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-700 mb-1">Question banks finished</h3>
           <p className="text-xs text-gray-500 mb-3">
-            These children have now seen every question in these games, so questions have begun repeating
-            — least-recently-seen first. This is working as designed, not a fault.
+            These children have now seen every question in these games, so questions have begun repeating,
+            least-recently-seen first. This is working as designed, not a fault.
           </p>
           <ul className="space-y-1 text-sm text-gray-700">
             {exhausted.map((c) => (
               <li key={`${c.childId}-${c.gameId}`}>
-                <span className="font-medium">{c.childName}</span> — {c.title} ({c.seen}/{c.bankSize})
+                <span className="font-medium">{c.childName}</span>: {c.title} ({c.seen}/{c.bankSize})
               </li>
             ))}
           </ul>
@@ -202,8 +202,8 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
                   <td className="px-3 py-2 text-gray-500 text-xs">{formatLabel(g.level)}</td>
                   <td className="px-3 py-2 text-gray-600">{g.plays}</td>
                   <td className="px-3 py-2 text-gray-600">{g.completions}</td>
-                  {/* Never played is shown as a dash, not 0% — 0% would read as "everyone fails". */}
-                  <td className="px-3 py-2 text-gray-600">{g.passRate === null ? '—' : `${g.passRate}%`}</td>
+                  {/* Never played is shown as a dash, not 0%, 0% would read as "everyone fails". */}
+                  <td className="px-3 py-2 text-gray-600">{g.passRate === null ? '-' : `${g.passRate}%`}</td>
                   <td className="px-3 py-2 text-gray-600">{g.averagePointsAwarded}</td>
                   <td className="px-3 py-2 text-amber-600 font-semibold">{g.pointsAwardedTotal}</td>
                 </tr>

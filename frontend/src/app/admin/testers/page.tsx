@@ -1,18 +1,18 @@
 'use client';
 
 /**
- * app/admin/testers/page.tsx — the closed-test roster.
+ * app/admin/testers/page.tsx, the closed-test roster.
  *
  * Google's production-access gate needs **12 testers opted in for 14 consecutive days**. The thing
- * that goes wrong is never technical: people agree to help, mean to enrol later, and don't — and
+ * that goes wrong is never technical: people agree to help, mean to enrol later, and don't, and
  * nobody notices because "invited" and "opted in" look the same in a spreadsheet. So the number this
  * page leads with is `optedIn`, not the roster size, and it states the shortfall rather than leaving
  * it to be worked out.
  *
  * ## Why "has an account" is shown separately from status
  *
- * `status` is a fact about the conversation — what the person said. `activity.hasAccount` is a fact
- * about the database — whether anyone has signed up with that address. They disagree constantly, and
+ * `status` is a fact about the conversation, what the person said. `activity.hasAccount` is a fact
+ * about the database, whether anyone has signed up with that address. They disagree constantly, and
  * the disagreement is the useful signal: someone marked `active` with no account has probably
  * enrolled on Play but never opened the app, which is a different nudge from someone who never
  * enrolled at all. The reminder email picks its wording from exactly this.
@@ -21,7 +21,7 @@
  *
  * This holds names, emails and phone numbers of **adults who are not TaskBuddy users**, and shows
  * their sign-ins and actions. PRIVACY.md does not currently describe any of that. The invite email
- * tells each tester plainly that their activity is visible, which is the minimum — the policy still
+ * tells each tester plainly that their activity is visible, which is the minimum, the policy still
  * needs a paragraph before this roster is filled with real people.
  */
 
@@ -51,9 +51,9 @@ const STATUS_STYLES: Record<TesterStatus, string> = {
 const EMPTY = { firstName: '', lastName: '', email: '', phone: '', notes: '' };
 
 function when(value: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
@@ -134,7 +134,7 @@ export default function AdminTestersPage() {
         </p>
       </div>
 
-      {/* The number that matters, and the gap — not the roster size, which flatters. */}
+      {/* The number that matters, and the gap, not the roster size, which flatters. */}
       {summary && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div
@@ -156,7 +156,7 @@ export default function AdminTestersPage() {
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">On the roster</p>
             <p className="mt-1 text-3xl font-bold text-slate-900">{summary.total}</p>
-            <p className="mt-1 text-xs text-slate-600">Aim for 14–15 to cover drop-outs</p>
+            <p className="mt-1 text-xs text-slate-600">Aim for 14 or 15 to cover drop-outs</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Signed up</p>
@@ -215,7 +215,7 @@ export default function AdminTestersPage() {
         </button>
         {/* The email is the join key to accounts, so it is the one field that has to be right. */}
         <p className="mt-2 text-xs text-slate-500">
-          Use the email they&apos;ll sign up with — it&apos;s how their activity gets matched.
+          Use the email they&apos;ll sign up with. It&apos;s how their activity gets matched.
         </p>
       </form>
 
@@ -326,7 +326,7 @@ export default function AdminTestersPage() {
                   <ul className="mt-3 space-y-1 border-t border-slate-200 pt-3 text-xs text-slate-600">
                     {tester.activity.recentActions.map((entry, index) => (
                       <li key={index}>
-                        {new Date(entry.createdAt).toLocaleString()} — {entry.action} on{' '}
+                        {new Date(entry.createdAt).toLocaleString()}: {entry.action} on{' '}
                         {entry.resourceType}
                       </li>
                     ))}

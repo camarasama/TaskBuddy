@@ -225,7 +225,7 @@ function QuizPageInner() {
                     feedback.correct ? 'text-success-600' : 'text-red-500',
                   )}
                 >
-                  {feedback.correct ? 'Correct! 🎉' : 'Not quite — the right answer is highlighted.'}
+                  {feedback.correct ? 'Correct! 🎉' : 'Not quite. The right answer is highlighted.'}
                 </motion.p>
               )}
             </AnimatePresence>
@@ -370,7 +370,7 @@ function ReviewRow({ row }: { row: GameQuestionReview }) {
           <p className="text-red-600">
             You said:{' '}
             <span className="font-medium">
-              {row.chosenIndex === null ? '—' : row.options[row.chosenIndex]}
+              {row.chosenIndex === null ? '-' : row.options[row.chosenIndex]}
             </span>
           </p>
         )}

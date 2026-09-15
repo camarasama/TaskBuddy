@@ -1,9 +1,9 @@
 /**
- * U5 — PWA app badge (growth roadmap §3.4).
+ * U5, PWA app badge (growth roadmap §3.4).
  *
  * Support is genuinely patchy: the Badging API needs an INSTALLED PWA, iOS additionally needs
  * add-to-home-screen, and Firefox has no implementation. lib.dom declares the methods as always
- * present, which is a compile-time fiction — so every property here is about degrading silently
+ * present, which is a compile-time fiction, so every property here is about degrading silently
  * rather than about the happy path.
  */
 

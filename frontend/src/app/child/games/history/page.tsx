@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * "My games" — the child's own record of what they played and how it went.
+ * "My games", the child's own record of what they played and how it went.
  *
  * One screen with two states rather than two routes: the list, and a selected game's per-question review.
  * Keeping the review inline means going back does not refetch the list, which matters on a phone.
  *
- * The review data has existed since per-question grading shipped — `servedQuestionsJson` + `answersJson` —
+ * The review data has existed since per-question grading shipped, `servedQuestionsJson` + `answersJson`,
  * and `submit` already returned it once. This screen exists because nothing could read it back afterwards.
  */
 
@@ -37,7 +37,7 @@ function playedLabel(iso: string): string {
   return then.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
-/** Score colour reflects the 60% floor — below it a game earns nothing, so it should not look like a pass. */
+/** Score colour reflects the 60% floor, below it a game earns nothing, so it should not look like a pass. */
 function scoreTone(correct: number, total: number): string {
   if (total === 0) return 'text-slate-500';
   return correct / total >= 0.6 ? 'text-success-600' : 'text-amber-600';
@@ -125,7 +125,7 @@ export default function GamesHistoryPage() {
                 )}
               >
                 <div className="flex items-start gap-2">
-                  {/* Icon AND colour AND text below — the outcome never depends on colour alone. */}
+                  {/* Icon AND colour AND text below, the outcome never depends on colour alone. */}
                   <span
                     className={cn(
                       'w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5',

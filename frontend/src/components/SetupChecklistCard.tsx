@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * components/SetupChecklistCard — the dashboard entry point to the setup wizard.
+ * components/SetupChecklistCard, the dashboard entry point to the setup wizard.
  *
  * Growth roadmap §3.2 says the checklist "lives on the parent dashboard until done". This is that:
  * a compact progress strip that disappears the moment setup is complete or the parent skips it.
  *
- * Renders NOTHING while loading, when complete, or when dismissed — a dashboard should not flash a
+ * Renders NOTHING while loading, when complete, or when dismissed, a dashboard should not flash a
  * banner at a parent who already finished, and a failed fetch must not push the real content down.
  */
 
@@ -57,7 +57,7 @@ export function SetupChecklistCard() {
               {completed === 0 ? 'Finish setting up TaskBuddy' : 'Nearly there'}
             </p>
             <p className="text-sm text-slate-600">
-              {completed} of {TOTAL_STEPS} steps done — pick up where you left off.
+              {completed} of {TOTAL_STEPS} steps done. Pick up where you left off.
             </p>
             <div className="h-1.5 bg-white/70 rounded-full overflow-hidden mt-2 max-w-xs">
               <div

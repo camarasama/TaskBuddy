@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * WebhookSettings — FR-18 parent-facing management for outbound webhooks.
+ * WebhookSettings, FR-18 parent-facing management for outbound webhooks.
  *
  * Lives in its own component rather than inline in parent/settings/page.tsx, which is already ~900
  * lines against a 500-line project rule (same reasoning as <TwoFactorSetup> in FR-17).
@@ -94,7 +94,7 @@ export function WebhookSettings() {
       setUrl('');
       setSelected(new Set());
       setShowForm(false);
-      success('Webhook added — copy the signing secret now.');
+      success('Webhook added. Copy the signing secret now.');
     } catch (err) {
       // The server's SSRF refusal is specific and actionable; show it rather than flattening it.
       const message = err instanceof ApiError ? err.message : 'Could not add that webhook.';
@@ -132,7 +132,7 @@ export function WebhookSettings() {
       setCopied(id);
       setTimeout(() => setCopied(null), 2000);
     } catch {
-      showError('Could not copy — select the text and copy it manually.');
+      showError('Could not copy. Select the text and copy it manually.');
     }
   }
 
@@ -184,7 +184,7 @@ export function WebhookSettings() {
               ))}
             </div>
 
-            {/* Auto-disabled after repeated failures — say why, and what to do about it. */}
+            {/* Auto-disabled after repeated failures, say why, and what to do about it. */}
             {!sub.isActive && (
               <div className="mt-3 flex items-start gap-2 rounded-md bg-danger-50 p-3">
                 <CircleSlash className="w-4 h-4 text-danger-600 mt-0.5 shrink-0" />
@@ -200,7 +200,7 @@ export function WebhookSettings() {
               <p className="mt-3 flex items-center gap-1.5 text-xs text-warning-700">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 {sub.failureCount} recent failure{sub.failureCount > 1 ? 's' : ''}
-                {sub.lastFailureAt ? ` — last ${formatDate(sub.lastFailureAt)}` : ''}
+                {sub.lastFailureAt ? `, last ${formatDate(sub.lastFailureAt)}` : ''}
               </p>
             )}
 

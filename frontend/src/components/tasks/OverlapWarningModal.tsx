@@ -1,6 +1,6 @@
 // frontend/src/components/tasks/OverlapWarningModal.tsx
 // CR-09: Shown when POST /tasks or PUT /tasks/:id returns warnings[] in the response.
-// FR-12: the plain conflict list is now a visual day timeline — each child's existing commitments
+// FR-12: the plain conflict list is now a visual day timeline, each child's existing commitments
 // are drawn as blocks on a shared hour axis, with the proposed slot (when provided) overlaid, so a
 // parent can see the clash at a glance instead of reading times.
 
@@ -86,7 +86,7 @@ function DayTimeline({
             key={b.id}
             className="absolute top-0 h-6 rounded-md bg-amber-400/80 border border-amber-500 px-1.5 overflow-hidden"
             style={{ left: pct(b.start), width: width(b.start, b.end) }}
-            title={`${b.title} (${hourLabel(b.start)}–${hourLabel(b.end)})`}
+            title={`${b.title} (${hourLabel(b.start)} to ${hourLabel(b.end)})`}
           >
             <span className="text-[11px] leading-6 text-amber-900 whitespace-nowrap">{b.title}</span>
           </div>
@@ -202,7 +202,7 @@ export function OverlapWarningModal({
             ))}
           </div>
 
-          {/* Text detail — precise times, and a fallback for screen readers */}
+          {/* Text detail, precise times, and a fallback for screen readers */}
           <ul className="space-y-1 mb-6 text-sm text-slate-600">
             {warnings.map((w) => (
               <li key={w.assignmentId}>

@@ -1,5 +1,5 @@
 /**
- * TaskCommentThread — the FR-11 comment thread for one task assignment.
+ * TaskCommentThread, the FR-11 comment thread for one task assignment.
  *
  * Loads the thread on mount, posts new comments, and listens for the `task:comment` socket event so
  * the other participant's messages appear live. Access is enforced server-side (family parents, or
@@ -7,7 +7,7 @@
  *
  * ## Rewritten deliberately, and why every effect here looks the way it does
  *
- * This component was present in every occurrence of `TypeError: i is not a function` — a crash
+ * This component was present in every occurrence of `TypeError: i is not a function`, a crash
  * thrown from React's `commitHookEffectListUnmount` when an effect's stored cleanup turned out not
  * to be a function. It killed the page whenever a subtree holding one of these threads was deleted:
  * pressing back off a task, or switching tabs after claiming one. The culprit line was never found,
@@ -17,13 +17,13 @@
  * Three rules, all of which the previous version broke or came close to breaking:
  *
  *  1. **Every effect has a block body and an explicit cleanup or none.** The old scroll effect was
- *     `useEffect(scrollToEnd, [comments.length])` where `scrollToEnd` was a concise arrow — its
+ *     `useEffect(scrollToEnd, [comments.length])` where `scrollToEnd` was a concise arrow, its
  *     return value became React's cleanup. That happened to be `undefined`, but it is one character
  *     away from not being, and it is unreadable as a cleanup contract.
  *  2. **Nothing async settles into state after unmount.** The load is guarded by a flag the cleanup
  *     flips, so a slow response cannot call `setState` on a torn-down tree.
  *  3. **The socket handler is registered and removed against the same captured reference**, with the
- *     removal wrapped so an already-disconnected socket cannot throw from inside a cleanup — a throw
+ *     removal wrapped so an already-disconnected socket cannot throw from inside a cleanup, a throw
  *     there is escalated by React to the nearest boundary and takes the page down.
  */
 
@@ -90,7 +90,7 @@ export function TaskCommentThread({ assignmentId }: { assignmentId: string }) {
 
     return () => {
       // Guarded: the provider disconnects on every navigation, and a throw inside a cleanup is
-      // escalated by React to the nearest error boundary — it would take the whole page down.
+      // escalated by React to the nearest error boundary, it would take the whole page down.
       try {
         socket.off('task:comment', onComment);
       } catch {

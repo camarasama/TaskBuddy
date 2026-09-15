@@ -1,7 +1,7 @@
 /**
  * A notification must open the thing it is about.
  *
- * Reported: "when I click on a notification, it does not open the item" — and specifically, a
+ * Reported: "when I click on a notification, it does not open the item", and specifically, a
  * comment notification should open the comment. Both notification surfaces navigate with
  * `router.push(n.actionUrl)`, so the whole mechanism is the URL the server puts on the row. The
  * server now sends `/child/tasks?assignment=<id>`; this file guards the half that lives here, which
@@ -22,7 +22,7 @@ const PAGE = readFileSync(
 describe('child tasks page: ?assignment= deep link', () => {
   it('reads the assignment id from the query string', () => {
     // Via `useSearchParams()`, deliberately, and NOT via a mount-time read of
-    // `window.location.search` — see the "already on the page" test below for why that mattered.
+    // `window.location.search`, see the "already on the page" test below for why that mattered.
     expect(PAGE).toMatch(/const searchParams = useSearchParams\(\)/);
     expect(PAGE).toMatch(/searchParams\.get\('assignment'\)/);
   });
@@ -35,7 +35,7 @@ describe('child tasks page: ?assignment= deep link', () => {
   });
 
   it('gives every card an anchor the deep link can scroll to', () => {
-    // All three lists, not just the active one — the id in the URL is just an assignment id and the
+    // All three lists, not just the active one, the id in the URL is just an assignment id and the
     // server does not know which tab it will be filed under by the time the child taps.
     expect(PAGE).toMatch(/id=\{`assignment-\$\{assignmentId\}`\}/);
     const wrapped = PAGE.match(/<DeepLinkTarget /g) ?? [];

@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * Games lobby — pick a subject, then a level.
+ * Games lobby, pick a subject, then a level.
  *
  * Replaces the flat list of three games. Two steps rather than one screen of eighteen cards: eighteen
  * choices is not a choice a child makes, it is a wall they scroll past.
  *
- * The category step is where cooldown lives, because the cooldown itself is category-scoped — finishing
+ * The category step is where cooldown lives, because the cooldown itself is category-scoped, finishing
  * any maths game times out every maths level. Showing the timer on the level step instead would imply the
  * levels time out independently, which is the opposite of true.
  */
@@ -86,7 +86,7 @@ export default function GamesLobbyPage() {
 
   /**
    * Group by category once. Cooldown is read off any member of the group rather than tracked
-   * separately — the server already scopes it per category, so every game in a category agrees.
+   * separately, the server already scopes it per category, so every game in a category agrees.
    */
   const byCategory = useMemo(() => {
     const map = new Map<GameCategory, GameDef[]>();
@@ -232,7 +232,7 @@ export default function GamesLobbyPage() {
                     <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium border', LEVEL_STYLE[level])}>
                       {GAME_LEVEL_LABELS[level]}
                     </span>
-                    <p className="text-sm text-slate-400 mt-2">Not ready yet — coming soon!</p>
+                    <p className="text-sm text-slate-400 mt-2">Not ready yet, coming soon!</p>
                   </div>
                 );
               }

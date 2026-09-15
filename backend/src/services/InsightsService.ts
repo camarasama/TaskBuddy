@@ -87,7 +87,7 @@ export function buildDenseHeatmap(
 export function inflationWarning(earned: number, spent: number): string | null {
   if (earned < INFLATION_MIN_EARNED) return null; // too little data for the ratio to mean anything
   if (spent <= 0) {
-    return `${earned} points earned and none spent yet — a reward they actually want may be missing.`;
+    return `${earned} points earned and none spent yet. A reward they actually want may be missing.`;
   }
   if (earned / spent >= INFLATION_RATIO) {
     return `Points are being earned about ${Math.round(earned / spent)}× faster than they are spent. Rewards may be priced too high, or there may not be one worth saving for.`;

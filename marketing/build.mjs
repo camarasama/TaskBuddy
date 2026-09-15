@@ -3,14 +3,14 @@
 //   node marketing/build.mjs
 //
 // Always emits index.html + styles.css. Legal pages (/privacy, /terms) are generated from the
-// repo's PRIVACY.md and TERMS.md — but ONLY once that source no longer carries its
+// repo's PRIVACY.md and TERMS.md, but ONLY once that source no longer carries its
 // "DRAFT TEMPLATE" warning.
 //
 // That gate is deliberate and load-bearing. Both documents currently say they are not legal
 // advice and must be reviewed by a lawyer before publication, specifically because TaskBuddy is
 // directed at children and falls under COPPA, GDPR/GDPR-K and the UK Children's Code. Publishing
 // them would present unreviewed drafts to parents as binding policy. When the reviewed text
-// replaces the drafts, the warning goes with it and these pages start building on their own —
+// replaces the drafts, the warning goes with it and these pages start building on their own,
 // no code change needed. Do not add a flag to force them.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,7 +30,7 @@ const LEGAL = [
   { source: 'TERMS.md', out: 'terms.html', title: 'Terms of Service', link: '/terms' },
   /**
    * Required by Google Play. The Data safety form demands a publicly reachable URL that names the
-   * app, gives the steps to request deletion, and states what is deleted versus kept — and Play
+   * app, gives the steps to request deletion, and states what is deleted versus kept, and Play
    * shows the link on the store listing, so it has to stand on its own for someone who has already
    * uninstalled and cannot reach the in-app control.
    *
@@ -46,7 +46,7 @@ function layout({ title, body }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} — TaskBuddy</title>
+<title>${title} | TaskBuddy</title>
 <meta name="theme-color" content="#0ea5e9">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -137,7 +137,7 @@ for (const doc of LEGAL) {
   built.push(doc.out);
 }
 
-// Footer links are only added for pages that actually exist — no links to 404s.
+// Footer links are only added for pages that actually exist, no links to 404s.
 if (publishable.length > 0) {
   const links = publishable
     .map((d) => `      <li><a href="${d.link}">${d.title}</a></li>`)

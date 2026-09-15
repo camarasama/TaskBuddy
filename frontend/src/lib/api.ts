@@ -83,7 +83,7 @@ let accessToken: string | null = null;
 // Remembers the active role within a session so a refresh (which carries no role) persists correctly.
 let currentRole: string | undefined;
 
-// F-5 (Phase 4) storage policy — completes roadmap item F-01:
+// F-5 (Phase 4) storage policy, completes roadmap item F-01:
 //   ALL roles (parent/admin/child) → MEMORY ONLY. No access token is ever written to localStorage
 //   or sessionStorage; each is re-minted from its httpOnly refresh cookie on hard navigation (see
 //   AuthContext bootstrap). This shrinks the XSS token-theft surface to zero persisted tokens.
@@ -100,7 +100,7 @@ export function setToken(token: string | null, role?: string): void {
   if (!token) {
     currentRole = undefined;
   }
-  // No role persists an access token any more — always clear both stores.
+  // No role persists an access token any more, always clear both stores.
   localStorage.removeItem('accessToken');
   sessionStorage.removeItem('accessToken');
 }
@@ -173,7 +173,7 @@ export function invalidateCache(prefix: string): void {
 
 /**
  * Endpoints that never carry a session, so a 401 from them means "bad credentials" or "bad token in
- * the body" — never "your access token expired".
+ * the body", never "your access token expired".
  *
  * Refreshing on their behalf is pointless, and worse than pointless: with rotation, a stray refresh
  * can spend a token the real session still needs. `child-pin-reset/complete` has a test asserting
@@ -208,8 +208,8 @@ async function request<T>(
   /**
    * Guard against an unbounded refresh/retry loop.
    *
-   * The 401 path refreshes and then retries by calling `request` again. If that retry ALSO 401s —
-   * a permissions 401 rather than an expiry one, say — the old code refreshed and retried again,
+   * The 401 path refreshes and then retries by calling `request` again. If that retry ALSO 401s,
+   * a permissions 401 rather than an expiry one, say, the old code refreshed and retried again,
    * forever, with each pass rotating a refresh token. One retry is the whole intent; more than one
    * means the 401 is not about token freshness and asking again cannot help.
    */
@@ -260,7 +260,7 @@ async function request<T>(
      *
      * ⚠️ The old condition required `token`, and that is exactly backwards for this codebase. Access
      * tokens are MEMORY ONLY for every role (F-5), so on a hard navigation there is no token by
-     * definition — the session is re-minted from the httpOnly refresh cookie by AuthContext. A page
+     * definition, the session is re-minted from the httpOnly refresh cookie by AuthContext. A page
      * that fetches on mount races that bootstrap, goes out unauthenticated, gets a 401, and with the
      * old guard was never retried. Reported as "failed to load dashboard" on refreshing the child
      * dashboard, with a valid session the whole time.
@@ -319,7 +319,7 @@ export function readCsrfCookie(): string | null {
 }
 
 /**
- * Return the CSRF token, fetching one if this client holds a session cookie but no CSRF cookie —
+ * Return the CSRF token, fetching one if this client holds a session cookie but no CSRF cookie,
  * which is exactly the state of every session that predates this feature shipping.
  */
 async function ensureCsrfToken(): Promise<string | null> {
@@ -343,7 +343,7 @@ async function ensureCsrfToken(): Promise<string | null> {
  * repeated 401s on /tasks that only cleared after several page refreshes.
  *
  * The backend ROTATES refresh tokens. `SessionService` marks the presented one spent, and presenting
- * a spent token — or merely losing the conditional update race against a concurrent rotation —
+ * a spent token, or merely losing the conditional update race against a concurrent rotation,
  * revokes the ENTIRE session chain and writes a SESSION_REUSE audit event. It cannot tell an honest
  * race from a replayed stolen token, and it is right not to try.
  *
@@ -573,7 +573,7 @@ export const familyApi = {
       body: JSON.stringify({ childIds }),
     }),
 
-  /** U20 — the family's referral code, share link and a COUNT of families joined. */
+  /** U20, the family's referral code, share link and a COUNT of families joined. */
   getReferral: () =>
     request<ApiResponse<{
       referralCode: string;
@@ -837,7 +837,7 @@ export const tasksApi = {
   // Auto-approve tasks resolve immediately (pointsAwarded/xpAwarded/newBalance/levelUp/
   // unlockedAchievements present); tasks awaiting parent review return just `{ assignment }`.
   // FR-13: `completedAt` carries the moment the child tapped Complete offline. Absent for a normal
-  // online completion — the server then stamps its own clock, exactly as before.
+  // online completion, the server then stamps its own clock, exactly as before.
   completeAssignment: (assignmentId: string, photoUrl?: string, note?: string, completedAt?: string) =>
     request<
       ApiResponse<{
@@ -880,7 +880,7 @@ export const tasksApi = {
 
   /**
    * One assignment, for the single-tap approval screen. Returns ALREADY-RESOLVED assignments too,
-   * with `resolvedByName` — co-parents race on the same push, and the second one must see a
+   * with `resolvedByName`, co-parents race on the same push, and the second one must see a
    * finished state rather than a 404.
    */
   getAssignment: (assignmentId: string) =>
@@ -1024,7 +1024,7 @@ export interface CalendarWeek {
         status: string;
         startTime: string | null;
         estimatedMinutes: number | null;
-        /** False when the task has no start time — the calendar must not invent one. */
+        /** False when the task has no start time, the calendar must not invent one. */
         isTimed: boolean;
         pointsValue: number;
         overlaps: boolean;
@@ -1044,7 +1044,7 @@ export const dashboardApi = {
   getChildDashboard: () =>
     request<ApiResponse<ChildDashboardResponse>>('/dashboard/child'),
 
-  /** U18 — last week, for the signed-in child. Takes no id: it is scoped from the token. */
+  /** U18, last week, for the signed-in child. Takes no id: it is scoped from the token. */
   getWeekRecap: () =>
     request<ApiResponse<WeekRecapResponse>>('/dashboard/child/recap'),
 
@@ -1295,7 +1295,7 @@ function buildReportQuery(params?: ReportParams & { period?: string; page?: numb
 // the JSON body - NOT wrapped in the { success, data } ApiResponse envelope used everywhere else.
 export interface InsightsReport {
   window: { from: string; to: string; weeks: number };
-  /** Dense — every day in the window, zeroes included. The empty days are the signal. */
+  /** Dense, every day in the window, zeroes included. The empty days are the signal. */
   heatmap: Array<{ date: string; approved: number }>;
   /** Index 0 = Monday … 6 = Sunday. */
   byDayOfWeek: number[];
@@ -1319,7 +1319,7 @@ export const reportsApi = {
   reportCardUrl: (childId: string, month?: string) =>
     `${API_BASE}/reports/report-card?childId=${encodeURIComponent(childId)}${month ? `&month=${month}` : ''}`,
 
-  /** Growth roadmap §5.2 — not a CSV/PDF report, so it has no export pair. */
+  /** Growth roadmap §5.2, not a CSV/PDF report, so it has no export pair. */
   insights: (params?: { childId?: string; weeks?: number }) => {
     const qs = new URLSearchParams();
     if (params?.childId) qs.set('childId', params.childId);
@@ -1413,7 +1413,7 @@ export const notificationsApi = {
    * Push subscribe/unsubscribe go through `request` like everything else so they inherit the
    * single source of truth for the access token. They used to call `fetch` directly and read
    * `localStorage.accessToken`, which is empty for parent/admin sessions (memory-only since the
-   * F-5 storage policy above) — so every parent push subscription silently 401'd.
+   * F-5 storage policy above), so every parent push subscription silently 401'd.
    */
   subscribePush: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
     request<{ subscribed: boolean }>('/notifications/push/subscribe', {
@@ -1465,7 +1465,7 @@ export const gamesApi = {
   list: () =>
     request<ApiResponse<GamesListResponse>>('/games'),
 
-  /** Finished games, newest first — the "what did I play?" list. */
+  /** Finished games, newest first, the "what did I play?" list. */
   history: (limit = 20) =>
     request<ApiResponse<GameHistoryResponse>>(`/games/history?limit=${limit}`),
 
@@ -1564,7 +1564,7 @@ export const onboardingApi = {
 // ─── COPPA verifiable parental consent (growth roadmap §3.2) ─────────────────
 
 /**
- * Child creation is BLOCKED until consent is verified — the API returns 403 CONSENT_REQUIRED.
+ * Child creation is BLOCKED until consent is verified, the API returns 403 CONSENT_REQUIRED.
  * `verify` is unauthenticated on purpose: the parent follows the emailed link, possibly on a device
  * with no session, and possession of the token is the proof.
  */
@@ -1623,7 +1623,7 @@ export const templatesApi = {
       body: JSON.stringify({ childId }),
     }),
 
-  /** U19 — ranked by redemption data; falls back to the shipped order when there is none. */
+  /** U19, ranked by redemption data; falls back to the shipped order when there is none. */
   rewardPresets: () =>
     request<ApiResponse<{ presets: RankedRewardPreset[] }>>('/templates/rewards'),
 };
@@ -1634,7 +1634,7 @@ export interface FunnelReport {
   window: { from: string; to: string };
   signups: number;
   activated: number;
-  /** Null when nobody signed up in the window — not 0, which would read as failure. */
+  /** Null when nobody signed up in the window, not 0, which would read as failure. */
   activationRate: number | null;
   medianHoursToFirstApproval: number | null;
   setupSteps: Array<{ step: string; families: number }>;
@@ -1693,7 +1693,7 @@ export const webhooksApi = {
     }>>('/webhooks'),
 
   /**
-   * The plaintext signing secret comes back HERE and nowhere else automatically — the list
+   * The plaintext signing secret comes back HERE and nowhere else automatically, the list
    * endpoint deliberately omits it. Show it to the parent once on creation; after that it takes
    * an explicit `reveal()`.
    */
@@ -1713,7 +1713,7 @@ export const webhooksApi = {
 // ─── Closed-test roster (admin) ──────────────────────────────────────────────
 //
 // Play's production-access gate needs 12 testers opted in for 14 consecutive days. The failure mode
-// is not technical — people agree to help and never complete the opt-in — so the roster exists to
+// is not technical, people agree to help and never complete the opt-in, so the roster exists to
 // make that visible rather than to store contact details for their own sake.
 
 export type TesterStatus = 'invited' | 'opted_in' | 'active' | 'declined';
@@ -1743,7 +1743,7 @@ export interface TesterRow {
 
 export interface TesterSummary {
   total: number;
-  /** Counts `active` only — Play counts testers *opted in*, not invited. */
+  /** Counts `active` only, Play counts testers *opted in*, not invited. */
   optedIn: number;
   required: number;
   shortfall: number;
@@ -1780,7 +1780,7 @@ export const testersApi = {
     request<ApiResponse<{ deleted: boolean }>>(`/admin/testers/${id}`, { method: 'DELETE' }),
 
   /**
-   * Both of these 400 with a readable message when `PLAY_OPT_IN_URL` is unset on the server — the
+   * Both of these 400 with a readable message when `PLAY_OPT_IN_URL` is unset on the server, the
    * link is issued by Play Console when the closed track is created and cannot be derived, and a
    * wrong link in a one-shot invitation is worse than no email.
    */

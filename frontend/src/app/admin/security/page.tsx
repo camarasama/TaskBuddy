@@ -1,5 +1,5 @@
 /**
- * app/admin/security/page.tsx — F-9 (admin 2FA) / FR-17 (shared component).
+ * app/admin/security/page.tsx, F-9 (admin 2FA) / FR-17 (shared component).
  *
  * The TOTP enrol/disable flow now lives in <TwoFactorSetup> and is shared with the parent settings
  * page. This page just frames it for admins. Wrapped by AdminLayout (admin-only guard + chrome).

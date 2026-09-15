@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * /parent/consent/confirm — the landing page for the emailed consent link.
+ * /parent/consent/confirm, the landing page for the emailed consent link.
  *
  * Public by design: the parent may open this on a phone with no TaskBuddy session, and requiring a
  * login here would strand exactly the people the flow depends on. Possession of the token is the
  * proof, and the API verifies it.
  *
  * Reads the token from window.location rather than useSearchParams(), because the latter opts a
- * route out of static prerendering unless the whole tree is wrapped in Suspense — the same trap that
+ * route out of static prerendering unless the whole tree is wrapped in Suspense, the same trap that
  * failed the build in U2.
  */
 

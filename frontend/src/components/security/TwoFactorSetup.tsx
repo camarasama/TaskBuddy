@@ -1,5 +1,5 @@
 /**
- * TwoFactorSetup — shared TOTP enrol/disable panel (FR-17).
+ * TwoFactorSetup, shared TOTP enrol/disable panel (FR-17).
  *
  * Originally the admin security page owned this flow inline (F-9). FR-17 opens 2FA to parents, so
  * the flow moved here and both the admin page and the parent settings page render it. It handles

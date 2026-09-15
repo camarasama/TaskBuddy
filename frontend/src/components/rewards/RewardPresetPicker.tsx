@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * components/rewards/RewardPresetPicker — starter reward ideas (growth roadmap §3.1).
+ * components/rewards/RewardPresetPicker, starter reward ideas (growth roadmap §3.1).
  *
  * Deliberately mirrors `components/tasks/TemplatePicker`: same modal shape, same "browse → pick →
  * the form pre-fills → edit → submit" flow, same deep-link entry from the empty state.
  *
  * It began life as an inline panel behind a "Need ideas?" toggle, which meant the rewards empty
- * state dropped a parent on a blank form and left them to find the ideas themselves — the exact
+ * state dropped a parent on a blank form and left them to find the ideas themselves, the exact
  * cold-start problem §3.1 exists to remove, and inconsistent with the tasks flow sitting next to it.
  *
  * Nothing is created here. Picking fills the form; the parent edits and submits as normal.
@@ -66,7 +66,7 @@ export function RewardPresetPicker({
               Reward ideas
             </h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              Pick one to fill the form — you can change anything before saving. Ordered by what
+              Pick one to fill the form. You can change anything before saving. Ordered by what
               families redeem most, with your own history counting the most.
             </p>
           </div>
@@ -114,7 +114,7 @@ export function RewardPresetPicker({
                     {preset.pointsCost} pts
                   </p>
 
-                  {/* U19 — say WHY it is ranked where it is. An unexplained reordering just looks
+                  {/* U19, say WHY it is ranked where it is. An unexplained reordering just looks
                       like the list moved on its own. */}
                   {preset.familyRedemptions > 0 ? (
                     <span className="text-xs text-primary-600 font-medium">

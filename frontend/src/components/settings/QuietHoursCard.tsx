@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * QuietHoursCard — per-child quiet hours and schooltime mode (growth roadmap §6).
+ * QuietHoursCard, per-child quiet hours and schooltime mode (growth roadmap §6).
  *
  * The card states the family time zone on its face, because that is what the times below are
  * interpreted in. A window set against the wrong zone silences the wrong hours while the parent
@@ -97,7 +97,7 @@ export function QuietHoursCard({ childId, childName, initial }: Props) {
       </div>
       <p className="text-sm text-slate-500 mb-5">
         Times are in <span className="font-medium text-slate-700">{timezone.replace(/_/g, ' ')}</span>,
-        your family time zone — change it in Settings. {childName} still receives every notification
+        your family time zone. Change it in Settings. {childName} still receives every notification
         in the app; it just won&apos;t buzz their device during these windows.
       </p>
 

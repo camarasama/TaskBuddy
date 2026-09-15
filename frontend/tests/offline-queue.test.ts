@@ -11,15 +11,15 @@ import {
 } from '../src/lib/offlineQueue';
 
 /**
- * FR-13 — the offline start/complete queue.
+ * FR-13, the offline start/complete queue.
  *
  * The queue is the only thing standing between "child did a chore in the garage" and "the chore
  * never happened". Three rules carry all the risk and all three are pinned here:
  *
- *   ordering  — a `complete` must never reach the server before its own `start`, or the server
+ *   ordering , a `complete` must never reach the server before its own `start`, or the server
  *               409s the completion and the work is silently lost.
- *   409       — a duplicate replay is SUCCESS, not a failure. Retrying it would loop forever.
- *   bounded   — transient failures retry, but a finite number of times.
+ *   409      , a duplicate replay is SUCCESS, not a failure. Retrying it would loop forever.
+ *   bounded  , transient failures retry, but a finite number of times.
  */
 
 /** An error shaped like the app's ApiError: message plus a numeric HTTP status. */
@@ -52,7 +52,7 @@ beforeEach(() => {
   setOnline(true);
 });
 
-describe('enqueue — capturing an action taken with no connection', () => {
+describe('enqueue, capturing an action taken with no connection', () => {
   it('stores type, assignment and the moment the child acted', async () => {
     setOnline(false);
     const before = Date.now();
@@ -96,7 +96,7 @@ describe('enqueue — capturing an action taken with no connection', () => {
   });
 });
 
-describe('flush — FIFO, and start before complete for the same assignment', () => {
+describe('flush, FIFO, and start before complete for the same assignment', () => {
   it('replays in enqueue order and empties the queue', async () => {
     await enqueue('start', 'a1');
     await enqueue('complete', 'a1');
@@ -167,7 +167,7 @@ describe('flush — FIFO, and start before complete for the same assignment', ()
   });
 });
 
-describe('flush — 409 means already applied, which is SUCCESS', () => {
+describe('flush, 409 means already applied, which is SUCCESS', () => {
   it('drops a 409 entry without an error and without retrying', async () => {
     await enqueue('complete', 'a1');
     const { replay } = recorder({
@@ -180,7 +180,7 @@ describe('flush — 409 means already applied, which is SUCCESS', () => {
     expect(report.remaining).toBe(0);
     expect(await pending()).toEqual([]);
 
-    // A second flush must not re-attempt it — the entry is gone for good.
+    // A second flush must not re-attempt it, the entry is gone for good.
     await flush(replay);
     expect(replay).toHaveBeenCalledTimes(1);
   });
@@ -201,7 +201,7 @@ describe('flush — 409 means already applied, which is SUCCESS', () => {
   });
 });
 
-describe('flush — permanent client errors are dropped, not retried', () => {
+describe('flush, permanent client errors are dropped, not retried', () => {
   it('drops a 400 (e.g. a rejected future timestamp) and surfaces the reason', async () => {
     await enqueue('complete', 'a1');
     const { replay } = recorder({
@@ -231,7 +231,7 @@ describe('flush — permanent client errors are dropped, not retried', () => {
     expect(report.remaining).toBe(0);
   });
 
-  it('RETRIES 408 and 429 — those mean "later", not "never"', async () => {
+  it('RETRIES 408 and 429, those mean "later", not "never"', async () => {
     await enqueue('start', 'a1');
     const { replay } = recorder({ start: async () => { throw new HttpError('slow down', 429); } });
 
@@ -241,7 +241,7 @@ describe('flush — permanent client errors are dropped, not retried', () => {
   });
 });
 
-describe('flush — concurrency and housekeeping', () => {
+describe('flush, concurrency and housekeeping', () => {
   it('shares one in-flight pass so a reconnect + page load cannot double-submit', async () => {
     await enqueue('complete', 'a1');
     const { replay } = recorder({

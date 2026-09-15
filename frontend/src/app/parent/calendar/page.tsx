@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * /parent/calendar — the family week (growth roadmap §5.3).
+ * /parent/calendar, the family week (growth roadmap §5.3).
  *
  * **Read-only, deliberately.** The roadmap says ship read-only first, and drag-to-reschedule is a
- * much larger problem — recurrence expansion, conflict re-checking, undo. Shipping a week people
+ * much larger problem, recurrence expansion, conflict re-checking, undo. Shipping a week people
  * actually look at is how you find out whether the drag is even wanted.
  *
  * Children are columns and days are rows, which survives a phone better than the reverse: a family
@@ -31,7 +31,7 @@ const STATUS_STYLE: Record<string, string> = {
   pending: 'bg-slate-50 border-slate-200 text-slate-700',
 };
 
-/** YYYY-MM-DD, UTC — matches how the server keys the week. */
+/** YYYY-MM-DD, UTC, matches how the server keys the week. */
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -175,7 +175,7 @@ export default function CalendarPage() {
                                     )}
                                     <span className="font-medium leading-tight">{e.title}</span>
                                   </div>
-                                  {/* Only shown when the task genuinely has a time — inventing one
+                                  {/* Only shown when the task genuinely has a time, inventing one
                                       would be fabricating something a parent then plans around. */}
                                   {e.isTimed && e.startTime && (
                                     <div className="flex items-center gap-1 mt-0.5 opacity-75">

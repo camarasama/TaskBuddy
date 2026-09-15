@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * /parent/welcome — the guided setup wizard (growth roadmap §3.2).
+ * /parent/welcome, the guided setup wizard (growth roadmap §3.2).
  *
  * A parent landing on an empty dashboard has to invent the product for themselves, and that is the
  * roadmap's biggest measured drop-off. Four steps, all skippable, all resumable.
  *
  * Step 4 is the one that matters: it seeds a task the child has "already finished" and hands the
- * parent the approve button. Approving it fires the real pipeline — real points, real socket event,
- * real confetti — so both sides feel the whole loop inside the first minute instead of a day later.
+ * parent the approve button. Approving it fires the real pipeline, real points, real socket event,
+ * real confetti, so both sides feel the whole loop inside the first minute instead of a day later.
  *
  * Progress is server-side (FamilySettings), so closing the tab loses nothing.
  */
@@ -129,7 +129,7 @@ export default function WelcomePage() {
   const handleFirstApproval = async () => {
     const child = children[0];
     if (!child) {
-      showError('Add a child first — step 1.');
+      showError('Add a child first (step 1).');
       return;
     }
 
@@ -162,7 +162,7 @@ export default function WelcomePage() {
       await navigator.clipboard.writeText(familyCode);
       showSuccess('Family code copied');
     } catch {
-      showError('Could not copy — the code is on screen');
+      showError('Could not copy. The code is on screen');
     }
   };
 
@@ -277,7 +277,7 @@ export default function WelcomePage() {
               {familyCode}
             </p>
             <p className="text-xs text-slate-500 mt-1 mb-3">
-              Your child signs in with this and their PIN — hand them the device.
+              Your child signs in with this and their PIN. Hand them the device.
             </p>
             <Button variant="ghost" size="sm" onClick={copyCode}>
               <Copy className="w-4 h-4" />
@@ -294,7 +294,7 @@ export default function WelcomePage() {
               onClick={handleDismiss}
               className="text-sm text-slate-500 hover:text-slate-700 underline"
             >
-              Skip setup — I&apos;ll find my way around
+              Skip setup, I&apos;ll find my way around
             </button>
           )}
         </div>

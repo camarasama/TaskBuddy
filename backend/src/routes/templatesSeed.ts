@@ -40,7 +40,7 @@ export const SYSTEM_TEMPLATES: SystemTemplate[] = [
   { name: 'Make your bed', description: 'Straighten the covers and arrange the pillows.', category: 'Morning Routine', difficulty: 'easy', suggestedPoints: 5, estimatedMinutes: 5, ageRange: null, requiresPhotoEvidence: true },
   { name: 'Brush teeth', description: 'Two minutes, morning and night.', category: 'Morning Routine', difficulty: 'easy', suggestedPoints: 5, estimatedMinutes: 3, ageRange: null, requiresPhotoEvidence: false },
   { name: 'Get dressed on time', description: 'Ready to go before the agreed time.', category: 'Morning Routine', difficulty: 'easy', suggestedPoints: 5, estimatedMinutes: 10, ageRange: null, requiresPhotoEvidence: false },
-  { name: 'Pack your school bag', description: 'Books, homework and kit — checked the night before counts double.', category: 'Morning Routine', difficulty: 'easy', suggestedPoints: 10, estimatedMinutes: 10, ageRange: null, requiresPhotoEvidence: false },
+  { name: 'Pack your school bag', description: 'Books, homework and kit. Checked the night before counts double.', category: 'Morning Routine', difficulty: 'easy', suggestedPoints: 10, estimatedMinutes: 10, ageRange: null, requiresPhotoEvidence: false },
   { name: 'Eat breakfast without reminders', description: 'Sit down and finish breakfast on your own.', category: 'Morning Routine', difficulty: 'easy', suggestedPoints: 5, estimatedMinutes: 15, ageRange: null, requiresPhotoEvidence: false },
   { name: 'Put pyjamas away', description: 'Folded and in the drawer, not on the floor.', category: 'Morning Routine', difficulty: 'easy', suggestedPoints: 5, estimatedMinutes: 3, ageRange: null, requiresPhotoEvidence: false },
 
@@ -59,7 +59,7 @@ export const SYSTEM_TEMPLATES: SystemTemplate[] = [
   { name: 'Load the dishwasher', description: 'Stacked properly so it actually cleans.', category: 'Kitchen Helper', difficulty: 'medium', suggestedPoints: 15, estimatedMinutes: 15, ageRange: null, requiresPhotoEvidence: true },
   { name: 'Empty the dishwasher', description: 'Everything back where it belongs.', category: 'Kitchen Helper', difficulty: 'medium', suggestedPoints: 15, estimatedMinutes: 15, ageRange: null, requiresPhotoEvidence: false },
   { name: 'Wipe the kitchen counters', description: 'Clear them first, then wipe.', category: 'Kitchen Helper', difficulty: 'easy', suggestedPoints: 10, estimatedMinutes: 10, ageRange: null, requiresPhotoEvidence: true },
-  { name: 'Help cook a meal', description: 'Chop, stir or measure — with a grown-up.', category: 'Kitchen Helper', difficulty: 'hard', suggestedPoints: 30, estimatedMinutes: 45, ageRange: '13-16', requiresPhotoEvidence: true },
+  { name: 'Help cook a meal', description: 'Chop, stir or measure, with a grown-up.', category: 'Kitchen Helper', difficulty: 'hard', suggestedPoints: 30, estimatedMinutes: 45, ageRange: '13-16', requiresPhotoEvidence: true },
   { name: 'Make your own packed lunch', description: 'Something balanced, made the night before.', category: 'Kitchen Helper', difficulty: 'medium', suggestedPoints: 20, estimatedMinutes: 20, ageRange: '13-16', requiresPhotoEvidence: true },
 
   // ── Pet Care ──────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ export const REWARD_PRESETS: RewardPreset[] = [
   { name: 'Friend over for the afternoon', description: 'Invite a friend round.', pointsCost: 200, tier: 'medium' },
   { name: 'Baking session with a grown-up', description: 'Pick a recipe and make it together.', pointsCost: 200, tier: 'medium' },
   { name: 'A new book of your choice', description: 'Any book, within reason.', pointsCost: 250, tier: 'medium' },
-  { name: 'Day out of your choosing', description: 'Cinema, swimming, bowling — you decide.', pointsCost: 500, tier: 'large' },
+  { name: 'Day out of your choosing', description: 'Cinema, swimming, bowling: you decide.', pointsCost: 500, tier: 'large' },
   { name: 'Skip one chore, guilt-free', description: 'One task of your choice, cancelled.', pointsCost: 300, tier: 'large' },
 ];
 

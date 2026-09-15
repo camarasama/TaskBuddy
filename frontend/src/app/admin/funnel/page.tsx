@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * /admin/funnel — the activation funnel (growth roadmap §1, §5.5).
+ * /admin/funnel, the activation funnel (growth roadmap §1, §5.5).
  *
  * The roadmap's KPIs "had nowhere to live": events have been written since the instrumentation
  * shipped and nothing anywhere could read them. This is where they land.
@@ -18,7 +18,7 @@ import { useToast } from '@/components/ui/Toast';
 
 const WINDOWS = [7, 30, 90] as const;
 
-/** Order matters — it is the order a parent meets them in the wizard. */
+/** Order matters, it is the order a parent meets them in the wizard. */
 const STEP_LABELS: Record<string, string> = {
   child: 'Added a child',
   tasks: 'Picked a starter pack',
@@ -187,7 +187,7 @@ function Stat({
   compact,
 }: {
   label: string;
-  /** null renders as "no data yet" — never as 0, which would read as a real, bad result. */
+  /** null renders as "no data yet", never as 0, which would read as a real, bad result. */
   value: number | string | null;
   hint?: string;
   good?: boolean;
@@ -200,7 +200,7 @@ function Stat({
           value === null ? 'text-slate-300' : good === true ? 'text-green-600' : 'text-slate-800'
         }`}
       >
-        {value === null ? '—' : value}
+        {value === null ? '-' : value}
       </div>
       <div className="text-sm font-medium text-slate-600 mt-0.5">{label}</div>
       {hint && <div className="text-xs text-slate-400 mt-1">{value === null ? 'No data yet' : hint}</div>}

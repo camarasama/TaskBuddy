@@ -214,7 +214,7 @@ export async function assertSafeWebhookUrl(raw: string): Promise<SafeUrlResult> 
   }
 
   if (url.protocol !== 'https:') {
-    throw new WebhookUrlError('Webhook URLs must use https:// — plain HTTP is not accepted.');
+    throw new WebhookUrlError('Webhook URLs must use https://. Plain HTTP is not accepted.');
   }
   if (url.username || url.password) {
     throw new WebhookUrlError('Webhook URLs must not contain embedded credentials.');
@@ -434,11 +434,11 @@ export class WebhookService {
           return;
         }
         if (res.status >= 300 && res.status < 400) {
-          reason = `HTTP ${res.status} redirect — redirects are never followed`;
+          reason = `HTTP ${res.status} redirect: redirects are never followed`;
           break;
         }
         if (res.status >= 400 && res.status < 500 && res.status !== 429) {
-          reason = `HTTP ${res.status} — endpoint rejected the delivery`;
+          reason = `HTTP ${res.status}: endpoint rejected the delivery`;
           break; // a deliberate 4xx is not retried
         }
         reason = `HTTP ${res.status}`; // 5xx and 429 fall through to a retry
@@ -512,7 +512,7 @@ export class WebhookService {
             // notification would kick off another delivery round against the dead endpoint.
             notificationType: WEBHOOK_DISABLED_NOTIFICATION,
             title: '🔌 Webhook disabled',
-            message: `Deliveries to ${sub.url} failed ${WEBHOOK_MAX_CONSECUTIVE_FAILURES} times in a row (${reason}). It has been switched off — re-add it from Settings once the endpoint is healthy.`,
+            message: `Deliveries to ${sub.url} failed ${WEBHOOK_MAX_CONSECUTIVE_FAILURES} times in a row (${reason}). It has been switched off. Re-add it from Settings once the endpoint is healthy.`,
             actionUrl: '/parent/settings',
             referenceType: 'webhook_subscription',
             referenceId: sub.id,

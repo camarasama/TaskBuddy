@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * components/tasks/TemplatePicker — browse starter task packs (growth roadmap §3.1).
+ * components/tasks/TemplatePicker, browse starter task packs (growth roadmap §3.1).
  *
  * The roadmap's #1 activation item: a blank task list at signup demands creative effort from a
  * parent at the moment they have least patience, and that is the biggest measured drop-off.

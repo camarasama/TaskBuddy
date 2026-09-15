@@ -1,6 +1,6 @@
 # Deleting your TaskBuddy account and data
 
-**Provider:** Evolution Prime IT Ltd — the developer of **TaskBuddy** on Google Play.
+**Provider:** Evolution Prime IT Ltd, the developer of **TaskBuddy** on Google Play.
 **Contact:** privacy@gettaskbuddy.com
 **Last updated:** 2026-09-11
 
@@ -39,11 +39,11 @@ your family's data. A request by email is honoured exactly the same way.
 You do not have to delete the whole account to remove a child. These are available in the app and on
 the website:
 
-- **Delete a child profile** — Children → the child → **Delete**. Their tasks, points, photos and
+- **Delete a child profile:** Children → the child → **Delete**. Their tasks, points, photos and
   history go with them. The rest of the family is untouched.
-- **Remove a co-parent** — Settings → Co-parents → **Remove**. This ends their access; it deletes
+- **Remove a co-parent:** Settings → Co-parents → **Remove**. This ends their access; it deletes
   nothing else.
-- **Cancel a pending invitation** — Settings → Co-parents → **Cancel invite**.
+- **Cancel a pending invitation:** Settings → Co-parents → **Cancel invite**.
 
 For anything else, email **privacy@gettaskbuddy.com** and tell us what you would like removed.
 
@@ -54,7 +54,7 @@ For anything else, email **privacy@gettaskbuddy.com** and tell us what you would
 When a family account is deleted, we permanently remove:
 
 - the parent and co-parent accounts, including names, email addresses and password hashes;
-- every child profile — names, usernames, PIN hashes, dates of birth and avatars;
+- every child profile: names, usernames, PIN hashes, dates of birth and avatars;
 - **all photos children uploaded as task evidence**, including thumbnails, from private storage;
 - tasks, assignments, points, XP, streaks, achievements, rewards and redemptions;
 - notifications and saved notification preferences;
@@ -88,7 +88,7 @@ gone and cannot be recovered by us or by you. Backups are rotated on a fixed sch
 
 ## Related
 
-- [Privacy Policy](https://gettaskbuddy.com/privacy) — what we collect and why
+- [Privacy Policy](https://gettaskbuddy.com/privacy): what we collect and why
 - [Terms of Service](https://gettaskbuddy.com/terms)
 
 If you have asked to delete something and it has not happened, or you are unsure what is held about

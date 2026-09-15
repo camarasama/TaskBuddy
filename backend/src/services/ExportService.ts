@@ -592,7 +592,7 @@ export async function exportReportCardPdf(card: ReportCardData): Promise<Buffer>
   if (card.bestDay) {
     drawHeading(ctx, 'Best day');
     ctx.page.drawText(
-      `${card.bestDay.date} — ${card.bestDay.approved} task${card.bestDay.approved === 1 ? '' : 's'} approved`,
+      `${card.bestDay.date}: ${card.bestDay.approved} task${card.bestDay.approved === 1 ? '' : 's'} approved`,
       { x: ctx.margin + 8, y: ctx.y.v - 4, size: 10, font: ctx.font, color: BRAND_DARK },
     );
     ctx.y.v -= 22;
@@ -700,7 +700,7 @@ export async function exportGamesCsv(report: GamesReport): Promise<Buffer> {
       Category: fmtLabel(s.category),
       Level: fmtLabel(s.level),
       'Total Points': s.pointsAwarded,
-      Detail: `${s.title} — ${s.correctCount}/${s.totalQuestions} on ${
+      Detail: `${s.title}: ${s.correctCount}/${s.totalQuestions} on ${
         s.playedAt ? new Date(s.playedAt).toISOString().slice(0, 10) : ''
       }`,
     })),
@@ -711,7 +711,7 @@ export async function exportGamesCsv(report: GamesReport): Promise<Buffer> {
       Category: fmtLabel(c.category),
       Level: fmtLabel(c.level),
       Detail: `${c.seen}/${c.bankSize} seen (${c.coverage}%)${
-        c.exhausted ? ' — repeats have started' : ''
+        c.exhausted ? ', repeats have started' : ''
       }`,
     })),
     ...report.games.map((g) => ({
@@ -785,7 +785,7 @@ export async function exportGamesPdf(report: GamesReport): Promise<Buffer> {
       [90, 80, 45, 60, 175],
       flagged.map((a) => [
         a.childName.slice(0, 16), fmtLabel(a.category), String(a.plays),
-        a.accuracy === null ? '—' : `${a.accuracy}%`,
+        a.accuracy === null ? '-' : `${a.accuracy}%`,
         (a.reason ?? '').slice(0, 44),
       ]),
     );
@@ -799,7 +799,7 @@ export async function exportGamesPdf(report: GamesReport): Promise<Buffer> {
       played.map((m) => [
         m.childName.slice(0, 16), fmtLabel(m.category), fmtLabel(m.level), String(m.plays),
         `${m.questionsCorrect}/${m.questionsAnswered}`,
-        m.accuracy === null ? '—' : `${m.accuracy}%`,
+        m.accuracy === null ? '-' : `${m.accuracy}%`,
       ]),
     );
   }
@@ -809,7 +809,7 @@ export async function exportGamesPdf(report: GamesReport): Promise<Buffer> {
     [140, 75, 70, 45, 50, 60],
     report.games.map((g) => [
       g.title.slice(0, 24), fmtLabel(g.category), fmtLabel(g.level), String(g.plays),
-      g.passRate === null ? '—' : String(g.passRate), String(g.pointsAwardedTotal),
+      g.passRate === null ? '-' : String(g.passRate), String(g.pointsAwardedTotal),
     ]),
   );
 
@@ -849,8 +849,8 @@ export async function exportWebhookPdf(report: WebhookReport): Promise<Buffer> {
       r.url.slice(0, 34),
       r.disabledAt ? 'Disabled' : r.isActive ? 'Active' : 'Paused',
       String(r.consecutiveFailures),
-      r.lastSuccessAt?.slice(0, 10) ?? '—',
-      r.lastFailureAt?.slice(0, 10) ?? '—',
+      r.lastSuccessAt?.slice(0, 10) ?? '-',
+      r.lastFailureAt?.slice(0, 10) ?? '-',
     ]),
   );
   return finalize(ctx.pdfDoc);

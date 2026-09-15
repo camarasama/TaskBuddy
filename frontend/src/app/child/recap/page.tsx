@@ -1,16 +1,16 @@
 'use client';
 
 /**
- * /child/recap — "My Week" (growth roadmap §6).
+ * /child/recap, "My Week" (growth roadmap §6).
  *
  * The child-facing half of the parent's weekly digest, as a small stack of swipeable cards.
  *
- * Two things it will not do. It never compares this child to a sibling — the leaderboard is
+ * Two things it will not do. It never compares this child to a sibling, the leaderboard is
  * opt-out-able by design, and a recap has no opt out to offer. And it never celebrates a week that
  * did not happen: a quiet week gets an honest card and a way forward, because a child reads
  * "you crushed it!" over zero tasks as the app not paying attention.
  *
- * The page is reachable every day. Only the *prompt* on the dashboard is Friday-onward — hiding a
+ * The page is reachable every day. Only the *prompt* on the dashboard is Friday-onward, hiding a
  * child's own summary of their own week for five days out of seven would be a strange thing to do.
  */
 
@@ -33,7 +33,7 @@ interface Card {
   tint: string;
 }
 
-/** Cards are built from what actually happened — a week with no games has no games card. */
+/** Cards are built from what actually happened, a week with no games has no games card. */
 function buildCards(recap: WeekRecapResponse): Card[] {
   const cards: Card[] = [];
 
@@ -46,7 +46,7 @@ function buildCards(recap: WeekRecapResponse): Card[] {
         : `${recap.tasksApproved} task${recap.tasksApproved === 1 ? '' : 's'} done`,
     detail:
       recap.tasksApproved === 0
-        ? 'Nothing was finished last week — and that is completely fine. This week is a fresh start.'
+        ? 'Nothing was finished last week, and that is completely fine. This week is a fresh start.'
         : `You earned ${recap.pointsEarned} points.`,
     tint: 'from-primary-500 to-indigo-600',
   });

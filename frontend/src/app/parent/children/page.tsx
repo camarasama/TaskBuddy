@@ -434,7 +434,7 @@ function ChildModal({
             </>
           )}
 
-          {/* Adding only. Editing a child does not re-collect consent — it was given once, for this
+          {/* Adding only. Editing a child does not re-collect consent, it was given once, for this
               child, and re-asking would imply the earlier record had lapsed. */}
           {!child && (
             <label className="flex gap-3 items-start pt-4 cursor-pointer">
