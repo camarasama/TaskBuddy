@@ -52,7 +52,7 @@ interface ChildSummary {
   // FR-14 / FR-11 surfaced here: both features shipped but were invisible from the dashboard.
   wishlistCount?: number;
   recentCommentCount?: number;
-  /** Roadmap §5.1 — derived server-side so this and any other surface agree. */
+  /** Roadmap §5.1, derived server-side so this and any other surface agree. */
   todayStatus?: 'none' | 'in_progress' | 'done';
   /** The child dashboard has known this since M9; the parent never saw it. */
   streakAtRisk?: boolean;
@@ -82,12 +82,12 @@ interface DashboardData {
     tasksCreated: number;
     pointsAwarded: number;
     rewardsRedeemed: number;
-    /** Null when there is no history either week — different from a real 0. */
+    /** Null when there is no history either week, different from a real 0. */
     tasksCompletedDelta: number | null;
   };
 }
 
-/** Traffic-light presentation. 'none' is grey, not red — an empty day is not a failure. */
+/** Traffic-light presentation. 'none' is grey, not red, an empty day is not a failure. */
 const TODAY_STATUS: Record<'none' | 'in_progress' | 'done', { dot: string; label: string }> = {
   none: { dot: 'bg-slate-300', label: 'Nothing done yet today' },
   in_progress: { dot: 'bg-warning-500', label: 'Part-way through today' },
@@ -413,7 +413,7 @@ export default function ParentDashboardPage() {
           </div>
 
           {/* The user manual. A plain link rather than a QuickActionCard: those all navigate inside
-              the app, and this downloads a file — making it look identical would misrepresent it.
+              the app, and this downloads a file, making it look identical would misrepresent it.
               `download` so it saves rather than replacing the dashboard with a PDF viewer. */}
           <a
             href="/TaskBuddy-User-Manual.pdf"
@@ -543,7 +543,7 @@ function ChildCard({ child }: { child: ChildSummary }) {
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            {/* Roadmap §5.1 traffic light — one glance answers "how is this child doing today". */}
+            {/* Roadmap §5.1 traffic light, one glance answers "how is this child doing today". */}
             <span
               title={TODAY_STATUS[todayStatus].label}
               className={cn('w-2.5 h-2.5 rounded-full shrink-0', TODAY_STATUS[todayStatus].dot)}
@@ -562,7 +562,7 @@ function ChildCard({ child }: { child: ChildSummary }) {
                 'flex items-center gap-1 text-sm font-medium',
                 streakAtRisk ? 'text-red-500' : 'text-orange-500',
               )}
-              title={streakAtRisk ? 'Nothing finished today — this streak breaks at midnight' : undefined}
+              title={streakAtRisk ? 'Nothing finished today. This streak breaks at midnight' : undefined}
             >
               <span>🔥</span>
               <span>{currentStreak}</span>

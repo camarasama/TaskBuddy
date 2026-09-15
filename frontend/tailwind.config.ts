@@ -6,7 +6,7 @@ import type { Config } from 'tailwindcss';
  *
  * That entry resolves to `shared/dist`, which is gitignored and only produced as a side effect of
  * `backend`'s `tsc -b` (via its project reference). This config, however, is loaded by Tailwind at
- * the very start of `next dev` / `next build` — including on a fresh clone where nothing has been
+ * the very start of `next dev` / `next build`, including on a fresh clone where nothing has been
  * built yet. Going through the package entry would make the dev server's first run depend on a
  * build step nothing here declares. Tailwind's config loader transpiles TypeScript, and the tokens
  * module imports nothing, so reading the source directly is both safe and one less ordering trap.
@@ -58,7 +58,7 @@ const config: Config = {
         // `DEFAULT` is the key behind a bare `rounded`; the tokens call that step `base`. Aliased
         // so the plain class is token-driven too rather than silently keeping Tailwind's own.
         DEFAULT: rem(radius.base),
-        // `full` is a sentinel, not a length — see the note on it in the tokens. Unit-converting it
+        // `full` is a sentinel, not a length, see the note on it in the tokens. Unit-converting it
         // gives `624.9375rem`, so it is pinned to px here.
         full: `${radius.full}px`,
       },

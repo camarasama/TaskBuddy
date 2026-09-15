@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * TeamBadge — the cooperation signal on a team-up task (growth roadmap §6).
+ * TeamBadge, the cooperation signal on a team-up task (growth roadmap §6).
  *
  * This is the actual point of the feature. The bonus arithmetic is trivial; what makes a team task
  * feel different from a shared one is a child being able to see who they're working with and who is
@@ -63,7 +63,7 @@ export function TeamBadge({ team, meId }: { team: TeamSummary; meId?: string }) 
 
       {team.bonusAwarded ? (
         <p className="text-xs text-green-700 mt-1.5 font-medium">
-          🤝 Everyone finished — bonus paid!
+          🤝 Everyone finished, bonus paid!
         </p>
       ) : waiting.length > 0 ? (
         <p className="text-xs text-indigo-600 mt-1.5">

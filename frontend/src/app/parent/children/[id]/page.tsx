@@ -55,7 +55,7 @@ interface Child {
   createdAt: Date | string;
   gender?: string | null;
   childProfile?: ChildProfile;
-  // U16 — quiet hours / schooltime, returned by GET /families/me/children/:id.
+  // U16, quiet hours / schooltime, returned by GET /families/me/children/:id.
   quietHoursEnabled?: boolean;
   quietHoursStart?: string;
   quietHoursEnd?: string;
@@ -73,7 +73,7 @@ export default function ChildDetailsPage() {
   const [child, setChild] = useState<Child | null>(null);
 
   /**
-   * Download last month's card. Defaults to the month just gone server-side — the card is a look
+   * Download last month's card. Defaults to the month just gone server-side, the card is a look
    * back, so "this month so far" is rarely what anyone wants to share.
    */
   const handleReportCard = async () => {
@@ -189,7 +189,7 @@ export default function ChildDetailsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
         >
-          {/* A photo the child chose. It is not their avatar yet — approving is what publishes it
+          {/* A photo the child chose. It is not their avatar yet, approving is what publishes it
               to the rest of the family, so this sits above the profile it would change. */}
           {child.childProfile?.pendingAvatarUrl && (
             <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -246,7 +246,7 @@ export default function ChildDetailsPage() {
                   {child.gender}
                 </span>
               )}
-              {/* Roadmap §5.4: the one artefact designed to leave the product — parents forward it
+              {/* Roadmap §5.4: the one artefact designed to leave the product, parents forward it
                   to co-parents and grandparents, and it does the introducing. */}
               <div className="mt-3">
                 <Button

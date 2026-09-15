@@ -27,7 +27,7 @@ function formatWeekLabel(weekStart: Date, weekEnd: Date): string {
   // weekEnd is exclusive (the Monday just gone), so show the Sunday before it.
   const lastDay = new Date(weekEnd.getTime() - 86_400_000);
   const end = lastDay.toLocaleDateString('en-GB', opts);
-  return `${start} – ${end}`;
+  return `${start} to ${end}`;
 }
 
 /**
@@ -64,8 +64,8 @@ export async function sendWeeklyDigests(now: Date = new Date()): Promise<{
         triggerType: 'weekly_digest',
         subjectBuilder: () =>
           digest.pendingApprovals > 0
-            ? `${digest.pendingApprovals} task${digest.pendingApprovals === 1 ? '' : 's'} waiting — your TaskBuddy week`
-            : `${digest.totals.tasksApproved} task${digest.totals.tasksApproved === 1 ? '' : 's'} done — your TaskBuddy week`,
+            ? `${digest.pendingApprovals} task${digest.pendingApprovals === 1 ? '' : 's'} waiting: your TaskBuddy week`
+            : `${digest.totals.tasksApproved} task${digest.totals.tasksApproved === 1 ? '' : 's'} done: your TaskBuddy week`,
         // Greet each co-parent by their own name rather than sharing one rendering.
         templateDataBuilder: (parent) => ({ parentFirstName: parent.firstName }),
         templateData: {

@@ -6,14 +6,14 @@
  * ## Why this file exists
  *
  * Sentry's browser SDK hooks `window.onerror`, which catches errors thrown from event handlers and
- * async callbacks — the `/child/tasks` tab crash arrived that way. It does **not** catch errors thrown
+ * async callbacks, the `/child/tasks` tab crash arrived that way. It does **not** catch errors thrown
  * during React *rendering*: React swallows those into the nearest error boundary, and with no boundary
  * present the App Router replaces the tree with its own generic screen and nothing is reported.
  *
  * So the whole class of "the page went blank" bugs was invisible. This boundary closes that, and the
  * Sentry build plugin warns about its absence on every build for exactly this reason.
  *
- * `global-error.tsx` is the outermost boundary — it replaces the root layout when it fires, which is
+ * `global-error.tsx` is the outermost boundary, it replaces the root layout when it fires, which is
  * why it must render its own `<html>` and `<body>`. It only catches what nested boundaries do not, so
  * a per-route `error.tsx` added later still takes precedence.
  *
@@ -21,7 +21,7 @@
  *
  * Not in the render body. A boundary can re-render (a theme change, a parent update, the user tapping
  * "try again"), and a render-phase side effect would file the same crash again on each pass. Keying
- * the effect on `error` reports each distinct failure exactly once — the same reasoning as the mobile
+ * the effect on `error` reports each distinct failure exactly once, the same reasoning as the mobile
  * app's `ErrorBoundary` in `mobile/app/_layout.tsx`.
  *
  * ## Deliberate: the message says nothing about the error
@@ -66,7 +66,7 @@ export default function GlobalError({
             Something went wrong
           </h1>
           <p style={{ fontSize: '0.875rem', lineHeight: 1.5, color: '#475569', margin: '0 0 1.5rem' }}>
-            Sorry — that page didn&apos;t load properly. We&apos;ve been told about it. Try again, and
+            Sorry, that page didn&apos;t load properly. We&apos;ve been told about it. Try again, and
             if it keeps happening let us know.
           </p>
 
@@ -89,7 +89,7 @@ export default function GlobalError({
           </button>
 
           {/*
-            Opaque and server-generated — safe to display, and the only handle a support conversation
+            Opaque and server-generated, safe to display, and the only handle a support conversation
             has for finding the matching Sentry event.
           */}
           {error.digest && (

@@ -8,7 +8,7 @@
  *
  * Each panel fetches its own data rather than reading the host page's list. On /admin/families the
  * list below is filtered and paginated by the admin, so deriving "latest 10" from it would make the
- * panel change when they search — the panel is meant to be a stable reference point.
+ * panel change when they search, the panel is meant to be a stable reference point.
  *
  * Newest-first is already the server's default ordering on both endpoints, so the newest N rows are
  * simply page 1.
@@ -24,7 +24,7 @@ export const RECENT_LIMIT = 10;
 function formatDate(value: Date | string): string {
   const d = new Date(value);
   return Number.isNaN(d.getTime())
-    ? '—'
+    ? '-'
     : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -71,8 +71,8 @@ function Panel({
 }
 
 /**
- * `href` is optional on purpose. There is no /admin/users/[id] page — the admin area has a family
- * detail page but never had a user one — so a user row links to its FAMILY, and an admin (who has
+ * `href` is optional on purpose. There is no /admin/users/[id] page, the admin area has a family
+ * detail page but never had a user one, so a user row links to its FAMILY, and an admin (who has
  * no family) is not a link at all. Linking to a route that does not exist just 404s.
  */
 function Row({ href, primary, secondary, date }: {

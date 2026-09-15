@@ -32,7 +32,7 @@ export function buildChildPinReset(data: ChildPinResetData): string {
       </p>
       ${ctaButton('Set a new PIN', resetUrl)}
       <p style="margin:24px 0 0;color:#94a3b8;font-size:13px;">
-        If ${childFirstName} didn't ask for this, you can safely ignore this email — their PIN will
+        If ${childFirstName} didn't ask for this, you can safely ignore this email: their PIN will
         not change unless someone opens this link.
       </p>
     </td>

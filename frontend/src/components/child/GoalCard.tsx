@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * components/child/GoalCard — "I'm saving for…" (growth roadmap §4.2).
+ * components/child/GoalCard, "I'm saving for…" (growth roadmap §4.2).
  *
  * The goal-gradient effect: completion rates rise as a bar fills. One visible target the child chose
  * themselves beats a longer list of things they might want, which is why only one can be pinned.
  *
- * Progress arrives already derived from the live balance — there is no stored counter to drift when
+ * Progress arrives already derived from the live balance, there is no stored counter to drift when
  * points are spent, refunded, or reversed by the revoke flow.
  */
 

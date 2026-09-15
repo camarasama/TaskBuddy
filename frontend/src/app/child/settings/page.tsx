@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 
 /**
- * FR-10 — child settings: pick your own avatar emoji.
+ * FR-10, child settings: pick your own avatar emoji.
  *
  * The picker offers a fixed allow-list (shared with the backend validator via AVATAR_EMOJIS) rather
  * than free text: this field is child-controlled and visible to the whole family, so free input

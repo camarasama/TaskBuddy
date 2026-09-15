@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * /parent/insights — the "is this actually working?" answer (growth roadmap §5.2).
+ * /parent/insights, the "is this actually working?" answer (growth roadmap §5.2).
  *
  * A parent who cannot see progress stops believing the app is doing anything. The consistency
  * heatmap is the piece the roadmap singles out, and it works precisely because the EMPTY squares
- * are visible — a chart that only showed active days would be a flattering lie.
+ * are visible, a chart that only showed active days would be a flattering lie.
  *
  * All bucketing is UTC (see InsightsService), which the page states rather than hides.
  */
@@ -142,7 +142,7 @@ export default function InsightsPage() {
               </div>
             )}
 
-            {/* Consistency heatmap — the empty squares are the point */}
+            {/* Consistency heatmap, the empty squares are the point */}
             <section className="bg-white rounded-2xl border border-slate-200 p-5">
               <div className="flex items-baseline justify-between mb-4">
                 <h2 className="font-display font-bold text-slate-900">Consistency</h2>
@@ -177,7 +177,7 @@ export default function InsightsPage() {
               <section className="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 className="font-display font-bold text-slate-900 mb-1">Best days</h2>
                 <p className="text-xs text-slate-500 mb-4">
-                  When tasks actually get finished — useful for deciding what to schedule when.
+                  When tasks actually get finished, useful for deciding what to schedule when.
                 </p>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={DAY_LABELS.map((d, i) => ({ day: d, approved: data.byDayOfWeek[i] }))}>
@@ -235,14 +235,14 @@ function Figure({
   hint,
 }: {
   label: string;
-  /** null shows an em dash — a real zero and "no data" are different things. */
+  /** null shows an em dash, a real zero and "no data" are different things. */
   value: number | string | null;
   hint?: string;
 }) {
   return (
     <div>
       <p className={cn('text-2xl font-bold', value === null ? 'text-slate-300' : 'text-slate-900')}>
-        {value === null ? '—' : value}
+        {value === null ? '-' : value}
       </p>
       <p className="text-sm text-slate-600">{label}</p>
       {value === null && hint && <p className="text-xs text-slate-400 mt-0.5">{hint}</p>}

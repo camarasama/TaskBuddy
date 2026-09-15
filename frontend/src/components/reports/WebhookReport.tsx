@@ -3,7 +3,7 @@
  * WebhookReport - R-13 (growth roadmap §6)
  *
  * FR-18 auto-disables a subscription after repeated failures and, until now, told nobody in any
- * durable way — an integration could be dead for a week with nothing showing it. Auto-disabled rows
+ * durable way, an integration could be dead for a week with nothing showing it. Auto-disabled rows
  * are therefore sorted and styled to be the first thing anyone sees.
  *
  * The signing secret is not part of the report payload at all, so there is nothing here to mask.
@@ -110,9 +110,9 @@ export default function WebhookReport({ familyId }: Props) {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 text-xs">
                 <div><span className="text-gray-400 block">Consecutive failures</span><span className={r.consecutiveFailures > 0 ? 'text-amber-600 font-semibold' : 'text-gray-600'}>{r.consecutiveFailures}</span></div>
-                <div><span className="text-gray-400 block">Last success</span><span className="text-gray-600">{r.lastSuccessAt ? formatDate(r.lastSuccessAt) : '—'}</span></div>
-                <div><span className="text-gray-400 block">Last failure</span><span className="text-gray-600">{r.lastFailureAt ? formatDate(r.lastFailureAt) : '—'}</span></div>
-                <div><span className="text-gray-400 block">Disabled at</span><span className={r.disabledAt ? 'text-red-600 font-semibold' : 'text-gray-600'}>{r.disabledAt ? formatDate(r.disabledAt) : '—'}</span></div>
+                <div><span className="text-gray-400 block">Last success</span><span className="text-gray-600">{r.lastSuccessAt ? formatDate(r.lastSuccessAt) : '-'}</span></div>
+                <div><span className="text-gray-400 block">Last failure</span><span className="text-gray-600">{r.lastFailureAt ? formatDate(r.lastFailureAt) : '-'}</span></div>
+                <div><span className="text-gray-400 block">Disabled at</span><span className={r.disabledAt ? 'text-red-600 font-semibold' : 'text-gray-600'}>{r.disabledAt ? formatDate(r.disabledAt) : '-'}</span></div>
               </div>
 
               {r.recentFailures.length > 0 && (

@@ -68,7 +68,7 @@ interface FamilySettingsData {
   enableDailyChallenges: boolean;
   enableLeaderboard: boolean;
   streakGracePeriodHours: number;
-  // U16 — quiet hours are stored as HH:MM and evaluated in THIS zone. Without it the windows are
+  // U16, quiet hours are stored as HH:MM and evaluated in THIS zone. Without it the windows are
   // applied in UTC, which silences the wrong hours while the parent believes they are covered.
   timezone: string;
 }
@@ -87,7 +87,7 @@ interface NotificationPreferences {
   reward_redeemed: boolean;
   level_up: boolean;
   streak_at_risk: boolean;
-  /** Growth roadmap §3.3 — Monday roll-up. Default ON; a missing key is treated as opt-in. */
+  /** Growth roadmap §3.3, Monday roll-up. Default ON; a missing key is treated as opt-in. */
   weekly_digest: boolean;
   welcome: boolean;
   co_parent_invite: boolean;
@@ -126,7 +126,7 @@ interface PendingInvite {
 }
 
 /**
- * U16 — a short, curated list rather than the ~600 zones `Intl.supportedValuesOf('timeZone')`
+ * U16, a short, curated list rather than the ~600 zones `Intl.supportedValuesOf('timeZone')`
  * returns. A scrolling wall of identifiers is a worse way to pick your own city, and the backend
  * accepts any IANA string, so this list can grow on request without a schema change.
  */
@@ -707,7 +707,7 @@ export default function ParentSettingsPage() {
               </p>
             </div>
 
-            {/* U16 — quiet hours are meaningless without this. Surfaced here rather than buried
+            {/* U16, quiet hours are meaningless without this. Surfaced here rather than buried
                 because the per-child windows below are interpreted in exactly this zone. */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -732,7 +732,7 @@ export default function ParentSettingsPage() {
           </div>
         </section>
 
-        {/* Security — two-factor authentication (FR-17) */}
+        {/* Security, two-factor authentication (FR-17) */}
         <section className="bg-white rounded-xl p-6 border border-slate-200">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
@@ -752,7 +752,7 @@ export default function ParentSettingsPage() {
           />
         </section>
 
-        {/* Webhooks — outbound event delivery (FR-18) */}
+        {/* Webhooks, outbound event delivery (FR-18) */}
         <section className="bg-white rounded-xl p-6 border border-slate-200">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
@@ -761,13 +761,13 @@ export default function ParentSettingsPage() {
             <h2 className="font-display font-bold text-lg text-slate-900">Webhooks</h2>
           </div>
           <p className="text-sm text-slate-600 mb-4">
-            Send TaskBuddy events to another service — n8n, Zapier, IFTTT or your own endpoint — so
+            Send TaskBuddy events to another service (n8n, Zapier, IFTTT or your own endpoint) so
             an approved chore can trigger anything you like.
           </p>
           <WebhookSettings />
         </section>
 
-        {/* U20 — cross-family referral (growth roadmap §7). */}
+        {/* U20, cross-family referral (growth roadmap §7). */}
         <ReferralCard />
 
         {/* Account Info */}

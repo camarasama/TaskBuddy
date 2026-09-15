@@ -1,18 +1,18 @@
 'use client';
 
 /**
- * /parent/approve/[assignmentId] — the single-tap approval screen (growth roadmap §3.4).
+ * /parent/approve/[assignmentId], the single-tap approval screen (growth roadmap §3.4).
  *
  * Approval latency is the loop's heartbeat: a child who waits a day for their points disengages.
  * Every "task submitted" email and push now lands here rather than making a parent navigate.
  *
  * The state that needed the most care is the CO-PARENT RACE. Two adults both get the push, both
- * tap it, and the second one must see "already approved by Sam" — a calm, finished state — rather
+ * tap it, and the second one must see "already approved by Sam", a calm, finished state, rather
  * than an error that reads like a bug. The endpoint returns resolved assignments for exactly this
  * reason instead of 404ing on them.
  *
  * (Before this page existed the email CTA pointed at /parent/tasks/assignments/{id}, a route that
- * has never existed — so every Review Submission click 404'd.)
+ * has never existed, so every Review Submission click 404'd.)
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -44,7 +44,7 @@ interface AssignmentView {
 
 type Screen = 'loading' | 'pending' | 'resolved' | 'done' | 'missing';
 
-/** Bonus options, as taps rather than a free-text field — this screen is meant to take seconds. */
+/** Bonus options, as taps rather than a free-text field, this screen is meant to take seconds. */
 const BONUS_OPTIONS = [0, 5, 10, 20];
 
 export default function ApprovePage() {
@@ -91,7 +91,7 @@ export default function ApprovePage() {
       await tasksApi.approveAssignment(assignmentId, approved, undefined, approved ? bonus : undefined);
       setOutcome(approved ? 'approved' : 'rejected');
       setScreen('done');
-      showSuccess(approved ? 'Approved — points awarded' : 'Sent back for another try');
+      showSuccess(approved ? 'Approved, points awarded' : 'Sent back for another try');
     } catch (err) {
       // Most likely cause: a co-parent resolved it between load and tap. Re-read rather than
       // showing a raw conflict error.
@@ -130,7 +130,7 @@ export default function ApprovePage() {
 
   const childName = assignment?.child.firstName ?? 'Your child';
 
-  // AC-U5c — the co-parent race. A finished state, not an error.
+  // AC-U5c, the co-parent race. A finished state, not an error.
   if (screen === 'resolved') {
     return (
       <ParentLayout>

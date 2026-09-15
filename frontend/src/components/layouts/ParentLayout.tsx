@@ -143,7 +143,7 @@ function ParentLayoutInner({ children }: { children: ReactNode }) {
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col">
         {/* overflow-y-auto: at high browser zoom (or a short window) the nav + logout block is
             taller than the viewport. Without this the sidebar clipped and "Log out" became
-            unreachable — there was nothing to scroll. */}
+            unreachable, there was nothing to scroll. */}
         <div className="flex flex-col flex-1 bg-white border-r border-slate-200 overflow-y-auto">
 
           {/* Logo + Notification Bell */}

@@ -494,7 +494,7 @@ export class TaskService {
             userId: childId,
             notificationType: 'team_bonus',
             title: '🤝 Teamwork bonus!',
-            message: `Everyone finished "${assignment.task.title}" — +${teamBonus.pointsEach} bonus points each.`,
+            message: `Everyone finished "${assignment.task.title}": +${teamBonus.pointsEach} bonus points each.`,
             actionUrl: '/child/tasks',
             referenceType: 'task',
             referenceId: assignment.taskId,

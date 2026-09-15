@@ -62,7 +62,7 @@ export function lastWeekWindow(now: Date): { weekStart: Date; weekEnd: Date } {
 export function chooseSuggestedAction(digest: Omit<FamilyDigest, 'suggestedAction'>): string {
   if (digest.pendingApprovals > 0) {
     const n = digest.pendingApprovals;
-    return `${n} task${n === 1 ? '' : 's'} ${n === 1 ? 'is' : 'are'} waiting for your approval — a quick tap keeps the streak alive.`;
+    return `${n} task${n === 1 ? '' : 's'} ${n === 1 ? 'is' : 'are'} waiting for your approval. A quick tap keeps the streak alive.`;
   }
 
   if (digest.expiringRewards.length > 0) {
@@ -77,7 +77,7 @@ export function chooseSuggestedAction(digest: Omit<FamilyDigest, 'suggestedActio
 
   const quiet = digest.children.find((c) => c.tasksApproved === 0);
   if (quiet) {
-    return `${quiet.firstName} didn't finish anything this week — a fresh task or a new reward often restarts things.`;
+    return `${quiet.firstName} didn't finish anything this week. A fresh task or a new reward often restarts things.`;
   }
 
   return 'Everything is on track. Adding a new reward keeps the goal worth chasing.';

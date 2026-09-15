@@ -62,7 +62,7 @@ const taskSchema = z.object({
     (v) => (v === '' || v === null || (typeof v === 'number' && isNaN(v)) ? undefined : v),
     z.number().int().min(1).max(100).optional()
   ),
-  // U17 — team-up. The bonus is on TOP of each child's full points, never split between them.
+  // U17, team-up. The bonus is on TOP of each child's full points, never split between them.
   isTeamTask: z.boolean().optional(),
   teamBonusPoints: z.preprocess(
     (v) => (v === '' || v === null || (typeof v === 'number' && isNaN(v)) ? undefined : v),
@@ -127,7 +127,7 @@ export default function CreateTaskPage() {
   }, []);
 
   /**
-   * Pre-fill the form from a template. Nothing is created here — the parent edits and submits as
+   * Pre-fill the form from a template. Nothing is created here, the parent edits and submits as
    * normal, and editing never writes back to the template (AC-U2d).
    */
   const applyTemplate = (t: TaskTemplateRow) => {
@@ -136,7 +136,7 @@ export default function CreateTaskPage() {
     setValue('pointsValue', t.suggestedPoints, { shouldValidate: true });
     if (t.estimatedMinutes) setValue('estimatedMinutes', t.estimatedMinutes);
     setValue('requiresPhotoEvidence', t.requiresPhotoEvidence);
-    // A starter chore is optional/bonus work, not the day's single primary task — and only
+    // A starter chore is optional/bonus work, not the day's single primary task, and only
     // `secondary` may have more than one active at a time (CR-10).
     setValue('taskTag', 'secondary');
   };
@@ -549,7 +549,7 @@ export default function CreateTaskPage() {
                 )}
               </div>
 
-              {/* U17 — team-up. The server rejects a team task with fewer than two children or a
+              {/* U17, team-up. The server rejects a team task with fewer than two children or a
                   zero bonus; the copy here states both up front rather than letting a parent
                   discover them on submit. */}
               <div className="rounded-xl border border-slate-200 p-4">

@@ -4,7 +4,7 @@
 > these Terms; where their advice changes anything we will update this page and the version below.
 >
 > TaskBuddy is directed at children, so these Terms must be read together with the Privacy Policy and
-> the applicable children's-privacy laws — COPPA (US), the GDPR including Art. 8 (EU), the UK GDPR and
+> the applicable children's-privacy laws: COPPA (US), the GDPR including Art. 8 (EU), the UK GDPR and
 > Age Appropriate Design Code, and Ghana's Data Protection Act, 2012 (Act 843).
 
 **Version:** 1.3
@@ -36,7 +36,7 @@ completions and manage rewards. We may add, change, or remove features over time
 ## 4. Accounts, security, and family data
 
 - Keep your credentials confidential; you are responsible for activity under your account.
-- Child profiles, PINs, and the family code let children sign in — parents should share the
+- Child profiles, PINs, and the family code let children sign in. Parents should share the
   family code and PINs only with their own children.
 - You must provide accurate information and keep it up to date.
 - You may not attempt to access another family's data or another user's account.
@@ -72,7 +72,7 @@ begin charging without telling you first. When paid features exist, these rules 
 
 You will be able to cancel at any time. Paid access will continue to the end of the period you have
 already paid for and will not renew after that. Refunds will follow the rules of the channel you
-bought through, **plus any statutory rights you cannot be asked to give up** — including, for
+bought through, **plus any statutory rights you cannot be asked to give up**, including, for
 consumers in the EU/EEA and the UK, the right to withdraw from a distance contract within the period
 your law provides.
 
@@ -159,4 +159,4 @@ in-app or by email, and seek re-acceptance where required.
 
 ## 17. Contact
 
-Evolution Prime IT Ltd — support@gettaskbuddy.com.
+Evolution Prime IT Ltd, support@gettaskbuddy.com.

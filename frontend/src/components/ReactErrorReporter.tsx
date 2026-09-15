@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * Catches React errors, records the component stack React only gives to a class boundary, and — for
- * the class of failure that does not actually break the page — puts the page back.
+ * Catches React errors, records the component stack React only gives to a class boundary, and, for
+ * the class of failure that does not actually break the page, puts the page back.
  *
  * ## The failure this exists for
  *
@@ -11,7 +11,7 @@
  * already being discarded. Opening a task and pressing back was enough to trigger it, for parents
  * and children alike, and it took the whole page down with a "Something went wrong" screen.
  *
- * The tree that failed was on its way out. Nothing the user was looking at was broken — React
+ * The tree that failed was on its way out. Nothing the user was looking at was broken, React
  * escalates a commit-phase error to the nearest boundary, and the boundary is what destroyed the
  * page. That escalation is right for a render error and wrong for this.
  *

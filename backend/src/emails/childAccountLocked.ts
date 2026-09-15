@@ -23,7 +23,7 @@ export function buildChildAccountLocked(data: ChildAccountLockedData): string {
           incorrect PIN attempts. This is an automatic safety measure.
         </p>
         <p style="margin:0 0 8px;color:#64748b;font-size:16px;">
-          If this was just ${data.childName} mistyping their PIN, no action is needed — they can
+          If this was just ${data.childName} mistyping their PIN, no action is needed: they can
           sign in again with the correct PIN once the lock clears.
         </p>
         <p style="margin:16px 0 0;color:#94a3b8;font-size:13px;">

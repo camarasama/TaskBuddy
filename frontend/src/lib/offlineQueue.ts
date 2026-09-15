@@ -1,7 +1,7 @@
 /**
- * offlineQueue.ts — FR-13
+ * offlineQueue.ts, FR-13
  *
- * Children do chores in the garage, the garden, a friend's house — places the Wi-Fi does not reach.
+ * Children do chores in the garage, the garden, a friend's house, places the Wi-Fi does not reach.
  * Start and Complete must work there: the tap is recorded locally with the moment it happened, and
  * replayed against the API the next time the device is online.
  *
@@ -17,7 +17,7 @@
  *    stalled entry blocks the ones behind it rather than letting them overtake.
  *  - 409 is SUCCESS. The server rejects a completion for an assignment that is no longer
  *    pending/in_progress, which is exactly what a duplicate replay looks like. Treating it as an
- *    error would retry forever; treating it as done is correct — the state is already applied.
+ *    error would retry forever; treating it as done is correct, the state is already applied.
  *  - Other 4xx are permanent: drop and report. 5xx / network failures are transient: keep, bump the
  *    attempt count, and give up after MAX_ATTEMPTS so nothing retries for eternity.
  */
@@ -29,7 +29,7 @@ export interface OfflineAction {
   seq: number;
   type: OfflineActionType;
   assignmentId: string;
-  /** When the CHILD acted, captured at enqueue time — not when this finally reaches the server. */
+  /** When the CHILD acted, captured at enqueue time, not when this finally reaches the server. */
   clientTimestamp: string;
   /** Extra body fields for the replay, e.g. `{ note }` on a completion. */
   payload?: Record<string, unknown>;
@@ -38,11 +38,11 @@ export interface OfflineAction {
 
 export type FlushOutcome =
   | { seq: number; result: 'synced' }
-  /** Applied earlier (409) — dropped without an error, the queue's whole replay-safety story. */
+  /** Applied earlier (409), dropped without an error, the queue's whole replay-safety story. */
   | { seq: number; result: 'already-applied' }
-  /** Permanent 4xx or attempts exhausted — dropped, and worth telling the child about. */
+  /** Permanent 4xx or attempts exhausted, dropped, and worth telling the child about. */
   | { seq: number; result: 'dropped'; reason: string }
-  /** Transient failure — kept for a later flush. */
+  /** Transient failure, kept for a later flush. */
   | { seq: number; result: 'retry'; reason: string };
 
 export interface FlushReport {
@@ -224,7 +224,7 @@ export async function flush(replay: Replayer): Promise<FlushReport> {
       } catch (err) {
         const status = statusOf(err);
 
-        // Already applied — a duplicate replay, not a failure. Drop it.
+        // Already applied, a duplicate replay, not a failure. Drop it.
         if (status === 409) {
           await getStore().remove(action.seq);
           outcomes.push({ seq: action.seq, result: 'already-applied' });
@@ -232,7 +232,7 @@ export async function flush(replay: Replayer): Promise<FlushReport> {
         }
 
         // Permanent client errors: the request will never succeed, so retrying is pure noise.
-        // 408/429 are the exceptions — those mean "try again later".
+        // 408/429 are the exceptions, those mean "try again later".
         const permanent =
           status !== undefined && status >= 400 && status < 500 && status !== 408 && status !== 429;
 
@@ -242,7 +242,7 @@ export async function flush(replay: Replayer): Promise<FlushReport> {
           continue;
         }
 
-        // Transient: 5xx, offline, timeout. Keep it — but not forever.
+        // Transient: 5xx, offline, timeout. Keep it, but not forever.
         const attempts = action.attempts + 1;
         if (attempts >= MAX_ATTEMPTS) {
           await getStore().remove(action.seq);

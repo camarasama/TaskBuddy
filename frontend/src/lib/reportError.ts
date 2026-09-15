@@ -4,8 +4,8 @@
  * The one place a client-side React failure is sent to Sentry.
  *
  * Shared by `global-error.tsx` (the crash the user saw) and `ReactErrorReporter` (the crash it
- * recovered from) so both reports carry the same detail. Without that, the recovered ones — which
- * are now the common case — would arrive with less information than the fatal ones.
+ * recovered from) so both reports carry the same detail. Without that, the recovered ones, which
+ * are now the common case, would arrive with less information than the fatal ones.
  */
 import * as Sentry from '@sentry/nextjs';
 

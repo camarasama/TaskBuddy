@@ -29,21 +29,21 @@ also provided in-app for children.
 TaskBuddy is a family task-management application. **Parent/guardian accounts must be
 created by an adult (18+).** Child profiles are created and managed by that parent/guardian,
 who provides **verifiable parental consent** before any child data is collected or used
-(see §5). TaskBuddy child profiles are intended for children aged **10–16**; we do not knowingly create accounts for children below the applicable minimum age without verifiable
+(see §5). TaskBuddy child profiles are intended for children aged **10 to 16**; we do not knowingly create accounts for children below the applicable minimum age without verifiable
 parental consent, and where a jurisdiction sets a higher digital-consent age we rely on the
 parent's consent under GDPR Article 8.
 
 ## 3. Information we collect
 
-We practise data minimisation — we collect only what the feature needs.
+We practise data minimisation: we collect only what the feature needs.
 
 **Parent/guardian account**
-- Name, email address, password (stored only as a salted hash — never in plain text).
+- Name, email address, password (stored only as a salted hash, never in plain text).
 - Optional: profile avatar and relationship to child.
 - **No billing details today.** TaskBuddy is currently free and has no payment path, so we do not
   collect or store card numbers or any other payment information. If paid features are introduced,
   payment will be handled by a payment provider (for purchases made through the Google Play Store,
-  by Google) — **we would still never receive or store your full card number** — and this policy and
+  by Google), **we would still never receive or store your full card number**, and this policy and
   the processor list in §7 will be updated before any charge is taken.
 
 **Child profile (created by the parent)**
@@ -76,7 +76,7 @@ profiling of children. We do not use children's data to nudge them toward purcha
 ## 5. Parental consent and controls
 
 Before a child profile is activated, the parent provides **verifiable parental consent** by
-confirming a unique, time-limited link sent to their email address — the method the FTC describes as
+confirming a unique, time-limited link sent to their email address, the method the FTC describes as
 **"email plus"**. The parent's consent is recorded, together with the method
 used and the policy version consented to, at registration and at each child profile's creation, and
 child data collection is blocked until verification completes.
@@ -86,7 +86,7 @@ From the parent dashboard, a parent can at any time:
 - **Correct** child profile details;
 - **Export** the family's data (machine-readable JSON);
 - **Delete** a child profile, a co-parent's access, or a pending invitation;
-- **Delete the whole family account** by emailing privacy@gettaskbuddy.com — see
+- **Delete the whole family account** by emailing privacy@gettaskbuddy.com; see
   [how to delete your account](https://gettaskbuddy.com/delete-account);
 - **Withdraw consent** (which results in deletion of the child's data).
 
@@ -103,7 +103,7 @@ When the retention window closes, for that family we:
 - **delete the child's evidence photos** from private object storage, including thumbnails;
 - **hard-delete the family record**, which cascades to parents, child profiles, tasks,
   assignments, evidence records, points, rewards, and achievements;
-- **redact — not delete — our security logs** (see 6.2).
+- **redact (not delete) our security logs** (see 6.2).
 
 ### 6.2 Logs we keep after deletion, and for how long
 
@@ -112,14 +112,14 @@ would destroy the trail we need to investigate abuse of a child's account:
 
 | Record | What we keep | What we remove | Retained for |
 |---|---|---|---|
-| **Security audit log** | The event skeleton — what happened, when, to which record | All personal identifiers in the event detail | Indefinitely, in redacted form |
+| **Security audit log** | The event skeleton: what happened, when, to which record | All personal identifiers in the event detail | Indefinitely, in redacted form |
 | **Email delivery log** | That a message of a given type was sent, and when | The recipient address (replaced with `[redacted]`) | Indefinitely, in redacted form |
-| **Server request logs** | Request method, path, status, timing, and **IP address** | — | **30 days** (see 6.3) |
+| **Server request logs** | Request method, path, status, timing, and **IP address** | None | **30 days** (see 6.3) |
 
 ### 6.3 IP addresses in server logs
 
 Our web server records the IP address of each request, which is personal data. These logs are
-used only to operate and secure the service — diagnosing errors, and investigating abuse or
+used only to operate and secure the service: diagnosing errors, and investigating abuse or
 attacks. They are held on the application server and are **not** used for profiling or
 advertising, and are not shared with third parties except as described in section 7. They are
 retained for **30 days** and then discarded automatically.
@@ -128,12 +128,12 @@ retained for **30 days** and then discarded automatically.
 
 We use vetted third-party **processors** who act only on our instructions and may not use the
 data for their own purposes:
-- **Hosting / database:** OVH, EU region — a single virtual server running the application and its
+- **Hosting / database:** OVH, EU region: a single virtual server running the application and its
   PostgreSQL database.
 - **Object storage / CDN:** Cloudflare R2 (private evidence storage; public CDN only for
   low-sensitivity avatars).
 - **Transactional email:** Zoho ZeptoMail.
-- **Error monitoring:** Sentry — configured with personally identifiable information collection
+- **Error monitoring:** Sentry, configured with personally identifiable information collection
   **switched off** (`sendDefaultPii: false`), on both the server and the mobile app.
 - **Payments: none at present.** TaskBuddy currently has no paid features, no subscriptions and no
   in-app purchases, so there is no payment processor in this list. Points and cosmetic items are
@@ -153,7 +153,7 @@ Residency, per processor:
 | Processor | What it holds | Region |
 |---|---|---|
 | **OVH** | Application server and PostgreSQL database | EU |
-| **Cloudflare R2** | Children's evidence photos and avatars | **Western Europe (WEUR)** — verified 2026-08-06 |
+| **Cloudflare R2** | Children's evidence photos and avatars | **Western Europe (WEUR)**, verified 2026-08-06 |
 | **Sentry** | Error reports (no personal data collection enabled) | EU (`ingest.de.sentry.io`) |
 | **Zoho ZeptoMail** | Transactional email delivery | Set by the account's data-centre region |
 
@@ -169,7 +169,7 @@ and the relevant supervisory authority of a personal-data breach as required by 
 
 Wherever you live, you or your child may ask us to **access, correct, delete, restrict, object to,
 or port** personal data, and to **withdraw consent** at any time. We apply these rights to everyone
-rather than only where a law compels it — the mechanism is the same either way, and deciding who gets
+rather than only where a law compels it. The mechanism is the same either way, and deciding who gets
 them by geography would be both mean and hard to administer.
 
 Parents exercise these rights on behalf of their children. Most are self-served from the parent
@@ -195,8 +195,8 @@ The full inventory:
 | Name | Where | Purpose | Life |
 |---|---|---|---|
 | `refreshToken` | Cookie, HttpOnly, Secure, SameSite | Keeps a parent signed in on the website | Until sign-out or expiry |
-| Access token | Browser memory only — never written to disk | Authorises each request | Cleared when the tab closes |
-| Refresh token (app) | Android Keystore via `expo-secure-store` — not a cookie | Keeps a signed-in phone signed in | Up to 90 days, revocable by the account holder or a parent |
+| Access token | Browser memory only, never written to disk | Authorises each request | Cleared when the tab closes |
+| Refresh token (app) | Android Keystore via `expo-secure-store`, not a cookie | Keeps a signed-in phone signed in | Up to 90 days, revocable by the account holder or a parent |
 | Family code (app) | Android Keystore | Remembers which family a child's phone belongs to after scanning | Until the device is signed out of that family |
 
 ## 12. Changes to this policy
@@ -206,5 +206,5 @@ email, and where required we will seek renewed consent before the change affects
 
 ## 13. Contact and complaints
 
-Evolution Prime IT Ltd — privacy@gettaskbuddy.com.
+Evolution Prime IT Ltd, privacy@gettaskbuddy.com.
 Data Protection Officer / EU-UK representative: **not appointed**.

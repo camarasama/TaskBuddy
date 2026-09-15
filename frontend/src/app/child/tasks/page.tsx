@@ -65,7 +65,7 @@ interface TaskAssignment {
   rejectionReason?: string | null;
   canSelfAssign?: boolean;
   claimsRemaining?: number | null;
-  // U17 — present only on team-up tasks; the server derives it from the same helper the payout uses.
+  // U17, present only on team-up tasks; the server derives it from the same helper the payout uses.
   team?: TeamSummary | null;
   task: {
     id: string;
@@ -129,7 +129,7 @@ function ChildTasksInner() {
   const [showConfetti, setShowConfetti]         = useState(false);
   const [photoAssignment, setPhotoAssignment]   = useState<TaskAssignment | null>(null);
   const [hasPendingPrimaries, setHasPendingPrimaries] = useState(false);
-  // FR-13 — offline queue. `queuedIds` drives the "Queued" badge; `offline` drives the banner and
+  // FR-13, offline queue. `queuedIds` drives the "Queued" badge; `offline` drives the banner and
   // the photo-evidence fallback. Both are refreshed from the queue itself, never guessed.
   const [queuedIds, setQueuedIds] = useState<Set<string>>(new Set());
   const [offline, setOffline] = useState(false);
@@ -190,7 +190,7 @@ function ChildTasksInner() {
   /**
    * Deep link: `/child/tasks?assignment=<id>`.
    *
-   * A notification is about ONE assignment — a comment on it, an approval, a return. Landing the
+   * A notification is about ONE assignment, a comment on it, an approval, a return. Landing the
    * child on the bare list makes them hunt for it, and the thing they were told about (the comment
    * thread) lives inside that assignment's own card, on one tab only. So the link carries the id and
    * this page does three things with it: switch to the tab the assignment is actually on, scroll the
@@ -202,7 +202,7 @@ function ChildTasksInner() {
    * most often:
    *
    *   a child sitting ON /child/tasks gets a "task approved" notification, clicks it, and the app
-   *   pushes /child/tasks?assignment=<id> — the SAME route. Next does not remount a page for a query
+   *   pushes /child/tasks?assignment=<id>, the SAME route. Next does not remount a page for a query
    *   change, so the mount effect never ran again and the click appeared to do nothing at all. Going
    *   to another page and clicking the notification from there worked, because that remounted it.
    *
@@ -296,7 +296,7 @@ function ChildTasksInner() {
   }, [replay, handleFlushReport, refreshQueued]);
 
   /**
-   * Queues an action taken with no connection. Deliberately does NOT raise a network-error toast —
+   * Queues an action taken with no connection. Deliberately does NOT raise a network-error toast,
    * from the child's point of view the tap worked; it is just waiting for signal.
    */
   const queueOffline = useCallback(
@@ -306,8 +306,8 @@ function ChildTasksInner() {
       setOffline(true);
       showSuccess(
         type === 'start'
-          ? 'Started offline — we’ll sync it when you’re back online 📶'
-          : 'Saved offline — we’ll sync it when you’re back online 📶'
+          ? 'Started offline. We’ll sync it when you’re back online 📶'
+          : 'Saved offline. We’ll sync it when you’re back online 📶'
       );
     },
     [refreshQueued, showSuccess]
@@ -372,7 +372,7 @@ function ChildTasksInner() {
   const handleStart = async (assignment: TaskAssignment) => {
     setStartingId(assignment.id);
     try {
-      // FR-13: known-offline never even attempts the request — no failed fetch, no error toast.
+      // FR-13: known-offline never even attempts the request, no failed fetch, no error toast.
       if (!isOnline()) {
         await queueOffline('start', assignment);
         return;
@@ -396,7 +396,7 @@ function ChildTasksInner() {
 
   const handleComplete = async (assignment: TaskAssignment) => {
     // Photo evidence is online-only by design (queueing image blobs is a different problem), so
-    // offline the photo modal is skipped entirely — the card offers "complete without photo".
+    // offline the photo modal is skipped entirely, the card offers "complete without photo".
     if (assignment.task.requiresPhotoEvidence && isOnline()) {
       setPhotoAssignment(assignment);
       return;
@@ -407,7 +407,7 @@ function ChildTasksInner() {
         await queueOffline(
           'complete',
           assignment,
-          assignment.task.requiresPhotoEvidence ? 'Completed offline — photo to follow' : undefined
+          assignment.task.requiresPhotoEvidence ? 'Completed offline, photo to follow' : undefined
         );
         return;
       }
@@ -537,14 +537,14 @@ function ChildTasksInner() {
           <p className="text-slate-600 mt-1">Complete tasks to earn points and level up</p>
         </div>
 
-        {/* FR-13: offline banner — sets expectations before the child taps anything */}
+        {/* FR-13: offline banner, sets expectations before the child taps anything */}
         {offline && (
           <p
             data-testid="offline-banner"
             className="text-sm text-slate-700 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 flex items-start gap-2"
           >
             <WifiOff className="w-4 h-4 mt-0.5 shrink-0 text-slate-500" />
-            You&apos;re offline. Start and Complete still work — we&apos;ll send them the moment
+            You&apos;re offline. Start and Complete still work, and we&apos;ll send them the moment
             you&apos;re back online.
           </p>
         )}
@@ -831,11 +831,11 @@ function TaskCard({
       </div>
 
       {isQueued ? (
-        // FR-13: the tap already landed — it is sitting in the queue. Offering the button again
+        // FR-13: the tap already landed, it is sitting in the queue. Offering the button again
         // would only let the child double-submit the same action.
         <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
           <CloudOff className="w-4 h-4" />
-          Queued — will send when you&apos;re back online
+          Queued, will send when you&apos;re back online
         </div>
       ) : isAwaitingApproval ? (
         <div className="flex items-center gap-2 text-warning-700 text-sm font-medium">
@@ -890,7 +890,7 @@ function TaskCard({
       )}
       {assignment.task.requiresPhotoEvidence && offline && !isQueued && (
         <p data-testid="photo-offline-note" className="mt-2 text-xs text-slate-500">
-          Photo upload needs a connection. Complete it now without a photo — you can add one later.
+          Photo upload needs a connection. Complete it now without a photo, and add one later.
         </p>
       )}
 

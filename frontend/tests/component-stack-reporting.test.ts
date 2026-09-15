@@ -5,7 +5,7 @@
  * React reconciler frames: an effect cleanup that was not a function, called from
  * `commitHookEffectListUnmount`. Nothing in that trace named a component, because by then the app
  * frames were gone. React does hand over the component stack, but only to a class boundary's
- * `componentDidCatch` — and Next's own boundary passes `global-error.tsx` the error alone.
+ * `componentDidCatch`, and Next's own boundary passes `global-error.tsx` the error alone.
  *
  * These tests cover the three assumptions the fix rests on: the association survives, it is not
  * written onto the error object, and Sentry's stack parser can actually read React's format (which
@@ -70,7 +70,7 @@ describe('Sentry can read React component stacks', () => {
 
     const frames = defaultStackParser(REACT_COMPONENT_STACK);
 
-    // Sentry's own order, outermost first — the parser reverses React's, which is why nothing here
+    // Sentry's own order, outermost first, the parser reverses React's, which is why nothing here
     // reverses it again.
     expect(frames.map((f) => f.function)).toEqual([
       'ChildTasksPage',
@@ -103,7 +103,7 @@ describe('the reporter is actually wired up', () => {
   });
 
   it('retries a failure once before escalating, and refills the budget after a quiet period', () => {
-    // This is what tells a discarded tree's bad effect cleanup — which does not recur — apart from a
+    // This is what tells a discarded tree's bad effect cleanup, which does not recur, apart from a
     // real render error, which throws again on the very next render. Without the cap, a render error
     // would retry forever.
     const reporter = read('components', 'ReactErrorReporter.tsx');

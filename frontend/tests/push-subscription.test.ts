@@ -5,7 +5,7 @@ import { setToken } from '../src/lib/api';
  * FR-06. Push was wired end to end but never worked for parents or admins: the subscribe call
  * built its own Authorization header from `localStorage.accessToken`, which is always empty for
  * those roles under the F-5 memory-only storage policy. The 401 was then swallowed by a bare
- * `catch {}`. These tests pin both halves — the right token reaches the server, and a failure is
+ * `catch {}`. These tests pin both halves, the right token reaches the server, and a failure is
  * reported rather than discarded.
  */
 
@@ -58,7 +58,7 @@ const okFetch = () =>
   });
 
 describe('subscribeToPush sends the real access token (FR-06)', () => {
-  it('uses the in-memory parent token — the bug was an empty Bearer header here', async () => {
+  it('uses the in-memory parent token, the bug was an empty Bearer header here', async () => {
     setToken('parent-token-xyz', 'parent'); // memory-only: never written to localStorage
     const fetchMock = okFetch();
     global.fetch = fetchMock as unknown as typeof fetch;

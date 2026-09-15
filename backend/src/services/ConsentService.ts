@@ -73,7 +73,7 @@ const emailPlus: ConsentMethod = {
       toEmail: parentEmail,
       toUserId: null,
       familyId: null,
-      subject: 'Confirm you are the parent — TaskBuddy',
+      subject: 'Confirm you are the parent | TaskBuddy',
       templateData: {
         parentFirstName,
         confirmUrl: `${appUrl()}/parent/consent/confirm?token=${rawToken}`,
@@ -91,7 +91,7 @@ const emailPlus: ConsentMethod = {
       toEmail: parentEmail,
       toUserId: null,
       familyId: null,
-      subject: 'Parental consent recorded — TaskBuddy',
+      subject: 'Parental consent recorded | TaskBuddy',
       templateData: { parentFirstName, isConfirmation: true },
       skipPreferenceCheck: true,
     });

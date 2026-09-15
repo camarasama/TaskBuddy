@@ -482,7 +482,7 @@ export function computeAward(
     return {
       pointsAwarded: 0,
       xpAwarded,
-      cappedMessage: `You already earned today's points for this subject — this one is worth ${xpAwarded} XP.`,
+      cappedMessage: `You already earned today's points for this subject. This one is worth ${xpAwarded} XP.`,
     };
   }
 

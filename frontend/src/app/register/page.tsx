@@ -96,9 +96,9 @@ export default function RegisterPage() {
   });
 
   /**
-   * U20 — a referral code arrives as ?ref=CODE on a shared link. Read from window.location in an
+   * U20, a referral code arrives as ?ref=CODE on a shared link. Read from window.location in an
    * effect rather than via useSearchParams(), which would opt this route out of static prerendering
-   * (only `npm run build` catches that — see the U2 gate lesson).
+   * (only `npm run build` catches that, see the U2 gate lesson).
    *
    * An unknown code is ignored server-side, so nothing here validates it: a mistyped referral must
    * never stand between someone and a signup.

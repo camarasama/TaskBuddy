@@ -1,7 +1,7 @@
 // Child soft-logout / PIN-resume session helpers.
 //
 // A child is soft-logged-out after inactivity (or the app being backgrounded) but their NON-SECRET
-// identifying info — family code + first name — is kept in localStorage so resuming only needs the
+// identifying info, family code + first name, is kept in localStorage so resuming only needs the
 // PIN. "Switch child" keeps the family code and clears just the name, so another child of the same
 // family can sign in without re-entering the code.
 
@@ -31,7 +31,7 @@ export function saveCredentials(store: Writable, familyCode: string, childName: 
   store.setItem(STORAGE_KEY_NAME, childName);
 }
 
-/** Full reset — forget the family entirely (used by "Not your family?"). */
+/** Full reset, forget the family entirely (used by "Not your family?"). */
 export function clearCredentials(store: Removable): void {
   store.removeItem(STORAGE_KEY_FAMILY_CODE);
   store.removeItem(STORAGE_KEY_NAME);

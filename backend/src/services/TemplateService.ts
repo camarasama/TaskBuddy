@@ -231,7 +231,7 @@ function buildMessage(created: number, assigned: number, skipped: number, hasChi
   if (!hasChild) return `${base} Assign them to a child when they're ready.`;
   if (skipped === 0) return `${base} ${assigned} assigned.`;
   return (
-    `${base} ${assigned} assigned — the other ${skipped} are waiting, because a child can have ` +
+    `${base} ${assigned} assigned. The other ${skipped} are waiting, because a child can have ` +
     `${MAX_ACTIVE_TOTAL} active tasks at a time.`
   );
 }
