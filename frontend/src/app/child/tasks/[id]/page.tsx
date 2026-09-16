@@ -134,7 +134,7 @@ const PAGE_SIZE = 100;
 const STATUS_LINE: Record<string, string> = {
   pending: 'Not started yet.',
   in_progress: 'Started. Finish it when you are ready.',
-  completed: 'Done, waiting for a grown-up to check it.',
+  completed: 'Done, waiting for a parent to check it.',
   approved: 'Approved. Nice work.',
   rejected: 'Sent back, have another go.',
   expired: 'This one ran out of time.',
@@ -448,7 +448,7 @@ export default function ChildTaskDetailPage() {
         {/* Actions only where there is one to take. A finished task is a thing to read. */}
         {status === 'completed' && (
           <p className="flex items-center gap-2 text-warning-700 text-sm font-medium bg-warning-50 border border-warning-200 rounded-2xl px-4 py-3">
-            <Clock className="w-4 h-4" /> Waiting for a grown-up to check it.
+            <Clock className="w-4 h-4" /> Waiting for a parent to check it.
           </p>
         )}
 

@@ -51,7 +51,7 @@ import type { AccentTone, GradientTone } from '@/theme/accents';
 const STATUS_LINE: Record<string, string> = {
   pending: 'Not started yet.',
   in_progress: 'Started. Finish it when you are ready.',
-  completed: 'Done, waiting for a grown-up to check it.',
+  completed: 'Done, waiting for a parent to check it.',
   approved: 'Approved. Nice work.',
   rejected: 'Sent back, have another go.',
   expired: 'This one ran out of time.',
@@ -59,12 +59,12 @@ const STATUS_LINE: Record<string, string> = {
 
 /**
  * The header's colour and one-word state, per status. The same colours the Tasks list uses for these
- * states: teal still to do, purple waiting on a grown-up, green approved, peach sent back.
+ * states: teal still to do, purple waiting on a parent, green approved, peach sent back.
  */
 const STATUS_HEADER: Record<string, { tone: GradientTone; eyebrow: string; icon: IoniconName }> = {
   pending: { tone: 'teal', eyebrow: 'To do', icon: 'checkbox-outline' },
   in_progress: { tone: 'teal', eyebrow: 'Started', icon: 'play' },
-  completed: { tone: 'brand', eyebrow: 'Waiting for a grown-up', icon: 'hourglass' },
+  completed: { tone: 'brand', eyebrow: 'Waiting for a parent', icon: 'hourglass' },
   approved: { tone: 'success', eyebrow: 'Approved', icon: 'checkmark-circle' },
   rejected: { tone: 'peach', eyebrow: 'Sent back', icon: 'arrow-undo' },
   expired: { tone: 'teal', eyebrow: 'Ran out of time', icon: 'time' },

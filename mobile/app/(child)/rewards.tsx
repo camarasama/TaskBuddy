@@ -177,7 +177,7 @@ const REDEMPTION_STATE: Record<string, { label: string; variant: ChipVariant; ic
   fulfilled: { label: 'Received', variant: 'done', icon: 'checkmark-circle' },
   cancelled: { label: 'Cancelled, points refunded', variant: 'late', icon: 'close-circle' },
   approved: { label: 'Approved, on its way', variant: 'info', icon: 'thumbs-up' },
-  pending: { label: 'Waiting for a grown-up', variant: 'xp', icon: 'hourglass-outline' },
+  pending: { label: 'Waiting for a parent', variant: 'xp', icon: 'hourglass-outline' },
 };
 
 function RedemptionRow({ item }: { item: MyRedemption }) {

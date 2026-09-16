@@ -21,7 +21,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useToast } from '@/components/Toast';
 import { unreadCountQuery } from '@/lib/notificationsApi';
@@ -33,6 +33,7 @@ export function NotificationWatcher() {
   const signedIn = status === 'signedIn';
   const role = useAuth((state) => state.user?.role);
   const toast = useToast();
+  const queryClient = useQueryClient();
 
   const { data } = useQuery({ ...unreadCountQuery(), enabled: signedIn });
   const count = data?.count;
@@ -59,6 +60,9 @@ export function NotificationWatcher() {
     if (before === undefined || count <= before) return;
 
     const arrived = count - before;
+    // Something happened server-side (an approval, a returned task), so what is on screen is stale.
+    // This is the fallback for a phone that refused push, where no push arrives to trigger a refetch.
+    void queryClient.invalidateQueries();
     /**
      * Tapping opens the notifications centre.
      *
@@ -75,7 +79,7 @@ export function NotificationWatcher() {
       'info',
       destination ? () => router.push(destination) : undefined
     );
-  }, [count, signedIn, role, toast]);
+  }, [count, signedIn, role, toast, queryClient]);
 
   return null;
 }

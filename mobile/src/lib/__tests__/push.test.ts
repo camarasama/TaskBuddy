@@ -33,6 +33,7 @@ const mockState: {
   handler: { handleNotification: () => Promise<Record<string, boolean>> } | null;
   lastResponse: unknown;
   tapListener: ((r: unknown) => void) | null;
+  receiveListener: ((n: unknown) => void) | null;
 } = {
   isDevice: true,
   granted: false,
@@ -42,6 +43,7 @@ const mockState: {
   handler: null,
   lastResponse: null,
   tapListener: null,
+  receiveListener: null,
 };
 
 jest.mock('expo-device', () => ({
@@ -58,6 +60,10 @@ jest.mock('expo-notifications', () => ({
   getLastNotificationResponseAsync: jest.fn(async () => mockState.lastResponse),
   addNotificationResponseReceivedListener: jest.fn((cb: (r: unknown) => void) => {
     mockState.tapListener = cb;
+    return { remove: jest.fn() };
+  }),
+  addNotificationReceivedListener: jest.fn((cb: (n: unknown) => void) => {
+    mockState.receiveListener = cb;
     return { remove: jest.fn() };
   }),
   setNotificationChannelAsync: jest.fn(async () => {
@@ -77,7 +83,7 @@ function setup() {
   calls = [];
   Object.assign(mockState, {
     isDevice: true, granted: false, canAskAgain: true, askedTimes: 0, channelCreated: false,
-    handler: null, lastResponse: null, tapListener: null,
+    handler: null, lastResponse: null, tapListener: null, receiveListener: null,
   });
   jest.resetModules();
 
@@ -251,5 +257,53 @@ describe('subscribeToNotificationTaps', () => {
     mockState.tapListener!({ notification: { request: { content: { data: {} } } } });
 
     expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('notification taps are followed once', () => {
+  const tap = (identifier: string) => ({
+    notification: { request: { identifier, content: { data: { actionUrl: '/child/tasks?assignment=a1' } } } },
+  });
+
+  it('does not navigate again when re-subscribed after the same cold-start tap', async () => {
+    // Re-subscribing on every sign-in re-reads getLastNotificationResponseAsync, which returns the
+    // same response for the life of the process.
+    const push = setup();
+    mockState.lastResponse = tap('n1');
+    const navigate = jest.fn();
+
+    const unsubscribe = push.subscribeToNotificationTaps(navigate);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(navigate).toHaveBeenCalledTimes(1);
+    unsubscribe();
+
+    push.subscribeToNotificationTaps(navigate);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('/(child)/tasks?assignment=a1');
+  });
+
+  it('still follows a different notification', () => {
+    const push = setup();
+    const navigate = jest.fn();
+
+    push.subscribeToNotificationTaps(navigate);
+    mockState.tapListener!(tap('n1'));
+    mockState.tapListener!(tap('n2'));
+
+    expect(navigate).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('subscribeToNotificationsReceived', () => {
+  it('calls back when a notification arrives in the foreground', () => {
+    const push = setup();
+    const onReceive = jest.fn();
+
+    push.subscribeToNotificationsReceived(onReceive);
+    mockState.receiveListener!({});
+
+    expect(onReceive).toHaveBeenCalledTimes(1);
   });
 });

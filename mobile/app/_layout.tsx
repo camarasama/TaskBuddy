@@ -14,7 +14,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 
 import { subscribeAppFocus } from '@/lib/appFocus';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -26,7 +26,12 @@ import { ToastProvider } from '@/components/Toast';
 import { isRateLimited, SessionExpiredError } from '@/lib/api';
 import { initReporting, reportError } from '@/lib/reporting';
 import { setPushBridge, useAuth } from '@/stores/auth';
-import { registerForPush, subscribeToNotificationTaps, unregisterFromPush } from '@/lib/push';
+import {
+  registerForPush,
+  subscribeToNotificationsReceived,
+  subscribeToNotificationTaps,
+  unregisterFromPush,
+} from '@/lib/push';
 import { useTheme } from '@/theme';
 import { FontProvider } from '@/theme/FontProvider';
 
@@ -107,6 +112,28 @@ function Routes() {
     void bootstrap();
   }, [bootstrap]);
 
+  /**
+   * A tapped notification should land on the thing it is about, not the home screen.
+   *
+   * ⚠️ Subscribed only once signed in, never from `RootLayout`. A tap on a notification with the app
+   * closed is a cold start: it used to navigate while this component was still rendering the splash,
+   * so there was no navigator to receive the route, and the child landed on a blank screen. After
+   * sign-in the `Stack` below is mounted, and the target screen's group guard will let the child in.
+   */
+  const signedIn = status === 'signedIn';
+  useEffect(() => {
+    if (!signedIn) return;
+    return subscribeToNotificationTaps((url) => router.push(url as never));
+  }, [signedIn]);
+
+  // A push arriving while the app is open means server data changed: refetch what is on screen, or a
+  // task the parent just approved keeps saying it is waiting.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!signedIn) return;
+    return subscribeToNotificationsReceived(() => void queryClient.invalidateQueries());
+  }, [signedIn, queryClient]);
+
   if (status === 'loading') return <Splash />;
 
   return (
@@ -130,10 +157,6 @@ function Routes() {
 setPushBridge({ register: registerForPush, unregister: unregisterFromPush });
 
 export default function RootLayout() {
-  // A tapped notification should land on the thing it is about, not the home screen. Registered
-  // here rather than in the push module because navigation belongs to the app layer.
-  useEffect(() => subscribeToNotificationTaps((url) => router.push(url as never)), []);
-
   return (
     /*
       Outermost, and required rather than decorative: on Android, react-native-gesture-handler's
