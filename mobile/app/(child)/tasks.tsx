@@ -158,7 +158,7 @@ function StatusChips({ item }: { item: MyAssignment }) {
   return (
     <View style={styles.chipRow}>
       {status === 'rejected' && <Chip compact variant="late" icon="arrow-undo" label="Sent back" />}
-      {status === 'completed' && <Chip compact variant="xp" icon="hourglass-outline" label="Waiting for a grown-up" />}
+      {status === 'completed' && <Chip compact variant="xp" icon="hourglass-outline" label="Waiting for a parent" />}
       {status === 'approved' && (
         <Chip compact variant="done" icon="checkmark-circle" label={`Approved, +${task.pointsValue} points`} />
       )}

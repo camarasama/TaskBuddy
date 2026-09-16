@@ -198,20 +198,44 @@ export function toMobileRoute(actionUrl: string | undefined): string | null {
  * notification while the app is closed opens it on the home screen with no explanation.
  */
 export function subscribeToNotificationTaps(navigate: (url: string) => void): () => void {
-  const urlFrom = (response: Notifications.NotificationResponse | null): string | null => {
-    const data = response?.notification?.request?.content?.data as { actionUrl?: string } | undefined;
-    return toMobileRoute(data?.actionUrl);
+  const handle = (response: Notifications.NotificationResponse | null) => {
+    const request = response?.notification?.request;
+    /**
+     * Each tap is followed once. The caller re-subscribes on every sign-in, and
+     * `getLastNotificationResponseAsync` keeps returning the same response for the life of the
+     * process, so without this a child who signs out and back in is dragged to an old task again.
+     */
+    if (request?.identifier) {
+      if (handledTaps.has(request.identifier)) return;
+      handledTaps.add(request.identifier);
+    }
+    const url = toMobileRoute((request?.content?.data as { actionUrl?: string } | undefined)?.actionUrl);
+    if (url) navigate(url);
   };
 
+  let active = true;
   void Notifications.getLastNotificationResponseAsync().then((response) => {
-    const url = urlFrom(response);
-    if (url) navigate(url);
+    if (active) handle(response);
   });
 
-  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-    const url = urlFrom(response);
-    if (url) navigate(url);
-  });
+  const subscription = Notifications.addNotificationResponseReceivedListener(handle);
 
+  return () => {
+    active = false;
+    subscription.remove();
+  };
+}
+
+const handledTaps = new Set<string>();
+
+/**
+ * Run `onReceive` when a notification arrives while the app is open.
+ *
+ * The app has no socket client, so a screen already on display does not learn that a parent approved
+ * a task: focus refetch only fires on returning to the app, and the child is already in it. The push
+ * that announces the change is the signal to refetch.
+ */
+export function subscribeToNotificationsReceived(onReceive: () => void): () => void {
+  const subscription = Notifications.addNotificationReceivedListener(() => onReceive());
   return () => subscription.remove();
 }
