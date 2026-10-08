@@ -103,6 +103,11 @@ section { padding: clamp(3rem, 7vw, 5.5rem) 0; }
 .hero-lead { font-size: clamp(1.05rem, 2.2vw, 1.28rem); max-width: 36rem; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
 .hero-note { font-size: 0.9rem; margin-top: 1rem; }
+/* The official badge PNG carries its own transparent margin, so the row needs no extra gap. */
+.store-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; margin-top: 1rem; }
+.store-badge { display: inline-block; margin-left: -0.6rem; }
+.store-badge img { display: block; height: 75px; width: auto; }
+.store-note { font-size: 0.9rem; margin: 0; }
 
 /* ---------- grids ---------- */
 .grid { display: grid; gap: 1.25rem; }

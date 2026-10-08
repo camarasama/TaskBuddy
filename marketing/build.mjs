@@ -91,6 +91,7 @@ const STATIC = [
   'apple-touch-icon.png',
   'android-chrome-192x192.png',
   'android-chrome-512x512.png',
+  'google-play-badge.png',
 ];
 for (const file of STATIC) {
   fs.copyFileSync(path.join(SRC, file), path.join(DIST, file));
