@@ -209,7 +209,46 @@
     // RE-TRIAGE: remove when expo-router depends on query-string >= 8 (or drops it), which is the
     // upstream fix. Re-examine immediately if decode-uri-component ever gains a consumer in the
     // backend or the web frontend, where the exposure would be per-request rather than per-tap.
-    "GHSA-vcc3-ghjq-m6fr"
+    "GHSA-vcc3-ghjq-m6fr",
+
+    // ---- 2026-10-08 batch (DEP-14..DEP-18), owner-approved 2026-10-08 ---------------------------
+    // 33 advisories landed between the last green run on main (2026-09-16) and 2026-10-08. Every
+    // RUNTIME one was FIXED, not listed here: next 16.3.4 -> 16.3.8 (next/og RCE, image-optimizer
+    // SSRF, cache poisoning), proxy-addr 2.0.8 (critical, trust-proxy IP spoofing, which feeds the
+    // rate limiter), engine.io 6.6.11, compression 1.8.2, sharp 0.35.5, handlebars 4.7.10,
+    // shell-quote 1.12.0, source-map-js 1.2.2, fast-uri 3.1.8, brace-expansion, and
+    // nodemailer 9 -> 10.0.16 (five addressparser/DNS advisories; v10's only break is Node >= 20,
+    // the VPS runs 22). `npm audit fix` itself is unusable here: it dies on a pre-existing mobile
+    // peer conflict (jest-expo vs @react-native/jest-preset), so fixes went in via targeted
+    // `npm update <pkg>`. The five below have no usable fix.
+
+    // DEP-14 - node-forge RSA signature check accepts extra nested data (GHSA-86w9-cpqp-85rv, high).
+    // Mobile BUILD tooling only: @expo/cli and expo-updates -> @expo/code-signing-certificates.
+    // Not in the app bundle, and expo-updates code signing is not configured in app.config.ts.
+    // 1.4.0 is the latest node-forge; npm's "fix" is expo@44, a 13-major downgrade.
+    // RE-TRIAGE: when node-forge > 1.4.0 ships, or if update code signing is ever turned on.
+    "GHSA-86w9-cpqp-85rv",
+
+    // DEP-15 - sprintf-js DoS via unbounded precision (GHSA-hp3w-g68c-fv3c, moderate). TEST only:
+    // ts-jest / jest-expo -> babel-plugin-istanbul -> js-yaml@3 -> argparse -> sprintf-js, fed our
+    // own config. 1.1.3 is the latest release. RE-TRIAGE: when a patched release exists.
+    "GHSA-hp3w-g68c-fv3c",
+
+    // DEP-16 - @opentelemetry/instrumentation-tedious exposes database use (GHSA-qqmp-wf37-98f9,
+    // moderate). Pulled in by @sentry/node@9 as one of its bundled auto-instrumentations, but it only
+    // activates when the `tedious` (MS SQL) driver is loaded, and `npm ls tedious` is empty: we run
+    // Postgres via Prisma. Fix needs @sentry/node 10 (major). RE-TRIAGE: on the Sentry 10 upgrade.
+    "GHSA-qqmp-wf37-98f9",
+
+    // DEP-17 - postcss-selector-parser quadratic parsing (GHSA-rj75-hqrm-r3gf, moderate). BUILD only:
+    // tailwindcss@3 parsing our own stylesheets at build time. Fix needs tailwindcss 4 (major).
+    // RE-TRIAGE: on the Tailwind 4 migration.
+    "GHSA-rj75-hqrm-r3gf",
+
+    // DEP-18 - braces stack exhaustion on deeply nested patterns (GHSA-vfj7-8cjw-p6xm, high).
+    // DEV/BUILD globbing only (jest, metro, tailwind's chokidar, eslint's fast-glob), always on
+    // patterns we write. 3.0.3 is the latest braces. RE-TRIAGE: when a patched braces ships.
+    "GHSA-vfj7-8cjw-p6xm"
 
     // nanoid (GHSA-2v37-7h3g-55p8, high, <3.3.17) surfaced alongside DEP-10 and is deliberately
     // NOT here — it was FIXED. `npm update nanoid` took the tree to 3.3.18. It was runtime-reachable
