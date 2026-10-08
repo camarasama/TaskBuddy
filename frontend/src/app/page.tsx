@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Trophy, Users, Sparkles, Star, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { GooglePlayBadge } from '@/components/ui/GooglePlayBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -88,6 +89,7 @@ export default function HomePage() {
                   </Button>
                 </Link>
               </div>
+              <GooglePlayBadge className="mt-6 justify-center lg:justify-start" />
             </motion.div>
 
             <motion.div
@@ -225,6 +227,9 @@ export default function HomePage() {
             </div>
             <p className="text-sm">
               &copy; {new Date().getFullYear()} TaskBuddy. Making chores fun for families.
+            </p>
+            <p className="text-xs">
+              Google Play and the Google Play logo are trademarks of Google LLC.
             </p>
           </div>
         </div>

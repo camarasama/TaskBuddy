@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { ApiError } from '@/lib/api';
 import { BrandLogo } from '@/components/ui/BrandLogo';
+import { GooglePlayBadge } from '@/components/ui/GooglePlayBadge';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -198,6 +199,8 @@ export default function LoginPage() {
           </>
           )}
         </div>
+
+        <GooglePlayBadge className="mt-6 justify-center" />
       </motion.div>
     </div>
   );
