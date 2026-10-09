@@ -6,8 +6,8 @@ import request from 'supertest';
  *
  *  - Parents could set any URL as their own or a child's avatar, and every family member's browser
  *    and phone then fetched it: a tracking beacon, or unmoderated content in a children's app.
- *  - The digest open pixel was signed with the JWT secret itself. It now uses a derived key, and
- *    still accepts the old signature until LEGACY_PIXEL_UNTIL so digests already sent keep counting.
+ *  - The digest open pixel was signed with the JWT secret itself. It now uses a derived key. The old
+ *    signature was accepted until 2026-10-05 for digests already sent; that fallback is now removed.
  */
 jest.mock('../src/services/database', () => ({
   prisma: {
@@ -37,7 +37,7 @@ import { app } from '../src/index';
 import { prisma } from '../src/services/database';
 import { config } from '../src/config';
 import { AnalyticsService } from '../src/services/AnalyticsService';
-import { LEGACY_PIXEL_UNTIL, signDigestOpen } from '../src/routes/track';
+import { signDigestOpen } from '../src/routes/track';
 
 const db = prisma as any;
 const ownUrl = `${config.apiUrl.replace(/\/$/, '')}/uploads/avatars/2026-09-14/abc.jpg`;
@@ -81,17 +81,8 @@ describe('digest open pixel', () => {
     expect(AnalyticsService.record).toHaveBeenCalledTimes(1);
   });
 
-  it('still counts a digest sent before the change, until the cutoff', async () => {
-    const now = jest.spyOn(Date, 'now').mockReturnValue(LEGACY_PIXEL_UNTIL.getTime() - 1000);
-    await request(app).get(`/api/v1/track/digest/fam1/${week}/${legacy}.gif`);
-    now.mockRestore();
-    expect(AnalyticsService.record).toHaveBeenCalledTimes(1);
-  });
-
-  it('stops accepting the old signature after the cutoff, and always answers with the pixel', async () => {
-    const now = jest.spyOn(Date, 'now').mockReturnValue(LEGACY_PIXEL_UNTIL.getTime() + 1000);
+  it('no longer accepts the old signature, and always answers with the pixel', async () => {
     const res = await request(app).get(`/api/v1/track/digest/fam1/${week}/${legacy}.gif`);
-    now.mockRestore();
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toBe('image/gif');
     expect(AnalyticsService.record).not.toHaveBeenCalled();
