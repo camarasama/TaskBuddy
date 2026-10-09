@@ -140,3 +140,37 @@ describe('splash screen', () => {
     expect(dark?.backgroundColor).toBe(palette.slate[900]);
   });
 });
+
+/**
+ * Build 15: R8 shrinking, and the Sentry mapping upload that keeps native traces readable under it.
+ *
+ * Both are invisible on a phone. Dropping the first quietly brings back the Play Console
+ * "DEX not obfuscated" warning (deadline Feb 2027); dropping the second turns every native Android
+ * crash in Sentry into `a.b.c()` frames, noticed only on the day a real crash needs reading.
+ */
+describe('release build hardening', () => {
+  const pluginOptions = (name: string) => {
+    const entry = (resolved().plugins ?? []).find(
+      (p): p is [string, Record<string, unknown>] => Array.isArray(p) && p[0] === name,
+    );
+    return entry?.[1];
+  };
+
+  it('turns on R8 code and resource shrinking for Android release builds', () => {
+    const android = pluginOptions('expo-build-properties')?.android as Record<string, unknown>;
+
+    expect(android?.enableMinifyInReleaseBuilds).toBe(true);
+    expect(android?.enableShrinkResourcesInReleaseBuilds).toBe(true);
+  });
+
+  it('uploads the R8 mapping to Sentry through its Android Gradle plugin', () => {
+    const android = pluginOptions('@sentry/react-native')?.experimental_android as Record<
+      string,
+      unknown
+    >;
+
+    expect(android?.enableAndroidGradlePlugin).toBe(true);
+    expect(android?.includeProguardMapping).toBe(true);
+    expect(android?.autoUploadProguardMapping).toBe(true);
+  });
+});

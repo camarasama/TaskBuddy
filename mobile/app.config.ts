@@ -34,7 +34,7 @@ const PROD_API = 'https://api.gettaskbuddy.com/api/v1';
  * on `android.versionCode`). Version says what changed; versionCode says which build. Testers are
  * shown both, because only the pair identifies a specific binary.
  */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -244,7 +244,48 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-secure-store',
     'expo-font',
-    '@sentry/react-native',
+    /**
+     * Sentry. The Android Gradle plugin is switched on for ONE job: uploading the R8 mapping file
+     * (see expo-build-properties below). With R8 on, a native Android crash arrives in Sentry as
+     * `a.b.c()` frames unless the mapping for that exact build is uploaded. JS errors are unaffected
+     * either way; they use the Hermes source maps the base plugin already handles.
+     *
+     * Native-symbol and source uploads stay off: we ship no C/C++ of our own, so they would only add
+     * build time. Like the source maps, the upload needs SENTRY_AUTH_TOKEN at build time; without it
+     * the build still succeeds and Java traces are simply unreadable.
+     */
+    [
+      '@sentry/react-native',
+      {
+        experimental_android: {
+          enableAndroidGradlePlugin: true,
+          includeProguardMapping: true,
+          autoUploadProguardMapping: true,
+          uploadNativeSymbols: false,
+          autoUploadNativeSymbols: false,
+          includeNativeSources: false,
+        },
+      },
+    ],
+    /**
+     * R8 code + resource shrinking for release builds (build 15). Play Console flagged build 14 at
+     * "1% DEX obfuscated", to be fixed by Feb 2027. Play reads the mapping file straight out of the
+     * AAB, so its own crash reports stay readable with no extra upload step.
+     *
+     * Risk to know about: R8 removes classes it cannot see being used, and code reached only by
+     * reflection looks unused. Expo modules, Sentry, Firebase messaging and the camera ship their own
+     * keep rules, but a release build MUST get a full device pass on the closed track before
+     * production: push, camera QR scan, photo picker, App Links, and a Sentry test crash.
+     */
+    [
+      'expo-build-properties',
+      {
+        android: {
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+        },
+      },
+    ],
     /**
      * The launch screen.
      *

@@ -1,11 +1,11 @@
 {
   "name": "@taskbuddy/mobile",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
+    "android": "expo run:android",
     "web": "expo start --web",
     "lint": "eslint app src --ext .ts,.tsx",
     "lint:fix": "eslint app src --ext .ts,.tsx --fix",
@@ -22,6 +22,7 @@
     "@tanstack/react-query": "^5.101.4",
     "expo": "~57.0.9",
     "expo-application": "~57.0.2",
+    "expo-build-properties": "~57.0.22",
     "expo-camera": "~57.0.3",
     "expo-constants": "~57.0.8",
     "expo-dev-client": "~57.0.10",
