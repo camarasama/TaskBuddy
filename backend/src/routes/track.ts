@@ -56,19 +56,6 @@ export function signDigestOpen(familyId: string, week: string): string {
     .slice(0, 32);
 }
 
-/**
- * Signature under the key used before 2026-09-14. Digests already in inboxes carry these, so they are
- * still counted for two weekly digests. Delete this, and its use below, after LEGACY_PIXEL_UNTIL.
- */
-export const LEGACY_PIXEL_UNTIL = new Date('2026-10-05T00:00:00Z');
-function signDigestOpenLegacy(familyId: string, week: string): string {
-  return crypto
-    .createHmac('sha256', config.jwt.secret)
-    .update(`digest-open:${familyId}:${week}`)
-    .digest('hex')
-    .slice(0, 32);
-}
-
 /** Absolute pixel URL for the email, or undefined when no API base is configured. */
 export function buildTrackingPixelUrl(familyId: string, now: Date): string | undefined {
   const apiUrl = process.env.API_URL || config.apiUrl;
@@ -87,11 +74,9 @@ trackRouter.get('/digest/:familyId/:week/:sig', (req, res) => {
   const matches = (expected: string) =>
     sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
 
-  const valid =
-    matches(signDigestOpen(familyId, week)) ||
-    (Date.now() < LEGACY_PIXEL_UNTIL.getTime() && matches(signDigestOpenLegacy(familyId, week)));
-
-  if (valid) {
+  // The pre-2026-09-14 signature (raw JWT secret) was accepted until 2026-10-05 so digests already
+  // in inboxes kept counting. That window has closed and the fallback is gone: only the derived key.
+  if (matches(signDigestOpen(familyId, week))) {
     // Fire-and-forget; AnalyticsService swallows its own failures.
     void AnalyticsService.record({
       eventType: 'DIGEST_OPENED',

@@ -7,8 +7,8 @@
 > TaskBuddy is directed at children and is subject to COPPA (US), the GDPR including Art. 8 (EU), the
 > UK GDPR and Age Appropriate Design Code, and Ghana's Data Protection Act, 2012 (Act 843).
 
-**Version:** 1.3
-**Last updated:** 2026-08-06
+**Version:** 1.4
+**Last updated:** 2026-10-09
 **Provider:** Evolution Prime IT Ltd ("we", "us", "our")
 **Contact:** info@evolutionprimeit.com
 
@@ -58,6 +58,18 @@ We practise data minimisation: we collect only what the feature needs.
 - Device and app version, IP address, and error diagnostics (via our error-monitoring processor)
   used for security and to keep the service working. We do not use these to build advertising
   profiles of children.
+- **Push notification token**, if you allow notifications. When the Android app is allowed to show
+  notifications, the phone gives us a random token that identifies that app install for
+  notification delivery; in the browser, the equivalent is a web push subscription. We store it
+  against the signed-in account so we can send that account's notifications to that device. It
+  contains no name, email address or phone number. The app's token is deleted when the app signs
+  out. Either kind is deleted when the push service reports it no longer works (for example after
+  the app is uninstalled, or notifications are blocked in the browser), and with the account (§6).
+- **Weekly summary email opens.** The weekly summary email we send to parents contains a 1x1 image
+  served by our own server. Loading it records only that the family's summary for that week was
+  opened, so we can tell whether the summary is useful. No third party is involved, and the record
+  carries no email address or device details. Your email app may let you block remote images, which
+  stops this.
 
 We do **not** collect precise geolocation, contacts, or biometric identifiers.
 
@@ -133,6 +145,14 @@ data for their own purposes:
 - **Object storage / CDN:** Cloudflare R2 (private evidence storage; public CDN only for
   low-sensitivity avatars).
 - **Transactional email:** Zoho ZeptoMail.
+- **Push notifications (Android app):** Expo (650 Industries, Inc.) relays each notification to
+  Google's Firebase Cloud Messaging, which delivers it to the phone. Each message carries the push
+  token, the notification title and text, and the app screen to open. The text can include **a
+  child's display name and a task or reward title** (for example "Sam finished a task"), because
+  that is what makes the notification useful to the parent or child receiving it.
+- **Push notifications (website):** if a parent allows notifications in their browser, the browser
+  maker's push service (for example Google for Chrome, Mozilla for Firefox) delivers the same
+  title and text to that browser.
 - **Error monitoring:** Sentry, configured with personally identifiable information collection
   **switched off** (`sendDefaultPii: false`), on both the server and the mobile app.
 - **Payments: none at present.** TaskBuddy currently has no paid features, no subscriptions and no
@@ -156,6 +176,8 @@ Residency, per processor:
 | **Cloudflare R2** | Children's evidence photos and avatars | **Western Europe (WEUR)**, verified 2026-08-06 |
 | **Sentry** | Error reports (no personal data collection enabled) | EU (`ingest.de.sentry.io`) |
 | **Zoho ZeptoMail** | Transactional email delivery | Set by the account's data-centre region |
+| **Expo** | Push token and notification text, to relay each notification | United States |
+| **Google Firebase Cloud Messaging** | Push token and notification text, to deliver each notification | Global (Google infrastructure) |
 
 ## 9. Security
 
@@ -198,6 +220,8 @@ The full inventory:
 | Access token | Browser memory only, never written to disk | Authorises each request | Cleared when the tab closes |
 | Refresh token (app) | Android Keystore via `expo-secure-store`, not a cookie | Keeps a signed-in phone signed in | Up to 90 days, revocable by the account holder or a parent |
 | Family code (app) | Android Keystore | Remembers which family a child's phone belongs to after scanning | Until the device is signed out of that family |
+| Push token (app) / push subscription (website) | Our database, linked to the account | Delivers notifications to that device, only if notifications were allowed | App: until sign-out. Both: until the push service reports it dead (uninstall, notifications blocked) or account deletion |
+| Weekly summary open image | A 1x1 image in the parents' weekly summary email | Counts whether that week's summary was opened | One event per open, no device details; blocked if your email app blocks remote images |
 
 ## 12. Changes to this policy
 
