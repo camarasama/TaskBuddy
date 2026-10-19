@@ -329,7 +329,7 @@ export default function ChildTaskDetail() {
       <Screen scroll>
         <Card>
           <AppText style={[styles.statusLine, { color: theme.cardForeground }]}>
-            We couldn&apos;t find that task. A grown-up may have removed it.
+            We couldn&apos;t find that task. A parent or guardian may have removed it.
           </AppText>
         </Card>
         <View style={styles.actions}>
@@ -435,7 +435,7 @@ export default function ChildTaskDetail() {
           )}
 
           <Field
-            label="Note for your grown-up (optional)"
+            label="Note for your parent or guardian (optional)"
             value={note}
             onChangeText={setNote}
             multiline
@@ -451,12 +451,12 @@ export default function ChildTaskDetail() {
               <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
                 {photo
                   ? 'Photo ready to send.'
-                  : 'This one asks for a photo, so your grown-up can see it is done.'}
+                  : 'This one asks for a photo, so your parent or guardian can see it is done.'}
               </AppText>
 
               {photo && <Image source={{ uri: photo.uri }} style={styles.photo} accessibilityLabel="The photo you chose" />}
 
-              <View style={styles.actions}>
+              <View style={styles.photoActions}>
                 <Button
                   label={photo ? 'Take a different one' : 'Take a photo'}
                   variant="soft"
@@ -524,6 +524,8 @@ const styles = StyleSheet.create({
   rowLabel: { flex: 1, fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight },
   rowValue: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, fontWeight: fontWeight.medium },
   actions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
+  // Stacked, not a row: "Take a different one" and "Choose a photo" side by side ran off the card.
+  photoActions: { gap: spacing[2], marginTop: spacing[3] },
   photoBlock: { marginTop: spacing[3], gap: spacing[1] },
   // 4:3 rather than square: the picker does not crop, so a portrait shot would be squashed and look
   // like the upload had damaged it.

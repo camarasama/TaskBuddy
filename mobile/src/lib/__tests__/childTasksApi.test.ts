@@ -223,16 +223,45 @@ describe('uploadEvidence', () => {
     // for anything else, which reads as a broken camera rather than a wrong key.
     const tasks = setup({ success: true, data: { evidence: { id: 'e1', fileUrl: 'https://signed' } } });
 
+    const bytes = jest.fn(async () => new Uint8Array([0xff, 0xd8]));
     await tasks.uploadEvidence('a1', {
       uri: 'file:///tmp/kitchen.jpg',
       mimeType: 'image/jpeg',
       fileName: 'kitchen.jpg',
+      bytes,
     });
 
     expect(calls[0].method).toBe('POST');
     expect(calls[0].url).toMatch(/\/tasks\/assignments\/a1\/upload$/);
     expect(calls[0].body).toBeInstanceOf(FormData);
     expect((calls[0].body as FormData).get('photo')).toBeTruthy();
+  });
+
+  it('builds a photo part that expo/fetch can encode, which a uri-only part is not', async () => {
+    // expo/fetch (the app's real global fetch) throws on a part that has only a `uri`, and api.ts
+    // reported that throw as "Could not reach TaskBuddy": every photo upload failed that way on device.
+    // Jest's FormData is Node's, which stringifies objects, so the part is captured at append and fed
+    // to Expo's own encoder.
+    const { buildPhotoForm } = require('../photoForm') as typeof import('../photoForm');
+    const { convertFormDataAsync } = require('expo/src/winter/fetch/convertFormData') as {
+      convertFormDataAsync: (form: unknown) => Promise<{ body: Uint8Array }>;
+    };
+    const append = jest.spyOn(FormData.prototype, 'append');
+    const bytes = jest.fn(async () => new Uint8Array([0xff, 0xd8]));
+
+    buildPhotoForm({ uri: 'file:///tmp/k.jpg', mimeType: 'image/jpeg', fileName: 'k.jpg', bytes });
+    const [field, part] = append.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    append.mockRestore();
+
+    const asForm = (p: unknown) => ({ entries: () => [[field, p]] });
+    const { body } = await convertFormDataAsync(asForm(part));
+    const text = new TextDecoder().decode(body);
+    expect(bytes).toHaveBeenCalled();
+    expect(text).toContain('name="photo"; filename="k.jpg"');
+    expect(text).toContain('content-type: image/jpeg');
+
+    const { bytes: _dropped, ...uriOnly } = part;
+    await expect(convertFormDataAsync(asForm(uriOnly))).rejects.toThrow('Unsupported FormDataPart');
   });
 
   it('does NOT send the photo URL on to complete', async () => {

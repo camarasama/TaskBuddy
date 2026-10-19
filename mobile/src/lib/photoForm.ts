@@ -12,12 +12,17 @@
  * So the rule this file exists to enforce: **API modules must not reach the picker.** Anything both a
  * screen and an API module needs lives here, where there is no expo import to trip over.
  *
- * ## The React Native FormData shape is not the web's
+ * ## The part must carry `bytes()`, not only a `uri`
  *
- * A browser appends a `File`. React Native has no `File`; it appends an object with `uri`, `name`
- * and `type`, and its fetch polyfill reads the file off disk. That object is not valid TypeScript
- * `FormData` input, which is why the append below is cast — the cast describes a real platform
- * difference, not a mistake.
+ * React Native's own fetch reads a `{ uri, name, type }` part off disk. **The app does not use that
+ * fetch.** Expo's runtime replaces the global `fetch` with `expo/fetch`, whose multipart encoder
+ * ignores `uri` and accepts only a Blob or an object with `bytes()`. Given a bare `{ uri }` part it
+ * throws before sending anything, and `api.ts` turns the throw into "Could not reach TaskBuddy": every
+ * photo upload failed that way on a real device while every unit test passed.
+ *
+ * So the part carries both: `bytes` for expo/fetch, and `uri` so React Native's fetch would still
+ * work if `EXPO_PUBLIC_USE_RN_FETCH` were ever turned on. The cast describes that platform shape,
+ * which is not valid TypeScript `FormData` input.
  *
  * The field name **must** be `photo`. Both `/auth/upload-image` and
  * `/tasks/assignments/:id/upload` are configured with `uploadPhoto.single('photo')`, and a mismatch
@@ -30,6 +35,8 @@ export interface PickedImage {
   /** Best-effort from the picker; defaults to JPEG, which is what the compressors emit. */
   mimeType: string;
   fileName: string;
+  /** Reads the file. Supplied by the picker side, so this module stays free of expo imports. */
+  bytes: () => Promise<Uint8Array>;
 }
 
 export function buildPhotoForm(image: PickedImage): FormData {
@@ -38,6 +45,7 @@ export function buildPhotoForm(image: PickedImage): FormData {
     uri: image.uri,
     name: image.fileName,
     type: image.mimeType,
+    bytes: image.bytes,
   } as unknown as Blob);
   return form;
 }

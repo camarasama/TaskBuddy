@@ -6,23 +6,28 @@
  * writes to a profile — the caller decides what to do with the URL, which keeps this reusable for a
  * child avatar today and anything else later.
  *
- * ## The React Native FormData shape is not the web's
- *
- * A browser appends a `File`. React Native has no `File`; it appends an object with `uri`, `name`
- * and `type`, and its fetch polyfill reads the file off disk. That object is not valid TypeScript
- * `FormData` input, which is why the append below is cast — the cast is describing a real platform
- * difference, not papering over a mistake.
- *
- * The field name **must** be `photo`: that is what multer is configured to accept
+ * The multipart part shape, and why it must carry `bytes()` rather than only a `uri`, is explained
+ * in `photoForm.ts`. The field name **must** be `photo`: that is what multer is configured to accept
  * (`uploadPhoto.single('photo')`), and a mismatch produces "No file uploaded" rather than a useful
  * error.
  */
+import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 
 import { api } from './api';
 import { buildPhotoForm, type PickedImage } from './photoForm';
 
 export type { PickedImage } from './photoForm';
+
+/** The picker's asset as an uploadable image; `bytes` is what expo/fetch reads (see photoForm). */
+function toPickedImage(asset: ImagePicker.ImagePickerAsset, fallbackName: string): PickedImage {
+  return {
+    uri: asset.uri,
+    mimeType: asset.mimeType ?? 'image/jpeg',
+    fileName: asset.fileName ?? fallbackName,
+    bytes: () => new File(asset.uri).bytes(),
+  };
+}
 
 /**
  * Ask for a photo, from the library.
@@ -49,12 +54,7 @@ export async function pickImage(): Promise<PickedImage | null> {
 
   if (result.canceled || result.assets.length === 0) return null;
 
-  const asset = result.assets[0];
-  return {
-    uri: asset.uri,
-    mimeType: asset.mimeType ?? 'image/jpeg',
-    fileName: asset.fileName ?? `avatar-${Date.now()}.jpg`,
-  };
+  return toPickedImage(result.assets[0], `avatar-${Date.now()}.jpg`);
 }
 
 /**
@@ -84,12 +84,7 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedIma
 
   if (result.canceled || result.assets.length === 0) return null;
 
-  const asset = result.assets[0];
-  return {
-    uri: asset.uri,
-    mimeType: asset.mimeType ?? 'image/jpeg',
-    fileName: asset.fileName ?? `evidence-${Date.now()}.jpg`,
-  };
+  return toPickedImage(result.assets[0], `evidence-${Date.now()}.jpg`);
 }
 
 /** Upload a picked image; resolves to its public URL. */

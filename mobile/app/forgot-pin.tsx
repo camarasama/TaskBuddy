@@ -1,5 +1,5 @@
 /**
- * A child who has forgotten their PIN, asking a grown-up for help.
+ * A child who has forgotten their PIN, asking a parent or guardian for help.
  *
  * ## Why this screen never sets a new PIN
  *
@@ -18,7 +18,7 @@
  * screen shows one outcome for every submission that reaches the server, and reports network failure
  * only when the request never got there at all.
  *
- * ## Why the wording says "a grown-up", not "check your email"
+ * ## Why the wording says "a parent or guardian", not "check your email"
  *
  * `forgot-password.tsx`'s success screen says "check your email" because a parent has one. A child
  * does not — the email lands with their parents. Reusing that copy here would send a child off to
@@ -95,7 +95,7 @@ export default function ForgotPin() {
       <Screen scroll center>
         <Logo width={128} />
         <AppText variant="display" style={[styles.title, { color: theme.foreground }]}>
-          A grown-up has been told
+          A parent or guardian has been told
         </AppText>
         {/*
           "If that matches" carries the same weight as forgot-password's "if an account exists": it is
@@ -103,7 +103,7 @@ export default function ForgotPin() {
         */}
         <AppText style={[styles.body, { color: theme.mutedForeground }]}>
           If that family and username match, someone in your family has been sent an email. Go find a
-          grown-up — they can help you set a new PIN.
+          parent or guardian. They can help you set a new PIN.
         </AppText>
 
         <Card>
