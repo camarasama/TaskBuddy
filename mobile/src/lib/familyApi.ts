@@ -114,6 +114,8 @@ export interface ParentMember {
    * is a correction to the annotation, not a change to the payload.
    */
   isPrimaryParent: boolean;
+  /** `listParents` selects it; shown by the Avatar on the co-parents screen. */
+  avatarUrl?: string | null;
 }
 
 export interface PendingInvitation {

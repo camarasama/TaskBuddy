@@ -63,12 +63,13 @@ type TodaysTask = ChildDashboardResponse['todaysTasks'][number];
  * `theme/index.ts`). Two nested views for the same reason `Card` uses them: the shadow needs the outer
  * view, and the circle needs an inner `overflow: 'hidden'` view or it squares off the rounded corners.
  */
-function Hero({ level, name, seed, avatarEmoji, greeting }: {
+function Hero({ level, name, seed, avatarEmoji, avatarUrl, greeting }: {
   level: number;
   name: string;
   greeting: string;
   seed: string;
   avatarEmoji?: string | null;
+  avatarUrl?: string | null;
 }) {
   return (
     <View style={[styles.heroOuter, elevation.lift]}>
@@ -89,7 +90,7 @@ function Hero({ level, name, seed, avatarEmoji, greeting }: {
           accessibilityElementsHidden
         />
         <View style={styles.heroRow}>
-          <Avatar seed={seed} name={name} size={56} />
+          <Avatar seed={seed} name={name} size={56} uri={avatarUrl} />
           <View style={styles.heroText}>
             <AppText variant="display" style={[styles.heroGreeting, { color: onGradient }]}>
               {avatarEmoji ? `${avatarEmoji} ` : ''}{greeting}
@@ -397,6 +398,7 @@ export default function ChildDashboard() {
         name={name}
         seed={user?.id ?? 'child'}
         avatarEmoji={profile.avatarEmoji}
+        avatarUrl={user?.avatarUrl}
         greeting={copy.greeting(name)}
       />
       <Wallet pointsBalance={profile.pointsBalance} />

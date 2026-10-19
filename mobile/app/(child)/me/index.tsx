@@ -56,7 +56,7 @@ export default function MeHub() {
           eyebrow="Me"
           title={`${profile?.avatarEmoji ? `${profile.avatarEmoji} ` : ''}${name}`}
           subtitle={profile ? `Level ${profile.level}` : 'Loading your profile…'}
-          badge={<Avatar seed={user?.id ?? 'child'} name={name} size={52} />}
+          badge={<Avatar seed={user?.id ?? 'child'} name={name} size={52} uri={user?.avatarUrl} />}
         />
 
         {profile && (

@@ -19,6 +19,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import { AppText } from '@/components/AppText';
+import { Avatar } from '@/components/Avatar';
 import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -58,6 +59,7 @@ function Row({ entry, isMe }: { entry: LeaderboardEntry; isMe: boolean }) {
             <AppText style={[styles.rankLabel, { color: theme.mutedForeground }]}>{entry.rank}</AppText>
           </View>
         )}
+        <Avatar seed={entry.childId} name={entry.childName} size={40} uri={entry.avatarUrl} />
         <View style={styles.text}>
           <View style={styles.nameRow}>
             <AppText style={[styles.name, { color: theme.cardForeground }]}>{entry.childName}</AppText>

@@ -403,7 +403,7 @@ function TaskFormScreen() {
                 <AppText style={[styles.hint, { color: theme.mutedForeground }]}>No children yet.</AppText>
               ) : (
                 <ChildPicker
-                  options={children.map((child) => ({ id: child.user.id, firstName: child.user.firstName }))}
+                  options={children.map((child) => ({ id: child.user.id, firstName: child.user.firstName, avatarUrl: child.user.avatarUrl }))}
                   selected={assigned}
                   onToggle={(childId) =>
                     setAssigned((prev) =>

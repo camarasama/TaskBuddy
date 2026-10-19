@@ -373,7 +373,7 @@ function ChildFormScreen() {
                 : undefined
               : 'They sign in with a username and PIN, no email needed'
           }
-          badge={editing && id ? <Avatar seed={id} name={existing?.firstName ?? '?'} size={52} /> : undefined}
+          badge={editing && id ? <Avatar seed={id} name={existing?.firstName ?? '?'} size={52} uri={existing?.avatarUrl} /> : undefined}
         />
 
         <FormSection title="About them" icon="person" tone="xp">
@@ -420,7 +420,7 @@ function ChildFormScreen() {
         {editing && id && (
           <FormSection title="Profile picture" icon="camera" tone="peach">
             <View style={styles.avatarRow}>
-              <Avatar seed={id} name={firstName || '?'} size={52} />
+              <Avatar seed={id} name={firstName || '?'} size={52} uri={existing?.avatarUrl} />
               <AppText style={[styles.small, styles.grow, { color: theme.mutedForeground }]}>
                 Shown to your family in the app.
               </AppText>

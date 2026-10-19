@@ -14,6 +14,7 @@ import { fontSize, fontWeight, minTouchTarget, onGradient, radius, spacing, useT
 export interface PickableChild {
   id: string;
   firstName: string;
+  avatarUrl?: string | null;
 }
 
 interface ChildPickerProps {
@@ -51,7 +52,7 @@ export function ChildPicker({ options, selected, onToggle, disabled = false }: C
             {/* Hidden: the avatar carries its own label, which would make every chip announce the
                 child's name twice. The chip's label already says it. */}
             <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-              <Avatar seed={child.id} name={child.firstName} size={32} />
+              <Avatar seed={child.id} name={child.firstName} size={32} uri={child.avatarUrl} />
             </View>
             <AppText style={[styles.name, { color: on ? theme.primary : theme.cardForeground }]}>{child.firstName}</AppText>
             {on ? (

@@ -43,7 +43,7 @@ function ChildCard({ child }: { child: ChildMember }) {
   return (
     <Card>
       <View style={styles.header}>
-        <Avatar seed={child.id} name={child.firstName} size={52} />
+        <Avatar seed={child.id} name={child.firstName} size={52} uri={child.avatarUrl} />
         <View style={styles.grow}>
           <AppText style={[styles.name, { color: theme.cardForeground }]} numberOfLines={1}>
             {profile.avatarEmoji ? `${profile.avatarEmoji} ` : ''}
