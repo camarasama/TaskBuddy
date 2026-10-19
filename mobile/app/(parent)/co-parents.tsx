@@ -139,7 +139,7 @@ export default function CoParents() {
                 style={[styles.row, { borderTopColor: theme.border }, index === 0 && styles.firstRow]}
               >
                 <View style={styles.person}>
-                  <Avatar seed={parent.id} name={parent.firstName} size={40} />
+                  <Avatar seed={parent.id} name={parent.firstName} size={40} uri={parent.avatarUrl} />
                   <View style={styles.grow}>
                     <AppText style={[styles.name, { color: theme.cardForeground }]}>
                       {parent.firstName} {parent.lastName}

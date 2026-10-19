@@ -1,6 +1,10 @@
 /**
- * A child's gradient avatar: a rounded square filled with one of three brand gradients, and the
- * child's first initial on top.
+ * A person's avatar: their uploaded picture when they have one, otherwise a circle filled with one
+ * of three brand gradients and their first initial on top.
+ *
+ * The picture falls back to the gradient if it fails to load (deleted object, no signal), so a
+ * broken URL never leaves an empty hole in a row. Pictures were held back until PRIVACY 1.4 covered
+ * children's avatars; the web has always shown them.
  *
  * The gradient is deterministic per `seed` (pass the child's id, not their name, so a rename does
  * not reshuffle their colour): the same child renders the same gradient on the dashboard, the task
@@ -8,7 +12,8 @@
  * without reading the name every time.
  */
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, type ViewStyle } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Image, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { fontWeight, onGradient, palette } from '@/theme';
@@ -44,11 +49,31 @@ interface AvatarProps {
   /** Edge length in dp. Defaults to a list-row size; the hero screen passes a larger value. */
   size?: number;
   style?: ViewStyle;
+  /** The uploaded picture's URL. Absent, null or failing to load: the gradient and initial. */
+  uri?: string | null;
 }
 
 const DEFAULT_SIZE = 40;
 
-export function Avatar({ seed, name, size = DEFAULT_SIZE, style }: AvatarProps) {
+export function Avatar({ seed, name, size = DEFAULT_SIZE, style, uri }: AvatarProps) {
+  const [failed, setFailed] = useState(false);
+  // A new picture deserves a fresh attempt, even if the previous one failed.
+  useEffect(() => setFailed(false), [uri]);
+
+  const shape = { width: size, height: size, borderRadius: size / 2 };
+  if (uri && !failed) {
+    return (
+      <View style={[styles.image, shape, style]} accessible accessibilityRole="image" accessibilityLabel={name}>
+        <Image
+          testID="avatar-image"
+          source={{ uri }}
+          onError={() => setFailed(true)}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
+    );
+  }
+
   const [start, end] = GRADIENTS[avatarGradientIndex(seed)];
   const initial = name.trim().charAt(0).toUpperCase() || '?';
 
@@ -60,7 +85,7 @@ export function Avatar({ seed, name, size = DEFAULT_SIZE, style }: AvatarProps) 
       // usages, so a squircle here would make the same child look like a different component on the
       // two clients. `size / 2` rather than a radius token: the scale has no step that stays circular
       // as `size` changes, and a fixed 6dp on a 34dp avatar reads as a square with the corners filed.
-      style={[styles.base, { width: size, height: size, borderRadius: size / 2 }, style]}
+      style={[styles.base, shape, style]}
       accessible
       accessibilityRole="image"
       accessibilityLabel={name}
@@ -82,5 +107,10 @@ const styles = StyleSheet.create({
   },
   initial: {
     fontWeight: fontWeight.bold,
+  },
+  // Shown behind the picture while it loads, so the circle is visible from the first frame.
+  image: {
+    backgroundColor: palette.slate[200],
+    overflow: 'hidden',
   },
 });

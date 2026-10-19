@@ -64,7 +64,7 @@ function ChildProgressRow({ child, first }: { child: Child; first: boolean }) {
   return (
     <View style={[styles.childRow, { borderTopColor: theme.border }, first && styles.firstChildRow]}>
       <View style={styles.childHeader}>
-        <Avatar seed={user.id} name={user.firstName} size={40} />
+        <Avatar seed={user.id} name={user.firstName} size={40} uri={user.avatarUrl} />
         <View style={styles.grow}>
           <AppText style={[styles.childName, { color: theme.cardForeground }]}>{user.firstName}</AppText>
           <View style={styles.chips}>
@@ -119,7 +119,7 @@ export default function ParentDashboard() {
   }, [refetch]);
 
   const greeting = `Hello, ${user?.firstName ?? 'there'}`;
-  const avatar = <Avatar seed={user?.id ?? 'parent'} name={user?.firstName ?? 'P'} size={52} />;
+  const avatar = <Avatar seed={user?.id ?? 'parent'} name={user?.firstName ?? 'P'} size={52} uri={user?.avatarUrl} />;
 
   if (isPending) {
     return (
@@ -205,7 +205,7 @@ export default function ParentDashboard() {
           pendingApprovals.map((approval) => (
             <Card key={approval.id} status="pending">
               <View style={styles.approvalRow}>
-                <Avatar seed={approval.child.id} name={approval.child.firstName} size={40} />
+                <Avatar seed={approval.child.id} name={approval.child.firstName} size={40} uri={approval.child.avatarUrl} />
                 <View style={styles.grow}>
                   <AppText style={[styles.approvalTitle, { color: theme.cardForeground }]} numberOfLines={2}>
                     {approval.task.title}

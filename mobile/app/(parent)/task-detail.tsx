@@ -214,7 +214,7 @@ function AssignmentCard({
   return (
     <Card>
       <View style={styles.assignmentHeader}>
-        <Avatar seed={assignment.child.id} name={assignment.child.firstName} size={40} />
+        <Avatar seed={assignment.child.id} name={assignment.child.firstName} size={40} uri={assignment.child.avatarUrl} />
         <View style={styles.assignmentChild}>
           <AppText style={[styles.childName, { color: theme.cardForeground }]}>
             {assignment.child.firstName} {assignment.child.lastName}

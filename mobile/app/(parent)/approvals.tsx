@@ -124,7 +124,7 @@ function ApprovalRow({
   return (
     <Card>
       <View style={styles.childRow}>
-        <Avatar seed={item.child.id} name={item.child.firstName} size={40} />
+        <Avatar seed={item.child.id} name={item.child.firstName} size={40} uri={item.child.avatarUrl} />
         <View style={styles.grow}>
           <AppText style={[styles.childName, { color: theme.cardForeground }]}>{item.child.firstName}</AppText>
           {submitted ? (
