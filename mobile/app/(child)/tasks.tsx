@@ -634,7 +634,7 @@ export default function ChildTasks() {
               {completing?.task.title}
             </AppText>
             <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-              Add a note for your grown-up if you like.
+              Add a note for your parent or guardian if you like.
             </AppText>
             <Field
               label="Note (optional)"
@@ -653,7 +653,7 @@ export default function ChildTasks() {
                 <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
                   {photo
                     ? 'Photo ready to send.'
-                    : 'This one asks for a photo, so your grown-up can see it is done.'}
+                    : 'This one asks for a photo, so your parent or guardian can see it is done.'}
                 </AppText>
 
                 {photo && (
@@ -664,7 +664,7 @@ export default function ChildTasks() {
                   />
                 )}
 
-                <View style={styles.rowActions}>
+                <View style={styles.photoActions}>
                   <Button
                     label={photo ? 'Take a different one' : 'Take a photo'}
                     variant="soft"
@@ -719,6 +719,8 @@ const styles = StyleSheet.create({
   meta: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[1] },
   statusLine: { fontSize: fontSize.sm.fontSize, lineHeight: fontSize.sm.lineHeight, marginTop: spacing[2] },
   rowActions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
+  // Stacked, not a row: "Take a different one" and "Choose a photo" side by side ran off the sheet.
+  photoActions: { gap: spacing[2], marginTop: spacing[3] },
   photoBlock: { marginTop: spacing[3], gap: spacing[1] },
   // 4:3 rather than square: the picker no longer crops, so a portrait shot would otherwise be
   // squashed in the preview and look like the upload had damaged it.

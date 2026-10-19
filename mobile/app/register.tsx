@@ -190,7 +190,7 @@ export default function Register() {
         Create your family
       </AppText>
       <AppText style={[styles.body, { color: theme.mutedForeground }]}>
-        One account for the grown-ups. You can add children once you are in.
+        One account for parents and guardians. You can add children once you are in.
       </AppText>
 
       <Field
@@ -251,7 +251,7 @@ export default function Register() {
         onChange={setDateOfBirth}
         editable={!busy}
         error={fields.dateOfBirth}
-        hint={`TaskBuddy is for grown-ups aged ${MIN_PARENT_AGE_YEARS} and over.`}
+        hint={`TaskBuddy is for parents and guardians aged ${MIN_PARENT_AGE_YEARS} and over.`}
         // No lower bound: there is no maximum age to register. The cutoff is the whole rule.
         maximumDate={adultCutoff()}
       />

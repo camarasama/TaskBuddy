@@ -278,7 +278,7 @@ export default function ChildTaskDetailPage() {
           <BackLink />
           <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
             <h1 className="font-bold text-slate-900 mb-2">We couldn&apos;t find that task</h1>
-            <p className="text-slate-500 text-sm">A grown-up may have removed it.</p>
+            <p className="text-slate-500 text-sm">A parent or guardian may have removed it.</p>
           </div>
         </div>
       </ChildLayout>

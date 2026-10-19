@@ -394,7 +394,7 @@ export default function ChildRewards() {
               />
             )
           }
-          ListEmptyComponent={<EmptyState emoji="🎁" title="No rewards yet." message="Ask a grown-up to add some." />}
+          ListEmptyComponent={<EmptyState emoji="🎁" title="No rewards yet." message="Ask a parent or guardian to add some." />}
         />
       ) : (
         <FlatList
@@ -423,7 +423,7 @@ export default function ChildRewards() {
               Spend {confirming?.pointsCost} points?
             </AppText>
             <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
-              You&apos;ll get {confirming?.name} once a grown-up says yes. You can&apos;t undo this.
+              You&apos;ll get {confirming?.name} once a parent or guardian says yes. You can&apos;t undo this.
             </AppText>
             <AppText style={[styles.meta, { color: theme.mutedForeground }]}>
               You&apos;ll have {Math.max(0, pointsBalance - (confirming?.pointsCost ?? 0))} points
