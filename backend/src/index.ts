@@ -20,6 +20,8 @@ import { startAgingOutCron } from './jobs/agingOutCron';
 // M8 - Admin router mounted at /api/v1/admin
 import { adminRouter } from './routes/admin';
 import { adminTestersRouter } from './routes/adminTesters';
+import { adminInsightsRouter } from './routes/adminInsights';
+import { emailPreferencesRouter } from './routes/emailPreferences';
 import { adminGamesRouter } from './routes/adminGames';
 import { templatesRouter } from './routes/templates';
 import { streakShieldsRouter } from './routes/streakShields';
@@ -208,6 +210,8 @@ app.use('/api/v1/admin/games', adminGamesRouter);
 // Same reasoning as /games above: the more specific path mounts first, so this stays independent of
 // anything adminRouter might later match.
 app.use('/api/v1/admin/testers', adminTestersRouter);
+// Overview metrics + re-engagement controls. Before adminRouter; unmatched paths fall through to it.
+app.use('/api/v1/admin', adminInsightsRouter);
 app.use('/api/v1/admin', adminRouter);
 // M10 - Phase 4: Reports (parent + admin) and in-app notifications
 app.use('/api/v1/reports', reportsRouter);
@@ -217,6 +221,8 @@ app.use('/api/v1/templates', templatesRouter);
 app.use('/api/v1/streak-shields', streakShieldsRouter);
 // Growth roadmap §1 - digest open tracking. PUBLIC (email clients cannot auth); HMAC-signed URLs.
 app.use('/api/v1/track', trackRouter);
+// Public one-click unsubscribe for re-engagement email (HMAC-signed link).
+app.use('/api/v1/email', emailPreferencesRouter);
 // Growth roadmap §3.2 - COPPA verifiable parental consent. /verify is public (emailed link).
 app.use('/api/v1/consent', consentRouter);
 // Growth roadmap §3.2 - guided setup wizard state

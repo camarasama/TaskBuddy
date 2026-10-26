@@ -7,8 +7,8 @@
 > TaskBuddy is directed at children and is subject to COPPA (US), the GDPR including Art. 8 (EU), the
 > UK GDPR and Age Appropriate Design Code, and Ghana's Data Protection Act, 2012 (Act 843).
 
-**Version:** 1.4
-**Last updated:** 2026-10-09
+**Version:** 1.5
+**Last updated:** 2026-10-26
 **Provider:** Evolution Prime IT Ltd ("we", "us", "our")
 **Contact:** info@evolutionprimeit.com
 
@@ -70,6 +70,10 @@ We practise data minimisation: we collect only what the feature needs.
   opened, so we can tell whether the summary is useful. No third party is involved, and the record
   carries no email address or device details. Your email app may let you block remote images, which
   stops this.
+- **Activity dates.** We record when each account last used TaskBuddy, and on which days the family
+  used it. These are dates only, never what was done or seen. We use them for overall usage
+  statistics and to decide when a family may receive a reminder email (§4). They are deleted with
+  the account (§6).
 
 We do **not** collect precise geolocation, contacts, or biometric identifiers.
 
@@ -81,6 +85,7 @@ We do **not** collect precise geolocation, contacts, or biometric identifiers.
 | Security, fraud/abuse prevention, account lockout, audit logging | Legitimate interests (Art. 6(1)(f)), balanced against children's rights |
 | Transactional emails (verification, security, task/reward notices) | Contract / legitimate interests |
 | Product diagnostics and error monitoring | Legitimate interests, minimised and not used to profile children |
+| Occasional reminder emails to **parents** when the family has not used TaskBuddy for a while (at most four per quiet period, never to children) | Legitimate interests (Art. 6(1)(f)); every email has a one-click unsubscribe, and parents can switch them off under Settings > Notifications |
 
 We do **not** sell personal data, and we do **not** engage in behavioural advertising or
 profiling of children. We do not use children's data to nudge them toward purchases.

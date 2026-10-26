@@ -194,6 +194,7 @@ const PUBLIC_ENDPOINTS = [
   '/auth/child/pin-reset',
   '/auth/invite-preview',
   '/consent/verify',
+  '/email/unsubscribe',
   '/csrf',
 ];
 
@@ -202,7 +203,7 @@ function isPublicEndpoint(endpoint: string): boolean {
   return PUBLIC_ENDPOINTS.some((p) => path.startsWith(p));
 }
 
-async function request<T>(
+export async function request<T>(
   endpoint: string,
   options: RequestInit = {},
   /**

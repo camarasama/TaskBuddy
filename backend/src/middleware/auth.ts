@@ -7,6 +7,7 @@ import { isAccessDenied } from '../utils/accessDenylist';
 import type { UserRole } from '@taskbuddy/shared';
 // M8 - needed to check if a family is suspended before allowing access
 import { prisma } from '../services/database';
+import { ActivityService } from '../services/ActivityService';
 
 // Extend Express Request type
 declare global {
@@ -51,6 +52,10 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
     // Attach user info to request
     req.user = payload;
     req.familyId = payload.familyId;
+
+    // Admin insights: "active" means any authenticated use, not just a fresh login. Throttled and
+    // never awaited, so it adds no latency and cannot fail the request.
+    ActivityService.touch({ userId: payload.userId, familyId: payload.familyId, role: payload.role });
 
     next();
   } catch (error) {

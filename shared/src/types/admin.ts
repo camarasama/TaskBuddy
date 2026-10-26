@@ -50,6 +50,10 @@ export interface AdminFamilyMemberRow {
   isActive: boolean;
   isPrimaryParent: boolean;
   lastLoginAt: Date | null;
+  /** Last authenticated use (throttled). Moves for the mobile app, unlike lastLoginAt. */
+  lastActiveAt: Date | null;
+  /** Set when the parent clicked "stop tips and reminders". */
+  reengagementOptOutAt: Date | null;
   createdAt: Date;
   childProfile: {
     pointsBalance: number;
@@ -70,6 +74,10 @@ export interface AdminFamilyDetail {
   isSuspended: boolean;
   suspendedAt: Date | null;
   suspendedBy: string | null;
+  lastActiveAt: Date | null;
+  /** Excluded from admin KPIs and never sent re-engagement email. */
+  isTestAccount: boolean;
+  reengagementPausedAt: Date | null;
   settings: FamilySettings | null;
   users: AdminFamilyMemberRow[];
   _count: { tasks: number; rewards: number };

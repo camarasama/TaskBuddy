@@ -255,6 +255,8 @@ adminRouter.get('/families/:id', async (req, res, next) => {
             isActive: true,
             isPrimaryParent: true,
             lastLoginAt: true,
+            lastActiveAt: true,
+            reengagementOptOutAt: true,
             createdAt: true,
             childProfile: {
               select: {

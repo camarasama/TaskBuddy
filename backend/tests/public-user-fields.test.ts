@@ -21,6 +21,8 @@ const PUBLIC_USER_FIELDS = [
   'isPrimaryParent', 'dateOfBirth', 'phone', 'isActive', 'lastLoginAt', 'emailVerifiedAt',
   'mfaEnabledAt', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'schooltimeEnabled',
   'schooltimeStart', 'schooltimeEnd', 'schooltimeDays', 'createdAt', 'updatedAt', 'deletedAt',
+  // Admin insights: the user's own activity time and email choice. Not secrets, like lastLoginAt.
+  'lastActiveAt', 'reengagementOptOutAt',
 ];
 
 const PUBLIC_PROFILE_FIELDS = [

@@ -91,6 +91,8 @@ interface NotificationPreferences {
   weekly_digest: boolean;
   welcome: boolean;
   co_parent_invite: boolean;
+  /** Occasional "come back" emails when the family has been quiet. */
+  reengagement: boolean;
 }
 
 // Default: all notifications on - matches the schema default JSON
@@ -106,6 +108,7 @@ const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   weekly_digest: true,
   welcome: true,
   co_parent_invite: true,
+  reengagement: true,
 };
 
 interface ParentUser {
@@ -670,6 +673,12 @@ export default function ParentSettingsPage() {
               description="Invitation emails sent to adults you add to the family"
               checked={notificationPrefs.co_parent_invite}
               onChange={(v) => setNotificationPrefs({ ...notificationPrefs, co_parent_invite: v })}
+            />
+            <ToggleSetting
+              label="Tips and Reminders"
+              description="An occasional email with ideas to get going again when your family has not used TaskBuddy for a while"
+              checked={notificationPrefs.reengagement}
+              onChange={(v) => setNotificationPrefs({ ...notificationPrefs, reengagement: v })}
             />
           </div>
         </section>

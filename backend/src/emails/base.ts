@@ -37,6 +37,7 @@ import { buildTesterReminder } from './testerReminder';
 import { buildAdminCreated } from './adminCreated';
 import { buildAccountDeletionScheduled } from './accountDeletionScheduled';
 import { buildAccountDeletionCancelled } from './accountDeletionCancelled';
+import { buildReengagement } from './reengagement';
 
 // ─── Branding constants ───────────────────────────────────────────────────────
 
@@ -265,6 +266,8 @@ export async function renderTemplate(
       return buildTesterInvite(data as any);
     case 'tester_reminder':
       return buildTesterReminder(data as any);
+    case 'reengagement':
+      return buildReengagement(data as any);
     default:
       throw new Error(`[renderTemplate] Unknown triggerType: ${triggerType}`);
   }
