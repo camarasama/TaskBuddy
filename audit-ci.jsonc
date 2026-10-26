@@ -152,40 +152,10 @@
     // if it appears under @prisma/client, which would move it into the runtime path.
     "GHSA-ggr8-5vv4-36mx",
 
-    // DEP-12 — qs: DoS via attacker-controlled isBuffer (GHSA-4mjr-xmp4-gh2g, moderate, CVSS 5.3,
-    // CWE-248/703) and array-limit bypass via bracket-key comma parsing (GHSA-x5fp-wj9c-mxmx,
-    // moderate, CVSS 3.7, CWE-770). Range 2.2.5 - 6.15.3.
-    //
-    // ⚠️ RUNTIME-REACHABLE, and this entry does not pretend otherwise. express's default
-    // `query parser` is `extended`, which is qs, and this app does not override it — so every
-    // request's query string is parsed by the affected code. Allowlisted on impact, not on
-    // reachability.
-    //
-    // NO FIX REACHABLE: the patch is qs@6.16.0, but express@4.22.2 (the latest 4.x) and
-    // body-parser@1.20.6 both pin `qs: ~6.15.1`, which caps at 6.15.x. A root
-    // `overrides.qs: "^6.16.0"` was attempted on 2026-09-11 and npm declined to apply it: `npm ls`
-    // reported `qs@6.15.3 invalid: "^6.16.0" from node_modules/express`, and deleting the lockfile
-    // entry to force re-resolution made npm drop qs from the tree ENTIRELY rather than install
-    // 6.16.0 — which would break express at runtime. That is the third instance of this npm
-    // behaviour in this file (see DEP-09 uuid and DEP-11 deepmerge-ts). The override was therefore
-    // removed rather than left in place doing nothing.
-    //
-    // ACCEPTED, time-boxed, because the impact is bounded and already mitigated:
-    //   1. Both are resource-consumption bugs. Neither is RCE, neither discloses data, and the
-    //      worst case is CPU or memory burned on one request.
-    //   2. express-rate-limit is global (see backend/src/index.ts), so a single IP cannot sustain
-    //      the request volume the DoS needs.
-    //   3. Node's default 16KB max-http-header-size bounds a query string arriving in the request
-    //      line, and body-parser's own limits bound a urlencoded body.
-    //   4. CVSS 3.7 and 5.3. Both are below the severity at which this file's own header says an
-    //      entry must be re-triaged immediately.
-    //
-    // RE-TRIAGE: remove as soon as express ships a 4.x release depending on qs >= 6.16.0, or when
-    // this app moves to express 5 (whose dependency range should be checked at that time). Also
-    // re-examine immediately if either advisory is re-scored to high, since qs IS in the runtime
-    // path and the only thing keeping these entries acceptable is their impact.
-    "GHSA-4mjr-xmp4-gh2g",
-    "GHSA-x5fp-wj9c-mxmx",
+    // DEP-12 (qs GHSA-4mjr-xmp4-gh2g + GHSA-x5fp-wj9c-mxmx, runtime) REMOVED 2026-10-27: FIXED, not
+    // allowlisted. express 4.22.3 depends on qs ~6.16.0, the re-triage condition this entry named;
+    // backend bumped to express ^4.22.3 and every qs in the tree is now 6.16.1. If either advisory
+    // ever fails this gate again, a dependency has pulled an old qs back in: fix it, do not re-add.
 
     // DEP-13 — decode-uri-component: DoS via exponential decoding of a crafted URI
     // (GHSA-vcc3-ghjq-m6fr, moderate, range <=0.4.2). **This is the advisory that has been failing
