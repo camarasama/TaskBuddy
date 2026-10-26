@@ -75,31 +75,8 @@
     // The successor advisory GHSA-rgw5-rvv9-x895 ("bypassing the CVE-2026-14257 mitigation") is
     // cleared by the same versions and is likewise NOT allowlisted.
 
-    // DEP-09 — uuid: missing buffer bounds check in v3/v5/v6 when `buf` is provided (moderate,
-    // CVSS 7.5, CWE-787 out-of-bounds write). Range <11.1.1. Entered the tree 2026-07-28 with the
-    // mobile workspace:
-    //     mobile -> expo@57.0.8 -> @expo/config-plugins -> xcode@3.0.1 -> uuid@7.0.3
-    //
-    // NOT REACHABLE, for three independent reasons — any one would suffice:
-    //   1. WRONG CODE PATH. The advisory is specific to v3/v5/v6 called WITH a `buf` argument.
-    //      xcode calls `uuid.v4()` and nothing else (node_modules/xcode/lib/pbxProject.js:90,
-    //      its sole use), with no buffer. The vulnerable functions are never invoked.
-    //   2. BUILD-TIME ONLY. xcode manipulates .pbxproj files during `expo prebuild`. Metro
-    //      bundles only what app code imports, so it cannot reach the shipped app bundle, and it
-    //      is absent from the backend and web frontend entirely.
-    //   3. iOS ONLY, and iOS is out of scope until Android ships (see the mobile plan). Nothing
-    //      in the current pipeline — EAS Android builds included — executes it at all.
-    //
-    // NO FIX AVAILABLE: xcode@latest (3.0.1) still pins `uuid: ^7.0.3`; only unpublished
-    // nightlies exist beyond it. A root `overrides.uuid: ^11.1.1` was attempted on 2026-07-28 and
-    // npm declined to apply it to this transitive path even after deleting and regenerating
-    // package-lock.json — the tree still resolved uuid@7.0.3. npm's own suggested remedy is
-    // expo@46, an eleven-major DOWNGRADE from SDK 57. There is nothing to upgrade to.
-    //
-    // RE-TRIAGE: remove when xcode ships a release depending on uuid >= 11.1.1, or when Expo
-    // drops xcode from @expo/config-plugins. Re-examine immediately if uuid ever appears outside
-    // the xcode path — `npm ls uuid --all` showed exactly one consumer when this was triaged.
-    "GHSA-w5hq-g745-h8pq",
+    // DEP-09 (uuid GHSA-w5hq via xcode) REMOVED 2026-10-27: FIXED. @expo/config-plugins 57.0.11
+    // moved to xcode 4, which no longer depends on uuid. Mobile runtime fingerprint unchanged.
 
     // DEP-10 — image-size: infinite-loop DoS in the ICNS parser (GHSA-w3rx-r6r6-pgpr) and in the
     // JXL/HEIF parsers (GHSA-5p2g-fcmc-qvqq). Both high, range <=2.0.2. Surfaced 2026-08-07.
@@ -199,10 +176,7 @@
     // RE-TRIAGE: when node-forge > 1.4.0 ships, or if update code signing is ever turned on.
     "GHSA-86w9-cpqp-85rv",
 
-    // DEP-15 - sprintf-js DoS via unbounded precision (GHSA-hp3w-g68c-fv3c, moderate). TEST only:
-    // ts-jest / jest-expo -> babel-plugin-istanbul -> js-yaml@3 -> argparse -> sprintf-js, fed our
-    // own config. 1.1.3 is the latest release. RE-TRIAGE: when a patched release exists.
-    "GHSA-hp3w-g68c-fv3c",
+    // DEP-15 (sprintf-js GHSA-hp3w) REMOVED 2026-10-27: no longer in the tree.
 
     // DEP-16 - @opentelemetry/instrumentation-tedious exposes database use (GHSA-qqmp-wf37-98f9,
     // moderate). Pulled in by @sentry/node@9 as one of its bundled auto-instrumentations, but it only
@@ -210,15 +184,9 @@
     // Postgres via Prisma. Fix needs @sentry/node 10 (major). RE-TRIAGE: on the Sentry 10 upgrade.
     "GHSA-qqmp-wf37-98f9",
 
-    // DEP-17 - postcss-selector-parser quadratic parsing (GHSA-rj75-hqrm-r3gf, moderate). BUILD only:
-    // tailwindcss@3 parsing our own stylesheets at build time. Fix needs tailwindcss 4 (major).
-    // RE-TRIAGE: on the Tailwind 4 migration.
-    "GHSA-rj75-hqrm-r3gf",
+    // DEP-17 (postcss-selector-parser GHSA-rj75) REMOVED 2026-10-27: FIXED, 6.1.5 via `npm update`.
 
-    // DEP-18 - braces stack exhaustion on deeply nested patterns (GHSA-vfj7-8cjw-p6xm, high).
-    // DEV/BUILD globbing only (jest, metro, tailwind's chokidar, eslint's fast-glob), always on
-    // patterns we write. 3.0.3 is the latest braces. RE-TRIAGE: when a patched braces ships.
-    "GHSA-vfj7-8cjw-p6xm",
+    // DEP-18 (braces GHSA-vfj7) REMOVED 2026-10-27: no longer in the tree.
 
     // DEP-19 - zod memory exhaustion on large arrays (GHSA-mrhx-c7xc-m3w5, high). RUNTIME: zod 3
     // validates every request body. NO COMPATIBLE FIX: patched only in zod >= 4.6.6, and the last
