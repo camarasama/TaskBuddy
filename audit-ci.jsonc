@@ -248,7 +248,15 @@
     // DEP-18 - braces stack exhaustion on deeply nested patterns (GHSA-vfj7-8cjw-p6xm, high).
     // DEV/BUILD globbing only (jest, metro, tailwind's chokidar, eslint's fast-glob), always on
     // patterns we write. 3.0.3 is the latest braces. RE-TRIAGE: when a patched braces ships.
-    "GHSA-vfj7-8cjw-p6xm"
+    "GHSA-vfj7-8cjw-p6xm",
+
+    // DEP-19 - zod memory exhaustion on large arrays (GHSA-mrhx-c7xc-m3w5, high). RUNTIME: zod 3
+    // validates every request body. NO COMPATIBLE FIX: patched only in zod >= 4.6.6, and the last
+    // zod 3 is 3.25.76; moving to zod 4 is a cross-app migration.
+    // ACCEPTED RISK (owner-approved 2026-10-26), mitigated by: the only unbounded API array
+    // (tasks assignedTo) is now capped at 20, JSON and form bodies are limited to 50 KB, and
+    // global rate limiting. RE-TRIAGE: remove on the zod 4 migration (see the package upgrade plan).
+    "GHSA-mrhx-c7xc-m3w5"
 
     // nanoid (GHSA-2v37-7h3g-55p8, high, <3.3.17) surfaced alongside DEP-10 and is deliberately
     // NOT here — it was FIXED. `npm update nanoid` took the tree to 3.3.18. It was runtime-reachable

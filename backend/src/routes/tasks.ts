@@ -76,7 +76,9 @@ const createTaskSchema = z.object({
   recurrencePattern: z.string().optional(),
   recurrenceConfig: z.record(z.unknown()).optional(),
   // Make assignedTo optional - parents can create unassigned tasks
-  assignedTo: z.array(z.string().uuid()).optional().default([]),
+  // Capped (GHSA-mrhx-c7xc-m3w5): zod 3 collects one issue per bad element of an unbounded array,
+  // so a huge array could exhaust memory. 20 matches the per-family child limit used elsewhere.
+  assignedTo: z.array(z.string().uuid()).max(20).optional().default([]),
   // How many different children can claim this task from the pool (null = unlimited)
   maxClaimsTotal: z.number().int().min(1).max(100).nullable().optional(),
   // U17 — team-up tasks. The bonus is ON TOP of each member's full base points, never a split.
