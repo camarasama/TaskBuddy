@@ -20,6 +20,7 @@ import { RetentionService } from './RetentionService';
 import { prisma } from './database';
 import { createNotification } from '../routes/notifications';
 import { EmailService } from './email';
+import { ReengagementService } from './ReengagementService';
 
 // Reminder thresholds in minutes - checked every 5 min
 const REMINDER_THRESHOLDS: Array<{ label: string; minutes: number }> = [
@@ -284,8 +285,25 @@ export function initScheduler(): void {
     }
   }, { timezone: 'UTC' });
 
+  // ─── Daily re-engagement emails (17:00 UTC) ───────────────────────────────
+  // Fixed UTC because FamilySettings.timezone is not reliably populated (see digestCron). 17:00 UTC
+  // is early evening across Europe and West Africa. Honors the admin's global pause.
+  cron.schedule('0 17 * * *', async () => {
+    try {
+      const r = await ReengagementService.runDaily();
+      console.log(
+        r.paused
+          ? '[Scheduler] Re-engagement paused by admin; nothing sent'
+          : `[Scheduler] Re-engagement: ${r.sent} sent of ${r.considered} eligible families`,
+      );
+    } catch (error) {
+      console.error('[Scheduler] Error in re-engagement run:', error);
+    }
+  }, { timezone: 'UTC' });
+
   console.log('[Scheduler] Cron jobs registered:');
   console.log('  00:05 UTC - Reward expiry & sold-out deactivation (M6)');
   console.log('  0 * * * * - Due-date enforcement: expire/warn/archive (hourly)');
   console.log('  */5  UTC - Task expiry reminders: 24h/12h/6h/3h/1h/30min/15min/5min');
+  console.log('  17:00 UTC - Re-engagement emails (setup + lapsed tracks)');
 }

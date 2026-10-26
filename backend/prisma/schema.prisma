@@ -33,9 +33,19 @@ model Family {
   isSuspended        Boolean   @default(false) @map("is_suspended")
   suspendedAt        DateTime? @map("suspended_at")
   suspendedBy        String?   @map("suspended_by")
+  /// Admin insights: the last time anyone in the family used the app (any authenticated request).
+  /// Written by ActivityService, throttled, so it can lag by a few minutes. Drives the lifecycle stage.
+  lastActiveAt         DateTime? @map("last_active_at")
+  /// A tester or internal family. Excluded from every admin KPI by default and never sent
+  /// re-engagement email. Set from the admin family page.
+  isTestAccount        Boolean   @default(false) @map("is_test_account")
+  /// An admin paused the re-engagement emails for this family. Null = not paused.
+  reengagementPausedAt DateTime? @map("reengagement_paused_at")
 
   // Relations
   users                User[]
+  activityDays         FamilyActivityDay[]
+  reengagementEmails   ReengagementEmail[]
   parentalConsent      ParentalConsent?
   taskTemplates        TaskTemplate[]
   tasks                Task[]
@@ -73,6 +83,11 @@ model User {
   failedLoginAttempts        Int       @default(0) @map("failed_login_attempts")
   lastFailedLoginAt          DateTime? @map("last_failed_login_at")
   lastLoginAt                DateTime? @map("last_login_at")
+  /// Last authenticated request by this user (throttled). Unlike lastLoginAt it moves for the mobile
+  /// app, which stays signed in for months.
+  lastActiveAt               DateTime? @map("last_active_at")
+  /// The parent clicked "stop tips and reminders". Re-engagement email is never sent to them again.
+  reengagementOptOutAt       DateTime? @map("reengagement_opt_out_at")
   emailVerifiedAt            DateTime? @map("email_verified_at")
   emailVerificationToken     String?   @unique @map("email_verification_token")
   emailVerificationExpiresAt DateTime? @map("email_verification_expires_at")
@@ -1294,4 +1309,56 @@ model ExpoPushToken {
 
   @@index([userId])
   @@map("expo_push_tokens")
+}
+
+/// One row per family per UTC day on which anyone in it used the app. The history behind daily,
+/// weekly and monthly active families and the cohort retention grid. Ids only, no content.
+/// Cascades with the family, so the retention purge erases it with everything else.
+model FamilyActivityDay {
+  familyId String   @map("family_id")
+  day      DateTime @db.Date
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@id([familyId, day])
+  @@index([day])
+  @@map("family_activity_days")
+}
+
+/// One re-engagement email step sent to a family (all its eligible parents at once).
+///
+/// `anchorAt` is the moment the episode counts from: signup for the `setup` track, the last activity
+/// before the silence for the `lapsed` track. Unique with track and step, so a step can go out once
+/// per episode, and a family that comes back and goes quiet again starts a fresh lapsed episode.
+model ReengagementEmail {
+  id         String    @id @default(uuid())
+  familyId   String    @map("family_id")
+  /// 'setup' | 'lapsed'
+  track      String
+  /// 1..4; 4 is the last email of either track.
+  step       Int
+  anchorAt   DateTime  @map("anchor_at")
+  sentAt     DateTime  @default(now()) @map("sent_at")
+  /// How many parents it reached.
+  recipients Int
+  /// The admin who pressed "send next now". Null when the daily job sent it.
+  sentBy     String?   @map("sent_by")
+  /// First activity in the family within 7 days after this email. Set by ActivityService.
+  returnedAt DateTime? @map("returned_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, track, anchorAt, step])
+  @@index([sentAt])
+  @@map("reengagement_emails")
+}
+
+/// Small platform-wide switches an admin can flip without a deploy (e.g. pausing re-engagement).
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
 }

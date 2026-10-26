@@ -135,6 +135,13 @@ const updateChildSchema = z.object({
   schooltimeDays: z.array(z.number().int().min(1).max(7)).max(7).optional(),
 });
 
+/** Email types a parent can switch off. Transactional mail (verification, resets, consent) is not here. */
+const NOTIFICATION_PREFERENCE_KEYS = [
+  'task_submitted', 'task_approved', 'task_rejected', 'task_expiring', 'task_expired',
+  'reward_redeemed', 'level_up', 'streak_at_risk', 'weekly_digest', 'welcome', 'co_parent_invite',
+  'reengagement',
+] as const;
+
 const updateSettingsSchema = z.object({
   autoApproveRecurringTasks: z.boolean().optional(),
   enableDailyChallenges: z.boolean().optional(),
@@ -143,6 +150,14 @@ const updateSettingsSchema = z.object({
   theme: z.string().optional(),
   language: z.string().optional(),
   timezone: z.string().optional(),
+  /**
+   * Per-family email switches. Missing from this schema until 2026-10-26, so zod stripped it and
+   * every toggle a parent turned off on the web was silently discarded. Only known email types are
+   * accepted, and the update MERGES into what is stored (see the PUT handler).
+   */
+  notificationPreferences: z
+    .record(z.enum(NOTIFICATION_PREFERENCE_KEYS), z.boolean())
+    .optional(),
 });
 
 const updateFamilySchema = z.object({
@@ -1193,12 +1208,23 @@ familyRouter.get('/me/settings', async (req, res, next) => {
 // PUT /families/me/settings - Update family settings
 familyRouter.put('/me/settings', requireParent, validateBody(updateSettingsSchema), async (req, res, next) => {
   try {
+    const body = { ...req.body } as z.infer<typeof updateSettingsSchema> & { notificationPreferences?: Record<string, boolean> };
+    if (body.notificationPreferences) {
+      const current = await prisma.familySettings.findUnique({
+        where: { familyId: req.familyId },
+        select: { notificationPreferences: true },
+      });
+      body.notificationPreferences = {
+        ...((current?.notificationPreferences as Record<string, boolean> | null) ?? {}),
+        ...body.notificationPreferences,
+      };
+    }
     const settings = await prisma.familySettings.upsert({
       where: { familyId: req.familyId },
-      update: req.body,
+      update: body,
       create: {
         familyId: req.familyId!,
-        ...req.body,
+        ...body,
       },
     });
 

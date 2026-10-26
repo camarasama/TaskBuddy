@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { adminInsightsApi } from '@/lib/adminInsightsApi';
 
 interface Member {
   id: string;
@@ -24,6 +25,8 @@ interface Member {
   isActive: boolean;
   isPrimaryParent: boolean;
   lastLoginAt: Date | null;
+  lastActiveAt: Date | null;
+  reengagementOptOutAt: Date | null;
   createdAt: Date;
   childProfile: {
     pointsBalance: number;
@@ -40,6 +43,9 @@ interface FamilyDetail {
   isSuspended: boolean;
   suspendedAt: Date | null;
   createdAt: Date;
+  lastActiveAt: Date | null;
+  isTestAccount: boolean;
+  reengagementPausedAt: Date | null;
   users: Member[];
   settings: { timezone: string; language: string } | null;
   _count: { tasks: number; rewards: number };
@@ -104,6 +110,17 @@ export default function AdminFamilyDetailPage({ params }: { params: Promise<{ id
       await adminApi.reactivateFamily(familyId);
       if (familyId) load(familyId);
     } catch { setError('Failed to reactivate family.'); }
+    finally { setActionLoading(false); }
+  }
+
+  async function handleToggle(kind: 'test' | 'pause') {
+    if (!family || !familyId) return;
+    setActionLoading(true);
+    try {
+      if (kind === 'test') await adminInsightsApi.setTestAccount(familyId, !family.isTestAccount);
+      else await adminInsightsApi.setFamilyPause(familyId, !family.reengagementPausedAt);
+      load(familyId);
+    } catch { setError('Failed to update the family.'); }
     finally { setActionLoading(false); }
   }
 
@@ -197,6 +214,42 @@ export default function AdminFamilyDetailPage({ params }: { params: Promise<{ id
         )}
       </div>
 
+      {/* Insights + re-engagement controls */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 grid gap-4 sm:grid-cols-3">
+        <div>
+          <div className="text-xs text-slate-500">Last active</div>
+          <div className="text-sm font-semibold text-slate-800 mt-0.5">
+            {family.lastActiveAt ? formatDate(family.lastActiveAt) : 'No activity recorded'}
+          </div>
+        </div>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={family.isTestAccount}
+            disabled={actionLoading}
+            onChange={() => handleToggle('test')}
+            className="mt-0.5 w-[18px] h-[18px] accent-[#0066CC]"
+          />
+          <span>
+            <span className="font-medium text-slate-800">Test account</span>
+            <span className="block text-xs text-slate-500">Left out of the Overview numbers and never sent reminder emails.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={!!family.reengagementPausedAt}
+            disabled={actionLoading}
+            onChange={() => handleToggle('pause')}
+            className="mt-0.5 w-[18px] h-[18px] accent-[#0066CC]"
+          />
+          <span>
+            <span className="font-medium text-slate-800">Pause reminder emails</span>
+            <span className="block text-xs text-slate-500">Stops the re-engagement sequence for this family only.</span>
+          </span>
+        </label>
+      </div>
+
       {/* Parents */}
       <MemberSection title={`Parents (${parents.length})`} members={parents} />
 
@@ -232,6 +285,7 @@ function MemberSection({
               {showChildStats && <th className="text-left px-5 py-2 font-medium">Points</th>}
               {showChildStats && <th className="text-left px-5 py-2 font-medium">Tasks Done</th>}
               <th className="text-left px-5 py-2 font-medium">Last Login</th>
+              <th className="text-left px-5 py-2 font-medium">Last Active</th>
               <th className="text-left px-5 py-2 font-medium">Status</th>
             </tr>
           </thead>
@@ -256,6 +310,10 @@ function MemberSection({
                 )}
                 <td className="px-5 py-2.5 text-slate-400 text-xs">
                   {m.lastLoginAt ? formatDate(m.lastLoginAt) : 'Never'}
+                </td>
+                <td className="px-5 py-2.5 text-slate-400 text-xs">
+                  {m.lastActiveAt ? formatDate(m.lastActiveAt) : 'Never'}
+                  {m.reengagementOptOutAt && <span className="block text-[11px] text-slate-500">Unsubscribed from reminders</span>}
                 </td>
                 <td className="px-5 py-2.5">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${m.isActive ? 'text-green-700 bg-green-50' : 'text-slate-500 bg-slate-100'}`}>

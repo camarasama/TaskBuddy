@@ -56,7 +56,9 @@ export type EmailTriggerType =
   | 'parental_consent_recorded'
   | 'aging_out'
   | 'tester_invite'
-  | 'tester_reminder';
+  | 'tester_reminder'
+  // Admin insights: the "come back" sequence for quiet families. Lifecycle, so it is frequency-capped.
+  | 'reengagement';
 
 // ─── Input types ─────────────────────────────────────────────────────────────
 
@@ -72,7 +74,12 @@ export interface SendEmailInput {
   /** Skip the notificationPreferences check (used for invite emails where
    *  the invitee has no family record yet) */
   skipPreferenceCheck?: boolean;
+  /** Extra mail headers, e.g. List-Unsubscribe. Values must not contain line breaks. */
+  headers?: Record<string, string>;
 }
+
+/** 'suppressed' = a family preference or the frequency cap stopped it. Failures throw. */
+export type SendResult = 'sent' | 'suppressed';
 
 export interface SendToParentsInput {
   familyId: string;
@@ -175,7 +182,7 @@ export class EmailService {
    * renders the HTML template, attempts delivery with retries,
    * and records the result in email_logs.
    */
-  static async send(input: SendEmailInput): Promise<void> {
+  static async send(input: SendEmailInput): Promise<SendResult> {
     const {
       triggerType,
       toEmail,
@@ -186,6 +193,7 @@ export class EmailService {
       referenceType,
       referenceId,
       skipPreferenceCheck = false,
+      headers,
     } = input;
     // Subjects interpolate names people typed (family, child, inviter). A line break there must not
     // reach the header, whatever the transport does with it.
@@ -199,7 +207,7 @@ export class EmailService {
         console.log(
           `[EmailService] ${triggerType} suppressed by family prefs (familyId=${familyId})`,
         );
-        return;
+        return 'suppressed';
       }
     }
 
@@ -214,7 +222,7 @@ export class EmailService {
       console.log(
         `[EmailService] ${triggerType} suppressed by frequency cap for user ${toUserId} — ${cap.reason}`,
       );
-      return;
+      return 'suppressed';
     }
 
     // 2. Render HTML
@@ -240,6 +248,13 @@ export class EmailService {
           to: toEmail,
           subject,
           html,
+          ...(headers
+            ? {
+                headers: Object.fromEntries(
+                  Object.entries(headers).map(([k, v]) => [k, v.replace(/[\r\n]+/g, ' ')]),
+                ),
+              }
+            : {}),
         });
         sent = true;
         break;
@@ -273,6 +288,7 @@ export class EmailService {
     if (!sent) {
       throw lastError;
     }
+    return 'sent';
   }
 
   /**
