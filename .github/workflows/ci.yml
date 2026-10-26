@@ -41,3 +41,7 @@ jobs:
         # Fails on NEW moderate+ advisories; known dev/build-only ones are
         # allowlisted in ./audit-ci.jsonc (see security_assessment.md § Dependency Audit).
         run: npx --yes audit-ci@^7 --config ./audit-ci.jsonc
+      - name: Prerelease-version check
+        # npm audit cannot match advisories to tagged versions like 1.4.5-lts.2 (how multer hid
+        # ~8 high DoS advisories). Fails on any NEW non-dev tagged version; see the script.
+        run: node scripts/check-prerelease-deps.mjs
