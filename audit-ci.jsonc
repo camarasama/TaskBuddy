@@ -18,9 +18,9 @@
 // ^0.35.3 in backend + frontend, with a root `overrides.sharp` so next's optional copy
 // collapses to the patched version too. sharp decodes untrusted child-uploaded evidence
 // photos (backend/src/services/storage.ts) — runtime-reachable, so it must be patched,
-// never ignored. DEP-06 (GHSA-8988, otel baggage) is a RUNTIME advisory
-// that IS allowlisted as a time-boxed, owner-approved risk acceptance because no
-// compatible fix exists yet (details by its allowlist entry below).
+// never ignored. DEP-06 (GHSA-8988, otel baggage) was a runtime risk acceptance until
+// @sentry/node 10 fixed it (2026-10-27). The one runtime acceptance left is DEP-19 (zod),
+// owner-approved and time-boxed to the zod 4 migration (details by its entry below).
 //
 // RE-TRIAGE: remove an entry here when a non-downgrade patch lands upstream, or
 // when an advisory escalates to critical / moves into the runtime path. Keep
@@ -51,17 +51,8 @@
     // appears in `npm audit`, so the entry was dead. A dead entry is not harmless: it would
     // silently suppress the same advisory if a future dependency reintroduced it.
 
-    // DEP-06 — @opentelemetry/core: unbounded memory allocation in W3C Baggage propagation
-    // (moderate, CVSS 5.3, CWE-770). RUNTIME advisory, transitive via
-    // @sentry/node@9.47.1 -> bundled @opentelemetry/* -> @opentelemetry/core@1.30.1 (A4).
-    // NO COMPATIBLE FIX: the patch is only in @opentelemetry/core >= 2.8.0 (a major bump);
-    // Sentry 9.47.1 pins otel core ^1.30.1 across its 1.x SDK packages, and there is no 1.x
-    // backport, so forcing 2.8.0 would break Sentry's runtime.
-    // ACCEPTED RISK (owner-approved 2026-07-01), mitigated by: Node's default 16KB
-    // max-http-header-size bounding the `baggage` header, Cloudflare in front, global rate
-    // limiting, and tracesSampleRate=0. RE-TRIAGE: remove when @sentry/node depends on
-    // @opentelemetry/core >= 2.8.0. See security_assessment.md § Dependency Audit.
-    "GHSA-8988-4f7v-96qf",
+    // DEP-06 (@opentelemetry/core baggage, GHSA-8988, runtime) REMOVED 2026-10-27: FIXED by
+    // @sentry/node 10.76.2, which brings @opentelemetry/core 2.12.0.
 
     // DEP-08 (brace-expansion DoS, GHSA-mh99-v99m-4gvg) REMOVED 2026-08-05 — FIXED, not
     // allowlisted. The entry's own re-triage condition was "remove as soon as a patched
@@ -178,11 +169,7 @@
 
     // DEP-15 (sprintf-js GHSA-hp3w) REMOVED 2026-10-27: no longer in the tree.
 
-    // DEP-16 - @opentelemetry/instrumentation-tedious exposes database use (GHSA-qqmp-wf37-98f9,
-    // moderate). Pulled in by @sentry/node@9 as one of its bundled auto-instrumentations, but it only
-    // activates when the `tedious` (MS SQL) driver is loaded, and `npm ls tedious` is empty: we run
-    // Postgres via Prisma. Fix needs @sentry/node 10 (major). RE-TRIAGE: on the Sentry 10 upgrade.
-    "GHSA-qqmp-wf37-98f9",
+    // DEP-16 (otel instrumentation db.user, GHSA-qqmp) REMOVED 2026-10-27: FIXED by @sentry/node 10.
 
     // DEP-17 (postcss-selector-parser GHSA-rj75) REMOVED 2026-10-27: FIXED, 6.1.5 via `npm update`.
 
