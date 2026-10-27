@@ -19,8 +19,8 @@
 // collapses to the patched version too. sharp decodes untrusted child-uploaded evidence
 // photos (backend/src/services/storage.ts) — runtime-reachable, so it must be patched,
 // never ignored. DEP-06 (GHSA-8988, otel baggage) was a runtime risk acceptance until
-// @sentry/node 10 fixed it (2026-10-27). The one runtime acceptance left is DEP-19 (zod),
-// owner-approved and time-boxed to the zod 4 migration (details by its entry below).
+// @sentry/node 10 fixed it (2026-10-27). No runtime acceptance is left: DEP-19 (zod) became
+// build-tooling only when backend and web moved to zod 4 (details by its entry below).
 //
 // RE-TRIAGE: remove an entry here when a non-downgrade patch lands upstream, or
 // when an advisory escalates to critical / moves into the runtime path. Keep
