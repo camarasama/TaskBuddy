@@ -74,7 +74,7 @@ function VerifyEmailInner() {
   if (status === 'error') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 max-w-md w-full text-center">
+        <div className="bg-white rounded-2xl p-8 shadow-xs border border-slate-200 max-w-md w-full text-center">
           <AlertCircle className="w-14 h-14 text-red-400 mx-auto mb-4" />
           <h1 className="font-display text-2xl font-bold text-slate-900 mb-2">Link expired</h1>
           <p className="text-slate-600 mb-6">
@@ -95,7 +95,7 @@ function VerifyEmailInner() {
   // Default: no token - show "check your inbox" screen
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 max-w-md w-full text-center">
+      <div className="bg-white rounded-2xl p-8 shadow-xs border border-slate-200 max-w-md w-full text-center">
         <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
           <Mail className="w-8 h-8 text-primary-600" />
         </div>

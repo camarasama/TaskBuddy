@@ -33,7 +33,7 @@ const fontSizeScale: Record<string, [string, { lineHeight: string }]> = Object.f
 );
 
 const config: Config = {
-  darkMode: ['class'],
+  // darkMode now lives in src/styles/globals.css (`@custom-variant dark`), the Tailwind 4 way.
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',

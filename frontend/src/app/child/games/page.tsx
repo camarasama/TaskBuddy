@@ -127,7 +127,7 @@ export default function GamesLobbyPage() {
             <ChevronLeft className="w-5 h-5 text-slate-600" />
           </button>
         ) : (
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-xp-400 to-gold-500 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-xp-400 to-gold-500 flex items-center justify-center">
             <Gamepad2 className="w-6 h-6 text-white" />
           </div>
         )}
@@ -188,7 +188,7 @@ export default function GamesLobbyPage() {
                   disabled={empty}
                   onClick={() => setChosen(category)}
                   className={cn(
-                    'text-left bg-white rounded-2xl p-4 border shadow-sm transition-all',
+                    'text-left bg-white rounded-2xl p-4 border shadow-xs transition-all',
                     empty && 'opacity-50 cursor-not-allowed border-slate-200',
                     !empty && onCooldown && 'border-slate-200 opacity-70',
                     !empty && !onCooldown && 'border-gold-200 hover:border-gold-400',
@@ -243,7 +243,7 @@ export default function GamesLobbyPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={cn(
-                    'bg-white rounded-2xl p-5 border shadow-sm transition-all',
+                    'bg-white rounded-2xl p-5 border shadow-xs transition-all',
                     game.onCooldown ? 'border-slate-200 opacity-70' : 'border-gold-200 hover:border-gold-400',
                   )}
                 >

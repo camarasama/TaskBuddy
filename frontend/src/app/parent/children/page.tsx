@@ -187,7 +187,7 @@ function ChildCard({
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-xl overflow-hidden">
+          <div className="w-14 h-14 rounded-full bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-xl overflow-hidden">
             {child.avatarUrl ? (
               <img referrerPolicy="no-referrer" src={child.avatarUrl} alt={child.firstName} className="w-full h-full object-cover" />
             ) : (
@@ -383,7 +383,7 @@ function ChildModal({
               Gender <span className="text-slate-400">(optional)</span>
             </label>
             <select
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
               value={formData.gender}
               onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
             >

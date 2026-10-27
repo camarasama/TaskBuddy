@@ -69,14 +69,14 @@ export default function EngagementStreakReport({ childId, startDate, endDate }: 
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-4">
         {[{ label: 'Avg Current Streak', value: `${report.summary.averageStreak}d` }, { label: 'Longest Streak', value: `${report.summary.maxStreak}d` }, { label: 'Active Children', value: report.summary.totalActiveChildren }].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs text-center">
             <div className="text-2xl font-bold text-indigo-600">{s.value}</div>
             <div className="text-xs text-gray-500 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
       {report.rows.map((child) => (
-        <div key={child.childId} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div key={child.childId} className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <div><h3 className="text-sm font-semibold text-gray-800">{child.childName}</h3><p className="text-xs text-gray-500 mt-0.5">🔥 {child.currentStreak}d streak · 🏆 {child.longestStreak}d best · ✓ {child.totalTasksCompleted} total</p></div>
             <div className="text-right"><div className="text-sm font-bold text-indigo-600">{child.primaryAdherenceRate}%</div><div className="text-xs text-gray-500">primary adherence</div></div>
@@ -86,12 +86,12 @@ export default function EngagementStreakReport({ childId, startDate, endDate }: 
         </div>
       ))}
       {streakData.length > 1 && (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Streak Comparison</h3>
           <ResponsiveContainer width="100%" height={200}><BarChart data={streakData}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" /><XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="current" fill="#6366f1" name="Current Streak (days)" radius={[4, 4, 0, 0]} /><Bar dataKey="longest" fill="#c7d2fe" name="Longest Streak (days)" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>
         </div>
       )}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Primary Task Adherence %</h3>
         <ResponsiveContainer width="100%" height={180}><BarChart data={adherenceData}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" /><XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} /><Tooltip formatter={(v) => `${v}%`} /><Bar dataKey="adherence" fill="#22c55e" radius={[4, 4, 0, 0]} name="Adherence %" /></BarChart></ResponsiveContainer>
       </div>

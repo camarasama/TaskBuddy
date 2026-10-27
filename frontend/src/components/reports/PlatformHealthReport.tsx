@@ -50,13 +50,13 @@ export default function PlatformHealthReport() {
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-4">
         {activityData.map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs text-center">
             <div className="text-2xl font-bold text-indigo-600">{s.value}</div>
             <div className="text-xs text-gray-500 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Platform Users</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[{ label: 'Families', value: report.userStats.totalFamilies }, { label: 'Parents', value: report.userStats.totalParents }, { label: 'Children', value: report.userStats.totalChildren }, { label: 'New Families (month)', value: report.userStats.newFamiliesThisMonth }].map((s) => (
@@ -68,7 +68,7 @@ export default function PlatformHealthReport() {
         </div>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Co-Parent Adoption</h3>
           <div className="space-y-2 text-sm">
             {[['Invites Sent', report.coParentStats.totalInvitesSent], ['Accepted', report.coParentStats.totalInvitesAccepted], ['Cancelled', report.coParentStats.totalInvitesCancelled]].map(([label, val]) => (
@@ -82,7 +82,7 @@ export default function PlatformHealthReport() {
             </div>
           )}
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Task Activity</h3>
           <div className="space-y-3">
             {[{ label: 'Tasks Created', value: report.taskStats.totalTasksCreated }, { label: 'Assignments Approved', value: report.taskStats.totalAssignmentsApproved }, { label: 'Avg Approval Time', value: `${report.taskStats.averageApprovalTimeHours}h` }, { label: 'Active Families (week)', value: report.userStats.activeFamiliesThisWeek }].map((s) => (

@@ -373,7 +373,7 @@ export default function ChildDashboardPage() {
             Hey {user?.firstName}! 👋
           </h1>
           {streakDays > 0 && (
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-full font-bold">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-linear-to-r from-orange-400 to-red-500 text-white rounded-full font-bold">
               <span className="text-xl">🔥</span>
               <span>{streakDays} day streak!</span>
             </div>
@@ -395,7 +395,7 @@ export default function ChildDashboardPage() {
             any day, because hiding a child's own summary of their own week would be odd. */}
         {isRecapWeekend && (
           <Link href="/child/recap" className="block">
-            <div className="rounded-2xl bg-gradient-to-br from-primary-500 to-indigo-600 text-white p-5 shadow-lg">
+            <div className="rounded-2xl bg-linear-to-br from-primary-500 to-indigo-600 text-white p-5 shadow-lg">
               <p className="font-display font-bold text-lg">Your week is ready 🎉</p>
               <p className="text-white/85 text-sm mt-0.5">
                 See what you got done. Tap to flip through.
@@ -418,7 +418,7 @@ export default function ChildDashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="bg-gradient-to-br from-gold-400 to-gold-600 rounded-2xl p-5 text-white shadow-lg shadow-gold-500/30"
+            className="bg-linear-to-br from-gold-400 to-gold-600 rounded-2xl p-5 text-white shadow-lg shadow-gold-500/30"
           >
             <div className="flex items-center gap-2 mb-2">
               <Trophy className="w-5 h-5 opacity-90" />
@@ -437,7 +437,7 @@ export default function ChildDashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-gradient-to-br from-xp-500 to-xp-700 rounded-2xl p-5 text-white shadow-lg shadow-xp-500/30"
+            className="bg-linear-to-br from-xp-500 to-xp-700 rounded-2xl p-5 text-white shadow-lg shadow-xp-500/30"
           >
             <div className="flex items-center gap-2 mb-2">
               <Zap className="w-5 h-5 opacity-90" />
@@ -464,7 +464,7 @@ export default function ChildDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-gradient-to-br from-xp-500 to-xp-700 rounded-2xl p-6 text-white shadow-lg shadow-xp-500/30"
+          className="bg-linear-to-br from-xp-500 to-xp-700 rounded-2xl p-6 text-white shadow-lg shadow-xp-500/30"
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -507,7 +507,7 @@ export default function ChildDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200"
+          className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200"
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-bold text-lg text-slate-900">
@@ -580,7 +580,7 @@ export default function ChildDashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-gradient-to-br from-gold-400 to-gold-600 rounded-2xl p-6 text-white shadow-lg shadow-gold-500/30"
+            className="bg-linear-to-br from-gold-400 to-gold-600 rounded-2xl p-6 text-white shadow-lg shadow-gold-500/30"
           >
             <div className="flex items-center gap-2 mb-3">
               <Star className="w-5 h-5" />
@@ -606,7 +606,7 @@ export default function ChildDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200"
+          className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200"
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-bold text-lg text-slate-900">
@@ -647,7 +647,7 @@ export default function ChildDashboardPage() {
             transition={{ delay: 0.5 }}
           >
             <Link href="/child/rewards">
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:border-xp-300 transition-colors">
+              <div className="bg-white rounded-2xl p-5 shadow-xs border border-slate-200 hover:border-xp-300 transition-colors">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-xl bg-xp-100 flex items-center justify-center">
                     <Gift className="w-7 h-7 text-xp-600" />
@@ -675,7 +675,7 @@ export default function ChildDashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200"
+            className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200"
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-display font-bold text-lg text-slate-900">
@@ -689,9 +689,9 @@ export default function ChildDashboardPage() {
               {dashboardData.recentAchievements.map((item, index) => (
                 <div
                   key={item.achievement?.id || index}
-                  className="flex-shrink-0 w-20 text-center"
+                  className="shrink-0 w-20 text-center"
                 >
-                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-2xl mb-2 shadow-lg shadow-gold-500/30">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-linear-to-br from-gold-400 to-gold-600 flex items-center justify-center text-2xl mb-2 shadow-lg shadow-gold-500/30">
                     <Trophy className="w-8 h-8 text-white" />
                   </div>
                   <p className="text-xs font-medium text-slate-900 truncate">
@@ -725,7 +725,7 @@ function TaskPreviewCard({ item }: { item: TaskAssignment }) {
     <Link href={href}>
       <div
         className={cn(
-          'flex items-center gap-4 p-4 rounded-xl transition-all shadow-sm',
+          'flex items-center gap-4 p-4 rounded-xl transition-all shadow-xs',
           isCompleted
             ? 'bg-success-50 border border-success-200'
             : isPending

@@ -127,7 +127,7 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
           { label: 'On-time rate', value: `${summary.onTimeRate}%` },
           { label: 'Anomalies', value: summary.anomalyCount, warn: summary.anomalyCount > 0 },
         ].map((s) => (
-          <div key={s.label} className={`bg-white rounded-xl border p-4 shadow-sm text-center ${(s as any).warn ? 'border-amber-300 bg-amber-50' : 'border-gray-100'}`}>
+          <div key={s.label} className={`bg-white rounded-xl border p-4 shadow-xs text-center ${(s as any).warn ? 'border-amber-300 bg-amber-50' : 'border-gray-100'}`}>
             <div className={`text-2xl font-bold ${(s as any).warn ? 'text-amber-600' : 'text-indigo-600'}`}>{s.value}</div>
             <div className="text-xs text-gray-500 mt-1">{s.label}</div>
           </div>
@@ -137,7 +137,7 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
       {/* Charts row */}
       <div className="grid md:grid-cols-3 gap-4">
         {/* Avg time by difficulty */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Avg time by difficulty</h3>
           {diffData.length === 0 ? <p className="text-xs text-gray-400">No data</p> : (
             <ResponsiveContainer width="100%" height={160}>
@@ -155,7 +155,7 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
         </div>
 
         {/* Avg time by child */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Avg time by child</h3>
           {childData.length === 0 ? <p className="text-xs text-gray-400">No data</p> : (
             <ResponsiveContainer width="100%" height={160}>
@@ -171,7 +171,7 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
         </div>
 
         {/* Completion speed distribution */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Speed vs estimate</h3>
           <p className="text-xs text-gray-400 mb-2">Only tasks with an estimated time</p>
           <ResponsiveContainer width="100%" height={140}>
@@ -202,7 +202,7 @@ export default function TaskExecutionTimeReport({ childId, startDate, endDate }:
 
       {/* Detail table */}
       {report.rows.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-700">Detail ({report.rows.length} records)</h3>
           </div>

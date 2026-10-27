@@ -169,7 +169,7 @@ function AssignmentCard({
         {/* Child header */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-primary-100 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-primary-100 flex items-center justify-center">
               {avatar ? (
                 <Image src={avatar} alt={assignment.child.firstName} width={36} height={36} className="object-cover w-full h-full" unoptimized />
               ) : (
@@ -222,7 +222,7 @@ function AssignmentCard({
         )}
         {assignment.status === 'rejected' && assignment.rejectionReason && (
           <p className="text-xs text-red-600 flex items-start gap-1.5">
-            <XCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             Rejected: {assignment.rejectionReason}
           </p>
         )}
@@ -366,7 +366,7 @@ export default function TaskDetailPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
+          className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs"
         >
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex-1 min-w-0">
@@ -389,13 +389,13 @@ export default function TaskDetailPage() {
                   </span>
                 )}
               </div>
-              <h1 className="font-display text-2xl font-bold text-slate-900 break-words">{task.title}</h1>
+              <h1 className="font-display text-2xl font-bold text-slate-900 wrap-break-word">{task.title}</h1>
               {task.description && (
                 <p className="mt-1 text-sm text-slate-500 leading-relaxed">{task.description}</p>
               )}
             </div>
 
-            <Link href={`/parent/tasks/${taskId}/edit`} className="flex-shrink-0">
+            <Link href={`/parent/tasks/${taskId}/edit`} className="shrink-0">
               <Button variant="secondary" size="sm" className="flex items-center gap-1.5">
                 <Pencil className="w-3.5 h-3.5" />
                 Edit
@@ -466,7 +466,7 @@ export default function TaskDetailPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
+            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs"
           >
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <Users className="w-4 h-4 text-slate-400" />
@@ -491,7 +491,7 @@ export default function TaskDetailPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
+            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs"
           >
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-slate-400" />
@@ -516,7 +516,7 @@ export default function TaskDetailPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm text-center"
+            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs text-center"
           >
             <AlertTriangle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
             <p className="text-sm text-slate-500">No assignments yet. Edit the task to assign children.</p>

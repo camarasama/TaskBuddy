@@ -122,7 +122,7 @@ export default function LeaderboardPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl border border-slate-200 p-10 text-center shadow-sm"
+            className="bg-white rounded-2xl border border-slate-200 p-10 text-center shadow-xs"
           >
             <Lock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <p className="font-bold text-slate-700 mb-1">Leaderboard is turned off</p>
@@ -132,7 +132,7 @@ export default function LeaderboardPage() {
 
         {/* Empty state */}
         {!loading && data?.enabled && entries.length === 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center shadow-sm text-slate-400">
+          <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center shadow-xs text-slate-400">
             No data for this period yet.
           </div>
         )}
@@ -156,7 +156,7 @@ export default function LeaderboardPage() {
                   <div
                     key={entry.childId}
                     className={cn(
-                      'flex-1 max-w-[130px] rounded-2xl border bg-gradient-to-b p-4 text-center transition-all',
+                      'flex-1 max-w-[130px] rounded-2xl border bg-linear-to-b p-4 text-center transition-all',
                       PODIUM_BG[slotIdx],
                       isGold ? 'scale-105 shadow-lg' : '',
                       isMe ? 'ring-2 ring-xp-500 ring-offset-1' : ''
@@ -184,7 +184,7 @@ export default function LeaderboardPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+              className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden"
             >
               <div className="divide-y divide-slate-50">
                 {entries.map((entry) => {
@@ -207,7 +207,7 @@ export default function LeaderboardPage() {
                       </div>
 
                       {/* Avatar */}
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-lg shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center text-lg shrink-0">
                         {childEmoji(entry)}
                       </div>
 

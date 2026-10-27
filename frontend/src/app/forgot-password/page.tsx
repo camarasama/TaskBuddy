@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-xp-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-primary-50 via-white to-xp-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="flex items-center justify-center gap-2 mb-8">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-linear-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center">
               <CheckCircle2 className="w-6 h-6 text-white" />
             </div>
             <span className="font-display font-bold text-2xl text-slate-900">TaskBuddy</span>

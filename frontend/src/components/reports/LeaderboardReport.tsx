@@ -61,7 +61,7 @@ export default function LeaderboardReport({ familyId }: Props) {
               const r = report.rows[idx];
               if (!r) return null;
               return (
-                <div key={r.childId} className={`flex-1 max-w-[180px] rounded-2xl border bg-gradient-to-b p-4 text-center ${PODIUM_BG[idx]} ${idx === 0 ? 'mt-4 scale-105' : 'mt-8'} transition-all`}>
+                <div key={r.childId} className={`flex-1 max-w-[180px] rounded-2xl border bg-linear-to-b p-4 text-center ${PODIUM_BG[idx]} ${idx === 0 ? 'mt-4 scale-105' : 'mt-8'} transition-all`}>
                   <div className="text-3xl mb-1">{r.avatarEmoji ?? '🧒'}</div>
                   <div className="text-lg">{MEDAL[idx]}</div>
                   <div className="font-bold text-gray-800 text-sm mt-1">{r.childName.split(' ')[0]}</div>
@@ -72,7 +72,7 @@ export default function LeaderboardReport({ familyId }: Props) {
               );
             })}
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
             <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Rank', 'Child', 'Score', 'Tasks', 'Streak', 'Level'].map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
               <tbody className="divide-y divide-gray-50">{report.rows.map((r) => (
                 <tr key={r.childId} className={`hover:bg-gray-50/50 ${r.rank <= 3 ? 'bg-indigo-50/30' : ''}`}>

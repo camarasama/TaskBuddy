@@ -45,20 +45,20 @@ export default function AchievementReport({ childId, startDate, endDate }: { chi
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center"><div className="text-2xl font-bold text-indigo-600">{report.summary.totalAchievementsUnlocked}</div><div className="text-xs text-gray-500 mt-1">Total Achievements Unlocked</div></div>
-        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center"><div className="text-2xl font-bold text-amber-500">Lv {report.summary.averageLevel}</div><div className="text-xs text-gray-500 mt-1">Average Level</div></div>
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs text-center"><div className="text-2xl font-bold text-indigo-600">{report.summary.totalAchievementsUnlocked}</div><div className="text-xs text-gray-500 mt-1">Total Achievements Unlocked</div></div>
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs text-center"><div className="text-2xl font-bold text-amber-500">Lv {report.summary.averageLevel}</div><div className="text-xs text-gray-500 mt-1">Average Level</div></div>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">XP Velocity (last 30 days)</h3>
           <ResponsiveContainer width="100%" height={180}><LineChart data={xpData}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" /><XAxis dataKey="date" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 11 }} /><Tooltip /><Line type="monotone" dataKey="xpEarned" stroke="#f59e0b" strokeWidth={2} dot={false} name="XP Earned" /></LineChart></ResponsiveContainer>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Level Distribution</h3>
           <ResponsiveContainer width="100%" height={180}><BarChart data={levelData}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" /><XAxis dataKey="level" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Children" /></BarChart></ResponsiveContainer>
         </div>
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
         <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Child', 'Level', 'XP', 'Total XP', 'Achievements', 'Latest'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-gray-50">{report.rows.map((r) => (
             <tr key={r.childId} className="hover:bg-gray-50/50">

@@ -316,7 +316,7 @@ export default function CreateTaskPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           {/* ── Task Details ────────────────────────────────────────────────── */}
-          <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <section className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
             <h2 className="font-display font-bold text-lg text-slate-900 mb-4">Task Details</h2>
             <div className="space-y-4">
               <Input
@@ -339,7 +339,7 @@ export default function CreateTaskPage() {
           </section>
 
           {/* ── M5: Task Tag - Primary / Secondary ─────────────────────────── */}
-          <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <section className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
             <h2 className="font-display font-bold text-lg text-slate-900 mb-1 flex items-center gap-2">
               <Tag className="w-5 h-5" />
               Task Type
@@ -382,7 +382,7 @@ export default function CreateTaskPage() {
           </section>
 
           {/* ── Points ─────────────────────────────────────────────────────── */}
-          <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <section className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
             <h2 className="font-display font-bold text-lg text-slate-900 mb-4">
               Points
             </h2>
@@ -413,7 +413,7 @@ export default function CreateTaskPage() {
               </div>
             )}
             <div className="mt-4 p-3 bg-primary-50 rounded-lg flex items-start gap-2">
-              <Info className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
+              <Info className="w-5 h-5 text-primary-600 shrink-0 mt-0.5" />
               <p className="text-sm text-primary-800">
                 Points are multiplied by the child&apos;s streak bonus and any daily challenge
                 bonuses!
@@ -422,7 +422,7 @@ export default function CreateTaskPage() {
           </section>
 
           {/* ── Assignment with Capacity Badges ────────────────────────────── */}
-          <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <section className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
             <h2 className="font-display font-bold text-lg text-slate-900 mb-1">
               <Users className="w-5 h-5 inline-block mr-2" />
               Assign To
@@ -461,7 +461,7 @@ export default function CreateTaskPage() {
                       )}
                     >
                       <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold shrink-0">
                           {child.firstName.charAt(0)}
                         </div>
                         <span className="font-medium text-slate-900">{child.firstName}</span>
@@ -482,7 +482,7 @@ export default function CreateTaskPage() {
           </section>
 
           {/* ── Options ─────────────────────────────────────────────────────── */}
-          <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <section className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
             <h2 className="font-display font-bold text-lg text-slate-900 mb-4">Options</h2>
             <div className="space-y-4">
               {/* Due Date */}

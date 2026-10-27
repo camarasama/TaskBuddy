@@ -1,6 +1,248 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme comes from tailwind.config.ts, which builds it from shared/src/design/tokens.ts: the same
+ * tokens the mobile app uses. Kept as a JS config on purpose (Tailwind 4 still supports it via
+ * @config) instead of the upgrade tool's hard-coded @theme copy, so the web and mobile cannot drift.
+ */
+@config '../../tailwind.config.ts';
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/*
+  More Tailwind 3 defaults that Tailwind 4's preflight changed (from the official upgrade guide),
+  kept so the app looks and behaves exactly as before:
+  - form fields: v4 makes them transparent; v3 left the browser's own (white) background.
+  - placeholders: v4 uses the text colour at 50%; v3 used gray-400.
+  - buttons: v4 shows the default arrow cursor; v3 showed a pointer.
+*/
+@layer base {
+  input,
+  textarea,
+  select {
+    background-color: revert;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* v4 strips Chromium's 1px padding inside native date/time fields (2px shorter inputs). */
+  ::-webkit-datetime-edit-fields-wrapper,
+  ::-webkit-datetime-edit,
+  ::-webkit-datetime-edit-year-field,
+  ::-webkit-datetime-edit-month-field,
+  ::-webkit-datetime-edit-day-field,
+  ::-webkit-datetime-edit-hour-field,
+  ::-webkit-datetime-edit-minute-field,
+  ::-webkit-datetime-edit-second-field,
+  ::-webkit-datetime-edit-millisecond-field,
+  ::-webkit-datetime-edit-meridiem-field {
+    padding: revert;
+  }
+
+  ::-webkit-date-and-time-value {
+    min-height: revert;
+  }
+}
+
+@utility card {
+  /* Card styles */
+  @apply bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden;
+}
+
+@utility card-hover {
+  @apply card transition-all duration-200 hover:shadow-md hover:-translate-y-0.5;
+}
+
+@utility btn {
+  /* Button base styles */
+  @apply inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+}
+
+@utility btn-primary {
+  @apply btn bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500 active:scale-95;
+}
+
+@utility btn-secondary {
+  @apply btn bg-slate-100 text-slate-900 hover:bg-slate-200 focus:ring-slate-400 active:scale-95;
+}
+
+@utility btn-success {
+  @apply btn bg-success-500 text-white hover:bg-success-600 focus:ring-success-500 active:scale-95;
+}
+
+@utility btn-gold {
+  @apply btn bg-gold-500 text-white hover:bg-gold-600 focus:ring-gold-500 active:scale-95;
+}
+
+@utility btn-sm {
+  /* Size variants */
+  @apply px-3 py-1.5 text-sm;
+}
+
+@utility btn-md {
+  @apply px-4 py-2 text-base;
+}
+
+@utility btn-lg {
+  @apply px-6 py-3 text-lg;
+}
+
+@utility badge {
+  /* Badge styles */
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+@utility badge-primary {
+  @apply badge bg-primary-100 text-primary-700;
+}
+
+@utility badge-success {
+  @apply badge bg-success-100 text-success-700;
+}
+
+@utility badge-warning {
+  @apply badge bg-warning-100 text-warning-700;
+}
+
+@utility badge-gold {
+  @apply badge bg-gold-100 text-gold-700;
+}
+
+@utility badge-xp {
+  @apply badge bg-xp-100 text-xp-700;
+}
+
+@utility input {
+  /* Input styles */
+  @apply w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200;
+}
+
+@utility progress {
+  /* Progress bar */
+  @apply h-3 bg-slate-200 rounded-full overflow-hidden;
+}
+
+@utility progress-bar {
+  @apply h-full bg-linear-to-r from-primary-400 to-primary-600 rounded-full transition-all duration-500 ease-out;
+}
+
+@utility progress-xp {
+  /* XP Progress */
+  @apply progress bg-xp-100;
+}
+
+@utility progress-bar-xp {
+  @apply progress-bar from-xp-400 to-xp-600;
+}
+
+@utility points-display {
+  /* Points display */
+  @apply inline-flex items-center gap-1 font-bold text-gold-600;
+}
+
+@utility streak-badge {
+  /* Streak badge */
+  @apply inline-flex items-center gap-1 px-3 py-1 bg-linear-to-r from-orange-400 to-red-500 text-white rounded-full font-bold shadow-md;
+}
+
+@utility level-badge {
+  /* Level badge */
+  @apply inline-flex items-center justify-center w-8 h-8 rounded-full bg-linear-to-br from-xp-400 to-xp-600 text-white font-bold text-sm shadow-md;
+}
+
+@utility task-card {
+  /* Task card */
+  @apply card-hover p-4;
+}
+
+@utility task-card-completed {
+  @apply task-card bg-success-50 border-success-200;
+}
+
+@utility task-card-pending {
+  @apply task-card bg-warning-50 border-warning-200;
+}
+
+@utility avatar {
+  /* Avatar */
+  @apply w-10 h-10 rounded-full bg-linear-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-sm;
+}
+
+@utility avatar-lg {
+  @apply w-16 h-16 text-xl;
+}
+
+@utility achievement-unlock {
+  /* Achievement unlock animation */
+  @apply animate-celebrate;
+}
+
+@utility text-gradient {
+  /* Gradient text */
+  @apply bg-clip-text text-transparent bg-linear-to-r;
+}
+
+@utility text-gradient-primary {
+  @apply text-gradient from-primary-500 to-primary-700;
+}
+
+@utility text-gradient-gold {
+  @apply text-gradient from-gold-500 to-gold-700;
+}
+
+@utility text-gradient-xp {
+  @apply text-gradient from-xp-500 to-xp-700;
+}
+
+@utility shimmer {
+  /* Shimmer effect for loading */
+  @apply bg-linear-to-r from-transparent via-white/50 to-transparent bg-size-[200%_100%] animate-shimmer;
+}
+
+@utility safe-area-inset-top {
+  /* Safe area insets for PWA */
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility scrollbar-hide {
+  /* Hide scrollbar but keep functionality */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
 
 @layer base {
   :root {
@@ -67,184 +309,6 @@
 
   /* Focus styles for accessibility */
   *:focus-visible {
-    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
-  }
-}
-
-@layer components {
-  /* Card styles */
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden;
-  }
-
-  .card-hover {
-    @apply card transition-all duration-200 hover:shadow-md hover:-translate-y-0.5;
-  }
-
-  /* Button base styles */
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
-  }
-
-  .btn-primary {
-    @apply btn bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500 active:scale-95;
-  }
-
-  .btn-secondary {
-    @apply btn bg-slate-100 text-slate-900 hover:bg-slate-200 focus:ring-slate-400 active:scale-95;
-  }
-
-  .btn-success {
-    @apply btn bg-success-500 text-white hover:bg-success-600 focus:ring-success-500 active:scale-95;
-  }
-
-  .btn-gold {
-    @apply btn bg-gold-500 text-white hover:bg-gold-600 focus:ring-gold-500 active:scale-95;
-  }
-
-  /* Size variants */
-  .btn-sm {
-    @apply px-3 py-1.5 text-sm;
-  }
-
-  .btn-md {
-    @apply px-4 py-2 text-base;
-  }
-
-  .btn-lg {
-    @apply px-6 py-3 text-lg;
-  }
-
-  /* Badge styles */
-  .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-  }
-
-  .badge-primary {
-    @apply badge bg-primary-100 text-primary-700;
-  }
-
-  .badge-success {
-    @apply badge bg-success-100 text-success-700;
-  }
-
-  .badge-warning {
-    @apply badge bg-warning-100 text-warning-700;
-  }
-
-  .badge-gold {
-    @apply badge bg-gold-100 text-gold-700;
-  }
-
-  .badge-xp {
-    @apply badge bg-xp-100 text-xp-700;
-  }
-
-  /* Input styles */
-  .input {
-    @apply w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200;
-  }
-
-  /* Progress bar */
-  .progress {
-    @apply h-3 bg-slate-200 rounded-full overflow-hidden;
-  }
-
-  .progress-bar {
-    @apply h-full bg-gradient-to-r from-primary-400 to-primary-600 rounded-full transition-all duration-500 ease-out;
-  }
-
-  /* XP Progress */
-  .progress-xp {
-    @apply progress bg-xp-100;
-  }
-
-  .progress-bar-xp {
-    @apply progress-bar from-xp-400 to-xp-600;
-  }
-
-  /* Points display */
-  .points-display {
-    @apply inline-flex items-center gap-1 font-bold text-gold-600;
-  }
-
-  /* Streak badge */
-  .streak-badge {
-    @apply inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-full font-bold shadow-md;
-  }
-
-  /* Level badge */
-  .level-badge {
-    @apply inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 text-white font-bold text-sm shadow-md;
-  }
-
-  /* Task card */
-  .task-card {
-    @apply card-hover p-4;
-  }
-
-  .task-card-completed {
-    @apply task-card bg-success-50 border-success-200;
-  }
-
-  .task-card-pending {
-    @apply task-card bg-warning-50 border-warning-200;
-  }
-
-  /* Avatar */
-  .avatar {
-    @apply w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-sm;
-  }
-
-  .avatar-lg {
-    @apply w-16 h-16 text-xl;
-  }
-
-  /* Achievement unlock animation */
-  .achievement-unlock {
-    @apply animate-celebrate;
-  }
-}
-
-@layer utilities {
-  /* Gradient text */
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r;
-  }
-
-  .text-gradient-primary {
-    @apply text-gradient from-primary-500 to-primary-700;
-  }
-
-  .text-gradient-gold {
-    @apply text-gradient from-gold-500 to-gold-700;
-  }
-
-  .text-gradient-xp {
-    @apply text-gradient from-xp-500 to-xp-700;
-  }
-
-  /* Shimmer effect for loading */
-  .shimmer {
-    @apply bg-gradient-to-r from-transparent via-white/50 to-transparent bg-[length:200%_100%] animate-shimmer;
-  }
-
-  /* Safe area insets for PWA */
-  .safe-area-inset-top {
-    padding-top: env(safe-area-inset-top);
-  }
-
-  .safe-area-inset-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  /* Hide scrollbar but keep functionality */
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
+    @apply outline-hidden ring-2 ring-primary-500 ring-offset-2;
   }
 }

@@ -37,7 +37,7 @@ export function GoalCard({ goal }: { goal: ChildGoal | null | undefined }) {
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-br from-gold-50 to-white rounded-2xl border border-gold-200 p-5"
+      className="bg-linear-to-br from-gold-50 to-white rounded-2xl border border-gold-200 p-5"
     >
       <div className="flex items-center gap-2 mb-1">
         <Target className="w-4 h-4 text-gold-600" />
@@ -48,7 +48,7 @@ export function GoalCard({ goal }: { goal: ChildGoal | null | undefined }) {
 
       <div className="mt-3 h-3 bg-white rounded-full overflow-hidden border border-gold-100">
         <motion.div
-          className="h-full bg-gradient-to-r from-gold-400 to-gold-600 rounded-full"
+          className="h-full bg-linear-to-r from-gold-400 to-gold-600 rounded-full"
           initial={{ width: 0 }}
           animate={{ width: `${goal.percent}%` }}
           transition={{ duration: 0.6 }}

@@ -197,7 +197,7 @@ export default function NotificationsPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center shadow-xs">
             <div className="text-4xl mb-3">
               {activeTab === 'unread' ? '✨' : '🔔'}
             </div>
@@ -216,7 +216,7 @@ export default function NotificationsPage() {
                 <button
                   key={n.id}
                   onClick={() => handleClick(n)}
-                  className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-xl border text-left transition-all hover:shadow-sm ${bgClass} ${!n.isRead ? 'ring-1 ring-indigo-200' : ''}`}
+                  className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-xl border text-left transition-all hover:shadow-xs ${bgClass} ${!n.isRead ? 'ring-1 ring-indigo-200' : ''}`}
                 >
                   {/* Type icon */}
                   <span className="text-2xl shrink-0 mt-0.5">

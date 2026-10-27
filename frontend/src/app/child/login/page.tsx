@@ -118,7 +118,7 @@ export default function ChildLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-xp-50 via-white to-gold-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-xp-50 via-white to-gold-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -236,7 +236,7 @@ export default function ChildLoginPage() {
                   </div>
                   <button
                     onClick={handleChangeIdentity}
-                    className="flex-shrink-0 ml-2 p-1.5 rounded-lg hover:bg-xp-100 transition-colors"
+                    className="shrink-0 ml-2 p-1.5 rounded-lg hover:bg-xp-100 transition-colors"
                     title="Change family or name"
                   >
                     <Edit2 className="w-4 h-4 text-xp-600" />

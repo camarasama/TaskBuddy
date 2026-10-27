@@ -402,7 +402,7 @@ export default function ParentSettingsPage() {
               ) : (
                 <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
                   <div className="flex items-start gap-2 mb-3">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-sm text-amber-800">
                       <strong>Warning:</strong> Regenerating your code will invalidate the old one.
                       Your children will need the new code to log in on new devices.
@@ -461,7 +461,7 @@ export default function ParentSettingsPage() {
                 className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-sm font-semibold text-primary-700 flex-shrink-0 overflow-hidden">
+                  <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-sm font-semibold text-primary-700 shrink-0 overflow-hidden">
                     {parent.avatarUrl ? (
                       <img referrerPolicy="no-referrer" src={parent.avatarUrl} alt={parent.firstName} className="w-full h-full object-cover" />
                     ) : (
@@ -512,7 +512,7 @@ export default function ParentSettingsPage() {
                     key={invite.id}
                     className="flex items-center gap-3 p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50"
                   >
-                    <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
                       <Mail className="w-4 h-4 text-slate-400" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -522,7 +522,7 @@ export default function ParentSettingsPage() {
                         {formatDate(invite.expiresAt)}
                       </p>
                     </div>
-                    <span className="text-xs text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                    <span className="text-xs text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full shrink-0">
                       Pending
                     </span>
                     <Button
@@ -531,7 +531,7 @@ export default function ParentSettingsPage() {
                       onClick={() => handleCancelInvite(invite.id)}
                       loading={cancellingInviteId === invite.id}
                       title="Cancel invitation"
-                      className="text-red-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
+                      className="text-red-400 hover:text-red-600 hover:bg-red-50 shrink-0"
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -818,7 +818,7 @@ export default function ParentSettingsPage() {
                 Gender <span className="text-slate-400">(optional)</span>
               </label>
               <select
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
               >

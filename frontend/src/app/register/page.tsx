@@ -141,7 +141,7 @@ export default function RegisterPage() {
   const maxDobString = maxDobDate.toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-xp-50 flex items-center justify-center p-4 py-12">
+    <div className="min-h-screen bg-linear-to-br from-primary-50 via-white to-xp-50 flex items-center justify-center p-4 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -209,7 +209,7 @@ export default function RegisterPage() {
                   Gender <span className="text-slate-400">(optional)</span>
                 </label>
                 <select
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
                   {...register('gender')}
                 >
                   <option value="">Prefer not to say</option>

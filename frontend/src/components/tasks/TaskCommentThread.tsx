@@ -143,7 +143,7 @@ export function TaskCommentThread({ assignmentId }: { assignmentId: string }) {
               <span className="text-slate-400 text-xs">
                 {new Date(c.createdAt).toLocaleString()}
               </span>
-              <p className="text-slate-700 whitespace-pre-wrap break-words">{c.content}</p>
+              <p className="text-slate-700 whitespace-pre-wrap wrap-break-word">{c.content}</p>
             </div>
           ))
         )}
@@ -156,7 +156,7 @@ export function TaskCommentThread({ assignmentId }: { assignmentId: string }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value.slice(0, 1000))}
           placeholder="Write a comment…"
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary-400"
         />
         <Button type="submit" size="sm" loading={sending} disabled={!draft.trim()}>
           <Send className="w-4 h-4" />

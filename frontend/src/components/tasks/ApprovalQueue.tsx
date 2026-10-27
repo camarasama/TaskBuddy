@@ -134,7 +134,7 @@ export function ApprovalQueue({
                     />
                   </Link>
                 ) : (
-                  <div className="w-16 h-16 rounded-lg shrink-0 bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold">
+                  <div className="w-16 h-16 rounded-lg shrink-0 bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold">
                     {getInitials(approval.child.firstName, approval.child.lastName)}
                   </div>
                 )}

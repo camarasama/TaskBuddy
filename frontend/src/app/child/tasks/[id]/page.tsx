@@ -295,7 +295,7 @@ export default function ChildTaskDetailPage() {
         <div className="max-w-2xl mx-auto space-y-4">
           <BackLink />
           <Header task={task} badge={{ label: 'Up for grabs', className: 'text-gold-600 bg-gold-50' }} />
-          <div className="bg-white rounded-2xl p-5 border border-gold-200 shadow-sm space-y-3">
+          <div className="bg-white rounded-2xl p-5 border border-gold-200 shadow-xs space-y-3">
             <p className="text-sm text-slate-600 flex items-center gap-2">
               <Gift className="w-4 h-4 text-gold-500" />
               Nobody has taken this one yet.
@@ -532,7 +532,7 @@ function Header({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"
+      className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">

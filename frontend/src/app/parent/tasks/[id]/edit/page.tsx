@@ -325,7 +325,7 @@ export default function EditTaskPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6"
+          className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-6"
         >
           <h1 className="font-display text-2xl font-bold text-slate-900">Edit Task</h1>
 
@@ -340,7 +340,7 @@ export default function EditTaskPage() {
               onChange={handleChange}
               maxLength={200}
               placeholder="e.g. Clean your room"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
 
@@ -356,7 +356,7 @@ export default function EditTaskPage() {
               maxLength={1000}
               rows={3}
               placeholder="Add more detail about what needs to be done…"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
             />
           </div>
 
@@ -371,7 +371,7 @@ export default function EditTaskPage() {
               onChange={handleChange}
               maxLength={50}
               placeholder="e.g. Chores, Homework, Exercise"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
 
@@ -439,7 +439,7 @@ export default function EditTaskPage() {
               min={1}
               max={1000}
               placeholder="e.g. 50"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
 
@@ -453,7 +453,7 @@ export default function EditTaskPage() {
               type="datetime-local"
               value={form.dueDate}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
 
@@ -468,7 +468,7 @@ export default function EditTaskPage() {
               type="datetime-local"
               value={form.startTime}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             <p className="text-xs text-slate-400 mt-1">
               Used to detect schedule conflicts with other tasks.
@@ -489,7 +489,7 @@ export default function EditTaskPage() {
                 min={1}
                 max={480}
                 placeholder="e.g. 30"
-                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
               <span className="text-sm text-slate-500 whitespace-nowrap">minutes</span>
             </div>
@@ -509,7 +509,7 @@ export default function EditTaskPage() {
                 min={1}
                 max={100}
                 placeholder="Unlimited"
-                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
               <span className="text-sm text-slate-500 whitespace-nowrap">children</span>
             </div>
@@ -525,7 +525,7 @@ export default function EditTaskPage() {
               name="status"
               value={form.status}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
             >
               <option value="active">Active</option>
               <option value="paused">Paused</option>
@@ -563,7 +563,7 @@ export default function EditTaskPage() {
                 name="recurrencePattern"
                 value={form.recurrencePattern}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -612,7 +612,7 @@ export default function EditTaskPage() {
                 <select
                   value={addingChild}
                   onChange={(e) => setAddingChild(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary-500 bg-white"
                 >
                   <option value="">Add a child…</option>
                   {availableToAdd.map((c) => (

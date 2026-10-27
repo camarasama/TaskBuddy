@@ -47,7 +47,7 @@ export function ChildLayout({ children }: ChildLayoutProps) {
 
   if (isLoading || !isChild) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-xp-50 via-white to-gold-50">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-xp-50 via-white to-gold-50">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-xp-500 border-t-transparent" />
       </div>
     );
@@ -108,7 +108,7 @@ function ChildLayoutInner({ children }: { children: ReactNode }) {
   const xpProgress = (currentXp / nextLevelXp) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-xp-50 via-white to-gold-50">
+    <div className="min-h-screen bg-linear-to-br from-xp-50 via-white to-gold-50">
       {/* Header */}
       <header className="sticky top-0 bg-white/80 backdrop-blur-lg border-b border-slate-200 z-40">
         <div className="max-w-2xl mx-auto px-4 py-3">
@@ -116,11 +116,11 @@ function ChildLayoutInner({ children }: { children: ReactNode }) {
             {/* Profile */}
             <Link href="/child/dashboard" className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-lg">
+                <div className="w-12 h-12 rounded-full bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-lg">
                   {user ? getInitials(user.firstName, user.lastName) : '?'}
                 </div>
                 {/* Level Badge */}
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-white text-xs font-bold border-2 border-white">
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-linear-to-br from-gold-400 to-gold-600 flex items-center justify-center text-white text-xs font-bold border-2 border-white">
                   {level}
                 </div>
               </div>
@@ -132,7 +132,7 @@ function ChildLayoutInner({ children }: { children: ReactNode }) {
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${xpProgress}%` }}
-                      className="h-full bg-gradient-to-r from-xp-400 to-xp-600 rounded-full"
+                      className="h-full bg-linear-to-r from-xp-400 to-xp-600 rounded-full"
                     />
                   </div>
                   <span className="text-xs text-slate-500">{currentXp}/{nextLevelXp} XP</span>
@@ -144,7 +144,7 @@ function ChildLayoutInner({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-4">
               {/* Streak */}
               {streak > 0 && (
-                <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-full text-sm font-bold">
+                <div className="flex items-center gap-1 px-2.5 py-1 bg-linear-to-r from-orange-400 to-red-500 text-white rounded-full text-sm font-bold">
                   <span>🔥</span>
                   <span>{streak}</span>
                 </div>

@@ -75,7 +75,7 @@ export default function WebhookReport({ familyId }: Props) {
           { label: 'Auto-disabled', value: report.summary.autoDisabled, color: report.summary.autoDisabled > 0 ? 'text-red-500' : 'text-gray-400' },
           { label: 'Failing', value: report.summary.failing, color: report.summary.failing > 0 ? 'text-amber-500' : 'text-gray-400' },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs text-center">
             <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
             <div className="text-xs text-gray-500 mt-1">{s.label}</div>
           </div>
@@ -97,7 +97,7 @@ export default function WebhookReport({ familyId }: Props) {
           }[state];
 
           return (
-            <div key={r.subscriptionId} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <div key={r.subscriptionId} className="bg-white rounded-xl border border-gray-100 shadow-xs p-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
                   <p className="font-mono text-sm text-gray-700 truncate max-w-[420px]">{r.url}</p>

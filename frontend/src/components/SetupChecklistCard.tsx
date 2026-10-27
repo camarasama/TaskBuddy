@@ -45,7 +45,7 @@ export function SetupChecklistCard() {
     <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
       <Link
         href="/parent/welcome"
-        className="block bg-gradient-to-r from-primary-50 to-xp-50 border border-primary-200 rounded-2xl p-4 hover:border-primary-300 transition-colors"
+        className="block bg-linear-to-r from-primary-50 to-xp-50 border border-primary-200 rounded-2xl p-4 hover:border-primary-300 transition-colors"
       >
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-white/70 flex items-center justify-center shrink-0">

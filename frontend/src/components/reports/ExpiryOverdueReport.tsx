@@ -47,14 +47,14 @@ export default function ExpiryOverdueReport({ childId, startDate, endDate }: Pro
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-4">
         {[{ label: 'Overdue Tasks', value: report.summary.totalOverdue, color: 'text-orange-500' }, { label: 'Expired (>1 day)', value: report.summary.totalExpired, color: 'text-red-600' }, { label: 'Expiry Rate', value: `${report.summary.expiryRate}%`, color: 'text-gray-700' }].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs text-center">
             <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
             <div className="text-xs text-gray-500 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
       {byChildData.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Overdue Tasks by Child</h3>
           <ResponsiveContainer width="100%" height={180}><BarChart data={byChildData}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" /><XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="count" fill="#f97316" radius={[4, 4, 0, 0]} name="Overdue" /></BarChart></ResponsiveContainer>
         </div>
@@ -62,7 +62,7 @@ export default function ExpiryOverdueReport({ childId, startDate, endDate }: Pro
       {report.rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-green-600 font-medium">✓ No overdue tasks - great work!</div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
           <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Child', 'Task', 'Tag', 'Due Date', 'Status', 'Days Past Due'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
             <tbody className="divide-y divide-gray-50">{report.rows.map((r, i) => (
               <tr key={i} className={`hover:bg-gray-50/50 ${(r.daysPastDue ?? 0) > 3 ? 'bg-red-50/30' : ''}`}>

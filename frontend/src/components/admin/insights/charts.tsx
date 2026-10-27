@@ -146,8 +146,8 @@ export function SignupsChart({ weeks }: { weeks: InsightsOverview['weeklySignups
               onMouseLeave={() => setHover(null)}
             >
               <span className="text-center text-xs font-semibold tabular-nums">{w.total}</span>
-              {restH > 0 && <div style={{ height: restH, background: LIGHT_BLUE }} className="rounded-t" />}
-              {actH > 0 && <div style={{ height: actH, background: BLUE }} className={restH > 0 ? '' : 'rounded-t'} />}
+              {restH > 0 && <div style={{ height: restH, background: LIGHT_BLUE }} className="rounded-t-base" />}
+              {actH > 0 && <div style={{ height: actH, background: BLUE }} className={restH > 0 ? '' : 'rounded-t-base'} />}
               {hover === i && (
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap bg-white rounded-[10px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] px-3 py-2 text-[13px]">
                   <div className={`text-xs ${INK2}`}>Week of {shortDate(w.weekStart)}</div>

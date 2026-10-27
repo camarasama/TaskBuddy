@@ -65,7 +65,7 @@ export default function AuditTrailReport({ familyId, startDate, endDate }: Props
         </select>
         <span className="text-xs text-gray-400 ml-auto">{report.total} total log entries</span>
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
         <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Timestamp', 'Actor', 'Action', 'Resource', 'Resource ID', 'IP'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-gray-50">{filtered.map((r) => (
             <tr key={r.id} className="hover:bg-gray-50/50">

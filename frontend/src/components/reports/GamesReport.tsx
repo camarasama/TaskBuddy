@@ -87,7 +87,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
           { label: 'Points Awarded', value: report.totals.pointsAwarded, color: 'text-amber-500' },
           { label: 'At Daily Cap', value: atCap, color: atCap > 0 ? 'text-amber-500' : 'text-gray-400' },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs text-center">
             <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
             <div className="text-xs text-gray-500 mt-1">{s.label}</div>
           </div>
@@ -95,7 +95,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
       </div>
 
       {played.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Plays vs Completions</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={played.map((g) => ({ name: g.title, plays: g.plays, completions: g.completions }))} layout="vertical">
@@ -116,7 +116,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
       </div>
 
       {masteryPlayed.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
           <h3 className="text-sm font-semibold text-gray-700 px-4 pt-4 pb-1">Accuracy by subject</h3>
           <p className="text-xs text-gray-500 px-4 pb-2">
             Counted over questions, not games: scraping 3 of 5 four times is not 100%.
@@ -145,7 +145,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
       )}
 
       {report.recentSessions.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
           <h3 className="text-sm font-semibold text-gray-700 px-4 pt-4 pb-2">Recent games</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -173,7 +173,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
       )}
 
       {exhausted.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-1">Question banks finished</h3>
           <p className="text-xs text-gray-500 mb-3">
             These children have now seen every question in these games, so questions have begun repeating,
@@ -189,7 +189,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
         <h3 className="text-sm font-semibold text-gray-700 px-4 pt-4 pb-2">By Game</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -213,7 +213,7 @@ export default function GamesReport({ familyId, childId, startDate, endDate }: P
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
         <h3 className="text-sm font-semibold text-gray-700 px-4 pt-4 pb-2">By Child</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">

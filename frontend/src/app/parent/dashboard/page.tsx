@@ -426,7 +426,7 @@ export default function ParentDashboardPage() {
         </section>
 
         {/* Weekly Summary */}
-        <section className="bg-gradient-to-br from-primary-50 to-xp-50 rounded-2xl p-6">
+        <section className="bg-linear-to-br from-primary-50 to-xp-50 rounded-2xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-primary-600" />
             <h2 className="font-display text-xl font-bold text-slate-900">
@@ -548,7 +548,7 @@ function ChildCard({ child }: { child: ChildSummary }) {
               title={TODAY_STATUS[todayStatus].label}
               className={cn('w-2.5 h-2.5 rounded-full shrink-0', TODAY_STATUS[todayStatus].dot)}
             />
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold">
+            <div className="w-12 h-12 rounded-full bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold">
               {getInitials(child.firstName, child.lastName)}
             </div>
             <div>
@@ -666,7 +666,7 @@ function QuickActionCard({
       <motion.div
         whileHover={{ scale: 1.02 }}
         className={cn(
-          'bg-gradient-to-br text-white rounded-xl p-5 hover:shadow-lg transition-all',
+          'bg-linear-to-br text-white rounded-xl p-5 hover:shadow-lg transition-all',
           colorClasses[color]
         )}
       >

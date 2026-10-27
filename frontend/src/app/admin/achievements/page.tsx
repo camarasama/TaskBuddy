@@ -261,7 +261,7 @@ export default function AdminAchievementsPage() {
                     value={(form as any)[key]}
                     onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
                     placeholder={placeholder}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               ))}
@@ -272,7 +272,7 @@ export default function AdminAchievementsPage() {
                   <select
                     value={form.tier}
                     onChange={(e) => setForm((p) => ({ ...p, tier: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="">None</option>
                     <option value="bronze">Bronze</option>
@@ -287,7 +287,7 @@ export default function AdminAchievementsPage() {
                     type="number" min={0}
                     value={form.xpReward}
                     onChange={(e) => setForm((p) => ({ ...p, xpReward: Number(e.target.value) }))}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
@@ -296,7 +296,7 @@ export default function AdminAchievementsPage() {
                     type="number" min={0}
                     value={form.pointsReward}
                     onChange={(e) => setForm((p) => ({ ...p, pointsReward: Number(e.target.value) }))}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>

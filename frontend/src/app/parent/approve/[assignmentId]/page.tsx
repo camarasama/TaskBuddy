@@ -209,7 +209,7 @@ export default function ApprovePage() {
         >
           {src ? (
             // Presigned R2 URL: a remote host next/image is not configured for, and short-lived.
-            <div className="relative w-full aspect-[4/3] bg-slate-100">
+            <div className="relative w-full aspect-4/3 bg-slate-100">
               <Image
                 src={src}
                 alt={`Evidence for ${assignment?.task.title}`}
@@ -219,7 +219,7 @@ export default function ApprovePage() {
               />
             </div>
           ) : (
-            <div className="w-full aspect-[4/3] bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-4xl">
+            <div className="w-full aspect-4/3 bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold text-4xl">
               {getInitials(assignment?.child.firstName, assignment?.child.lastName)}
             </div>
           )}

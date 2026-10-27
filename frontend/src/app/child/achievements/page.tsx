@@ -150,7 +150,7 @@ export default function ChildAchievementsPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-teal-500 to-emerald-700 rounded-2xl p-6 text-white shadow-lg shadow-emerald-500/30"
+          className="bg-linear-to-r from-teal-500 to-emerald-700 rounded-2xl p-6 text-white shadow-lg shadow-emerald-500/30"
         >
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -170,7 +170,7 @@ export default function ChildAchievementsPage() {
               initial={{ width: 0 }}
               animate={{ width: `${progressPercent}%` }}
               transition={{ duration: 1, ease: 'easeOut' }}
-              className="h-full bg-gradient-to-r from-gold-300 to-gold-500 rounded-full"
+              className="h-full bg-linear-to-r from-gold-300 to-gold-500 rounded-full"
             />
           </div>
           <p className="text-sm text-emerald-100">{progressPercent}% Complete</p>
@@ -207,7 +207,7 @@ export default function ChildAchievementsPage() {
               className={cn(
                 'px-4 py-2 rounded-full text-sm font-medium transition-all',
                 filter === tab.key
-                  ? 'bg-teal-600 text-white shadow-sm'
+                  ? 'bg-teal-600 text-white shadow-xs'
                   : 'bg-white text-slate-600 border border-slate-200 hover:border-teal-300'
               )}
             >
@@ -302,7 +302,7 @@ function AchievementBadge({
         className={cn(
           'w-14 h-14 rounded-full flex items-center justify-center mb-2 relative',
           achievement.unlocked
-            ? `bg-gradient-to-br ${config.gradient} shadow-lg`
+            ? `bg-linear-to-br ${config.gradient} shadow-lg`
             : 'bg-slate-200'
         )}
       >
@@ -367,7 +367,7 @@ function AchievementModal({
             className={cn(
               'w-24 h-24 rounded-full flex items-center justify-center mb-4',
               achievement.unlocked
-                ? `bg-gradient-to-br ${config.gradient} shadow-xl ${config.glow}`
+                ? `bg-linear-to-br ${config.gradient} shadow-xl ${config.glow}`
                 : 'bg-slate-200'
             )}
           >
@@ -386,7 +386,7 @@ function AchievementModal({
             <span className={cn(
               'mt-1 px-3 py-0.5 rounded-full text-xs font-bold uppercase',
               achievement.unlocked
-                ? `bg-gradient-to-r ${config.gradient} text-white`
+                ? `bg-linear-to-r ${config.gradient} text-white`
                 : 'bg-slate-100 text-slate-500'
             )}>
               {achievement.tier}

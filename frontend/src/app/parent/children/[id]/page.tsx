@@ -187,7 +187,7 @@ export default function ChildDetailsPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
+          className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs"
         >
           {/* A photo the child chose. It is not their avatar yet, approving is what publishes it
               to the rest of the family, so this sits above the profile it would change. */}
@@ -197,7 +197,7 @@ export default function ChildDetailsPage() {
                 <img
                   src={child.childProfile.pendingAvatarUrl}
                   alt={`Photo ${child.firstName} chose`}
-                  className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
+                  className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-xs shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-amber-900">
@@ -346,7 +346,7 @@ export default function ChildDetailsPage() {
                   </div>
                   <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-xp-400 to-xp-600 rounded-full"
+                      className="h-full bg-linear-to-r from-xp-400 to-xp-600 rounded-full"
                       style={{ width: `${(profile.totalXp % 100)}%` }}
                     />
                   </div>
@@ -562,7 +562,7 @@ function EditChildModal({
             <select
               value={formData.gender}
               onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+              className="w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
             >
               <option value="">Not specified</option>
               <option value="boy">Boy</option>
