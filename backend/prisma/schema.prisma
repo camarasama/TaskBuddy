@@ -1,14 +1,18 @@
 // TaskBuddy Database Schema
 // Based on APP_DEVELOPMENT_INSTRUCTIONS.md v2.0
 
+// Prisma 7 (2026-10-27): the `prisma-client` generator writes TypeScript into src/generated/prisma,
+// which tsc compiles with the rest of the backend. moduleFormat "cjs" keeps the backend CommonJS.
+// The connection URL lives in prisma.config.ts (CLI) and services/database.ts (runtime adapter).
 generator client {
-  provider = "prisma-client-js"
-  url      = env("DATABASE_URL")
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ============================================

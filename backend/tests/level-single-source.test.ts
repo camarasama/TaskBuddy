@@ -153,7 +153,8 @@ describe('no source file increments experiencePoints', () => {
   const sourceFiles = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
       const full = join(dir, entry.name);
-      if (entry.isDirectory()) return sourceFiles(full);
+      // src/generated is Prisma's generated client, not code we wrote.
+      if (entry.isDirectory()) return entry.name === 'generated' ? [] : sourceFiles(full);
       return entry.isFile() && entry.name.endsWith('.ts') ? [full] : [];
     });
 

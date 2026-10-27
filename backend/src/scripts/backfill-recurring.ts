@@ -23,9 +23,9 @@
 // DIRECTORY, so this only ever worked when run from backend/. config/index.ts resolves it from
 // __dirname instead. Left unfixed this fails with an unset DATABASE_URL, not a clear error.
 import '../config';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+// Prisma 7: the shared client carries the pg adapter and pool settings.
+import { prisma } from '../services/database';
 
 function banner(msg: string) {
   console.log(`\n${'─'.repeat(60)}`);
