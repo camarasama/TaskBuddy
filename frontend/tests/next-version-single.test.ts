@@ -46,3 +46,43 @@ describe('Next.js version is single and stable', () => {
     expect(fromFrontend).toBe(pinned);
   });
 });
+
+// Guard: the web app's React matches the React that Next actually runs (2026-10-27).
+//
+// Next 16 bundles its own React for the browser and server (next/dist/compiled/react, 19.3 canary
+// with Next 16.4.3). Until this change frontend/package.json said React 18.3, so Jest and tsc
+// checked React 18 while users ran React 19: tests did not test what shipped. The web now declares
+// React 19.3; this keeps the two on the same minor so that never silently drifts back.
+
+function resolveVersionFrom(dir: string, pkg: string): string {
+  const script = `console.log(require(require.resolve("${pkg}/package.json",{paths:[process.argv[1]]})).version)`;
+  return execFileSync(process.execPath, ['-e', script, dir], { encoding: 'utf8' }).trim();
+}
+
+function nextBundledReactVersion(): string {
+  const nextDir = path.dirname(require.resolve('next/package.json', { paths: [FRONTEND] }));
+  const src = require('fs').readFileSync(path.join(nextDir, 'dist/compiled/react/cjs/react.production.js'), 'utf8');
+  const m = /exports\.version = "([^"]+)"/.exec(src);
+  if (!m) throw new Error('could not read the React version Next bundles');
+  return m[1];
+}
+
+const minor = (v: string) => v.split('.').slice(0, 2).join('.');
+
+describe('web React matches the React Next runs', () => {
+  const react = resolveVersionFrom(FRONTEND, 'react');
+  const reactDom = resolveVersionFrom(FRONTEND, 'react-dom');
+  const bundled = nextBundledReactVersion();
+
+  it('react and react-dom are the same version', () => {
+    expect(reactDom).toBe(react);
+  });
+
+  it('is on the same major.minor as the React bundled in Next', () => {
+    expect(minor(react)).toBe(minor(bundled));
+  });
+
+  it('tests run the same React as the app declares', () => {
+    expect(require('react').version).toBe(react);
+  });
+});

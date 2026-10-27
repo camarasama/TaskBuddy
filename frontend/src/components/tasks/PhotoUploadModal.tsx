@@ -31,7 +31,8 @@ export function PhotoUploadModal({
   onClose: () => void;
   onSubmit: (file: File) => void;
   uploading: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  // React 19: useRef<T>(null) is RefObject<T | null>.
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
