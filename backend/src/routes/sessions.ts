@@ -23,6 +23,7 @@ import { authenticate, requireParent } from '../middleware/auth';
 import { NotFoundError } from '../middleware/errorHandler';
 import { AuditService } from '../services/AuditService';
 import { validateParams } from '../middleware/validate';
+import { param } from '../utils/param';
 
 export const sessionsRouter = Router();
 
@@ -77,7 +78,7 @@ sessionsRouter.delete('/:sessionId', authenticate, validateParams(sessionIdSchem
     // Ownership is enforced inside revokeById, before anything is revoked. The response is the same
     // either way: an id that belongs to someone else must be indistinguishable from one that doesn't
     // exist, or this endpoint becomes an oracle for whether a given session id is live.
-    const target = await SessionService.revokeById(req.params.sessionId, 'user_revoke', [req.user!.userId]);
+    const target = await SessionService.revokeById(param(req, 'sessionId'), 'user_revoke', [req.user!.userId]);
     if (!target) {
       throw new NotFoundError('Session not found');
     }
@@ -86,7 +87,7 @@ sessionsRouter.delete('/:sessionId', authenticate, validateParams(sessionIdSchem
       actorId: req.user!.userId,
       action: 'SESSION_REVOKE',
       resourceType: 'refresh_session',
-      resourceId: req.params.sessionId,
+      resourceId: param(req, 'sessionId'),
       familyId: req.user!.familyId,
       ipAddress: req.ip,
       metadata: { scope: 'self' },
@@ -125,7 +126,7 @@ sessionsRouter.delete(
       // children", not "someone in my family", which would let a parent end a co-parent's session
       // through this route. Checked before revoking, not after.
       const childIds = await childIdsInFamily(req.user!.familyId);
-      const target = await SessionService.revokeById(req.params.sessionId, 'parent_revoke', childIds);
+      const target = await SessionService.revokeById(param(req, 'sessionId'), 'parent_revoke', childIds);
       if (!target) {
         throw new NotFoundError('Session not found');
       }
@@ -134,7 +135,7 @@ sessionsRouter.delete(
         actorId: req.user!.userId,
         action: 'SESSION_REVOKE',
         resourceType: 'refresh_session',
-        resourceId: req.params.sessionId,
+        resourceId: param(req, 'sessionId'),
         familyId: req.user!.familyId,
         ipAddress: req.ip,
         metadata: { scope: 'child', childId: target.userId },

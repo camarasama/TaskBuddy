@@ -19,6 +19,7 @@ import { validateQuery, validateBody } from '../middleware/validate';
 import { TemplateService } from '../services/TemplateService';
 import { suggestRewards } from '../services/RewardSuggestionService';
 import { REWARD_PRESETS } from './templatesSeed';
+import { param } from '../utils/param';
 
 export const templatesRouter = Router();
 
@@ -65,7 +66,7 @@ templatesRouter.get('/tasks', validateQuery(listQuerySchema), async (req, res, n
 
 templatesRouter.get('/tasks/:id', async (req, res, next) => {
   try {
-    const template = await TemplateService.getTemplate(req.familyId!, req.params.id);
+    const template = await TemplateService.getTemplate(req.familyId!, param(req, 'id'));
     res.json({ success: true, data: { template } });
   } catch (error) {
     next(error);
@@ -88,7 +89,7 @@ templatesRouter.post(
       const result = await TemplateService.applyPack({
         familyId: req.familyId!,
         createdBy: req.user!.userId,
-        category: decodeURIComponent(req.params.category),
+        category: decodeURIComponent(param(req, 'category')),
         childId,
       });
       res.status(201).json({ success: true, data: result });

@@ -34,6 +34,7 @@ import {
   type GameCategory,
   type GameLevel,
 } from '@taskbuddy/shared';
+import { param } from '../utils/param';
 
 /**
  * Force the display-only reward/cooldown columns to agree with the level and category.
@@ -175,7 +176,7 @@ function rotationHealth(bankSize: number, perSession: number): 'none' | 'low' | 
 adminGamesRouter.get('/:id', async (req, res, next) => {
   try {
     const def = await prisma.gameDefinition.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       include: { _count: { select: { sessions: true } } },
     });
     if (!def) throw new NotFoundError('Game not found');
@@ -252,7 +253,7 @@ adminGamesRouter.post('/', validateBody(gameBodySchema), async (req, res, next) 
 adminGamesRouter.patch('/:id', validateBody(gamePatchSchema), async (req, res, next) => {
   try {
     const body = gamePatchSchema.parse(req.body);
-    const existing = await prisma.gameDefinition.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.gameDefinition.findUnique({ where: { id: param(req, 'id') } });
     if (!existing) throw new NotFoundError('Game not found');
 
     // Validate the bank/draw pair as it will be AFTER the patch, not just the fields supplied —
@@ -263,7 +264,7 @@ adminGamesRouter.patch('/:id', validateBody(gamePatchSchema), async (req, res, n
     assertBankConsistent(nextQuestions, nextPerSession);
 
     const updated = await prisma.gameDefinition.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         ...(body.type !== undefined && { type: body.type }),
         ...(body.title !== undefined && { title: body.title }),
@@ -325,7 +326,7 @@ adminGamesRouter.patch('/:id', validateBody(gamePatchSchema), async (req, res, n
 adminGamesRouter.delete('/:id', async (req, res, next) => {
   try {
     const existing = await prisma.gameDefinition.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       include: { _count: { select: { sessions: true } } },
     });
     if (!existing) throw new NotFoundError('Game not found');
@@ -334,18 +335,18 @@ adminGamesRouter.delete('/:id', async (req, res, next) => {
 
     if (hasHistory) {
       await prisma.gameDefinition.update({
-        where: { id: req.params.id },
+        where: { id: param(req, 'id') },
         data: { isActive: false },
       });
     } else {
-      await prisma.gameDefinition.delete({ where: { id: req.params.id } });
+      await prisma.gameDefinition.delete({ where: { id: param(req, 'id') } });
     }
 
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: hasHistory ? 'UPDATE' : 'DELETE',
       resourceType: 'game_definition',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: null,
       ipAddress: req.ip,
       metadata: {

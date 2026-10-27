@@ -149,7 +149,9 @@ export function familyIsolation(req: Request, _res: Response, next: NextFunction
   }
 
   // Check if request tries to access another family's data
-  const requestedFamilyId = req.params.familyId || req.body?.familyId || req.query?.familyId;
+  // Optional: most routes have no :familyId, so this must NOT use utils/param (which throws).
+  const paramFamilyId = typeof req.params?.familyId === 'string' ? req.params.familyId : undefined;
+  const requestedFamilyId = paramFamilyId || req.body?.familyId || req.query?.familyId;
 
   if (requestedFamilyId && requestedFamilyId !== req.user.familyId) {
     next(new ForbiddenError('Access to other families is forbidden'));

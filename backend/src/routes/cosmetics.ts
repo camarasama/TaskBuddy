@@ -14,6 +14,7 @@
 import { Router } from 'express';
 import { authenticate, requireChild, familyIsolation } from '../middleware/auth';
 import { CosmeticService } from '../services/CosmeticService';
+import { param } from '../utils/param';
 
 export const cosmeticsRouter = Router();
 
@@ -32,7 +33,7 @@ cosmeticsRouter.post('/:id/buy', async (req, res, next) => {
   try {
     const result = await CosmeticService.purchase({
       childId: req.user!.userId,
-      itemId: req.params.id,
+      itemId: param(req, 'id'),
     });
     res.status(201).json({ success: true, data: result });
   } catch (error) {
@@ -42,7 +43,7 @@ cosmeticsRouter.post('/:id/buy', async (req, res, next) => {
 
 cosmeticsRouter.put('/:id/equip', async (req, res, next) => {
   try {
-    await CosmeticService.equip({ childId: req.user!.userId, itemId: req.params.id });
+    await CosmeticService.equip({ childId: req.user!.userId, itemId: param(req, 'id') });
     res.json({ success: true, data: { equipped: true } });
   } catch (error) {
     next(error);
@@ -51,7 +52,7 @@ cosmeticsRouter.put('/:id/equip', async (req, res, next) => {
 
 cosmeticsRouter.delete('/:id/equip', async (req, res, next) => {
   try {
-    await CosmeticService.unequip({ childId: req.user!.userId, itemId: req.params.id });
+    await CosmeticService.unequip({ childId: req.user!.userId, itemId: param(req, 'id') });
     res.json({ success: true, data: { equipped: false } });
   } catch (error) {
     next(error);

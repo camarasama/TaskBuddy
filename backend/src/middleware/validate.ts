@@ -39,7 +39,9 @@ export function validateQuery(schema: ZodType) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       const validated = await schema.parseAsync(req.query);
-      req.query = validated as Request['query'];
+      // Express 5 makes req.query a getter, so plain assignment throws in strict mode. Shadow it with
+      // an own property so handlers see the parsed, coerced values exactly as before.
+      Object.defineProperty(req, 'query', { value: validated, writable: true, configurable: true, enumerable: true });
       next();
     } catch (error) {
       next(error);

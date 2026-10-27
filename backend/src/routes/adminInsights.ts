@@ -24,6 +24,7 @@ import { AuditService } from '../services/AuditService';
 import { PlatformInsightsService, loadFamilies, RANGES, type RangeKey } from '../services/PlatformInsightsService';
 import { ReengagementService } from '../services/ReengagementService';
 import { NUDGE_STAGES, stageOf, type Stage } from '../services/lifecycle';
+import { param } from '../utils/param';
 
 export const adminInsightsRouter = Router();
 
@@ -189,7 +190,7 @@ adminInsightsRouter.post('/reengagement/test', ...auth, validateBody(testSendBod
 
 adminInsightsRouter.post('/reengagement/families/:id/send-next', ...auth, async (req, res, next) => {
   try {
-    const family = await prisma.family.findUnique({ where: { id: req.params.id }, select: { id: true, familyName: true } });
+    const family = await prisma.family.findUnique({ where: { id: param(req, 'id') }, select: { id: true, familyName: true } });
     if (!family) throw new NotFoundError('Family not found');
     const outcome = await ReengagementService.sendNextNow(family.id, req.user!.userId);
     if (!outcome.sent) throw new AppError(409, 'NOTHING_SENT', outcome.reason ?? 'Nothing was sent.');
@@ -210,7 +211,7 @@ adminInsightsRouter.post('/reengagement/families/:id/send-next', ...auth, async 
 
 adminInsightsRouter.patch('/reengagement/families/:id/pause', ...auth, validateBody(pausedBody), async (req, res, next) => {
   try {
-    const family = await prisma.family.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    const family = await prisma.family.findUnique({ where: { id: param(req, 'id') }, select: { id: true } });
     if (!family) throw new NotFoundError('Family not found');
     await ReengagementService.setFamilyPaused(family.id, req.body.paused);
     await AuditService.logAction({
@@ -230,7 +231,7 @@ adminInsightsRouter.patch('/reengagement/families/:id/pause', ...auth, validateB
 
 adminInsightsRouter.patch('/families/:id/test-account', ...auth, validateBody(testAccountBody), async (req, res, next) => {
   try {
-    const family = await prisma.family.findUnique({ where: { id: req.params.id }, select: { id: true, familyName: true } });
+    const family = await prisma.family.findUnique({ where: { id: param(req, 'id') }, select: { id: true, familyName: true } });
     if (!family) throw new NotFoundError('Family not found');
     await prisma.family.update({ where: { id: family.id }, data: { isTestAccount: req.body.isTestAccount } });
     await AuditService.logAction({

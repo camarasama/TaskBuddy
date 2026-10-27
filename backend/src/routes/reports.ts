@@ -31,6 +31,7 @@ import {
   exportExecutionTimePdf, exportGamesPdf, exportWebhookPdf,
   exportReportCardPdf,
 } from '../services/ExportService';
+import { param } from '../utils/param';
 
 export const reportsRouter = Router();
 
@@ -228,7 +229,7 @@ const ALL_REPORTS = [
 type ReportName = typeof ALL_REPORTS[number];
 
 reportsRouter.get('/:name/export', async (req: Request, res: Response, next: NextFunction) => {
-  const name = req.params.name as ReportName;
+  const name = param(req, 'name') as ReportName;
   const format = ((req.query.format as string) ?? 'csv').toLowerCase();
 
   if (!['csv', 'pdf'].includes(format)) {

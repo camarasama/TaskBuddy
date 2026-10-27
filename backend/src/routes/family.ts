@@ -1,6 +1,7 @@
 import { Router, type RequestHandler } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
+import { ipKey } from '../middleware/rateLimitKey';
 import { CONSENT_VERSIONS, AVATAR_EMOJIS, AGE_LIMITS, isAgeBetween } from '@taskbuddy/shared';
 import { AccountDeletionService } from '../services/AccountDeletionService';
 import { ConsentService } from '../services/ConsentService';
@@ -26,6 +27,7 @@ import { createNotification } from './notifications';
 import { SessionService } from '../services/SessionService';
 import { toPublicProfile, toPublicUser } from '../utils/publicUser';
 import { displayText, ownStorageUrl } from '../utils/textFields';
+import { param } from '../utils/param';
 
 export const familyRouter = Router();
 
@@ -368,7 +370,7 @@ familyRouter.delete('/me/parents/:id', requireParent, async (req, res, next) => 
     await inviteService.removeParent(
       req.familyId!,
       req.user!.userId,
-      req.params.id
+      param(req, 'id')
     );
 
     // M8 - Audit: co-parent removed
@@ -376,7 +378,7 @@ familyRouter.delete('/me/parents/:id', requireParent, async (req, res, next) => 
       actorId: req.user!.userId,
       action: 'DELETE',
       resourceType: 'user',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { event: 'co_parent_removed' },
@@ -397,7 +399,7 @@ familyRouter.delete('/me/invitations/:id', requireParent, async (req, res, next)
     await inviteService.cancelInvite(
       req.familyId!,
       req.user!.userId,
-      req.params.id
+      param(req, 'id')
     );
 
     // M8 - Audit: pending invitation cancelled
@@ -405,7 +407,7 @@ familyRouter.delete('/me/invitations/:id', requireParent, async (req, res, next)
       actorId: req.user!.userId,
       action: 'DELETE',
       resourceType: 'invitation',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { event: 'invitation_cancelled' },
@@ -458,7 +460,7 @@ const deletionLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `deletion:${(req as any).user?.userId ?? req.ip}`,
+  keyGenerator: (req) => `deletion:${(req as any).user?.userId ?? ipKey(req)}`,
   message: { success: false, error: { message: 'Too many attempts. Try again later.' } },
 });
 
@@ -644,7 +646,7 @@ familyRouter.get('/me/children/:id', async (req, res, next) => {
   try {
     const child = await prisma.user.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         familyId: req.familyId,
         role: 'child',
         deletedAt: null,
@@ -768,7 +770,7 @@ function reviewChildAvatar(approved: boolean): RequestHandler {
   return async (req, res, next) => {
   try {
     const child = await prisma.user.findFirst({
-      where: { id: req.params.id, familyId: req.familyId, role: 'child', deletedAt: null },
+      where: { id: param(req, 'id'), familyId: req.familyId, role: 'child', deletedAt: null },
       include: { childProfile: true },
     });
 
@@ -851,7 +853,7 @@ familyRouter.put(
   validateBody(streakPauseSchema),
   async (req, res, next) => {
     try {
-      const child = await findOwnChild(req.params.id, req.familyId);
+      const child = await findOwnChild(param(req, 'id'), req.familyId);
       const { from, until } = req.body as { from: string; until: string };
 
       await prisma.childProfile.update({
@@ -882,7 +884,7 @@ familyRouter.put(
 
 familyRouter.delete('/me/children/:id/streak-pause', requireParent, async (req, res, next) => {
   try {
-    const child = await findOwnChild(req.params.id, req.familyId);
+    const child = await findOwnChild(param(req, 'id'), req.familyId);
 
     await prisma.childProfile.update({
       where: { userId: child.id },
@@ -960,7 +962,7 @@ familyRouter.put(
  */
 familyRouter.post('/me/children/:id/grace-grant', requireParent, async (req, res, next) => {
   try {
-    const child = await findOwnChild(req.params.id, req.familyId);
+    const child = await findOwnChild(param(req, 'id'), req.familyId);
     const until = new Date(Date.now() + GRACE_GRANT_HOURS * 60 * 60 * 1000);
 
     await prisma.childProfile.update({
@@ -988,7 +990,7 @@ familyRouter.post('/me/children/:id/grace-grant', requireParent, async (req, res
 
 familyRouter.delete('/me/children/:id/grace-grant', requireParent, async (req, res, next) => {
   try {
-    const child = await findOwnChild(req.params.id, req.familyId);
+    const child = await findOwnChild(param(req, 'id'), req.familyId);
 
     await prisma.childProfile.update({
       where: { userId: child.id },
@@ -1015,7 +1017,7 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
   try {
     const child = await prisma.user.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         familyId: req.familyId,
         role: 'child',
         deletedAt: null,
@@ -1036,7 +1038,7 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
         where: {
           familyId: req.familyId,
           username: desiredUsername,
-          NOT: { id: req.params.id },
+          NOT: { id: param(req, 'id') },
         },
       });
       if (clash) {
@@ -1045,7 +1047,7 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
     }
 
     const updatedChild = await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         firstName: req.body.firstName,
         lastName: req.body.lastName,
@@ -1081,7 +1083,7 @@ familyRouter.put('/me/children/:id', requireParent, validateBody(updateChildSche
       actorId: req.user!.userId,
       action: 'UPDATE',
       resourceType: 'child',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { changes: req.body },
@@ -1127,7 +1129,7 @@ familyRouter.delete('/me/children/:id', requireParent, async (req, res, next) =>
   try {
     const child = await prisma.user.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         familyId: req.familyId,
         role: 'child',
         deletedAt: null,
@@ -1139,7 +1141,7 @@ familyRouter.delete('/me/children/:id', requireParent, async (req, res, next) =>
     }
 
     await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         isActive: false,
         deletedAt: new Date(),
@@ -1154,7 +1156,7 @@ familyRouter.delete('/me/children/:id', requireParent, async (req, res, next) =>
       actorId: req.user!.userId,
       action: 'DELETE',
       resourceType: 'child',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { childName: `${child.firstName} ${child.lastName}` },
@@ -1334,7 +1336,7 @@ familyRouter.post(
   async (req, res, next) => {
     try {
       const updated = await TransitionService.resolveTransition({
-        transitionId: req.params.id,
+        transitionId: param(req, 'id'),
         familyId: req.familyId!,
         actorId: req.user!.userId,
         decision: req.body.decision,

@@ -18,6 +18,7 @@ import crypto from 'crypto';
 import { Router } from 'express';
 import { config } from '../config';
 import { AnalyticsService } from '../services/AnalyticsService';
+import { param } from '../utils/param';
 
 export const trackRouter = Router();
 
@@ -67,8 +68,9 @@ export function buildTrackingPixelUrl(familyId: string, now: Date): string | und
 // ─── GET /track/digest/:familyId/:week/:sig.gif ───────────────────────────────
 
 trackRouter.get('/digest/:familyId/:week/:sig', (req, res) => {
-  const { familyId, week } = req.params;
-  const sig = req.params.sig.replace(/\.gif$/, '');
+  const familyId = param(req, 'familyId');
+  const week = param(req, 'week');
+  const sig = param(req, 'sig').replace(/\.gif$/, '');
 
   // timingSafeEqual throws on length mismatch, so guard first.
   const matches = (expected: string) =>

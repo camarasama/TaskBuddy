@@ -36,6 +36,7 @@ import { EmailService } from '../services/email';
 import { AuditService } from '../services/AuditService';
 import { config } from '../config';
 import { displayText } from '../utils/textFields';
+import { param } from '../utils/param';
 
 export const adminTestersRouter = Router();
 
@@ -196,11 +197,11 @@ adminTestersRouter.patch(
   async (req, res, next) => {
     try {
       const body = req.body as z.infer<typeof updateSchema>;
-      const existing = await prisma.tester.findUnique({ where: { id: req.params.id } });
+      const existing = await prisma.tester.findUnique({ where: { id: param(req, 'id') } });
       if (!existing) throw new NotFoundError('Tester not found');
 
       const tester = await prisma.tester.update({
-        where: { id: req.params.id },
+        where: { id: param(req, 'id') },
         data: { ...body, ...(body.email ? { email: body.email.trim().toLowerCase() } : {}) },
       });
 
@@ -215,10 +216,10 @@ adminTestersRouter.patch(
 
 adminTestersRouter.delete('/:id', validateParams(idParam), async (req, res, next) => {
   try {
-    const existing = await prisma.tester.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.tester.findUnique({ where: { id: param(req, 'id') } });
     if (!existing) throw new NotFoundError('Tester not found');
 
-    await prisma.tester.delete({ where: { id: req.params.id } });
+    await prisma.tester.delete({ where: { id: param(req, 'id') } });
     res.json({ success: true, data: { deleted: true } });
   } catch (error) {
     next(error);
@@ -248,7 +249,7 @@ const APP_NAME = process.env.PLAY_APP_NAME ?? 'TaskBuddy';
 
 adminTestersRouter.post('/:id/invite', validateParams(idParam), async (req, res, next) => {
   try {
-    const tester = await prisma.tester.findUnique({ where: { id: req.params.id } });
+    const tester = await prisma.tester.findUnique({ where: { id: param(req, 'id') } });
     if (!tester) throw new NotFoundError('Tester not found');
 
     await EmailService.send({
@@ -295,7 +296,7 @@ adminTestersRouter.post('/:id/invite', validateParams(idParam), async (req, res,
 
 adminTestersRouter.post('/:id/remind', validateParams(idParam), async (req, res, next) => {
   try {
-    const tester = await prisma.tester.findUnique({ where: { id: req.params.id } });
+    const tester = await prisma.tester.findUnique({ where: { id: param(req, 'id') } });
     if (!tester) throw new NotFoundError('Tester not found');
 
     // Which reminder to send depends on where they actually got stuck. Someone who never got in

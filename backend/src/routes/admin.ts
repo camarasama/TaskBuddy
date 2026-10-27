@@ -35,6 +35,7 @@ import { AuditService } from '../services/AuditService';
 import { FunnelService } from '../services/FunnelService';
 import { SessionService } from '../services/SessionService';
 import { EmailService } from '../services/email';
+import { param } from '../utils/param';
 
 export const adminRouter = Router();
 
@@ -241,7 +242,7 @@ adminRouter.get('/families', validateQuery(familySearchSchema), async (req, res,
 adminRouter.get('/families/:id', async (req, res, next) => {
   try {
     const family = await prisma.family.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       include: {
         settings: true,
         users: {
@@ -287,13 +288,13 @@ adminRouter.get('/families/:id', async (req, res, next) => {
       prisma.taskAssignment.count({
         where: {
           status: 'completed',
-          task: { familyId: req.params.id },
+          task: { familyId: param(req, 'id') },
         },
       }),
       prisma.taskAssignment.count({
         where: {
           status: 'approved',
-          task: { familyId: req.params.id },
+          task: { familyId: param(req, 'id') },
           approvedAt: {
             gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
           },
@@ -322,13 +323,13 @@ adminRouter.get('/families/:id', async (req, res, next) => {
 adminRouter.patch('/families/:id/suspend', validateBody(suspendSchema), async (req, res, next) => {
   try {
     const family = await prisma.family.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
     });
 
     if (!family) throw new NotFoundError('Family not found');
 
     await prisma.family.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         isSuspended: true,
         suspendedAt: new Date(),
@@ -339,15 +340,15 @@ adminRouter.patch('/families/:id/suspend', validateBody(suspendSchema), async (r
     // Sign every member out now. familyIsolation refuses a suspended family on most routes, but not
     // all routes use it, and without this each device's access token kept working until it expired
     // (up to 24 hours for a child).
-    await SessionService.revokeAllForFamily(req.params.id, 'admin');
+    await SessionService.revokeAllForFamily(param(req, 'id'), 'admin');
 
     // Audit: admin suspended a family
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'SUSPEND',
       resourceType: 'family',
-      resourceId: req.params.id,
-      familyId: req.params.id,
+      resourceId: param(req, 'id'),
+      familyId: param(req, 'id'),
       ipAddress: req.ip,
       metadata: { reason: req.body.reason, familyName: family.familyName },
     });
@@ -369,13 +370,13 @@ adminRouter.patch('/families/:id/suspend', validateBody(suspendSchema), async (r
 adminRouter.patch('/families/:id/reactivate', async (req, res, next) => {
   try {
     const family = await prisma.family.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
     });
 
     if (!family) throw new NotFoundError('Family not found');
 
     await prisma.family.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         isSuspended: false,
         suspendedAt: null,
@@ -388,8 +389,8 @@ adminRouter.patch('/families/:id/reactivate', async (req, res, next) => {
       actorId: req.user!.userId,
       action: 'REACTIVATE',
       resourceType: 'family',
-      resourceId: req.params.id,
-      familyId: req.params.id,
+      resourceId: param(req, 'id'),
+      familyId: param(req, 'id'),
       ipAddress: req.ip,
       metadata: { familyName: family.familyName },
     });
@@ -475,7 +476,7 @@ adminRouter.get('/users', validateQuery(userSearchSchema), async (req, res, next
 adminRouter.get('/users/:id', async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       select: {
         id: true,
         firstName: true,
@@ -536,7 +537,7 @@ adminRouter.post('/users/:id/force-reset', async (req, res, next) => {
   try {
     const invalidateNow = req.body?.invalidateNow === true;
     const user = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       select: { id: true, email: true, firstName: true, lastName: true, familyId: true },
     });
 
@@ -545,7 +546,7 @@ adminRouter.post('/users/:id/force-reset', async (req, res, next) => {
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         passwordResetTokenHash: tokenHash,
         passwordResetExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h for admin resets
@@ -560,7 +561,7 @@ adminRouter.post('/users/:id/force-reset', async (req, res, next) => {
 
     // Kill every live session for the target - a force-reset must not leave a stolen refresh
     // token working.
-    await SessionService.revokeAllForUser(req.params.id, 'admin');
+    await SessionService.revokeAllForUser(param(req, 'id'), 'admin');
 
     // Email the reset link so the user can self-serve a new password.
     if (user.email) {
@@ -587,7 +588,7 @@ adminRouter.post('/users/:id/force-reset', async (req, res, next) => {
       actorId: req.user!.userId,
       action: 'FORCE_RESET',
       resourceType: 'user',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: null,
       ipAddress: req.ip,
       metadata: {
@@ -678,13 +679,13 @@ adminRouter.post('/achievements', validateBody(achievementSchema), async (req, r
 adminRouter.put('/achievements/:id', validateBody(achievementSchema.partial()), async (req, res, next) => {
   try {
     const existing = await prisma.achievement.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
     });
 
     if (!existing) throw new NotFoundError('Achievement not found');
 
     const updated = await prisma.achievement.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: req.body,
     });
 
@@ -692,7 +693,7 @@ adminRouter.put('/achievements/:id', validateBody(achievementSchema.partial()), 
       actorId: req.user!.userId,
       action: 'UPDATE',
       resourceType: 'achievement',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: null,
       ipAddress: req.ip,
       metadata: { changes: req.body },
@@ -716,21 +717,21 @@ adminRouter.put('/achievements/:id', validateBody(achievementSchema.partial()), 
 adminRouter.delete('/achievements/:id', async (req, res, next) => {
   try {
     const existing = await prisma.achievement.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       include: { _count: { select: { childAchievements: true } } },
     });
 
     if (!existing) throw new NotFoundError('Achievement not found');
 
     await prisma.achievement.delete({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
     });
 
     await AuditService.logAction({
       actorId: req.user!.userId,
       action: 'DELETE',
       resourceType: 'achievement',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: null,
       ipAddress: req.ip,
       metadata: {
