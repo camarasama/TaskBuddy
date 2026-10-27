@@ -43,6 +43,7 @@ import {
   toClientQuestions,
   toOriginalIndex,
 } from '../services/GameService';
+import { param } from '../utils/param';
 
 export const gamesRouter = Router();
 
@@ -347,7 +348,7 @@ gamesRouter.get('/history/:id', async (req, res, next) => {
     const childId = req.user!.userId;
 
     const session = await prisma.gameSession.findUnique({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       include: { gameDefinition: true },
     });
 
@@ -395,7 +396,7 @@ gamesRouter.get('/history/:id', async (req, res, next) => {
 gamesRouter.get('/sessions/:id', async (req, res, next) => {
   try {
     const childId = req.user!.userId;
-    const session = await loadPlayableSession(req.params.id, childId);
+    const session = await loadPlayableSession(param(req, 'id'), childId);
     const def = session.gameDefinition;
     const questions = servedQuestionsOf(session);
     const answers = parseAnswers(session.answersJson, questions.length);
@@ -439,7 +440,7 @@ gamesRouter.post('/sessions/:id/answer', async (req, res, next) => {
       answerIndex: number;
     };
 
-    const session = await loadPlayableSession(req.params.id, childId);
+    const session = await loadPlayableSession(param(req, 'id'), childId);
     const questions = servedQuestionsOf(session);
 
     if (
@@ -505,7 +506,7 @@ gamesRouter.post('/sessions/:id/answer', async (req, res, next) => {
 gamesRouter.post('/sessions/:id/submit', async (req, res, next) => {
   try {
     const childId = req.user!.userId;
-    const { id } = req.params;
+    const id = param(req, 'id');
 
     const session = await loadPlayableSession(id, childId);
     const def = session.gameDefinition;

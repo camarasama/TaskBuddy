@@ -61,6 +61,9 @@ validateConfig();
 
 // Create Express app
 const app = express();
+// Express 5 switched the default query parser to "simple" (node:querystring). Keep qs ("extended"),
+// which the routes and both apps rely on: `status[]=a&status[]=b`, `filter[child]=x`.
+app.set('query parser', 'extended');
 // Behind nginx (production): trust the first proxy hop so req.ip / X-Forwarded-For
 // and req.protocol are the real client values, not the proxy's. Required for
 // express-rate-limit to key on the actual client IP rather than 127.0.0.1.
@@ -157,6 +160,12 @@ app.use(
 // Request parsing
 app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: true, limit: '50kb' }));
+// Express 5 leaves req.body undefined when no parser matched (Express 4 gave {}). Handlers and
+// middleware read req.body.x on bodyless POSTs, so restore the v4 shape once, here.
+app.use((req, _res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
 app.use(cookieParser());
 
 // Logging
@@ -167,14 +176,19 @@ if (config.env !== 'test') {
 }
 
 // Serve uploaded files - no auth required (paths use random UUIDs, not guessable)
-app.get('/uploads/*', (req: express.Request, res: express.Response) => {
+// Express 5 wildcards must be named; `path` arrives as the list of segments after /uploads/.
+app.get('/uploads/*path', (req: express.Request, res: express.Response) => {
   const uploadBase = path.resolve(__dirname, '../uploads');
-  const filePath = path.resolve(uploadBase, (req.params as any)[0]);
+  const segments = (req.params as { path?: string | string[] }).path ?? [];
+  const filePath = path.resolve(uploadBase, Array.isArray(segments) ? segments.join('/') : segments);
   // Path traversal guard
   if (!filePath.startsWith(uploadBase + path.sep) && filePath !== uploadBase) {
     return res.status(400).end();
   }
-  res.sendFile(filePath);
+  // A missing file is a 404, not the generic 500 the error handler would give it.
+  res.sendFile(filePath, (err) => {
+    if (err && !res.headersSent) res.status(404).end();
+  });
 });
 
 // Health check - readiness probe: verifies the DB is reachable (used by UptimeRobot + Railway)

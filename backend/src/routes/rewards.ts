@@ -30,6 +30,7 @@ import { createNotification } from './notifications';
 import { SocketService } from '../services/SocketService';
 // P4 - Business logic delegated to RewardService
 import { RewardService } from '../services/RewardService';
+import { param } from '../utils/param';
 
 export const rewardRouter = Router();
 
@@ -193,7 +194,7 @@ rewardRouter.get('/:id', async (req, res, next) => {
   try {
     const reward = await prisma.reward.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         familyId: req.familyId,
         deletedAt: null,
       },
@@ -240,7 +241,7 @@ rewardRouter.put('/:id', requireParent, validateBody(updateRewardSchema), async 
   try {
     const reward = await prisma.reward.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         familyId: req.familyId,
         deletedAt: null,
       },
@@ -253,7 +254,7 @@ rewardRouter.put('/:id', requireParent, validateBody(updateRewardSchema), async 
     const { expiresAt, ...data } = req.body;
 
     const updated = await prisma.reward.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         ...data,
         expiresAt: expiresAt === null ? null : expiresAt ? new Date(expiresAt) : undefined,
@@ -265,7 +266,7 @@ rewardRouter.put('/:id', requireParent, validateBody(updateRewardSchema), async 
       actorId: req.user!.userId,
       action: 'UPDATE',
       resourceType: 'reward',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { changes: req.body },
@@ -286,7 +287,7 @@ rewardRouter.delete('/:id', requireParent, async (req, res, next) => {
   try {
     const reward = await prisma.reward.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         familyId: req.familyId,
         deletedAt: null,
       },
@@ -297,7 +298,7 @@ rewardRouter.delete('/:id', requireParent, async (req, res, next) => {
     }
 
     await prisma.reward.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: { deletedAt: new Date() },
     });
 
@@ -306,7 +307,7 @@ rewardRouter.delete('/:id', requireParent, async (req, res, next) => {
       actorId: req.user!.userId,
       action: 'DELETE',
       resourceType: 'reward',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { name: reward.name, pointsCost: reward.pointsCost },
@@ -333,7 +334,7 @@ rewardRouter.post(
         throw new ForbiddenError('Only children can contribute to rewards');
       }
       const result = await RewardService.contribute({
-        rewardId: req.params.id,
+        rewardId: param(req, 'id'),
         familyId: req.familyId!,
         childId: req.user!.userId,
         points: req.body.points,
@@ -353,7 +354,7 @@ rewardRouter.put('/:id/wishlist', async (req, res, next) => {
     if (req.user!.role !== 'child') throw new ForbiddenError('Only children have a wishlist');
     // Scope to the caller's family so a child cannot wish for another family's reward.
     const reward = await prisma.reward.findFirst({
-      where: { id: req.params.id, familyId: req.familyId, deletedAt: null },
+      where: { id: param(req, 'id'), familyId: req.familyId, deletedAt: null },
     });
     if (!reward) throw new NotFoundError('Reward not found');
 
@@ -373,7 +374,7 @@ rewardRouter.delete('/:id/wishlist', async (req, res, next) => {
   try {
     if (req.user!.role !== 'child') throw new ForbiddenError('Only children have a wishlist');
     await prisma.rewardWishlist.deleteMany({
-      where: { rewardId: req.params.id, childId: req.user!.userId },
+      where: { rewardId: param(req, 'id'), childId: req.user!.userId },
     });
     res.json({ success: true, data: { wishlisted: false } });
   } catch (error) {
@@ -391,7 +392,7 @@ rewardRouter.put('/:id/goal', async (req, res, next) => {
     const goal = await GoalService.setGoal({
       childId: req.user!.userId,
       familyId: req.familyId!,
-      rewardId: req.params.id,
+      rewardId: param(req, 'id'),
     });
     res.json({ success: true, data: { goal } });
   } catch (error) {
@@ -419,7 +420,7 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
       throw new ForbiddenError('Only children can redeem rewards');
     }
     const result = await RewardService.redeem({
-      rewardId: req.params.id,
+      rewardId: param(req, 'id'),
       familyId: req.familyId!,
       childId: req.user!.userId,
       ipAddress: req.ip,
@@ -439,7 +440,7 @@ rewardRouter.post('/:id/redeem', async (req, res, next) => {
 rewardRouter.put('/:id/fulfil-shared', requireParent, async (req, res, next) => {
   try {
     const result = await RewardService.fulfilCollaborative({
-      rewardId: req.params.id,
+      rewardId: param(req, 'id'),
       familyId: req.familyId!,
       parentId: req.user!.userId,
       recipientChildId: req.body?.recipientChildId,
@@ -495,7 +496,7 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
   try {
     const redemption = await prisma.rewardRedemption.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         status: { in: ['pending', 'approved'] },
         reward: { familyId: req.familyId },
       },
@@ -506,7 +507,7 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
     }
 
     const updated = await prisma.rewardRedemption.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         status: 'fulfilled',
         fulfilledAt: new Date(),
@@ -520,7 +521,7 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
       actorId: req.user!.userId,
       action: 'FULFILL',
       resourceType: 'reward_redemption',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { childId: redemption.childId, rewardId: redemption.rewardId },
@@ -534,7 +535,7 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
       message: `Your reward has been fulfilled by your parent. Enjoy! 🎉`,
       actionUrl: `/child/rewards`,
       referenceType: 'reward_redemption',
-      referenceId: req.params.id,
+      referenceId: param(req, 'id'),
     }).catch(() => {}); // non-fatal
 
     // M10 - Phase 5: Socket event → child's bell updates instantly without polling
@@ -543,7 +544,7 @@ rewardRouter.put('/redemptions/:id/fulfill', requireParent, async (req, res, nex
       title: '✅ Reward Delivered!',
       message: `Your reward has been fulfilled by your parent. Enjoy! 🎉`,
       referenceType: 'reward_redemption',
-      referenceId: req.params.id,
+      referenceId: param(req, 'id'),
     });
 
     res.json({
@@ -561,7 +562,7 @@ rewardRouter.put('/redemptions/:id/cancel', async (req, res, next) => {
   try {
     const redemption = await prisma.rewardRedemption.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         status: 'pending',
         reward: { familyId: req.familyId },
       },
@@ -582,7 +583,7 @@ rewardRouter.put('/redemptions/:id/cancel', async (req, res, next) => {
       // gets to refund.
       const won = await claimed(
         tx.rewardRedemption.updateMany({
-          where: { id: req.params.id, status: 'pending' },
+          where: { id: param(req, 'id'), status: 'pending' },
           data: { status: 'cancelled' },
         }),
       );
@@ -608,7 +609,7 @@ rewardRouter.put('/redemptions/:id/cancel', async (req, res, next) => {
       actorId: req.user!.userId,
       action: 'CANCEL',
       resourceType: 'reward_redemption',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: {

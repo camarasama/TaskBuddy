@@ -16,6 +16,7 @@ import { EmailService, EmailTriggerType } from '../services/email';
 import { authenticate, requireAdmin } from '../middleware/auth';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { hashToken } from '../utils/tokens';
+import { param } from '../utils/param';
 
 const router = Router();
 
@@ -100,7 +101,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
  */
 router.post('/:id/resend', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = param(req, 'id');
 
     const log = await prisma.emailLog.findUnique({ where: { id } });
 

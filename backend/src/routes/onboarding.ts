@@ -18,6 +18,7 @@ import {
   OnboardingService,
   type OnboardingStep,
 } from '../services/OnboardingService';
+import { param } from '../utils/param';
 
 export const onboardingRouter = Router();
 
@@ -39,9 +40,9 @@ onboardingRouter.get('/', async (req, res, next) => {
 
 onboardingRouter.post('/steps/:step', async (req, res, next) => {
   try {
-    const step = req.params.step as OnboardingStep;
+    const step = param(req, 'step') as OnboardingStep;
     if (!(ONBOARDING_STEPS as readonly string[]).includes(step)) {
-      throw new ValidationError(`Unknown setup step "${req.params.step}"`);
+      throw new ValidationError(`Unknown setup step "${param(req, 'step')}"`);
     }
 
     const state = await OnboardingService.completeStep({ familyId: req.familyId!, step });

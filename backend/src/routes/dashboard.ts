@@ -9,6 +9,7 @@ import { isStreakAtRisk } from '../services/streakService';
 import { buildWeekRecap } from '../services/RecapService';
 import { getTodayChallenge } from '../services/ChallengeService';
 import { toPublicProfile, toPublicUser } from '../utils/publicUser';
+import { param } from '../utils/param';
 
 /**
  * Roadmap §5.1 traffic-light: one word for "how is this child doing today".
@@ -457,7 +458,7 @@ dashboardRouter.get('/child', requireChild, async (req, res, next) => {
 // GET /dashboard/points/:childId - Get points history for a child
 dashboardRouter.get('/points/:childId', async (req, res, next) => {
   try {
-    const { childId } = req.params;
+    const childId = param(req, 'childId');
 
     // Verify access
     if (req.user!.role === 'child' && req.user!.userId !== childId) {

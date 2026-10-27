@@ -13,6 +13,7 @@ import {
   ChallengeNotMetError,
 } from '../services/ChallengeService';
 import { AuditService } from '../services/AuditService';
+import { param } from '../utils/param';
 
 export const challengeRouter = Router();
 
@@ -32,14 +33,14 @@ challengeRouter.get('/today', async (req, res, next) => {
 // forged request cannot award points the child hasn't earned.
 challengeRouter.post('/:id/complete', requireChild, async (req, res, next) => {
   try {
-    const result = await completeChallenge(req.params.id, req.user!.userId, req.familyId!);
+    const result = await completeChallenge(param(req, 'id'), req.user!.userId, req.familyId!);
 
     if (!result.alreadyClaimed) {
       await AuditService.logAction({
         actorId: req.user!.userId,
         action: 'CHALLENGE_COMPLETED',
         resourceType: 'daily_challenge',
-        resourceId: req.params.id,
+        resourceId: param(req, 'id'),
         familyId: req.familyId,
         ipAddress: req.ip,
         metadata: { bonusAwarded: result.awarded },

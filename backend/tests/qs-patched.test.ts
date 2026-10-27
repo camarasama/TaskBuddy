@@ -30,8 +30,16 @@ it('express and body-parser load qs >= 6.16.0', () => {
 });
 
 it('still parses nested and array query strings the way the routes expect', async () => {
+  // Express 5 defaults to the "simple" parser, which would return { 'status[]': [...] }. The app
+  // sets 'extended' (src/index.ts); this mirrors that setting.
   const app = express();
+  app.set('query parser', 'extended');
   app.get('/q', (req, res) => res.json(req.query));
   const res = await request(app).get('/q?status[]=pending&status[]=approved&page=2&filter[child]=c1');
   expect(res.body).toEqual({ status: ['pending', 'approved'], page: '2', filter: { child: 'c1' } });
+});
+
+it('the real app keeps the extended (qs) query parser under Express 5', () => {
+  const src = fs.readFileSync(path.join(__dirname, '../src/index.ts'), 'utf8');
+  expect(src).toContain("app.set('query parser', 'extended');");
 });

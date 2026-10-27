@@ -24,6 +24,7 @@ import {
   openWebhookSecret,
 } from '../services/WebhookService';
 import { WEBHOOK_EVENTS } from '@taskbuddy/shared';
+import { param } from '../utils/param';
 
 export const webhooksRouter = Router();
 
@@ -128,7 +129,7 @@ webhooksRouter.get('/:id/secret', async (req, res, next) => {
   try {
     const subscription = await prisma.webhookSubscription.findFirst({
       // familyId in the WHERE, not a post-hoc check: another family's id simply finds nothing.
-      where: { id: req.params.id, familyId: req.familyId! },
+      where: { id: param(req, 'id'), familyId: req.familyId! },
       select: { id: true, secret: true },
     });
     if (!subscription) throw new NotFoundError('Webhook subscription not found');
@@ -153,7 +154,7 @@ webhooksRouter.get('/:id/secret', async (req, res, next) => {
 webhooksRouter.delete('/:id', async (req, res, next) => {
   try {
     const { count } = await prisma.webhookSubscription.deleteMany({
-      where: { id: req.params.id, familyId: req.familyId! },
+      where: { id: param(req, 'id'), familyId: req.familyId! },
     });
     if (count === 0) throw new NotFoundError('Webhook subscription not found');
 
@@ -161,7 +162,7 @@ webhooksRouter.delete('/:id', async (req, res, next) => {
       actorId: req.user!.userId,
       action: 'DELETE',
       resourceType: 'webhook_subscription',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
     });

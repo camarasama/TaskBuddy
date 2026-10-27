@@ -19,6 +19,7 @@ import { authenticate } from '../middleware/auth';
 import { emitNotificationNew } from '../services/SocketService';
 import { PushService } from '../services/PushService';
 import { WebhookService } from '../services/WebhookService';
+import { param } from '../utils/param';
 
 export const notificationsRouter = Router();
 
@@ -90,7 +91,7 @@ notificationsRouter.get('/unread-count', async (req: Request, res: Response, nex
 notificationsRouter.put('/:id/read', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getUser(req);
-    const { id } = req.params;
+    const id = param(req, 'id');
 
     const notification = await prisma.notification.findUnique({ where: { id } });
 
@@ -139,7 +140,7 @@ notificationsRouter.put('/read-all', async (req: Request, res: Response, next: N
 notificationsRouter.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getUser(req);
-    const { id } = req.params;
+    const id = param(req, 'id');
 
     const notification = await prisma.notification.findUnique({ where: { id } });
 

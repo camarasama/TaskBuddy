@@ -49,6 +49,7 @@ import { AuditService } from '../services/AuditService';
 import { TaskService } from '../services/TaskService';
 import { createNotification } from './notifications';
 import { emitTaskComment } from '../services/SocketService';
+import { param } from '../utils/param';
 
 export const taskRouter = Router();
 
@@ -366,7 +367,7 @@ taskRouter.get('/:id', async (req, res, next) => {
   try {
     const task = await prisma.task.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         familyId: req.familyId,
         deletedAt: null,
       },
@@ -408,12 +409,12 @@ taskRouter.get('/:id', async (req, res, next) => {
 taskRouter.delete('/:id/assignments/:childId', requireParent, async (req, res, next) => {
   try {
     const task = await prisma.task.findFirst({
-      where: { id: req.params.id, familyId: req.familyId, deletedAt: null },
+      where: { id: param(req, 'id'), familyId: req.familyId, deletedAt: null },
     });
     if (!task) throw new NotFoundError('Task not found');
 
     const assignment = await prisma.taskAssignment.findFirst({
-      where: { taskId: req.params.id, childId: req.params.childId },
+      where: { taskId: param(req, 'id'), childId: param(req, 'childId') },
     });
     if (!assignment) throw new NotFoundError('Assignment not found');
 
@@ -430,7 +431,7 @@ taskRouter.post('/:id/assign', requireParent, async (req, res, next) => {
   try {
     const { childId } = req.body as { childId: string };
     const task = await prisma.task.findFirst({
-      where: { id: req.params.id, familyId: req.familyId, deletedAt: null },
+      where: { id: param(req, 'id'), familyId: req.familyId, deletedAt: null },
     });
     if (!task) throw new NotFoundError('Task not found');
 
@@ -441,12 +442,12 @@ taskRouter.post('/:id/assign', requireParent, async (req, res, next) => {
 
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const existing = await prisma.taskAssignment.findFirst({
-      where: { taskId: req.params.id, childId, instanceDate: today },
+      where: { taskId: param(req, 'id'), childId, instanceDate: today },
     });
     if (existing) throw new ConflictError('Child already has this task assigned');
 
     const assignment = await prisma.taskAssignment.create({
-      data: { taskId: req.params.id, childId, instanceDate: today },
+      data: { taskId: param(req, 'id'), childId, instanceDate: today },
       include: { child: { select: { id: true, firstName: true, lastName: true } } },
     });
 
@@ -469,7 +470,7 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
   try {
     const task = await prisma.task.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         familyId: req.familyId,
         deletedAt: null,
       },
@@ -514,7 +515,7 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
     // When archiving a task, expire all active assignments and notify affected children
     if (updateData.status === 'archived') {
       const activeAssignments = await prisma.taskAssignment.findMany({
-        where: { taskId: req.params.id, status: { in: ['pending', 'in_progress'] } },
+        where: { taskId: param(req, 'id'), status: { in: ['pending', 'in_progress'] } },
         select: { id: true, childId: true },
       });
       if (activeAssignments.length > 0) {
@@ -540,7 +541,7 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
     }
 
     const updatedTask = await prisma.task.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         ...updateData,
         dueDate: dueDate === null ? null : dueDate ? new Date(dueDate) : undefined,
@@ -563,7 +564,7 @@ taskRouter.put('/:id', requireParent, validateBody(updateTaskSchema), async (req
       actorId: req.user!.userId,
       action: 'UPDATE',
       resourceType: 'task',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { changes: req.body },
@@ -583,7 +584,7 @@ taskRouter.delete('/:id', requireParent, async (req, res, next) => {
   try {
     const task = await prisma.task.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         familyId: req.familyId,
         deletedAt: null,
       },
@@ -594,7 +595,7 @@ taskRouter.delete('/:id', requireParent, async (req, res, next) => {
     }
 
     await prisma.task.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: { deletedAt: new Date() },
     });
 
@@ -603,7 +604,7 @@ taskRouter.delete('/:id', requireParent, async (req, res, next) => {
       actorId: req.user!.userId,
       action: 'DELETE',
       resourceType: 'task',
-      resourceId: req.params.id,
+      resourceId: param(req, 'id'),
       familyId: req.familyId,
       ipAddress: req.ip,
       metadata: { title: task.title, taskTag: task.taskTag },
@@ -741,7 +742,7 @@ taskRouter.put('/assignments/:id/start', validateBody(startTaskSchema), async (r
 
     const assignment = await prisma.taskAssignment.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         task: { familyId: req.familyId, deletedAt: null },
       },
       select: { id: true, childId: true, status: true },
@@ -756,7 +757,7 @@ taskRouter.put('/assignments/:id/start', validateBody(startTaskSchema), async (r
     }
 
     const updated = await prisma.taskAssignment.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: { status: 'in_progress', startedAt: startTime },
     });
 
@@ -770,7 +771,7 @@ taskRouter.put('/assignments/:id/start', validateBody(startTaskSchema), async (r
 taskRouter.put('/assignments/:id/complete', validateBody(completeTaskSchema), async (req, res, next) => {
   try {
     const result = await TaskService.submitCompletion({
-      assignmentId: req.params.id,
+      assignmentId: param(req, 'id'),
       familyId: req.familyId!,
       userId: req.user!.userId,
       userRole: req.user!.role,
@@ -789,7 +790,7 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
   try {
     const assignment = await prisma.taskAssignment.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         task: {
           familyId: req.familyId,
           deletedAt: null,
@@ -857,7 +858,7 @@ taskRouter.post('/assignments/:id/upload', uploadPhoto.single('photo'), async (r
 taskRouter.put('/assignments/:id/approve', requireParent, validateBody(approveTaskSchema), async (req, res, next) => {
   try {
     const result = await TaskService.approveAssignment({
-      assignmentId: req.params.id,
+      assignmentId: param(req, 'id'),
       familyId: req.familyId!,
       parentId: req.user!.userId,
       approved: req.body.approved,
@@ -881,7 +882,7 @@ taskRouter.put(
   async (req, res, next) => {
     try {
       const result = await TaskService.revokeApproval({
-        assignmentId: req.params.id,
+        assignmentId: param(req, 'id'),
         familyId: req.familyId!,
         parentId: req.user!.userId,
         reason: req.body.reason,
@@ -899,7 +900,7 @@ taskRouter.put('/assignments/:id/reset', requireParent, async (req, res, next) =
   try {
     const assignment = await prisma.taskAssignment.findFirst({
       where: {
-        id: req.params.id,
+        id: param(req, 'id'),
         task: { familyId: req.familyId, deletedAt: null },
       },
       select: { id: true, status: true },
@@ -909,7 +910,7 @@ taskRouter.put('/assignments/:id/reset', requireParent, async (req, res, next) =
       throw new ConflictError('Only completed, approved, or rejected assignments can be reset');
     }
     const updated = await prisma.taskAssignment.update({
-      where: { id: req.params.id },
+      where: { id: param(req, 'id') },
       data: {
         status: 'pending',
         completedAt: null,
@@ -1076,7 +1077,7 @@ async function loadParticipantAssignment(assignmentId: string, req: any) {
 taskRouter.get('/assignments/:id', requireParent, async (req, res, next) => {
   try {
     const assignment = await prisma.taskAssignment.findFirst({
-      where: { id: req.params.id, task: { familyId: req.familyId, deletedAt: null } },
+      where: { id: param(req, 'id'), task: { familyId: req.familyId, deletedAt: null } },
       include: {
         task: true,
         child: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
@@ -1115,9 +1116,9 @@ taskRouter.get('/assignments/:id', requireParent, async (req, res, next) => {
 // GET /tasks/assignments/:id/comments - list the thread (oldest first).
 taskRouter.get('/assignments/:id/comments', async (req, res, next) => {
   try {
-    await loadParticipantAssignment(req.params.id, req);
+    await loadParticipantAssignment(param(req, 'id'), req);
     const comments = await prisma.taskComment.findMany({
-      where: { assignmentId: req.params.id },
+      where: { assignmentId: param(req, 'id') },
       orderBy: { createdAt: 'asc' },
       include: { author: { select: { id: true, firstName: true, lastName: true, role: true } } },
     });
@@ -1135,15 +1136,15 @@ taskRouter.post(
   validateBody(postCommentSchema),
   async (req, res, next) => {
     try {
-      const assignment = await loadParticipantAssignment(req.params.id, req);
+      const assignment = await loadParticipantAssignment(param(req, 'id'), req);
 
       const comment = await prisma.taskComment.create({
-        data: { assignmentId: req.params.id, authorId: req.user!.userId, content: req.body.content },
+        data: { assignmentId: param(req, 'id'), authorId: req.user!.userId, content: req.body.content },
         include: { author: { select: { id: true, firstName: true, lastName: true, role: true } } },
       });
 
       emitTaskComment(req.familyId!, {
-        assignmentId: req.params.id,
+        assignmentId: param(req, 'id'),
         comment: {
           id: comment.id,
           authorId: comment.authorId,

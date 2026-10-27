@@ -37,6 +37,7 @@
  * household shares 10 sign-in attempts per 15 minutes.
  */
 import type { Request } from 'express';
+import { ipKeyGenerator } from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 
 import { config } from '../config';
@@ -52,9 +53,13 @@ import { jwtVerifyOptions } from '../utils/jwt';
 const USER_PREFIX = 'u:';
 const IP_PREFIX = 'ip:';
 
-/** Falls back to a fixed string when Express cannot determine an address, so the key is never empty. */
-function ipKey(req: Request): string {
-  return `${IP_PREFIX}${req.ip ?? 'unknown'}`;
+/**
+ * Falls back to a fixed string when Express cannot determine an address, so the key is never empty.
+ * ipKeyGenerator (express-rate-limit 8) groups IPv6 addresses by /56 network; without it one IPv6
+ * client could rotate through its own address range and get a fresh bucket every request.
+ */
+export function ipKey(req: Request): string {
+  return `${IP_PREFIX}${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`;
 }
 
 /**
