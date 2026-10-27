@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+// Prisma 7: reuse the app client, which carries the pg adapter (and loads backend/.env).
+import { prisma } from '../src/services/database';
 
 const achievements = [
   // Tasks category

@@ -51,3 +51,6 @@ state.json
 mobile/google-services.json
 mobile/*firebase-adminsdk*.json
 **/*-firebase-adminsdk-*.json
+
+# Prisma 7 generated client (written by `prisma generate`, runs on postinstall)
+backend/src/generated/

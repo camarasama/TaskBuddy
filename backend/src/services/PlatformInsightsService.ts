@@ -17,7 +17,7 @@
  */
 
 import os from 'os';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { prisma } from './database';
 import { stageOf, STAGES, type Stage } from './lifecycle';
 

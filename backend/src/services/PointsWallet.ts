@@ -21,7 +21,7 @@
  *
  * `tests/points-writes-source-guard.test.ts` fails the build if a balance write appears anywhere else.
  */
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../generated/prisma/client';
 import { ValidationError } from '../middleware/errorHandler';
 
 /** A transaction client, or the root client for callers that are not inside a transaction. */

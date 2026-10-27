@@ -22,6 +22,8 @@ const SRC = join(__dirname, '..', 'src');
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const full = join(dir, entry);
+    // src/generated is Prisma's generated client, not code we wrote.
+    if (entry === 'generated') return [];
     return statSync(full).isDirectory() ? walk(full) : full.endsWith('.ts') ? [full] : [];
   });
 }

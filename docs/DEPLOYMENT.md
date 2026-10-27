@@ -238,10 +238,18 @@ a pair.
 
 ## Gotchas
 
+- **Prisma 7 (since 2026-10-27).** The client is generated into `backend/src/generated/prisma`
+  (gitignored) by `prisma generate`, which `npm ci` runs on postinstall; `db:generate` after
+  `npm ci` is still required, exactly as before. The CLI reads `backend/prisma.config.ts`, which
+  loads `backend/.env` itself. `prisma migrate dev` no longer runs `generate` or the seed: run
+  `npm run db:generate` (and `npm run db:seed`) yourself. The running app connects through the pg
+  adapter in `backend/src/services/database.ts`, which turns `connection_limit` and `pool_timeout`
+  in `DATABASE_URL` into node-postgres pool settings, so keep setting the pool there.
+
 - **`prisma db execute` cannot be used to inspect data.** It executes statements and prints nothing,
-  so a `SELECT` piped into it "succeeds" with empty output and looks like an empty table. It also
-  requires `--schema` or `--url`, and without one fails with `Either --url or --schema must be
-  provided`. To actually read rows on the box, use `psql` — but **do NOT source `backend/.env` to get
+  so a `SELECT` piped into it "succeeds" with empty output and looks like an empty table. Since
+  Prisma 7 it takes its connection from `backend/prisma.config.ts` (the `--schema` and `--url` flags
+  are gone). To actually read rows on the box, use `psql` — but **do NOT source `backend/.env` to get
   the URL.** It contains `SMTP_FROM=TaskBuddy <no-reply@gettaskbuddy.com>` unquoted; dotenv and
   systemd's `EnvironmentFile` tolerate that, but to a shell `<` is a redirect, so `. ./.env` dies with
   ``syntax error near unexpected token `newline` ``. Extract the one variable instead:

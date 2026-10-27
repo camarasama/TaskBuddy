@@ -18,7 +18,7 @@
  *  - familyId is nullable for cross-family admin actions.
  */
 
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { prisma } from './database';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
