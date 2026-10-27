@@ -82,7 +82,7 @@ const achievementSchema = z.object({
   category:              z.string().max(50).optional(),
   unlockCriteriaType:    z.string().optional(),
   unlockCriteriaValue:   z.number().int().optional(),
-  unlockCriteriaConfig:  z.record(z.unknown()).optional(),
+  unlockCriteriaConfig:  z.record(z.string(), z.unknown()).optional(),
   tier:                  z.enum(['bronze', 'silver', 'gold', 'platinum']).optional(),
   pointsReward:          z.number().int().min(0).default(0),
   xpReward:              z.number().int().min(0).default(0),

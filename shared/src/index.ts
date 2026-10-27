@@ -7,6 +7,7 @@ export * from './types/reports';
 export * from './types/games';
 export * from './constants';
 export * from './utils/difficultyFromPoints';
+export * from './utils/zodV3Messages';
 export * from './design/tokens';
 
 // ─── FR-18: outbound webhooks ────────────────────────────────────────────────

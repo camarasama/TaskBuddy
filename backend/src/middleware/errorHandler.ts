@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+// Side effect: zod 4 default messages keep zod 3's wording (the apps show them to people).
+import '../utils/zodMessages';
 
 // Custom error classes
 export class AppError extends Error {
@@ -81,7 +83,7 @@ export function errorHandler(
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid input data',
-        details: err.errors.map(e => ({
+        details: err.issues.map(e => ({
           field: e.path.join('.'),
           message: e.message,
         })),

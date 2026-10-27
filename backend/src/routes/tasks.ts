@@ -74,7 +74,7 @@ const createTaskSchema = z.object({
   requiresPhotoEvidence: z.boolean().optional(),
   isRecurring: z.boolean().optional(),
   recurrencePattern: z.string().optional(),
-  recurrenceConfig: z.record(z.unknown()).optional(),
+  recurrenceConfig: z.record(z.string(), z.unknown()).optional(),
   // Make assignedTo optional - parents can create unassigned tasks
   // Capped (GHSA-mrhx-c7xc-m3w5): zod 3 collects one issue per bad element of an unbounded array,
   // so a huge array could exhaust memory. 20 matches the per-family child limit used elsewhere.

@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { AnyZodObject, ZodError, ZodTypeAny } from 'zod';
+import type { ZodType } from 'zod';
 
 // Validate request body, params, and query with Zod schema
-export function validate(schema: AnyZodObject) {
+export function validate(schema: ZodType) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       await schema.parseAsync({
@@ -19,11 +19,10 @@ export function validate(schema: AnyZodObject) {
 
 // Validate only the request body
 /**
- * Accepts `ZodTypeAny`, not just `AnyZodObject`, so a schema carrying cross-field `.refine()` rules
- * (which zod types as `ZodEffects`) can be used here — U17's "a team task needs two children" is the
+ * Accepts any `ZodType`, so a schema carrying cross-field `.refine()` rules can be used here — U17's "a team task needs two children" is the
  * first such rule. Only `parseAsync` is called, which every zod schema provides.
  */
-export function validateBody(schema: ZodTypeAny) {
+export function validateBody(schema: ZodType) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       const validated = await schema.parseAsync(req.body);
@@ -36,11 +35,11 @@ export function validateBody(schema: ZodTypeAny) {
 }
 
 // Validate only query parameters
-export function validateQuery(schema: AnyZodObject) {
+export function validateQuery(schema: ZodType) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       const validated = await schema.parseAsync(req.query);
-      req.query = validated;
+      req.query = validated as Request['query'];
       next();
     } catch (error) {
       next(error);
@@ -49,11 +48,11 @@ export function validateQuery(schema: AnyZodObject) {
 }
 
 // Validate only route parameters
-export function validateParams(schema: AnyZodObject) {
+export function validateParams(schema: ZodType) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       const validated = await schema.parseAsync(req.params);
-      req.params = validated;
+      req.params = validated as Request['params'];
       next();
     } catch (error) {
       next(error);
