@@ -41,7 +41,7 @@ function buildCspDirectives() {
     "img-src 'self' data: blob: https://cdn.gettaskbuddy.com https://*.r2.cloudflarestorage.com",
     "font-src 'self' data:",
     `connect-src ${connectSrc.join(' ')}`,
-    "worker-src 'self' blob:", // next-pwa service worker
+    "worker-src 'self' blob:", // service worker (Serwist, src/sw.ts)
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -110,7 +110,7 @@ const nextConfig = {
     remotePatterns: [{ protocol: 'http', hostname: 'localhost' }],
   },
   transpilePackages: ['@taskbuddy/shared'],
-  // Turbopack for dev; production build uses --webpack flag for next-pwa compatibility
+  // Turbopack for dev; the production build uses --webpack, which @serwist/next's plugin needs
   turbopack: {},
   async headers() {
     return [{ source: '/(.*)', headers: buildSecurityHeaders() }];
@@ -242,20 +242,19 @@ function withSentry(config) {
   });
 }
 
-// PWA only applies in production builds (webpack mode)
-// next-pwa v5 API: withPWA(config)(nextConfig)
+// Service worker (caching + web push) only in production builds (webpack mode). Serwist replaced
+// next-pwa on 2026-10-27: next-pwa is unmaintained and pulled in old workbox-build. The worker's
+// source is src/sw.ts; it is emitted to public/sw.js, the URL browsers already have registered.
 if (isProd) {
-  const withPWA = require('next-pwa')({
-    dest: 'public',
+  const withSerwist = require('@serwist/next').default({
+    swSrc: 'src/sw.ts',
+    swDest: 'public/sw.js',
     register: true,
-    skipWaiting: true,
+    // No source map is emitted for the worker (checked 2026-10-27). That matters: next-pwa's
+    // sw.js.map was publicly served until the 2026-09-14 security audit.
     disable: false,
-    customWorkerDir: 'src/service-worker',
-    // Passed through to Workbox. The generated sw.js.map was publicly served (security audit
-    // 2026-09-14); the service worker needs no source map in production.
-    sourcemap: false,
   });
-  module.exports = withSentry(withPWA(nextConfig));
+  module.exports = withSentry(withSerwist(nextConfig));
 } else {
   // Dev is deliberately untouched: no upload, no release injection, and no plugin in the Turbopack
   // path, this config's `turbopack: {}` branch is what `next dev` uses, and the Sentry webpack

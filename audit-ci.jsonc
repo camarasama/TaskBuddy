@@ -30,8 +30,8 @@
   "moderate": true,
 
   "allowlist": [
-    // DEP-02 — serialize-javascript RCE, via workbox-build -> next-pwa@5 (PWA BUILD only).
-    "GHSA-5c6j-r48x-rmvq",
+    // DEP-02 (serialize-javascript via workbox-build -> next-pwa 5) REMOVED 2026-10-27: FIXED, next-pwa
+    // replaced by Serwist.
 
     // DEP-03 (postcss XSS, GHSA-qx2v-qp2m-jg93) REMOVED 2026-07-23 — FIXED, not allowlisted.
     // postcss bumped to ^8.5.22 in frontend + a root `overrides.postcss` so next's vendored copy

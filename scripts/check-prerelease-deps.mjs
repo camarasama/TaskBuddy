@@ -20,24 +20,30 @@ import { dirname, join } from 'node:path';
 
 /** name@version -> why it is acceptable. Checked by hand on the date given. */
 const KNOWN = {
-  // Babel's own placeholder and fork releases; build tooling, never shipped to users. 2026-10-27.
-  '@babel/plugin-proposal-private-property-in-object@7.21.0-placeholder-for-preset-env.2': 'babel placeholder package, build only',
-  '@babel/preset-modules@0.1.6-no-external-plugins': 'babel build tooling',
+  // Babel build tooling, never shipped to users. Checked 2026-10-27: no advisories.
   'gensync@1.0.0-beta.2': 'babel build tooling, no advisories',
-  // Pulled by workbox-build (next-pwa, Phase 5 removes it); service-worker build only. 2026-10-27.
-  'source-map@0.8.0-beta.0': 'workbox build only, no advisories',
 };
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lock = JSON.parse(readFileSync(process.argv[2] ?? join(root, 'package-lock.json'), 'utf8'));
 
 const unknown = [];
+const seen = new Set();
 for (const [path, pkg] of Object.entries(lock.packages ?? {})) {
   if (!path || !pkg.version || pkg.link || pkg.dev || pkg.devOptional) continue;
   if (!pkg.version.includes('-')) continue;
   const name = path.split('node_modules/').pop();
   const id = `${name}@${pkg.version}`;
+  seen.add(id);
   if (!(id in KNOWN)) unknown.push(`${id}  (${path})`);
+}
+
+// A KNOWN entry that no longer occurs would silently excuse it if it ever came back: fail on it.
+const stale = Object.keys(KNOWN).filter((id) => !seen.has(id));
+if (stale.length) {
+  console.error('Stale entries in KNOWN (no longer in package-lock.json), remove them:');
+  for (const s of stale) console.error(`  - ${s}`);
+  process.exit(1);
 }
 
 if (unknown.length) {
