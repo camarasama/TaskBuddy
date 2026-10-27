@@ -58,7 +58,7 @@ const addChildSchema = z.object({
    * say they are; this records that they read the statement for this specific child.
    */
   consentFormAccepted: z.literal(true, {
-    errorMap: () => ({ message: 'Parental consent must be given before adding a child' }),
+    error: 'Parental consent must be given before adding a child',
   }),
 });
 
@@ -156,7 +156,9 @@ const updateSettingsSchema = z.object({
    * accepted, and the update MERGES into what is stored (see the PUT handler).
    */
   notificationPreferences: z
-    .record(z.enum(NOTIFICATION_PREFERENCE_KEYS), z.boolean())
+    // partialRecord: with an enum key, zod 4's z.record requires EVERY key, and a parent sends
+    // only the switches they changed.
+    .partialRecord(z.enum(NOTIFICATION_PREFERENCE_KEYS), z.boolean())
     .optional(),
 });
 

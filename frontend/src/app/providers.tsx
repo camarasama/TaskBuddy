@@ -4,6 +4,8 @@ import { ReactNode } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ReactErrorReporter } from '@/components/ReactErrorReporter';
+// Side effect: form validation keeps zod 3's wording under zod 4.
+import '@/lib/zodMessages';
 
 interface ProvidersProps {
   children: ReactNode;

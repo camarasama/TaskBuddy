@@ -75,6 +75,8 @@ const taskSchema = z.object({
 });
 
 type TaskForm = z.infer<typeof taskSchema>;
+/** What the form holds before parsing. zod 4 keeps it distinct from TaskForm (preprocess, defaults). */
+type TaskFormInput = z.input<typeof taskSchema>;
 
 interface Child {
   id: string;
@@ -102,7 +104,7 @@ export default function CreateTaskPage() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<TaskForm>({
+  } = useForm<TaskFormInput, unknown, TaskForm>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
       taskTag: 'primary',
