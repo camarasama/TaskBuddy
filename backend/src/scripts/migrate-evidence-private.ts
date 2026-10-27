@@ -9,7 +9,7 @@
  *
  * Run on the VPS after deploying, with the app env (STORAGE_PROVIDER=r2, R2_* and
  * R2_EVIDENCE_BUCKET set, the R2 token scoped to BOTH buckets):
- *   sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH node backend/dist/scripts/migrate-evidence-private.js
+ *   sudo -u taskbuddy env PATH=/opt/nodejs/lts/bin:$PATH node backend/dist/scripts/migrate-evidence-private.js
  */
 import { S3Client, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { prisma } from '../services/database';
