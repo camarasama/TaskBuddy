@@ -42,10 +42,8 @@
     // correct route. 8.5.22 clears both advisories, which is why the old XSS entry goes with it:
     // per the note above, a dead allowlist entry is not harmless.
 
-    // DEP-04 — minimatch ReDoS x3, via @typescript-eslint -> eslint-config-next@14 (LINT only).
-    "GHSA-3ppc-4f35-3m26",
-    "GHSA-7r86-cg39-jmmj",
-    "GHSA-23c5-xmqv-rm74",
+    // DEP-04 (minimatch ReDoS x3 via eslint-config-next@14) REMOVED 2026-10-27: FIXED by the ESLint 9
+    // move (eslint-config-next 16).
 
     // DEP-05 (js-yaml DoS, GHSA-h67p-54hq-rp68) REMOVED 2026-07-21 — the advisory no longer
     // appears in `npm audit`, so the entry was dead. A dead entry is not harmless: it would
