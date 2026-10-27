@@ -9,6 +9,7 @@ uploads/
 *.log
 .do_not_upload/
 frontend/public/sw.js
+# next-pwa leftovers (replaced by Serwist 2026-10-27); kept so old local builds stay ignored
 frontend/public/workbox-*.js
 frontend/public/worker-*.js
 *.tsbuildinfo
