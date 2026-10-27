@@ -73,7 +73,7 @@ export default function AdminReportsPage() {
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6 space-y-6">
         {/* Admin filters - includes family ID */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs">
           <div className="flex flex-wrap gap-3 items-end">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Family ID (optional)</label>
@@ -82,7 +82,7 @@ export default function AdminReportsPage() {
                 placeholder="Filter by family"
                 value={familyId}
                 onChange={(e) => setFamilyId(e.target.value)}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 w-52 focus:outline-none focus:ring-2 focus:ring-red-400"
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 w-52 focus:outline-hidden focus:ring-2 focus:ring-red-400"
               />
             </div>
             <div>
@@ -92,18 +92,18 @@ export default function AdminReportsPage() {
                 placeholder="Filter by child"
                 value={childId}
                 onChange={(e) => setChildId(e.target.value)}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 w-44 focus:outline-none focus:ring-2 focus:ring-red-400"
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 w-44 focus:outline-hidden focus:ring-2 focus:ring-red-400"
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
               <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-400" />
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-red-400" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
               <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-400" />
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-red-400" />
             </div>
             <div className="flex gap-2">
               {[{ label: '7d', days: 7 }, { label: '30d', days: 30 }, { label: '90d', days: 90 }].map(({ label, days }) => (
@@ -128,8 +128,8 @@ export default function AdminReportsPage() {
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                   activeTab === tab.id
                     ? tab.id === 'r08'
-                      ? 'bg-red-600 text-white shadow-sm'
-                      : 'bg-indigo-600 text-white shadow-sm'
+                      ? 'bg-red-600 text-white shadow-xs'
+                      : 'bg-indigo-600 text-white shadow-xs'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}>
                 <span>{tab.icon}</span>

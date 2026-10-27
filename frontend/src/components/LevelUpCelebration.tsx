@@ -45,7 +45,7 @@ export function LevelUpCelebration({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50"
             onClick={onClose}
           />
 
@@ -69,7 +69,7 @@ export function LevelUpCelebration({
               </button>
 
               {/* Decorative background burst */}
-              <div className="absolute inset-0 bg-gradient-to-br from-xp-50 via-white to-gold-50 opacity-60 pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-br from-xp-50 via-white to-gold-50 opacity-60 pointer-events-none" />
 
               <div className="relative">
                 {/* Animated star icon */}
@@ -78,7 +78,7 @@ export function LevelUpCelebration({
                   transition={{ duration: 0.6, delay: 0.2 }}
                   className="flex items-center justify-center mb-4"
                 >
-                  <div className="w-20 h-20 bg-gradient-to-br from-xp-400 to-xp-600 rounded-full flex items-center justify-center shadow-lg shadow-xp-200">
+                  <div className="w-20 h-20 bg-linear-to-br from-xp-400 to-xp-600 rounded-full flex items-center justify-center shadow-lg shadow-xp-200">
                     <Star className="w-10 h-10 text-white fill-white" />
                   </div>
                 </motion.div>
@@ -121,7 +121,7 @@ export function LevelUpCelebration({
                 <Button
                   onClick={onClose}
                   fullWidth
-                  className="bg-gradient-to-r from-xp-500 to-xp-600 hover:from-xp-600 hover:to-xp-700 text-white border-0"
+                  className="bg-linear-to-r from-xp-500 to-xp-600 hover:from-xp-600 hover:to-xp-700 text-white border-0"
                 >
                   Keep Going! 🚀
                 </Button>

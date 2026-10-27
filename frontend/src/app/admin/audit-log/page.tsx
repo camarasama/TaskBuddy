@@ -190,7 +190,7 @@ export default function AdminAuditLogPage() {
                 value={(filters as any)[key]}
                 onChange={(e) => setFilters((p) => ({ ...p, [key]: e.target.value }))}
                 placeholder={placeholder}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-400"
               />
             </div>
           ))}
@@ -200,7 +200,7 @@ export default function AdminAuditLogPage() {
               type="date"
               value={filters.from}
               onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))}
-              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-400"
             />
           </div>
           <div>
@@ -209,7 +209,7 @@ export default function AdminAuditLogPage() {
               type="date"
               value={filters.to}
               onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))}
-              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-400"
             />
           </div>
         </div>

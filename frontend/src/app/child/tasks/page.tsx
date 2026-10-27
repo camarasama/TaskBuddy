@@ -565,8 +565,8 @@ function ChildTasksInner() {
                 'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all',
                 activeTab === key
                   ? key === 'returned'
-                    ? 'bg-white text-amber-700 shadow-sm'
-                    : 'bg-white text-slate-900 shadow-sm'
+                    ? 'bg-white text-amber-700 shadow-xs'
+                    : 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-800'
               )}
             >
@@ -783,7 +783,7 @@ function TaskCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        'bg-white rounded-2xl p-5 border shadow-sm',
+        'bg-white rounded-2xl p-5 border shadow-xs',
         isAwaitingApproval
           ? 'border-warning-200 bg-warning-50'
           : isPrimary
@@ -949,7 +949,7 @@ function ReturnedTaskCard({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-5 border border-amber-200 shadow-sm"
+      className="bg-white rounded-2xl p-5 border border-amber-200 shadow-xs"
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
@@ -1036,7 +1036,7 @@ function AvailableTaskCard({
 
   return (
     <div className={cn(
-      'bg-white rounded-2xl p-4 border shadow-sm',
+      'bg-white rounded-2xl p-4 border shadow-xs',
       isBlocked ? 'border-slate-100 opacity-60' : 'border-gold-200'
     )}>
       <div className="flex items-center justify-between gap-3">

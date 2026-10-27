@@ -224,7 +224,7 @@ export default function EditRewardPage() {
                 Description <span className="text-slate-400 font-normal">(optional)</span>
               </label>
               <textarea
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 rows={3}
                 placeholder="Describe the reward..."
                 value={formData.description}
@@ -355,7 +355,7 @@ export default function EditRewardPage() {
               </label>
               <input
                 type="datetime-local"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 min={new Date().toISOString().slice(0, 16)}
                 value={formData.expiresAt}
                 onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}

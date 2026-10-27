@@ -362,7 +362,7 @@ function TaskCard({ task, onArchive }: { task: Task; onArchive: (id: string) => 
       <Link href={`/parent/tasks/${task.id}`}>
         <motion.div
           whileHover={{ scale: 1.01 }}
-          className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+          className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs hover:border-primary-300 hover:shadow-md transition-all"
         >
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -425,11 +425,11 @@ function ArchivedTaskRow({ task, onRestore }: { task: Task; onRestore: (id: stri
   return (
     <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3 border border-slate-200">
       <div className="flex items-center gap-3 min-w-0">
-        <span className={cn('badge flex-shrink-0', getDifficultyColor(task.difficulty))}>
+        <span className={cn('badge shrink-0', getDifficultyColor(task.difficulty))}>
           {task.difficulty}
         </span>
         <span className="text-sm font-medium text-slate-500 truncate">{task.title}</span>
-        <div className="flex items-center gap-1 text-slate-400 text-xs flex-shrink-0">
+        <div className="flex items-center gap-1 text-slate-400 text-xs shrink-0">
           <Star className="w-3 h-3" />
           <span>{task.pointsValue}</span>
         </div>
@@ -437,7 +437,7 @@ function ArchivedTaskRow({ task, onRestore }: { task: Task; onRestore: (id: stri
       <button
         onClick={() => onRestore(task.id)}
         title="Restore task"
-        className="flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-800 font-medium flex-shrink-0 ml-3"
+        className="flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-800 font-medium shrink-0 ml-3"
       >
         <RotateCcw className="w-3.5 h-3.5" />
         Restore
@@ -465,7 +465,7 @@ function PendingApprovalCard({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-xl p-5 border border-warning-200 shadow-sm"
+        className="bg-white rounded-xl p-5 border border-warning-200 shadow-xs"
       >
         <div className="flex items-center gap-2 mb-3">
           <Clock className="w-5 h-5 text-warning-500" />
@@ -490,7 +490,7 @@ function PendingApprovalCard({
                 <button
                   key={evidence.id}
                   onClick={() => setExpandedPhoto(evidence.fileUrl || '')}
-                  className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 border-slate-200 hover:border-primary-400 transition-colors"
+                  className="shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 border-slate-200 hover:border-primary-400 transition-colors"
                 >
                   <img
                     src={evidence.fileUrl || ''}
@@ -533,7 +533,7 @@ function PendingApprovalCard({
       {/* Full-screen photo viewer */}
       {expandedPhoto && (
         <div
-          className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 bg-black/80 z-60 flex items-center justify-center p-4 cursor-pointer"
           onClick={() => setExpandedPhoto(null)}
         >
           <div className="relative max-w-2xl w-full">

@@ -91,7 +91,7 @@ export function StreakMilestoneToast({
           role="status"
           aria-live="polite"
         >
-          <div className="relative flex items-center gap-4 px-5 py-4 rounded-2xl bg-gradient-to-r from-orange-400 via-red-500 to-rose-600 text-white shadow-2xl shadow-red-500/40">
+          <div className="relative flex items-center gap-4 px-5 py-4 rounded-2xl bg-linear-to-r from-orange-400 via-red-500 to-rose-600 text-white shadow-2xl shadow-red-500/40">
             {/* Flame icon with pulse */}
             <div className="relative shrink-0">
               <span className="relative z-10 text-3xl">{emoji}</span>

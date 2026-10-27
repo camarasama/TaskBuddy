@@ -53,24 +53,24 @@ export default function EmailDeliveryReport({ familyId, startDate, endDate }: Pr
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[{ label: 'Total Sent', value: report.summary.totalSent, color: 'text-green-600' }, { label: 'Failed', value: report.summary.totalFailed, color: 'text-red-500' }, { label: 'Bounced', value: report.summary.totalBounced, color: 'text-amber-500' }, { label: 'Delivery Rate', value: `${report.summary.deliveryRate}%`, color: 'text-indigo-600' }].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs text-center">
             <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
             <div className="text-xs text-gray-500 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Delivery Status Breakdown</h3>
           <ResponsiveContainer width="100%" height={180}><PieChart><Pie data={statusPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>{statusPie.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Sent vs Failed by Trigger Type</h3>
           <ResponsiveContainer width="100%" height={180}><BarChart data={triggerData} layout="vertical"><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" /><XAxis type="number" tick={{ fontSize: 10 }} /><YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 9 }} /><Tooltip /><Bar dataKey="sent" fill="#22c55e" radius={[0, 4, 4, 0]} name="Sent" stackId="a" /><Bar dataKey="failed" fill="#ef4444" radius={[0, 4, 4, 0]} name="Failed" stackId="a" /></BarChart></ResponsiveContainer>
         </div>
       </div>
       {report.summary.failureReasons.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Top Failure Reasons</h3>
           <div className="space-y-2">{report.summary.failureReasons.map((f, i) => (
             <div key={i} className="flex items-start justify-between gap-4 text-sm border-b border-gray-50 pb-2"><span className="text-gray-600 font-mono text-xs">{f.reason}</span><span className="font-bold text-red-500 shrink-0">{f.count}×</span></div>
@@ -84,7 +84,7 @@ export default function EmailDeliveryReport({ familyId, startDate, endDate }: Pr
         <button onClick={() => handleExport('csv')} disabled={!!exporting} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white text-sm px-4 py-2 hover:bg-indigo-700 disabled:opacity-60 transition-colors">{exporting === 'csv' ? '⏳ Exporting…' : '↓ Export CSV'}</button>
         <button onClick={() => handleExport('pdf')} disabled={!!exporting} className="inline-flex items-center gap-2 rounded-lg border border-indigo-600 text-indigo-600 text-sm px-4 py-2 hover:bg-indigo-50 disabled:opacity-60 transition-colors">{exporting === 'pdf' ? '⏳ Exporting…' : '↓ Export PDF'}</button>
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
         <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Date', 'Trigger', 'Status', 'To', 'Subject', 'Resends'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-gray-50">{filtered.slice(0, 50).map((r, i) => (
             <tr key={i} className="hover:bg-gray-50/50">

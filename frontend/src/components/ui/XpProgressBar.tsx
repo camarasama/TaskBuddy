@@ -91,7 +91,7 @@ export function XpProgressBar({
         aria-label={`XP progress: ${currentLevelXp} of ${xpToNextLevel}`}
       >
         <div
-          className="h-full rounded-full bg-gradient-to-r from-xp-400 to-xp-600 transition-all duration-700 ease-out"
+          className="h-full rounded-full bg-linear-to-r from-xp-400 to-xp-600 transition-all duration-700 ease-out"
           style={{ width: `${progressPercent}%` }}
         />
       </div>

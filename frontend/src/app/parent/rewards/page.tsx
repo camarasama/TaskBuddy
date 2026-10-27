@@ -286,7 +286,7 @@ function RewardCard({ reward, onDelete }: { reward: Reward; onDelete: () => void
     >
       {/* Icon + actions row */}
       <div className="flex items-start justify-between mb-4">
-        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center">
+        <div className="w-14 h-14 rounded-xl bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center">
           <Gift className="w-7 h-7 text-white" />
         </div>
         <div className="flex gap-2">

@@ -160,7 +160,7 @@ export default function ChildRewardsPage() {
 
       <div className="space-y-6">
         {/* Points balance header */}
-        <div className="bg-gradient-to-r from-gold-400 to-gold-600 rounded-2xl p-6 text-white shadow-lg shadow-gold-500/30">
+        <div className="bg-linear-to-r from-gold-400 to-gold-600 rounded-2xl p-6 text-white shadow-lg shadow-gold-500/30">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gold-100">Your Points</p>
@@ -341,7 +341,7 @@ function RewardCard({
       </button>
 
       {/* Icon */}
-      <div className="w-14 h-14 mx-auto mb-3 rounded-xl bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center">
+      <div className="w-14 h-14 mx-auto mb-3 rounded-xl bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center">
         <Gift className="w-7 h-7 text-white" />
       </div>
 
@@ -391,7 +391,7 @@ function RewardCard({
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
-              className="h-full bg-gradient-to-r from-gold-400 to-gold-600 rounded-full"
+              className="h-full bg-linear-to-r from-gold-400 to-gold-600 rounded-full"
             />
           </div>
           <p className="text-xs text-center text-slate-500 mt-1">

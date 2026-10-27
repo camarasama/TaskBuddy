@@ -81,7 +81,7 @@ export default function AdminRegisterPage() {
         </div>
 
         {/* Form card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-8">
           {error && (
             <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
               {error}
@@ -100,7 +100,7 @@ export default function AdminRegisterPage() {
                   value={form.firstName}
                   onChange={handleChange}
                   placeholder="Ada"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
@@ -112,7 +112,7 @@ export default function AdminRegisterPage() {
                   value={form.lastName}
                   onChange={handleChange}
                   placeholder="Lovelace"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             </div>
@@ -128,7 +128,7 @@ export default function AdminRegisterPage() {
                 value={form.email}
                 onChange={handleChange}
                 placeholder="admin@taskbuddy.app"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -143,7 +143,7 @@ export default function AdminRegisterPage() {
                 value={form.password}
                 onChange={handleChange}
                 placeholder="Min 8 characters"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -158,7 +158,7 @@ export default function AdminRegisterPage() {
                 value={form.inviteCode}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
               <p className="text-xs text-slate-400 mt-1">
                 Provided by the system administrator via ADMIN_INVITE_CODE.

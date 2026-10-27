@@ -147,11 +147,11 @@ function ToastItem({
       exit={{ opacity: 0, y: -20, scale: 0.95 }}
       className={`flex items-start gap-3 p-4 rounded-xl border shadow-lg ${colors[toast.type]}`}
     >
-      <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${iconColors[toast.type]}`} />
+      <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${iconColors[toast.type]}`} />
       <p className="flex-1 text-sm font-medium">{toast.message}</p>
       <button
         onClick={() => onRemove(toast.id)}
-        className="flex-shrink-0 hover:opacity-70 transition-opacity"
+        className="shrink-0 hover:opacity-70 transition-opacity"
       >
         <X className="w-4 h-4" />
       </button>

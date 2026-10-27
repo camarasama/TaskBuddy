@@ -57,22 +57,22 @@ export default function TaskCompletionReport({ childId, startDate, endDate }: Pr
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[{ label: 'Total Completed', value: report.summary.totalCompleted }, { label: 'Approved', value: report.summary.totalApproved }, { label: 'Primary Tasks', value: report.summary.primaryCount }, { label: 'Bonus Tasks', value: report.summary.secondaryCount }].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm text-center">
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs text-center">
             <div className="text-2xl font-bold text-indigo-600">{s.value}</div>
             <div className="text-xs text-gray-500 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Completions Over Time (last 30 days)</h3>
         <ResponsiveContainer width="100%" height={220}><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" /><XAxis dataKey="date" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} name="Completed" /></BarChart></ResponsiveContainer>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">By Difficulty</h3>
           <ResponsiveContainer width="100%" height={180}><PieChart><Pie data={diffData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>{diffData.map((d) => <Cell key={d.name} fill={DIFF_COLORS[d.name] ?? '#94a3b8'} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Primary vs Bonus</h3>
           <ResponsiveContainer width="100%" height={180}><PieChart><Pie data={tagData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>{tagData.map((d, i) => <Cell key={d.name} fill={TAG_COLORS[i]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer>
         </div>
@@ -81,7 +81,7 @@ export default function TaskCompletionReport({ childId, startDate, endDate }: Pr
         <button onClick={() => handleExport('csv')} disabled={!!exporting} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white text-sm px-4 py-2 hover:bg-indigo-700 disabled:opacity-60 transition-colors">{exporting === 'csv' ? '⏳ Exporting…' : '↓ Export CSV'}</button>
         <button onClick={() => handleExport('pdf')} disabled={!!exporting} className="inline-flex items-center gap-2 rounded-lg border border-indigo-600 text-indigo-600 text-sm px-4 py-2 hover:bg-indigo-50 disabled:opacity-60 transition-colors">{exporting === 'pdf' ? '⏳ Exporting…' : '↓ Export PDF'}</button>
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
         <table className="min-w-full text-sm"><thead className="bg-gray-50"><tr>{['Date', 'Child', 'Task', 'Tag', 'Difficulty', 'Points', 'XP', 'Approved'].map((h) => <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-gray-50">{report.rows.slice(0, 50).map((r, i) => (
             <tr key={i} className="hover:bg-gray-50/50">

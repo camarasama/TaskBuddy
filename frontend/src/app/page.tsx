@@ -33,13 +33,13 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-50 via-white to-xp-50">
+    <div className="min-h-screen bg-linear-to-b from-primary-50 via-white to-xp-50">
       {/* Hero Section */}
       <header className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-20">
           <nav className="flex justify-between items-center mb-16">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-linear-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center">
                 <CheckCircle2 className="w-6 h-6 text-white" />
               </div>
               <span className="font-display font-bold text-2xl text-slate-900">
@@ -67,7 +67,7 @@ export default function HomePage() {
               transition={{ duration: 0.6 }}
               className="flex-1 text-center lg:text-left"
             >
-              <h1 className="font-display text-5xl sm:text-6xl font-bold text-slate-900 leading-tight mb-6">
+              <h1 className="font-display text-5xl sm:text-6xl font-bold text-slate-900 leading-tight sm:leading-none mb-6">
                 Make Chores Fun for the{' '}
                 <span className="text-gradient-primary">Whole Family</span>
               </h1>
@@ -103,7 +103,7 @@ export default function HomePage() {
                 {/* Main card */}
                 <div className="bg-white rounded-2xl shadow-2xl p-6 z-10 relative">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-xp-400 to-xp-600 rounded-full flex items-center justify-center text-white font-bold">
+                    <div className="w-12 h-12 bg-linear-to-br from-xp-400 to-xp-600 rounded-full flex items-center justify-center text-white font-bold">
                       12
                     </div>
                     <div>
@@ -133,7 +133,7 @@ export default function HomePage() {
                 <motion.div
                   animate={{ y: [0, -5, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -top-4 -right-4 bg-gradient-to-r from-orange-400 to-red-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2"
+                  className="absolute -top-4 -right-4 bg-linear-to-r from-orange-400 to-red-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2"
                 >
                   <span className="text-lg">🔥</span>
                   <span className="font-bold">7 day streak!</span>
@@ -192,7 +192,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-br from-primary-500 to-primary-700">
+      <section className="py-20 bg-linear-to-br from-primary-500 to-primary-700">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="font-display text-4xl font-bold text-white mb-6">
             Ready to Start Your Family&apos;s Adventure?
@@ -218,7 +218,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-linear-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center">
                 <CheckCircle2 className="w-5 h-5 text-white" />
               </div>
               <span className="font-display font-bold text-xl text-white">

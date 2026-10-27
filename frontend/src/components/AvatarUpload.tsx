@@ -59,7 +59,7 @@ export function AvatarUpload({ currentUrl, initials, size = 'md', onUpload }: Av
       title="Click to change avatar"
     >
       <div
-        className={`${s.outer} rounded-full overflow-hidden bg-gradient-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold ${s.text}`}
+        className={`${s.outer} rounded-full overflow-hidden bg-linear-to-br from-xp-400 to-xp-600 flex items-center justify-center text-white font-bold ${s.text}`}
       >
         {displayUrl ? (
           <img referrerPolicy="no-referrer" src={displayUrl} alt={initials} className="w-full h-full object-cover" />

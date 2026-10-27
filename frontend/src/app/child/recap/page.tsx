@@ -186,7 +186,7 @@ export default function WeekRecapPage() {
               if (info.offset.x < -60) setIndex((i) => Math.min(i + 1, cards.length - 1));
               if (info.offset.x > 60) setIndex((i) => Math.max(i - 1, 0));
             }}
-            className={`w-full rounded-3xl bg-gradient-to-br ${card.tint} p-8 shadow-2xl cursor-grab active:cursor-grabbing`}
+            className={`w-full rounded-3xl bg-linear-to-br ${card.tint} p-8 shadow-2xl cursor-grab active:cursor-grabbing`}
           >
             <div className="opacity-90 mb-4">{card.icon}</div>
             <h2 className="font-display text-3xl font-bold leading-tight">{card.headline}</h2>

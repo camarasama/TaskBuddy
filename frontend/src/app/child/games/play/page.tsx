@@ -197,7 +197,7 @@ function QuizPageInner() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
+            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs"
           >
             <p className="font-bold text-slate-900 text-lg mb-6">{q.text}</p>
             <div className="grid grid-cols-1 gap-3">

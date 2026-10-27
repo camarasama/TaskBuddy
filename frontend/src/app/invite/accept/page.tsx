@@ -215,7 +215,7 @@ function AcceptInviteInner() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-violet-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-primary-50 to-violet-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -260,7 +260,7 @@ function AcceptInviteInner() {
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
 
             {/* Header banner */}
-            <div className="bg-gradient-to-r from-primary-500 to-violet-500 px-6 py-5 text-white">
+            <div className="bg-linear-to-r from-primary-500 to-violet-500 px-6 py-5 text-white">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
                   <Users className="w-5 h-5 text-white" />
@@ -285,7 +285,7 @@ function AcceptInviteInner() {
               {/* Inline submit error - more readable than a toast for longer messages */}
               {submitError && (
                 <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50 border border-red-200 mb-4">
-                  <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                   <p className="text-sm text-red-700 leading-relaxed">{submitError}</p>
                 </div>
               )}
@@ -356,7 +356,7 @@ function AcceptInviteInner() {
                     Gender <span className="text-slate-400 font-normal">(optional)</span>
                   </label>
                   <select
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-700 bg-white"
                     value={form.gender}
                     onChange={(e) => setField('gender', e.target.value)}
                     disabled={isSubmitting}

@@ -105,7 +105,7 @@ export function InviteCoParentModal({ onClose, onSuccess }: InviteCoParentModalP
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 backdrop-blur-xs p-4"
       onClick={(e) => { if (e.target === e.currentTarget && !fallbackLink) onClose(); }}
     >
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-auto">
@@ -129,7 +129,7 @@ export function InviteCoParentModal({ onClose, onSuccess }: InviteCoParentModalP
         {fallbackLink ? (
           <div className="px-6 py-6 space-y-4">
             <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
-              <Mail className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <Mail className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800">
                 Email couldn&apos;t be sent - SMTP isn&apos;t configured yet. Copy the link
                 below and send it to <strong>{email}</strong> manually.
@@ -144,7 +144,7 @@ export function InviteCoParentModal({ onClose, onSuccess }: InviteCoParentModalP
                 <input
                   readOnly
                   value={fallbackLink}
-                  className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono text-slate-600 focus:outline-none"
+                  className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono text-slate-600 focus:outline-hidden"
                   onClick={(e) => (e.target as HTMLInputElement).select()}
                 />
                 <Button variant="secondary" onClick={copyLink} title="Copy link">

@@ -58,7 +58,7 @@ export function AchievementToast({
           role="status"
           aria-live="polite"
         >
-          <div className="relative flex items-center gap-4 px-5 py-4 rounded-2xl bg-gradient-to-r from-gold-400 to-gold-600 text-white shadow-2xl shadow-gold-500/40">
+          <div className="relative flex items-center gap-4 px-5 py-4 rounded-2xl bg-linear-to-r from-gold-400 to-gold-600 text-white shadow-2xl shadow-gold-500/40">
             {/* Icon pulse ring */}
             <div className="relative shrink-0">
               <span className="relative z-10 text-3xl">🏆</span>

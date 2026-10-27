@@ -105,7 +105,7 @@ export function ResetPinModal({ childId, childName, onClose, onSuccess }: ResetP
                 value={pin}
                 onChange={(e) => handlePinChange(e.target.value, setPin)}
                 placeholder="Enter 4-digit PIN"
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest"
               />
               <button
                 type="button"
@@ -133,7 +133,7 @@ export function ResetPinModal({ childId, childName, onClose, onSuccess }: ResetP
               value={confirmPin}
               onChange={(e) => handlePinChange(e.target.value, setConfirmPin)}
               placeholder="Confirm 4-digit PIN"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest"
             />
           </div>
 
