@@ -41,7 +41,7 @@
     "react-is": "^18.2.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "dependencies": {
     "autoskills": "^0.2.3"

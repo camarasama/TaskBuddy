@@ -17,16 +17,18 @@ set -euo pipefail
 DB_NAME="${DB_NAME:-taskbuddy}"
 APP_DIR="${APP_DIR:-/opt/taskbuddy/app}"
 
-# Prefer the side-by-side Node 22. systemd runs this as root, whose PATH resolves /usr/bin/node —
-# v20, shared with GNFS and not ours to upgrade. The AWS SDK requires node >=22 for releases after
-# January 2027. An explicit NODE_BIN is honoured strictly (a bad one is an error, not a silent
-# fallback); otherwise prefer 22, then fall back to PATH if it is absent (e.g. after a rollback).
+# Prefer the app's own Node at /opt/nodejs/lts (a symlink to the current LTS, Node 24 since
+# 2026-10-27; upgrades and rollbacks move that one link). systemd runs this as root, whose PATH
+# resolves /usr/bin/node: v20, shared with GNFS and not ours to upgrade. The AWS SDK requires
+# node >=22 for releases after January 2027. An explicit NODE_BIN is honoured strictly (a bad one is
+# an error, not a silent fallback); otherwise lts, then the older /opt/nodejs/22, then PATH.
 if [ -n "${NODE_BIN:-}" ]; then
   [ -x "$NODE_BIN" ] || { echo "NODE_BIN=$NODE_BIN is not executable" >&2; exit 1; }
 else
-  NODE_BIN=/opt/nodejs/22/bin/node
+  NODE_BIN=/opt/nodejs/lts/bin/node
+  [ -x "$NODE_BIN" ] || NODE_BIN=/opt/nodejs/22/bin/node
   [ -x "$NODE_BIN" ] || NODE_BIN="$(command -v node || true)"
-  [ -n "$NODE_BIN" ] || { echo "No node found (tried /opt/nodejs/22/bin/node and PATH)" >&2; exit 1; }
+  [ -n "$NODE_BIN" ] || { echo "No node found (tried /opt/nodejs/lts, /opt/nodejs/22 and PATH)" >&2; exit 1; }
 fi
 
 # Fail with a readable message rather than a bare non-zero exit. `runuser` in particular lives in

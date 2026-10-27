@@ -49,294 +49,41 @@ under Postgres `max_connections=100` (2 * 15 = 30, fine). On this 2-core box the
 frontend, Postgres and nginx, so 2 workers is a partial gain; the full doubling wants a 4-core VPS.
 **Enable it, restart, and re-run the load test (`.do_not_upload/loadtest`) before relying on it.**
 
-### Node runtime (Node 22, side-by-side)
+### Node runtime (Node 24 LTS, side-by-side, via `/opt/nodejs/lts`)
 
-TaskBuddy runs on **Node 22 LTS installed at `/opt/nodejs/22`** (isolated prefix, deliberately **not**
-on any `PATH`). The box's system `/usr/bin/node` stays **v20** because GNFS shares it — never upgrade
-that in place. Only the TaskBuddy units point at Node 22, via systemd **drop-ins** (base units untouched):
+TaskBuddy runs on the **current Node LTS (24 since 2026-10-27), reached through the symlink
+`/opt/nodejs/lts`**, which points at a versioned folder such as `/opt/nodejs/node-v24.22.1-linux-x64`.
+It is deliberately **not** on any `PATH`. The box's system `/usr/bin/node` stays **v20** because GNFS
+shares it: never upgrade that in place. Only the TaskBuddy units point at the app's Node, via systemd
+**drop-ins** (base units untouched), kept in the repo under `deploy/systemd/`:
 
-- `/etc/systemd/system/taskbuddy-backend.service.d/node22.conf` — overrides `ExecStart` to
-  `/opt/nodejs/22/bin/node dist/index.js`.
-- `/etc/systemd/system/taskbuddy-frontend.service.d/node22.conf` — sets
-  `Environment=PATH=/opt/nodejs/22/bin:/usr/local/bin:/usr/bin:/bin` so `next`'s `#!/usr/bin/env node`
-  shebang resolves Node 22.
+- `taskbuddy-backend.service.d/node.conf`: `ExecStart=/opt/nodejs/lts/bin/node dist/index.js`.
+- `taskbuddy-frontend.service.d/node.conf`: `Environment=PATH=/opt/nodejs/lts/bin:...` so `next`'s
+  `#!/usr/bin/env node` shebang resolves the app's Node. (`loopback.conf` is separate and unchanged.)
 
-Install a new Node 22 patch (or first-time), then rebuild native modules (bcrypt/sharp are ABI-sensitive):
+Because every unit, script and command goes through `/opt/nodejs/lts`, **a Node upgrade or a
+rollback is: unpack the new version, move that one link, `npm ci`, build, restart.** The older
+`/opt/nodejs/22` link is kept only as a fallback for the backup scripts during the rollback window.
+
+Install a new Node version (patch or major), then rebuild native modules (bcrypt/sharp/Prisma):
 ```bash
-# fetch latest v22 into /opt/nodejs (arch-aware), repoint the /opt/nodejs/22 symlink:
-ARCH=$(uname -m); case "$ARCH" in x86_64) NA=x64;; aarch64) NA=arm64;; esac
-TARBALL=$(curl -fsSL https://nodejs.org/dist/latest-v22.x/ | grep -oE "node-v22\.[0-9]+\.[0-9]+-linux-${NA}\.tar\.xz" | head -1)
-sudo mkdir -p /opt/nodejs && curl -fsSL "https://nodejs.org/dist/latest-v22.x/${TARBALL}" -o "/tmp/${TARBALL}"
-sudo tar -xJf "/tmp/${TARBALL}" -C /opt/nodejs && sudo ln -sfn "/opt/nodejs/${TARBALL%.tar.xz}" /opt/nodejs/22
+V=v24.22.1                      # pick from https://nodejs.org/dist/latest-v24.x/
+cd /tmp && curl -fsSLO https://nodejs.org/dist/$V/node-$V-linux-x64.tar.xz
+curl -fsSL https://nodejs.org/dist/$V/SHASUMS256.txt | grep "node-$V-linux-x64.tar.xz" | sha256sum -c -   # must say OK
+sudo tar -xJf node-$V-linux-x64.tar.xz -C /opt/nodejs --no-same-owner
+sudo ln -sfn /opt/nodejs/node-$V-linux-x64 /opt/nodejs/lts
 
-sudo systemctl stop taskbuddy-frontend taskbuddy-backend
 cd /opt/taskbuddy/app
-sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm ci
-sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm run build
-sudo -u taskbuddy /opt/nodejs/22/bin/node -e "require('bcrypt'); require('sharp'); console.log('native OK')"
-sudo systemctl start taskbuddy-backend taskbuddy-frontend
+export NODEBIN=/opt/nodejs/lts/bin
+sudo -u taskbuddy env PATH=$NODEBIN:$PATH npm ci
+sudo -u taskbuddy env PATH=$NODEBIN:$PATH npm run build          # db:generate + backend + frontend
+sudo -u taskbuddy $NODEBIN/node -e "require('bcrypt'); require('sharp'); console.log('native OK')"
+sudo systemctl restart taskbuddy-backend taskbuddy-frontend
 ```
-**Rollback to system Node 20:** `sudo rm -f /etc/systemd/system/taskbuddy-*.service.d/node22.conf && sudo systemctl daemon-reload`,
-then `sudo -u taskbuddy npm ci && npm run build` (now under `/usr/bin/node`) and restart both units.
+**Rollback:** point the link back (`sudo ln -sfn /opt/nodejs/node-v22.23.4-linux-x64 /opt/nodejs/lts`),
+then the same `npm ci` + build + restart. A MAJOR change of Node changes the native-module ABI, so
+the `npm ci` is required in both directions, not optional.
 
-## Filesystem layout
-
-```
-/opt/taskbuddy/app                     # git repo (cloned via read-only GitHub deploy key)
-/opt/taskbuddy/.ssh/id_ed25519         # deploy key (pulls only)
-/opt/taskbuddy/app/backend/.env        # backend secrets (chmod 600, owner taskbuddy)
-/opt/taskbuddy/app/frontend/.env.production  # frontend build/runtime env
-/opt/taskbuddy/uploads                 # local upload fallback (unused; R2 is active)
-```
-
-## Database
-
-Postgres 18 (shared instance). Database `taskbuddy` owned by least-privilege role
-`taskbuddy_app` — **not** superuser (no `SUPERUSER`/`REPLICATION`/`BYPASSRLS`).
-
-Apply migrations (production uses `migrate deploy`, never `db push`):
-```bash
-cd /opt/taskbuddy/app
-sudo -u taskbuddy npm -w backend run db:migrate:prod
-```
-
-**Connection pool.** `DATABASE_URL` must carry `?connection_limit=15` in production. Prisma's default
-pool is `(2*CPU)+1` = 5 on the 2-core VPS; the 2026-09-15 load test showed the parent dashboard's
-many-queries-per-request queuing behind those 5 connections under load. 15 per API process is safe
-against `max_connections=100`. If the API is ever run as multiple workers (see the API concurrency
-note under Services), keep `15 * workers` well under 100. Applied on the VPS 2026-09-15.
-
-## Environment / secrets
-
-Secrets live **only** in the VPS `.env` files, never in git. The full variable contract
-(names + safe placeholder values) is documented in:
-- `backend/.env.example`
-- `frontend/.env.example`
-
-Production-set groups: server URLs (`API_URL`, `CLIENT_URL`, `FRONTEND_URL`,
-`CROSS_ORIGIN_COOKIES=true`), `DATABASE_URL`, JWT secrets, `ADMIN_INVITE_CODE`,
-storage (`STORAGE_PROVIDER=r2` + `R2_*` + `cdn.gettaskbuddy.com`), SMTP (ZeptoMail),
-Web Push (`VAPID_*`), and Sentry (`SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`).
-
-`NEXT_PUBLIC_*` values are baked into the frontend bundle **at build time** — changing them
-requires a frontend rebuild, not just a restart.
-
-### Sentry source maps (frontend) — build-time only
-
-Three variables control whether browser stack traces are **readable**. They are needed by
-`npm run build:frontend`, and because this project builds **on the VPS**, they have to exist here —
-not just on a developer laptop:
-
-| Variable | Value |
-|---|---|
-| `SENTRY_ORG` | `evolution-prime-it-ltd` |
-| `SENTRY_PROJECT` | `taskbuddy-frontend` |
-| `SENTRY_AUTH_TOKEN` | an **organization** auth token (`sntrys_…`) with release/source-map write scope |
-
-Use an **organization** token, not a personal one — the same type the mobile app uses for its EAS
-secret. Org tokens embed their own region, so `sentry-cli` resolves the right endpoint without
-`SENTRY_URL` being set; do not add one. (Note the asymmetry: the *read* REST API for this org is
-`de.sentry.io`, but uploads via an org token are not configured that way.)
-
-**Without the token the build still succeeds** — it simply uploads nothing, and stack traces stay
-minified. That is deliberate: an absent secret must never break a deploy. It is also why the plugin's
-"No auth token provided" warning is left un-silenced, since it is the only signal that traces will be
-unreadable.
-
-⚠️ **The same absence also disables source-map *generation*, on purpose.** The Sentry plugin turns on
-browser source maps so it has something to upload; with no upload, nothing cleans them up and the
-`.map` files would be served publicly — publishing the app's source. `next.config.js` therefore sets
-`sourcemaps.disable` when no token is present. Verified both ways: a token-less build emits zero
-`.map` files, and a build with an *invalid* token generates them but still deletes them after the
-failed upload.
-
-The token is a write credential: keep it out of git, `chmod 600`, and rotate it if it is ever pasted
-somewhere it shouldn't be.
-
-The `.env` files are `chmod 600` owned by `taskbuddy`, so run manual scripts that read them as
-`sudo -u taskbuddy` (otherwise `dotenv` silently skips the unreadable file).
-
-## Deploy / update
-
-Run npm under Node 22 (`PATH=/opt/nodejs/22/bin:$PATH`) — see the Node runtime section. Without it
-these commands run under `/usr/bin/node` v20 and can rebuild native modules against the wrong ABI.
-
-```bash
-cd /opt/taskbuddy/app
-export N22=/opt/nodejs/22/bin                # Node 22, matching the systemd drop-ins
-
-sudo -u taskbuddy git pull
-sudo -u taskbuddy env PATH=$N22:$PATH npm ci                 # only if package-lock.json moved
-
-# --- if prisma/schema.prisma changed, BOTH of these, in this order, BEFORE any restart ---
-sudo -u taskbuddy env PATH=$N22:$PATH npm -w backend run db:migrate:prod
-sudo -u taskbuddy env PATH=$N22:$PATH npm run db:generate
-
-sudo -u taskbuddy env PATH=$N22:$PATH npm run build:backend  # after backend changes
-sudo -u taskbuddy env PATH=$N22:$PATH npm run build:frontend # after frontend changes OR any NEXT_PUBLIC_* change
-
-# --- one-off DATA-migration scripts (if the deploy ships any) — AFTER migrate:prod AND after the ---
-# --- build, BEFORE restart. They query the new columns and run from compiled dist/. Idempotent.  ---
-# e.g. F-4 private evidence:
-# sudo -u taskbuddy env PATH=$N22:$PATH node backend/dist/scripts/migrate-evidence-private.js
-
-sudo systemctl restart taskbuddy-backend
-sudo systemctl restart taskbuddy-frontend
-```
-
-**Three ordering traps around schema changes** — all bite at request time, not deploy time, so the
-deploy looks clean and the app breaks for real users:
-
-1. **Migrate before restarting.** Reversed, the new code queries columns that do not exist yet.
-2. **`db:generate` is not part of `build:backend`.** Only the root `npm run build` chains it
-   (`db:generate && build:backend && build:frontend`), so building the backend alone leaves the
-   generated Prisma client blind to new columns. Run it explicitly, or use the full `npm run build`.
-3. **One-off DATA-migration scripts run last (after `migrate:prod` + build), not first.** A script
-   like `backend/dist/scripts/migrate-evidence-private.js` reads the columns the schema migration
-   adds and runs from compiled `dist/` — so it needs BOTH `db:migrate:prod` and the build to have
-   happened. Run before `migrate:prod` it dies with `P2022: column … does not exist` (this bit the
-   F-4 evidence migration on 2026-07-23). These scripts are written idempotent, so a failed early
-   run is safe to re-run once ordered correctly.
-
-**⚠️ `backfill-game-banks.js` is SUPERSEDED — do not run it again.** It only ever APPENDS questions,
-while `retier-maths-beginner.js` (run 2026-07-31) deliberately RETIRED five from the maths beginner
-bank — percentages, indices, roots, order of operations, all intermediate material. Running the
-backfill now would silently add them straight back and undo the re-tier, with no error and no visible
-symptom until someone notices the beginner level is not beginner. If both ever run in one deploy, the
-re-tier must go LAST. The script's own header carries the same warning.
-
-**One-off scripts load `.env` by absolute path, so they run from any directory.** They import
-`../config`, which resolves `backend/.env` from `__dirname`. Do NOT reintroduce
-`import 'dotenv/config'` in a script: that resolves `.env` from the WORKING DIRECTORY, and there is
-no `.env` at the repo root on the VPS — so the script only works when invoked from `backend/` and
-otherwise fails with an unset `DATABASE_URL` rather than a clear message.
-
-Take a fresh backup before any migration: `sudo systemctl start taskbuddy-backup.service`.
-
-**Pre-flight: JWT secret strength (hard boot gate).** The backend refuses to start if `JWT_SECRET`
-or `JWT_REFRESH_SECRET` is under 32 bytes (`validateConfig`). If you rotate a secret, check the new
-value's length *before* restarting, or the service will fail to come back up:
-```bash
-cd /opt/taskbuddy/app
-sudo -u taskbuddy env PATH=$N22:$PATH node -e "require('dotenv').config({path:'backend/.env'});const b=s=>Buffer.byteLength(process.env[s]||'','utf8');console.log('JWT_SECRET',b('JWT_SECRET'),'| JWT_REFRESH_SECRET',b('JWT_REFRESH_SECRET'))"
-# both must be >= 32
-```
-If the backend won't boot after a deploy, this is the first thing to check:
-`journalctl -u taskbuddy-backend -n 30` → "must be at least 32 bytes".
-
-**Auth-hardening deploys force a one-time re-login.** Changes to the refresh-session store or the
-JWT issuer/audience/algorithm pinning invalidate every token minted before the deploy: the first
-`/auth/refresh` returns 401 and the client sends the user to log in once (parents by password,
-children by PIN). This is expected — **tell the family testers before deploying**, and if several
-such changes are pending, deploy them together so it is a single re-login event, not several.
-
-Health check: `curl -s https://api.gettaskbuddy.com/health` → `{"status":"ok","db":"up"}`.
-
-`/health` only pings the DB — it does **not** prove a migration applied, since it never touches
-`users`. To verify new columns are really live, attempt a login with a bogus email: Prisma's
-`findUnique` selects every scalar column, so a missing one errors even when no row matches.
-`401` = schema is good; `500` = the migration did not apply.
-```bash
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.gettaskbuddy.com/api/v1/auth/login \
-  -H 'Content-Type: application/json' -d '{"email":"nobody@example.invalid","password":"x"}'
-```
-
-## Marketing site (apex)
-
-`gettaskbuddy.com` serves a **static** marketing site — no application server, separate from the
-Next.js app on `app.`. Source in `marketing/src`, built to `marketing/dist` (gitignored).
-
-```bash
-cd /opt/taskbuddy/app
-sudo -u taskbuddy git pull
-sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm ci          # see note below
-sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm run build:marketing
-sudo mkdir -p /var/www/taskbuddy-marketing
-sudo rsync -a --delete marketing/dist/ /var/www/taskbuddy-marketing/
-```
-
-`npm ci` is needed whenever `package-lock.json` moved — the build imports `marked`, a
-**devDependency**, so a deploy that skips it fails with `ERR_MODULE_NOT_FOUND: Cannot find
-package 'marked'` (this happened on the first marketing deploy). Skip it only when the pull
-touched no lockfile. Note `npm ci` deletes and reinstalls `node_modules` while the backend and
-frontend are running out of it, so check them afterwards:
-
-```bash
-curl -s https://api.gettaskbuddy.com/health          # {"status":"ok","db":"up"}
-curl -s -o /dev/null -w '%{http_code}\n' https://app.gettaskbuddy.com
-sudo systemctl restart taskbuddy-backend taskbuddy-frontend   # only if either misbehaves
-```
-
-No restart needed — nginx serves the files directly. First-time vhost install:
-
-```bash
-sudo cp deploy/nginx/gettaskbuddy.com.conf /etc/nginx/sites-available/
-sudo ln -sf /etc/nginx/sites-available/gettaskbuddy.com.conf /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d gettaskbuddy.com -d www.gettaskbuddy.com
-```
-
-**DNS:** the apex and `www` must point at the VPS (`54.37.18.27`) as **grey-cloud** A records in
-Cloudflare, matching `api.`/`app.`. They currently resolve to Cloudflare-proxied IPs fronting a
-GoDaddy Website Builder placeholder — that must be repointed before certbot can issue, and the
-GoDaddy site can then be retired.
-
-### Legal pages are gated on purpose
-
-`marketing/build.mjs` generates `/privacy` and `/terms` from `PRIVACY.md` and `TERMS.md`, but
-**refuses while either still contains its `DRAFT TEMPLATE` warning**. Both currently say they are
-not legal advice and need a lawyer's review before publication, because TaskBuddy is directed at
-children and falls under COPPA, GDPR/GDPR-K and the UK Children's Code — publishing them would
-present unreviewed drafts to parents as binding policy.
-
-The gate is not a flag to flip. Replace the drafts with reviewed text and the pages build
-themselves, with footer links added automatically; until then nothing links to a 404. The build
-prints what it withheld on every run.
-
-## TLS
-
-Per-subdomain via Certbot's nginx plugin:
-```bash
-sudo certbot --nginx -d api.gettaskbuddy.com
-sudo certbot --nginx -d app.gettaskbuddy.com
-```
-**IPv6 note:** the VPS has IPv6 addresses but no default IPv6 route, which made Certbot fail
-("Network is unreachable"). Fixed persistently by preferring IPv4 in `/etc/gai.conf`:
-`precedence ::ffff:0:0/96  100`.
-
-## Backups
-
-Nightly Postgres backup to a **separate private** R2 bucket (`taskbuddy-backups` — never
-`taskbuddy-uploads`, which is public via the CDN). Server-side encrypted at rest by R2;
-14-day retention with automatic pruning.
-
-- `scripts/backup-db.sh` — `pg_dump` (peer auth) → gzip → upload → prune.
-- `scripts/backup-r2-upload.mjs` — R2 upload + retention pruning (uses the app's AWS SDK).
-- `deploy/systemd/taskbuddy-backup.{service,timer}` — nightly run at 02:30 UTC (`Persistent=true`).
-- Credentials for the backups bucket live in `/opt/taskbuddy/backup.env` (chmod 600, root-owned,
-  never committed) — a token scoped to `taskbuddy-backups` only.
-
-`backup.env` contract (all read by the systemd units, never committed):
-```
-R2_ACCOUNT_ID=          R2_ACCESS_KEY_ID=       R2_SECRET_ACCESS_KEY=
-R2_BACKUP_BUCKET=taskbuddy-backups   RETENTION_DAYS=14        # optional (defaults shown)
-# Failure alerts (see below) — reuse the same SMTP provider as the app (ZeptoMail):
-SMTP_HOST=  SMTP_PORT=465  SMTP_USER=  SMTP_PASS=  SMTP_FROM='TaskBuddy <alerts@…>'
-ALERT_EMAIL=you@example.com
-```
-
-Install / operate:
-```bash
-sudo cp deploy/systemd/taskbuddy-backup.* /etc/systemd/system/
-sudo cp 'deploy/systemd/taskbuddy-backup-notify@.service' /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now taskbuddy-backup.timer
-sudo systemctl start taskbuddy-backup.service     # run one now
-systemctl list-timers taskbuddy-backup.timer      # next scheduled run
-```
-
-The units under `deploy/systemd/` are **copies** — a `git pull` that changes them has no effect
-until they are re-copied and reloaded:
 ```bash
 sudo cp /opt/taskbuddy/app/deploy/systemd/taskbuddy-backup.* /etc/systemd/system/
 sudo cp '/opt/taskbuddy/app/deploy/systemd/taskbuddy-backup-notify@.service' /etc/systemd/system/
@@ -344,12 +91,12 @@ sudo systemctl daemon-reload
 ```
 
 **Node version:** these run as root, whose PATH resolves `/usr/bin/node` (v20, shared with GNFS).
-The scripts resolve `/opt/nodejs/22/bin/node` explicitly and the units set `PATH` to prefer it, so
-the backup path runs on Node 22 — the AWS SDK requires `node >=22` for releases after January 2027.
-Both degrade to PATH's `node` if `/opt/nodejs/22` is absent (e.g. after a rollback). Verify with:
+The scripts resolve `/opt/nodejs/lts/bin/node` explicitly (then `/opt/nodejs/22`, then PATH) and the
+notify unit sets `PATH` to prefer it, so the backup path runs on the app's Node. The AWS SDK requires
+`node >=22` for releases after January 2027. Verify with:
 ```bash
 sudo journalctl -u taskbuddy-backup.service -n 30 --no-pager | grep -i "NodeVersionSupportWarning" \
-  && echo "still on Node 20" || echo "no version warning — running Node 22"
+  && echo "still on Node 20" || echo "no version warning: running the app's Node"
 ```
 Manual restore: `gunzip -c taskbuddy-<ts>.sql.gz | psql <target-db>`.
 

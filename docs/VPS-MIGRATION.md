@@ -50,7 +50,7 @@ Fix these on the new box rather than faithfully copying them across.
    root-owned env file loaded with `EnvironmentFile=`, the way `taskbuddy-backup` already does.
 3. **The TaskBuddy backend runs on the wrong Node.** `taskbuddy-backend.service` has
    `ExecStart=/usr/bin/node`, which is v20.20.2, while the repo targets and the backup scripts use
-   the side-by-side v22.23.1 in `/opt/nodejs/22/bin`. Replicate as-is for the cutover, then move
+   the side-by-side app Node in `/opt/nodejs/lts/bin` (v22.23.1 in `/opt/nodejs/22/bin` when this was written). Replicate as-is for the cutover, then move
    the unit to Node 22 as a separate, revertible change once the new box is stable. Do not combine
    the two.
 4. **The `app.` and `api.` nginx vhosts exist only on the server.** Only the marketing vhost is in
@@ -162,10 +162,13 @@ Node, both versions, matching the current layout:
 # system Node 20, which taskbuddy-backend and the GNFS app currently run on
 # (install via your preferred method; the source box has v20.20.2 at /usr/bin/node)
 
-# side-by-side Node 22 for builds and the backup scripts
+# side-by-side app Node (current LTS) for the services, builds and the backup scripts.
+# Replicate the source box: a versioned folder plus the /opt/nodejs/lts symlink (see DEPLOYMENT.md,
+# "Node runtime"), and copy deploy/systemd/*.service.d/node.conf into /etc/systemd/system/.
 sudo mkdir -p /opt/nodejs
-# unpack node-v22.23.1-linux-x64 to /opt/nodejs/22 exactly as on the source box
-/opt/nodejs/22/bin/node -v   # expect v22.23.1
+# unpack node-<same version as the source box>-linux-x64 into /opt/nodejs, then:
+#   sudo ln -sfn /opt/nodejs/node-<version>-linux-x64 /opt/nodejs/lts
+/opt/nodejs/lts/bin/node -v   # expect the same version as the source box
 ```
 
 Create the service accounts before restoring anything that they own:
@@ -224,7 +227,7 @@ migration, from the app directory once it is in place:
 
 ```bash
 cd /opt/taskbuddy/app/backend && \
-  sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npx prisma migrate status
+  sudo -u taskbuddy env PATH=/opt/nodejs/lts/bin:$PATH npx prisma migrate status
 ```
 
 Files:
@@ -248,9 +251,9 @@ The TaskBuddy app tree is rebuilt, not copied:
 sudo -u taskbuddy git clone <repo> /opt/taskbuddy/app
 cd /opt/taskbuddy/app
 # the restored backend/.env is already in place from the tarball
-sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm ci
-sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm run db:generate
-sudo -u taskbuddy env PATH=/opt/nodejs/22/bin:$PATH npm run build
+sudo -u taskbuddy env PATH=/opt/nodejs/lts/bin:$PATH npm ci
+sudo -u taskbuddy env PATH=/opt/nodejs/lts/bin:$PATH npm run db:generate
+sudo -u taskbuddy env PATH=/opt/nodejs/lts/bin:$PATH npm run build
 ```
 
 Check out the **exact commit the old box was serving** rather than `main`, so that the migration

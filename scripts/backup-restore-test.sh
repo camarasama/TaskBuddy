@@ -35,13 +35,14 @@ SCRATCH_DB="${SCRATCH_DB:-taskbuddy_restore_test}"
 APP_DIR="${APP_DIR:-/opt/taskbuddy/app}"
 KEEP="${KEEP:-0}"
 
-# Prefer the side-by-side Node 22 — see the same note in backup-db.sh.
+# Prefer the app's own Node at /opt/nodejs/lts, see the same note in backup-db.sh.
 if [ -n "${NODE_BIN:-}" ]; then
   [ -x "$NODE_BIN" ] || { echo "NODE_BIN=$NODE_BIN is not executable" >&2; exit 1; }
 else
-  NODE_BIN=/opt/nodejs/22/bin/node
+  NODE_BIN=/opt/nodejs/lts/bin/node
+  [ -x "$NODE_BIN" ] || NODE_BIN=/opt/nodejs/22/bin/node
   [ -x "$NODE_BIN" ] || NODE_BIN="$(command -v node || true)"
-  [ -n "$NODE_BIN" ] || { echo "No node found (tried /opt/nodejs/22/bin/node and PATH)" >&2; exit 1; }
+  [ -n "$NODE_BIN" ] || { echo "No node found (tried /opt/nodejs/lts, /opt/nodejs/22 and PATH)" >&2; exit 1; }
 fi
 
 # --- Guards: never let this touch production ------------------------------------------------
