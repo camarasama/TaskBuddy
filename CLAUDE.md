@@ -1,5 +1,7 @@
 # Claude Code Configuration - RuFlo V3
 
+**Lessons from other projects (read first):** before starting work, read `~/Documents/ALL_PROJECT/LESSONS_FROM_OTHER_PROJECTS.md`: features every project should have, mistakes made and wrong assumptions, from all projects. Apply what fits here, or say why not. Add any new lesson there in the same session.
+
 ## Behavioral Rules (Always Enforced)
 
 - Do what has been asked; nothing more, nothing less
