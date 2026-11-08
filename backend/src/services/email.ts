@@ -17,6 +17,7 @@
 
 import nodemailer from 'nodemailer';
 import { prisma } from './database';
+import { isDemoFamily } from './demoAccount';
 import { renderTemplate } from '../emails/base';
 import { NotificationPolicy } from './NotificationPolicy';
 
@@ -198,6 +199,13 @@ export class EmailService {
     // Subjects interpolate names people typed (family, child, inviter). A line break there must not
     // reach the header, whatever the transport does with it.
     const subject = rawSubject.replace(/[\r\n\t]+/g, ' ').trim();
+
+    // 0. The public demo family never gets email, security email included: its logins are public,
+    // so every send would be a stranger's action landing in a real inbox (services/demoAccount.ts).
+    if (await isDemoFamily(familyId)) {
+      console.log(`[EmailService] ${triggerType} suppressed for the demo family`);
+      return 'suppressed';
+    }
 
     // 1. Check notification preferences
     if (!skipPreferenceCheck) {
