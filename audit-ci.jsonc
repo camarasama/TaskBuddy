@@ -131,12 +131,8 @@
     // peer conflict (jest-expo vs @react-native/jest-preset), so fixes went in via targeted
     // `npm update <pkg>`. The five below have no usable fix.
 
-    // DEP-14 - node-forge RSA signature check accepts extra nested data (GHSA-86w9-cpqp-85rv, high).
-    // Mobile BUILD tooling only: @expo/cli and expo-updates -> @expo/code-signing-certificates.
-    // Not in the app bundle, and expo-updates code signing is not configured in app.config.ts.
-    // 1.4.0 is the latest node-forge; npm's "fix" is expo@44, a 13-major downgrade.
-    // RE-TRIAGE: when node-forge > 1.4.0 ships, or if update code signing is ever turned on.
-    "GHSA-86w9-cpqp-85rv",
+    // DEP-14 (node-forge GHSA-86w9) REMOVED 2026-11-08: FIXED. `npm update node-forge` took the tree
+    // to 1.4.3, which also clears the nine node-forge advisories published since 2026-10-27.
 
     // DEP-15 (sprintf-js GHSA-hp3w) REMOVED 2026-10-27: no longer in the tree.
 
@@ -152,7 +148,34 @@
     // eslint-config-expo -> eslint-plugin-react-hooks (validates lint options). Neither sees a
     // request or user input. Was an owner-approved runtime acceptance from 2026-10-26.
     // RE-TRIAGE: remove on Expo SDK 58 (Phase 6), or at once if zod 3 appears outside mobile tooling.
-    "GHSA-mrhx-c7xc-m3w5"
+    "GHSA-mrhx-c7xc-m3w5",
+
+    // ---- 2026-11-08 batch (DEP-20..DEP-22), owner-approved 2026-11-08 ---------------------------
+    // 10 advisories landed after the last green run on main (2026-10-27). Nine were node-forge and
+    // are FIXED (see DEP-14). These three have no fix inside the ranges their parents accept.
+
+    // DEP-20 - glob AbortSignal cancellation bypass (GHSA-3g3m-2fjr-6pw4, moderate, >=9 <=14.0.1).
+    // BUILD tooling only: @sentry/bundler-plugins and @serwist/build (web build), @expo/cli,
+    // @expo/config, @expo/config-plugins, @expo/fingerprint, expo-updates (mobile build). None ships
+    // to the server, web or app, and none passes an AbortSignal from user input. Patched glob is
+    // 14.0.2+, a major every parent still pins at ^13.
+    // RE-TRIAGE: when those parents accept glob >= 14.0.2 (Expo SDK 58, Sentry 11, Serwist 10).
+    "GHSA-3g3m-2fjr-6pw4",
+
+    // DEP-21 - minimatch globparts amplification DoS (GHSA-g3hv-75wg-m249, moderate, >=7 <11.0.1).
+    // BUILD/LINT tooling only: @typescript-eslint/typescript-estree (ESLint), and glob 13 under the
+    // same parents as DEP-20, plus @expo/fingerprint. Patterns come from our own config, never a
+    // user. Patched minimatch is 11.0.1+, a major the parents pin at ^10.
+    // RE-TRIAGE: with DEP-20, or when typescript-eslint accepts minimatch 11.
+    "GHSA-g3hv-75wg-m249",
+
+    // DEP-22 - decode-uri-component quadratic DoS (GHSA-qr28-fpjm-wq7f, high, <=0.5.0).
+    // Same single path and same reasoning as DEP-13: mobile -> expo-router -> query-string@7.1.3 ->
+    // decode-uri-component@0.2.2. Reachable via a crafted App Link the user chooses to open; the worst
+    // case is that app freezing on that one device. No data exposed, backend and web unaffected.
+    // query-string 7 pins ^0.2.2, so 0.5.1 is out of reach without forcing a major into the app.
+    // RE-TRIAGE: with DEP-13 (expo-router on query-string >= 8), or at once if it reaches backend/web.
+    "GHSA-qr28-fpjm-wq7f"
 
     // nanoid (GHSA-2v37-7h3g-55p8, high, <3.3.17) surfaced alongside DEP-10 and is deliberately
     // NOT here — it was FIXED. `npm update nanoid` took the tree to 3.3.18. It was runtime-reachable
