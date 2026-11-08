@@ -14,6 +14,7 @@ import { prisma } from './services/database';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authenticate } from './middleware/auth';
 import { rateLimitKey } from './middleware/rateLimitKey';
+import { demoGuard } from './middleware/demoGuard';
 import { apiRouter } from './routes';
 import { initScheduler } from './services/scheduler';
 import { startAgingOutCron } from './jobs/agingOutCron';
@@ -214,6 +215,10 @@ app.use('/api/v1/auth/child/pin-reset/request', authLimiter);
 // lockout in authService is the real bound; this stops one IP spending it across many accounts.
 app.use('/api/v1/auth/mfa/challenge', authLimiter);
 app.use('/api/v1/auth/mfa/disable', authLimiter);
+
+// The public demo family may not change its logins, delete itself, send email or upload files.
+// Ahead of every router below so none of them can be mounted without it.
+app.use('/api/v1', demoGuard);
 
 // API routes
 app.use('/api/v1', apiRouter);

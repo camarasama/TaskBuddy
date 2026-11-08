@@ -8,6 +8,7 @@ import { AuditService } from './AuditService';
 import { AnalyticsService } from './AnalyticsService';
 import { generateReferralCode, resolveReferrer } from './ReferralService';
 import { EmailService } from './email';
+import { isDemoFamily } from './demoAccount';
 import { jwtVerifyOptions, jwtSignOptions } from '../utils/jwt';
 import { encryptSecret, decryptSecret, generateMfaSecret, mfaKeyUri, verifyMfaCode } from '../utils/mfa';
 import {
@@ -102,6 +103,10 @@ async function notifyParentsOfChildLock(
 
 /** Record a failed login, locking the account once failures pass the threshold. */
 async function recordFailedLogin(user: LockoutState): Promise<void> {
+  // The demo family's credentials are public, so a lockout protects nothing and would let one
+  // visitor lock everyone else out by typing a wrong password five times.
+  if (await isDemoFamily(user.familyId)) return;
+
   const now = Date.now();
   const stale =
     !user.lastFailedLoginAt || now - user.lastFailedLoginAt.getTime() > LOGIN_ATTEMPT_DECAY_MS;

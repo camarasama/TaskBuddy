@@ -43,6 +43,9 @@ model Family {
   /// A tester or internal family. Excluded from every admin KPI by default and never sent
   /// re-engagement email. Set from the admin family page.
   isTestAccount        Boolean   @default(false) @map("is_test_account")
+  /// The public demo family whose logins are posted on launch sites. Blocks account-changing
+  /// actions and all email for it (services/demoAccount.ts). Set only by create-demo-family.
+  isDemoAccount        Boolean   @default(false) @map("is_demo_account")
   /// An admin paused the re-engagement emails for this family. Null = not paused.
   reengagementPausedAt DateTime? @map("reengagement_paused_at")
 
